@@ -56,6 +56,9 @@ Initial implementation includes:
 - Mocked document ingestion endpoint.
 - Mocked market data endpoint with explicit missing fields.
 - Pydantic request and response schemas for initial backend contracts.
+- SQLAlchemy database foundation.
+- Alembic migration setup with initial tables.
+- Database-backed analysis request and report persistence.
 - Environment-based backend settings.
 - Backend pytest setup.
 - Backend smoke check script.

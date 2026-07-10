@@ -1,5 +1,8 @@
 from uuid import uuid4
 
+from sqlalchemy.orm import Session
+
+from app.models.analysis_request import AnalysisRequestModel
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse, RiskRating
 from app.schemas.reports import ReportResponse, ReportSection, SourceReference
 from app.services.report_service import save_report
@@ -11,11 +14,23 @@ DEFAULT_DISCLAIMER = (
 )
 
 
-def analyze_strategy(request: AnalysisRequest) -> AnalysisResponse:
+def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
     protocols = _normalize_protocols(request)
     risk_rating = _mock_risk_rating(protocols, request)
+    analysis_request_id = f"analysis_{uuid4().hex[:12]}"
     report_id = f"report_{uuid4().hex[:12]}"
     summary = _build_summary(protocols, risk_rating)
+
+    db.add(
+        AnalysisRequestModel(
+            id=analysis_request_id,
+            strategy_description=request.strategy_description,
+            protocols=protocols,
+            market_url=request.market_url,
+            manual_inputs_json=request.manual_inputs.model_dump(exclude_none=True),
+            analysis_depth=request.analysis_depth,
+        )
+    )
 
     report = ReportResponse(
         report_id=report_id,
@@ -73,13 +88,41 @@ def analyze_strategy(request: AnalysisRequest) -> AnalysisResponse:
         ],
         disclaimer=DEFAULT_DISCLAIMER,
     )
-    save_report(report)
+    save_report(
+        report=report,
+        analysis_request_id=analysis_request_id,
+        report_markdown=_render_markdown_report(report),
+        db=db,
+    )
+    db.commit()
 
     return AnalysisResponse(
         report_id=report_id,
         status="completed",
         risk_rating=risk_rating,
         summary=summary,
+    )
+
+
+def _render_markdown_report(report: ReportResponse) -> str:
+    sections = "\n\n".join(
+        f"## {section.title}\n\n{section.content}" for section in report.sections
+    )
+    assumptions = "\n".join(f"- {item}" for item in report.assumptions)
+    missing_data = "\n".join(f"- {item}" for item in report.missing_data)
+    sources = "\n".join(
+        f"- {source.title} ({source.url or source.source_type})"
+        for source in report.sources
+    )
+    return (
+        f"# Strategy Risk Report\n\n"
+        f"Risk rating: **{report.risk_rating}**\n\n"
+        f"{report.executive_summary}\n\n"
+        f"{sections}\n\n"
+        f"## Assumptions\n\n{assumptions}\n\n"
+        f"## Missing Data\n\n{missing_data}\n\n"
+        f"## Sources\n\n{sources}\n\n"
+        f"## Disclaimer\n\n{report.disclaimer}\n"
     )
 
 

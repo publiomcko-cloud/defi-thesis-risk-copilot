@@ -4,9 +4,8 @@ from app.main import app
 
 
 def test_protocols_returns_initial_mvp_protocols() -> None:
-    client = TestClient(app)
-
-    response = client.get("/api/protocols")
+    with TestClient(app) as client:
+        response = client.get("/api/protocols")
 
     assert response.status_code == 200
     payload = response.json()

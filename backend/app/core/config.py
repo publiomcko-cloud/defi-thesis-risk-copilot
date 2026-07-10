@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     frontend_origin: str = "http://127.0.0.1:3000"
-    database_url: str = "postgresql://postgres:postgres@localhost:5435/defi_copilot"
+    database_url: str = "sqlite:///./defi_copilot.db"
     llm_provider: str = "ollama"
     ollama_base_url: str = "http://localhost:11434"
     defillama_base_url: str = "https://api.llama.fi"

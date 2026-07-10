@@ -1,3 +1,5 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -9,6 +11,13 @@ from app.api.routes_protocols import router as protocols_router
 from app.api.routes_reports import router as reports_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
+from app.db.session import init_db
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
 
 
 def create_app() -> FastAPI:
@@ -18,6 +27,7 @@ def create_app() -> FastAPI:
         title=settings.app_name,
         version="0.1.0",
         description="Research and risk analysis API for DeFi Thesis & Risk Copilot.",
+        lifespan=lifespan,
     )
 
     app.add_middleware(
