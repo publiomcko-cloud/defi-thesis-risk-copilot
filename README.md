@@ -4,11 +4,27 @@
 
 AI-powered DeFi research and risk analysis copilot for protocol theses, yield strategies, lending markets, and structured risk reports.
 
-DeFi Thesis & Risk Copilot combines generative AI, RAG, protocol documentation, market data adapters, agentic workflows, and rule-based risk scoring to help users analyze complex DeFi strategies before execution.
+DeFi Thesis & Risk Copilot combines RAG, protocol documentation, market data adapters, controlled agentic workflows, rule-based risk scoring, and optional future LLM synthesis to help users analyze complex DeFi strategies before execution.
 
 ## Portfolio Description
 
-Full-stack AI and DeFi portfolio app with FastAPI, Next.js, RAG, LLM agents, vector search, market data integrations, risk scoring, and structured report generation.
+Full-stack AI and DeFi portfolio app with FastAPI, Next.js, RAG, controlled agent workflows, market data integrations, risk scoring, structured report generation, Docker, and CI.
+
+## Current Status
+
+The technical MVP is complete through Phase 10:
+
+```text
+Phase 6: market data adapters
+Phase 7: rule-based risk framework
+Phase 8: controlled agent orchestration
+Phase 9: structured reports and Markdown export
+Phase 10: Docker, local environment, and CI
+```
+
+Active development now moves to the post-MVP product-expansion phases described in [`docs/post_mvp_development_plan.md`](docs/post_mvp_development_plan.md).
+
+The original MVP phases 11, 12, and 13 are intentionally left until the end because they are final demo data, public deployment, and portfolio-polish actions.
 
 ## Live Portfolio Demo
 
@@ -22,10 +38,10 @@ The first public demo should use synthetic examples and read-only public data. T
 
 ## Demo Safety
 
-- No wallet connection is implemented in the MVP.
+- No wallet connection is implemented.
 - No transaction execution is implemented.
 - No private keys, seed phrases, or user funds are handled.
-- Market data may be delayed, incomplete, or simulated.
+- Market data may be delayed, incomplete, cached, user-provided, or simulated.
 - Reports are for research and educational purposes only.
 - The system does not provide financial, investment, legal, or tax advice.
 
@@ -36,11 +52,11 @@ DeFi Thesis & Risk Copilot is designed to demonstrate applied AI engineering jud
 It demonstrates:
 
 1. Retrieval-augmented generation over protocol documentation.
-2. Agentic workflow orchestration for research, data collection, risk scoring, and report writing.
+2. Controlled agent workflow orchestration for research, data collection, risk scoring, and report writing.
 3. DeFi domain modeling around Pendle, Morpho, Aave, lending markets, fixed-yield assets, collateral risk, and liquidation risk.
 4. Backend API design with typed schemas and modular services.
 5. Frontend product flow for analysis input, report review, and portfolio-ready demo screens.
-6. Dockerized local development.
+6. Dockerized local development and CI.
 7. Documentation-first engineering with architecture, testing, deployment, and roadmap notes.
 
 Recommended review path:
@@ -51,7 +67,7 @@ Recommended review path:
 4. Review the generated risk report.
 5. Inspect the retrieved sources and assumptions.
 6. Review the backend API docs.
-7. Inspect the repository architecture and future implementation plan.
+7. Inspect the repository architecture and post-MVP development plan.
 
 ## For Clients
 
@@ -65,19 +81,20 @@ Client-facing value:
 - monitoring checklist generation
 - risk classification without trade execution
 - safe educational workflow for complex strategies
-- extensible architecture for custom dashboards, watchlists, and alerts
+- extensible architecture for custom dashboards, source monitoring, watchlists, alerts, and strategy simulation
 
 ## What It Demonstrates
 
 - FastAPI backend with modular agents, data adapters, RAG, and risk services
 - Next.js frontend with strategy input, report page, and dashboard-oriented UX
 - RAG over protocol documentation and internal DeFi risk notes
-- LLM agent workflow for protocol research, data collection, calculation, and report generation
+- Controlled workflow for protocol research, data collection, risk scoring, and report generation
 - Rule-based risk scoring for DeFi strategies
-- Public data integrations such as DefiLlama, CoinGecko, Morpho, Aave, and future Dune/The Graph adapters
+- Public data integrations and adapter fallbacks for DefiLlama, CoinGecko, Pendle, Morpho, Aave, and manual inputs
 - Structured report generation with assumptions, risks, missing data, sources, and disclaimers
-- Docker-based local execution
-- Future-ready structure for PyTorch fine-tuning, reranking, SLURM, and HPC batch processing
+- Markdown export
+- Docker-based local execution and CI validation
+- Future-ready structure for LLM synthesis, source monitoring, automated evaluation, watchlists, options analysis, fine-tuning, and HPC batch processing
 
 ## Core Demo Flow
 
@@ -100,15 +117,15 @@ Analyze a hypothetical Pendle PT strategy using Morpho borrow. Evaluate fixed yi
 
 ## Screenshots
 
-Screenshots should be added after the first UI implementation.
+Evaluation screenshots are available in `docs/screenshots/evaluation/`.
 
-| Strategy input | Risk report |
+| Home | Analyze |
 | --- | --- |
-| ![Strategy input](docs/screenshots/01-strategy-input.png) | ![Risk report](docs/screenshots/02-risk-report.png) |
+| ![Home](docs/screenshots/evaluation/01-home.png) | ![Analyze](docs/screenshots/evaluation/05-analyze-filled-inputs.png) |
 
-| Sources panel | Risk dashboard |
+| Report | Markdown export |
 | --- | --- |
-| ![Sources panel](docs/screenshots/03-sources-panel.png) | ![Risk dashboard](docs/screenshots/04-risk-dashboard.png) |
+| ![Report](docs/screenshots/evaluation/06-report-output.png) | ![Markdown export](docs/screenshots/evaluation/07-markdown-export-output.png) |
 
 ## Deployment Architecture
 
@@ -121,7 +138,7 @@ Browser
   -> Optional hosted LLM provider
 ```
 
-Local development can run with Docker Compose using PostgreSQL, vector storage, backend, frontend, and an optional local Ollama service.
+Local development can run with Docker Compose using PostgreSQL, backend, frontend, local RAG files, and optional local LLM services in future phases.
 
 ## Local Quick Start
 
@@ -152,7 +169,6 @@ docker compose down
 ```
 
 Manual backend setup, using the default local SQLite database:
-
 
 ```bash
 cd backend
@@ -206,16 +222,25 @@ docker compose -f docker-compose.production.yml config
 
 ## Important Endpoints
 
-Planned MVP endpoints:
+Current MVP endpoints:
 
 - `GET /health`
 - `POST /api/analyze`
 - `GET /api/reports/{report_id}`
+- `POST /api/reports/{report_id}/export`
 - `GET /api/protocols`
 - `POST /api/documents/ingest`
-- `POST /api/risk-score`
 - `POST /api/market-data/fetch`
-- `POST /api/reports/{report_id}/export`
+
+Planned post-MVP endpoints:
+
+- `POST /api/monitoring/run`
+- `GET /api/monitoring/discovered-items`
+- `POST /api/evaluation/run`
+- `GET /api/review/items`
+- `POST /api/simulation/run`
+- `GET /api/watchlist`
+- `POST /api/options/analyze`
 
 ## Documentation
 
@@ -223,6 +248,7 @@ Planned MVP endpoints:
 - [Current state](docs/current_state.md)
 - [Architecture](docs/architecture.md)
 - [MVP scope](docs/mvp_scope.md)
+- [Post-MVP development plan](docs/post_mvp_development_plan.md)
 - [Case study](docs/case_study.md)
 - [Data sources](docs/data_sources.md)
 - [RAG design](docs/rag_design.md)
@@ -241,28 +267,45 @@ Archive:
 
 ## Known Limitations
 
-- The MVP does not execute trades.
-- The MVP does not connect wallets.
-- The MVP does not provide personalized financial advice.
-- Market data may be incomplete or delayed.
-- Some protocol-specific metrics may require manual input in the MVP.
-- Risk scoring starts as rule-based and should not be treated as a quantitative guarantee.
+- The application does not execute trades.
+- The application does not connect wallets.
+- The application does not provide personalized financial advice.
+- Market data may be incomplete, cached, delayed, or user-provided.
+- Some protocol-specific metrics still require manual input.
+- Risk scoring is rule-based and should not be treated as a quantitative guarantee.
 - RAG answers depend on the quality and freshness of ingested documents.
-- No production authentication or billing system is included in the MVP.
+- Report writing is deterministic and template-based until optional LLM synthesis is implemented.
+- No production authentication or billing system is included.
 
 ## Roadmap
 
+Completed MVP foundation:
+
 - Implement MVP analysis workflow for Pendle, Morpho, and Aave.
-- Add documentation ingestion and vector search.
-- Add DefiLlama and CoinGecko adapters.
-- Add Morpho and Aave market data adapters.
-- Add markdown report export.
-- Add watchlist and alerts.
+- Add documentation ingestion and local retrieval.
+- Add market data adapter layer.
+- Add deterministic risk scoring.
+- Add controlled agent orchestration.
+- Add structured report generation and Markdown export.
+- Add Docker and CI.
+
+Active post-MVP product expansion:
+
+- Add optional backend LLM report synthesis.
+- Add source monitoring and discovery.
+- Add automated evaluation pipeline and human review queue.
 - Add strategy simulator.
-- Add Derive options and volatility analysis.
-- Add PyTorch-based risk classifier.
-- Add reranker fine-tuning for better RAG retrieval.
+- Add watchlists and in-app alerts.
+- Add Derive-style options and volatility analysis.
+- Add advanced RAG, semantic embeddings, reranking, and retrieval evaluation.
+- Add fine-tuning and ML risk classifier groundwork.
 - Add SLURM and Apptainer support for HPC batch jobs.
+
+Final portfolio phases:
+
+- Add demo data and example reports.
+- Deploy the public portfolio demo.
+- Polish README, screenshots, demo video, and case study.
 
 ## License
 
