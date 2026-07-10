@@ -50,6 +50,12 @@ Initial implementation includes:
 
 - FastAPI backend skeleton.
 - `/health` endpoint.
+- Mocked `/api/analyze` endpoint.
+- Mocked report retrieval endpoint.
+- Protocol listing endpoint for Pendle, Morpho, and Aave.
+- Mocked document ingestion endpoint.
+- Mocked market data endpoint with explicit missing fields.
+- Pydantic request and response schemas for initial backend contracts.
 - Environment-based backend settings.
 - Backend pytest setup.
 - Backend smoke check script.

@@ -5,6 +5,6 @@ description = "FastAPI backend for DeFi Thesis & Risk Copilot."
 requires-python = ">=3.12"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["app/tests"]
 pythonpath = ["."]
 addopts = "-q"
