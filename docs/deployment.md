@@ -6,6 +6,8 @@ The deployment goal is to provide a portfolio-ready public demo with safe synthe
 
 The MVP should not require paid APIs.
 
+After the Phase 10 checkpoint, public deployment remains a final portfolio phase. Active development should first focus on product-expansion phases such as optional LLM synthesis, source monitoring, evaluation, simulation, watchlists, options analysis, advanced RAG, and ML/HPC groundwork.
+
 ## 2. Recommended Public Deployment
 
 ```text
@@ -34,12 +36,22 @@ Example variables:
 APP_ENV=development
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/defi_copilot
 VECTOR_DB_PROVIDER=pgvector
-LLM_PROVIDER=ollama
+LLM_PROVIDER=disabled
 OLLAMA_BASE_URL=http://localhost:11434
 OPENAI_COMPATIBLE_API_KEY=
 OPENAI_COMPATIBLE_BASE_URL=
 COINGECKO_API_KEY=
 DEFILLAMA_BASE_URL=https://api.llama.fi
+```
+
+Post-MVP phases may add:
+
+```env
+SOURCE_MONITORING_ENABLED=false
+REVIEW_QUEUE_ENABLED=true
+WATCHLIST_ENABLED=true
+OPTIONS_ANALYSIS_ENABLED=true
+SEMANTIC_EMBEDDINGS_PROVIDER=disabled
 ```
 
 ## 4. Local Docker
@@ -78,8 +90,38 @@ The deployed demo should:
 - avoid collecting sensitive user data
 - clearly display disclaimers
 - avoid storing private financial information
+- avoid enabling autonomous source ingestion without review
+- keep paid API keys optional and server-side only
 
-## 6. Future Deployment Improvements
+## 6. Product Expansion Before Public Deployment
+
+Before final deployment, the product-expansion roadmap should stabilize:
+
+1. Optional backend LLM synthesis with deterministic fallback.
+2. Source monitoring and discovered-item storage.
+3. Automated evaluation pipeline and review queue.
+4. Strategy simulator.
+5. Watchlists and in-app alerts.
+6. Options and volatility analysis workflow.
+7. Advanced RAG and retrieval evaluation.
+8. Fine-tuning or ML classifier groundwork if useful.
+9. Optional HPC and SLURM support.
+
+These phases are developed before the final MVP Phase 11, Phase 12, and Phase 13 portfolio actions.
+
+## 7. Final Portfolio Deployment Phases
+
+Final deployment order:
+
+```text
+Final Phase 11: Demo data and example reports
+Final Phase 12: Public portfolio deployment
+Final Phase 13: Portfolio polish
+```
+
+Final public deployment should happen only after the active product-expansion features are stable enough to present.
+
+## 8. Future Deployment Improvements
 
 Future versions may add:
 
