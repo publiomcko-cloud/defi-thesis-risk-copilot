@@ -66,8 +66,9 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
           <h1>Report unavailable</h1>
           <p>{error ?? "The report could not be loaded."}</p>
           <p>
-            Phase 3 uses in-memory backend reports, so generated reports are
-            available only while the same backend process is running.
+            Reports are stored by the backend persistence layer. If this report
+            is unavailable, confirm the backend is running and the local database
+            has been migrated.
           </p>
         </section>
       </main>

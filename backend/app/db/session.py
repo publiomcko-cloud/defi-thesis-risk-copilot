@@ -1,11 +1,13 @@
 from collections.abc import Generator
+from pathlib import Path
 
+from alembic import command
+from alembic.config import Config
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
-from app.db.base import Base
 
 
 def normalize_database_url(database_url: str) -> str:
@@ -25,10 +27,13 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 def init_db() -> None:
-    # Import models so SQLAlchemy registers metadata before create_all.
-    from app import models  # noqa: F401
-
-    Base.metadata.create_all(bind=engine)
+    backend_dir = Path(__file__).resolve().parents[2]
+    alembic_cfg = Config(str(backend_dir / "alembic.ini"))
+    alembic_cfg.set_main_option(
+        "sqlalchemy.url",
+        normalize_database_url(get_settings().database_url),
+    )
+    command.upgrade(alembic_cfg, "head")
 
 
 def get_db() -> Generator[Session, None, None]:

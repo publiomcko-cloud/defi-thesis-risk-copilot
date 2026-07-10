@@ -33,6 +33,7 @@ def test_analyze_returns_report_id_and_report_can_be_retrieved() -> None:
         assert report["report_id"] == payload["report_id"]
         assert report["protocols"] == ["morpho", "pendle"]
         assert report["missing_data"]
+        assert "Retrieved protocol documentation" not in report["missing_data"]
         assert "financial advice" in report["disclaimer"]
         assert any(source["source_type"] == "knowledge_base" for source in report["sources"])
 
@@ -54,7 +55,8 @@ def test_document_ingest_returns_queued_mock_response() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "queued"
-    assert payload["document_id"].startswith("doc_pendle_")
+    assert payload["document_id"] == "local_rag_pendle"
+    assert "refreshed the local curated RAG index" in payload["message"]
 
 
 def test_market_data_fetch_returns_missing_fields() -> None:

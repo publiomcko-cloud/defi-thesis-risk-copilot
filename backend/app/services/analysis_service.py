@@ -27,6 +27,7 @@ def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
     analysis_request_id = f"analysis_{uuid4().hex[:12]}"
     report_id = f"report_{uuid4().hex[:12]}"
     summary = _build_summary(protocols, risk_rating)
+    missing_data = _build_missing_data(retrieved_context)
 
     db.add(
         AnalysisRequestModel(
@@ -49,13 +50,7 @@ def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
             "Manual inputs are treated as user-provided and unverified.",
             "Missing data is explicitly listed instead of being inferred.",
         ],
-        missing_data=[
-            "Retrieved protocol documentation",
-            "Live liquidity depth",
-            "Current borrow APY",
-            "Oracle configuration",
-            "Liquidation buffer calculation",
-        ],
+        missing_data=missing_data,
         sections=[
             ReportSection(
                 title="Strategy mechanics",
@@ -133,6 +128,18 @@ def _summarize_retrieved_context(retrieved_context: list) -> str:
     return " ".join(summaries)
 
 
+def _build_missing_data(retrieved_context: list) -> list[str]:
+    missing_data = [
+        "Live liquidity depth",
+        "Current borrow APY",
+        "Oracle configuration",
+        "Liquidation buffer calculation",
+    ]
+    if not retrieved_context:
+        return ["Retrieved protocol documentation"] + missing_data
+    return missing_data
+
+
 def _render_markdown_report(report: ReportResponse) -> str:
     sections = "\n\n".join(
         f"## {section.title}\n\n{section.content}" for section in report.sections
@@ -196,6 +203,6 @@ def _build_summary(protocols: list[str], risk_rating: RiskRating) -> str:
     return (
         f"Mock analysis completed for {protocol_text}. "
         f"Initial placeholder risk rating: {risk_rating}. "
-        "Future phases will replace this with source-backed retrieval, market data, "
-        "and deterministic risk scoring."
+        "Phase 5 already uses local curated RAG retrieval when the index is present. "
+        "Future phases will add market data adapters and real deterministic risk scoring."
     )
