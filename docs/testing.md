@@ -11,16 +11,30 @@ Testing should validate:
 - data adapter fallbacks
 - frontend build quality
 - Docker configuration
+- post-MVP source monitoring and evaluation workflows
+- simulation and alert logic
+- optional LLM synthesis fallback behavior
 
-## 2. Backend Tests
+## 2. Baseline Validation
 
-Run:
+Before implementing any post-MVP phase, the Phase 10 baseline should pass:
 
 ```bash
 cd backend
 source .venv/bin/activate
 python -m pytest -q
+python scripts/run_smoke_checks.py
+
+cd ../frontend
+npm run lint
+npm run build
+
+cd ..
+docker compose config
+docker compose -f docker-compose.production.yml config
 ```
+
+## 3. Backend Tests
 
 Recommended test areas:
 
@@ -32,8 +46,10 @@ Recommended test areas:
 - data adapter normalization
 - missing data handling
 - disclaimer presence
+- Markdown export
+- Alembic migrations from a clean database
 
-## 3. Frontend Tests
+## 4. Frontend Tests
 
 Run:
 
@@ -49,7 +65,16 @@ Future:
 npm run test:e2e
 ```
 
-## 4. RAG Tests
+Important UI flows:
+
+- home page loads
+- analyze page accepts basic and advanced manual inputs
+- analysis redirects to report page
+- report page displays risk rating and sections
+- Markdown export renders
+- error states are readable
+
+## 5. RAG Tests
 
 RAG evaluation questions:
 
@@ -63,7 +88,17 @@ RAG evaluation questions:
 
 The retriever should return relevant protocol chunks for each question.
 
-## 5. Risk Scoring Tests
+Post-MVP RAG tests should also validate:
+
+- semantic retrieval provider behavior
+- hybrid retrieval behavior
+- reranker behavior
+- metadata filters
+- citation validation
+- stale-source detection
+- evaluation dataset regressions
+
+## 6. Risk Scoring Tests
 
 Risk scoring should be deterministic.
 
@@ -76,8 +111,9 @@ Example tests:
 - volatile collateral
 - variable borrow rate
 - missing oracle data
+- missing RAG context
 
-## 6. Report Tests
+## 7. Report Tests
 
 Every generated report should include:
 
@@ -89,8 +125,86 @@ Every generated report should include:
 - missing data
 - sources
 - disclaimer
+- Markdown export
 
-## 7. Smoke Tests
+If optional LLM synthesis is added, tests must confirm:
+
+- deterministic fallback works with `LLM_PROVIDER=disabled`
+- LLM timeout does not break report generation
+- LLM output preserves risk rating, missing data, sources, and disclaimer
+
+## 8. Post-MVP Source Monitoring Tests
+
+When source monitoring is implemented, tests should validate:
+
+- source watch creation
+- manual monitoring run
+- collector failure handling
+- duplicate discovered item detection
+- normalized discovered item schema
+- `needs_review` default status
+- no automatic RAG ingestion without review
+
+## 9. Automated Evaluation and Review Queue Tests
+
+When the evaluation pipeline is implemented, tests should validate:
+
+- discovered item evaluation
+- evaluation result persistence
+- review item creation
+- review status changes
+- approved items become ingestion candidates
+- rejected items are not ingested
+- missing data remains visible
+
+## 10. Strategy Simulator Tests
+
+When the simulator is implemented, tests should validate:
+
+- net spread calculation
+- borrow APY shock
+- liquidity/slippage shock
+- collateral drawdown
+- LTV and liquidation buffer approximation
+- early exit before maturity
+- missing input handling
+- non-advisory output language
+
+## 11. Watchlist and Alert Tests
+
+When watchlists are implemented, tests should validate:
+
+- watchlist item creation
+- rule evaluation
+- alert event creation
+- alert status updates
+- no external notification required in the first version
+- no trading recommendation text
+
+## 12. Options Analysis Tests
+
+When options analysis is implemented, tests should validate:
+
+- call payoff scenarios
+- put payoff scenarios
+- breakeven calculation
+- maximum loss framing
+- implied volatility field handling
+- bid/ask spread warning
+- expiration handling
+- non-advisory output language
+
+## 13. ML and Fine-Tuning Tests
+
+Before any model is used in the app, tests should validate:
+
+- dataset export shape
+- label schema
+- baseline classifier interface
+- deterministic risk scoring remains available
+- model output cannot silently override deterministic scoring
+
+## 14. Smoke Tests
 
 Suggested smoke command:
 
@@ -108,20 +222,24 @@ Smoke checks should verify:
 - report retrieval
 - Markdown export
 
-## 8. CI Equivalent
+Post-MVP smoke checks may later add:
 
-Run the same checks locally before opening a PR:
+- monitoring run
+- discovered item retrieval
+- evaluation run
+- simulation run
+- watchlist rule evaluation
 
-```bash
-cd backend
-source .venv/bin/activate
-python -m pytest -q
+## 15. Final Portfolio Test Pass
 
-cd ../frontend
-npm run lint
-npm run build
+Final phases 11, 12, and 13 should run only after product-expansion phases are stable.
 
-cd ..
-docker compose config
-docker compose -f docker-compose.production.yml config
-```
+Final portfolio validation should include:
+
+- demo data loads
+- example reports render
+- screenshots are current
+- public frontend works
+- public backend health works
+- README links are correct
+- demo script matches the deployed product
