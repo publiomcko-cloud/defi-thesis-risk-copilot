@@ -30,7 +30,7 @@ Planned MVP stack:
 
 ## Implemented Features
 
-Current status: documentation and planning stage.
+Current status: repository foundation stage.
 
 Initial documentation includes:
 
@@ -45,6 +45,18 @@ Initial documentation includes:
 - deployment plan
 - portfolio readiness checklist
 - demo script
+
+Initial implementation includes:
+
+- FastAPI backend skeleton.
+- `/health` endpoint.
+- Environment-based backend settings.
+- Backend pytest setup.
+- Backend smoke check script.
+- Minimal Next.js App Router frontend.
+- Shared frontend API/type placeholders.
+- Docker Compose services for backend, frontend, and PostgreSQL.
+- Production-like Compose placeholder.
 
 ## MVP Features To Implement
 
@@ -86,9 +98,10 @@ python scripts/evaluate_retrieval.py
 
 ## Current Limitations
 
-- The application has not been implemented yet.
+- The application is only scaffolded.
 - Data adapters are planned but not built.
 - RAG ingestion is planned but not built.
+- Analysis, report generation, and persistence are planned but not built.
 - No deployed public demo exists yet.
 - No wallet connection or transaction execution will be implemented in the MVP.
 - Risk scoring will initially be rule-based.

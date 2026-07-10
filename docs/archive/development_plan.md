@@ -1,4 +1,6 @@
-# Development Plan — DeFi Thesis & Risk Copilot
+# Historical Development Plan — DeFi Thesis & Risk Copilot
+
+This archived plan is preserved for historical context. The active implementation plan is now maintained at [`../development_plan.md`](../development_plan.md).
 
 ## Phase 0 — Documentation and Repository Setup
 

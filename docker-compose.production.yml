@@ -1,0 +1,15 @@
+services:
+  backend:
+    image: defi-thesis-risk-copilot-backend:latest
+    environment:
+      APP_ENV: production
+      DATABASE_URL: ${DATABASE_URL:-}
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: defi-thesis-risk-copilot-frontend:latest
+    environment:
+      NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-}
+    ports:
+      - "3000:3000"

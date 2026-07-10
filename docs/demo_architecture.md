@@ -152,6 +152,8 @@ vector-db
 ollama, optional
 ```
 
+The initial local scaffold maps PostgreSQL to host port `5435` to avoid common local conflicts with other projects using `5432`.
+
 The local demo can use either:
 
 1. **Ollama local model**

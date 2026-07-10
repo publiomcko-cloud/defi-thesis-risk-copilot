@@ -1,6 +1,6 @@
 # DeFi Thesis & Risk Copilot
 
-[![CI](https://github.com/YOUR_USERNAME/defi-thesis-risk-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/defi-thesis-risk-copilot/actions/workflows/ci.yml)
+[![CI](https://github.com/publiomcko-cloud/defi-thesis-risk-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/publiomcko-cloud/defi-thesis-risk-copilot/actions/workflows/ci.yml)
 
 AI-powered DeFi research and risk analysis copilot for protocol theses, yield strategies, lending markets, and structured risk reports.
 
@@ -138,8 +138,6 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-alembic upgrade head
-python scripts/ingest_demo_docs.py
 uvicorn app.main:app --reload
 ```
 
@@ -215,14 +213,16 @@ Planned MVP endpoints:
 - [RAG design](docs/rag_design.md)
 - [Agent design](docs/agent_design.md)
 - [Risk framework](docs/risk_framework.md)
+- [Demo architecture](docs/demo_architecture.md)
 - [Demo script](docs/demo_script.md)
 - [Deployment](docs/deployment.md)
 - [Testing](docs/testing.md)
 - [Portfolio readiness](docs/portfolio_readiness.md)
+- [Development plan](docs/development_plan.md)
 
 Archive:
 
-- [Development plan](docs/archive/development_plan.md)
+- [Historical development plan](docs/archive/development_plan.md)
 
 ## Known Limitations
 

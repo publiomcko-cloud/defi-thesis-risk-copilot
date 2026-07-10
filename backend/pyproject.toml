@@ -1,0 +1,10 @@
+[project]
+name = "defi-thesis-risk-copilot-backend"
+version = "0.1.0"
+description = "FastAPI backend for DeFi Thesis & Risk Copilot."
+requires-python = ">=3.12"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"
