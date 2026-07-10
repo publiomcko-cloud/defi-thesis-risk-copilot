@@ -19,6 +19,14 @@ export type ManualInputs = {
   liquidity_usd?: number;
   ltv?: number;
   lltv?: number;
+  collateral_asset?: string;
+  debt_asset?: string;
+  pt_price?: number;
+  maturity_date?: string;
+  token_id?: string;
+  supply_apy?: number;
+  liquidation_threshold?: number;
+  reserve_asset?: string;
 };
 
 export type AnalysisRequest = {

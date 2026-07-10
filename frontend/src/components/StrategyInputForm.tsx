@@ -11,6 +11,35 @@ const demoPrompt =
 
 const protocolOptions = ["pendle", "morpho", "aave"];
 
+const basicManualFields = [
+  { key: "borrow_apy", label: "Borrow APY", type: "number" },
+  { key: "implied_apy", label: "Implied APY", type: "number" },
+  { key: "liquidity_usd", label: "Liquidity USD", type: "number" },
+  { key: "ltv", label: "LTV", type: "number" },
+  { key: "lltv", label: "LLTV", type: "number" }
+] as const;
+
+const advancedManualFields = [
+  { key: "collateral_asset", label: "Collateral Asset", type: "text" },
+  { key: "debt_asset", label: "Debt Asset", type: "text" },
+  { key: "pt_price", label: "PT Price", type: "number" },
+  { key: "maturity_date", label: "Maturity Date", type: "date" },
+  { key: "token_id", label: "Token ID", type: "text" },
+  { key: "supply_apy", label: "Supply APY", type: "number" },
+  {
+    key: "liquidation_threshold",
+    label: "Liquidation Threshold",
+    type: "number"
+  },
+  { key: "reserve_asset", label: "Reserve Asset", type: "text" }
+] as const;
+
+const numericManualInputKeys = new Set<string>(
+  [...basicManualFields, ...advancedManualFields]
+    .filter((field) => field.type === "number")
+    .map((field) => field.key)
+);
+
 export function StrategyInputForm() {
   const router = useRouter();
   const [strategyDescription, setStrategyDescription] = useState(demoPrompt);
@@ -108,24 +137,27 @@ export function StrategyInputForm() {
       <fieldset>
         <legend>Manual Inputs</legend>
         <div className="manual-grid">
-          {[
-            ["borrow_apy", "Borrow APY"],
-            ["implied_apy", "Implied APY"],
-            ["liquidity_usd", "Liquidity USD"],
-            ["ltv", "LTV"],
-            ["lltv", "LLTV"]
-          ].map(([key, label]) => (
-            <label key={key}>
-              {label}
-              <input
-                inputMode="decimal"
-                onChange={(event) => updateManualInput(key, event.target.value)}
-                placeholder="Optional"
-                type="number"
-                step="any"
-                value={manualInputs[key] ?? ""}
-              />
-            </label>
+          {basicManualFields.map((field) => (
+            <ManualInputField
+              field={field}
+              key={field.key}
+              onChange={updateManualInput}
+              value={manualInputs[field.key] ?? ""}
+            />
+          ))}
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Advanced Manual Inputs</legend>
+        <div className="manual-grid">
+          {advancedManualFields.map((field) => (
+            <ManualInputField
+              field={field}
+              key={field.key}
+              onChange={updateManualInput}
+              value={manualInputs[field.key] ?? ""}
+            />
           ))}
         </div>
       </fieldset>
@@ -143,6 +175,33 @@ function normalizeManualInputs(inputs: Record<string, string>): ManualInputs {
   return Object.fromEntries(
     Object.entries(inputs)
       .filter(([, value]) => value.trim() !== "")
-      .map(([key, value]) => [key, Number(value)])
+      .map(([key, value]) => [
+        key,
+        numericManualInputKeys.has(key) ? Number(value) : value.trim()
+      ])
   ) as ManualInputs;
+}
+
+type ManualField = (typeof basicManualFields | typeof advancedManualFields)[number];
+
+type ManualInputFieldProps = {
+  field: ManualField;
+  onChange: (key: string, value: string) => void;
+  value: string;
+};
+
+function ManualInputField({ field, onChange, value }: ManualInputFieldProps) {
+  return (
+    <label>
+      {field.label}
+      <input
+        inputMode={field.type === "number" ? "decimal" : undefined}
+        onChange={(event) => onChange(field.key, event.target.value)}
+        placeholder="Optional"
+        type={field.type}
+        step={field.type === "number" ? "any" : undefined}
+        value={value}
+      />
+    </label>
+  );
 }

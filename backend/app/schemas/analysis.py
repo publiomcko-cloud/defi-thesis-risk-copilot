@@ -14,6 +14,14 @@ class ManualInputs(BaseModel):
     liquidity_usd: float | None = Field(default=None, ge=0)
     ltv: float | None = Field(default=None, ge=0, le=1)
     lltv: float | None = Field(default=None, ge=0, le=1)
+    collateral_asset: str | None = None
+    debt_asset: str | None = None
+    pt_price: float | None = Field(default=None, ge=0)
+    maturity_date: str | None = None
+    token_id: str | None = None
+    supply_apy: float | None = Field(default=None, ge=0)
+    liquidation_threshold: float | None = Field(default=None, ge=0, le=1)
+    reserve_asset: str | None = None
 
     model_config = ConfigDict(extra="allow")
 

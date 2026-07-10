@@ -58,6 +58,8 @@ docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
+`docker-compose.production.yml` defaults to local SQLite and `http://127.0.0.1:8000` for configuration testing. Real hosted deployments should override `DATABASE_URL` and `NEXT_PUBLIC_API_BASE_URL`.
+
 Local Docker services:
 
 - `backend`: FastAPI app, Alembic migration on startup, mounted backend source, mounted read-only `knowledge_base/`.

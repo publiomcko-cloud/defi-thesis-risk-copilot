@@ -58,7 +58,7 @@ Initial implementation includes:
 - Report retrieval endpoint returns persisted structured reports.
 - Protocol listing endpoint for Pendle, Morpho, and Aave.
 - Document ingestion endpoint refreshes the local curated RAG index from `knowledge_base/`.
-- Mocked market data endpoint with explicit missing fields.
+- Market data endpoint with adapter aggregation and explicit missing fields.
 - Pydantic request and response schemas for initial backend contracts.
 - SQLAlchemy database foundation.
 - Alembic migration setup with initial tables.

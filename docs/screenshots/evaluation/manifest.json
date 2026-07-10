@@ -1,0 +1,43 @@
+{
+  "created_at": "2026-07-10T22:09:20.928Z",
+  "base_url": "http://127.0.0.1:3000",
+  "report_id": "report_d537033bbede",
+  "report_url": "http://127.0.0.1:3000/reports/report_d537033bbede",
+  "screenshots": [
+    {
+      "file": "docs/screenshots/evaluation/01-home.png",
+      "description": "Home dashboard and demo workflow entry point.",
+      "url": "http://127.0.0.1:3000/"
+    },
+    {
+      "file": "docs/screenshots/evaluation/02-protocols.png",
+      "description": "Supported protocol scope page.",
+      "url": "http://127.0.0.1:3000/protocols"
+    },
+    {
+      "file": "docs/screenshots/evaluation/03-about.png",
+      "description": "About page with current phase and safety boundary.",
+      "url": "http://127.0.0.1:3000/about"
+    },
+    {
+      "file": "docs/screenshots/evaluation/04-analyze-default-inputs.png",
+      "description": "Analyze page with default strategy input and manual input fields.",
+      "url": "http://127.0.0.1:3000/analyze"
+    },
+    {
+      "file": "docs/screenshots/evaluation/05-analyze-filled-inputs.png",
+      "description": "Analyze page with evaluation manual inputs filled.",
+      "url": "http://127.0.0.1:3000/analyze"
+    },
+    {
+      "file": "docs/screenshots/evaluation/06-report-output.png",
+      "description": "Generated report output page for report_d537033bbede.",
+      "url": "http://127.0.0.1:3000/reports/report_d537033bbede"
+    },
+    {
+      "file": "docs/screenshots/evaluation/07-markdown-export-output.png",
+      "description": "Markdown export output for report_d537033bbede.",
+      "url": "http://127.0.0.1:3000/reports/report_d537033bbede"
+    }
+  ]
+}
