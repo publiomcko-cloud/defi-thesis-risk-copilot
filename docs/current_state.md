@@ -34,7 +34,7 @@ Planned later stack additions:
 
 ## Implemented Features
 
-Current status: Phase 7 complete; ready for Phase 8 controlled agent orchestration.
+Current status: Phase 8 complete; ready for Phase 9 report generation and Markdown export.
 
 Initial documentation includes:
 
@@ -77,6 +77,9 @@ Initial implementation includes:
 - Stress scenario generation.
 - Monitoring checklist generation.
 - Analysis reports use deterministic risk scoring instead of the earlier placeholder rating.
+- Controlled internal analysis orchestration.
+- Strategy parser, protocol research, market data, risk scoring, and report writer agent modules.
+- `/api/analyze` now runs the controlled workflow before persisting the report.
 - Environment-based backend settings.
 - Backend pytest setup.
 - Backend smoke check script.
@@ -97,6 +100,7 @@ Initial implementation includes:
 - Deeper live market API coverage and provider-specific normalization.
 - Real LLM-backed report generation.
 - Markdown export.
+- Dedicated report templates and export endpoints.
 - Production deployment.
 
 ## Current Validation Commands
@@ -137,3 +141,4 @@ python scripts/evaluate_retrieval.py
 - No deployed public demo exists yet.
 - No wallet connection or transaction execution will be implemented in the MVP.
 - Market data may still require manual fallback inputs during early development.
+- The controlled workflow is deterministic and internal; it is not a multi-agent autonomous system.
