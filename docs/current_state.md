@@ -34,7 +34,7 @@ Planned later stack additions:
 
 ## Implemented Features
 
-Current status: Phase 6 complete; ready for Phase 7 risk framework and scoring.
+Current status: Phase 7 complete; ready for Phase 8 controlled agent orchestration.
 
 Initial documentation includes:
 
@@ -72,6 +72,11 @@ Initial implementation includes:
 - Market data cache fallback using the existing `market_data_cache` table.
 - `/api/market-data/fetch` returns aggregated adapter data, assumptions, and explicit missing fields.
 - Analysis reports include a market data summary section.
+- Rule-based MVP risk scoring engine.
+- Visible risk score components, confidence level, and main risk drivers.
+- Stress scenario generation.
+- Monitoring checklist generation.
+- Analysis reports use deterministic risk scoring instead of the earlier placeholder rating.
 - Environment-based backend settings.
 - Backend pytest setup.
 - Backend smoke check script.
@@ -89,7 +94,6 @@ Initial implementation includes:
 ## MVP Features To Implement
 
 - Higher-quality RAG embeddings or reranking.
-- Rule-based risk scoring.
 - Deeper live market API coverage and provider-specific normalization.
 - Real LLM-backed report generation.
 - Markdown export.
@@ -127,7 +131,7 @@ python scripts/evaluate_retrieval.py
 - Data adapters are basic MVP implementations; several protocol adapters still rely on manual fallback.
 - RAG is local and curated only; it does not crawl protocol docs or refresh automatically.
 - Embeddings are lightweight local hash embeddings, not semantic model embeddings.
-- Risk scoring is still a placeholder heuristic, not the full rule-based framework.
+- Risk scoring is deterministic and rule-based, but not a quantitative liquidation engine.
 - Reports are persisted, but report writing is still template/mock based rather than LLM generated.
 - `/api/documents/ingest` refreshes the local curated RAG index; it does not ingest arbitrary uploaded content yet.
 - No deployed public demo exists yet.

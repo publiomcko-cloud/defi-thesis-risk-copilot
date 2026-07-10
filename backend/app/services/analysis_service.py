@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session
 from app.models.analysis_request import AnalysisRequestModel
 from app.rag.citations import results_to_sources
 from app.rag.retriever import Retriever
-from app.schemas.analysis import AnalysisRequest, AnalysisResponse, RiskRating
+from app.risk.checklist import generate_monitoring_checklist
+from app.risk.scenarios import generate_stress_scenarios
+from app.risk.scoring import score_strategy_risk
+from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.market_data import MarketDataRequest
 from app.schemas.reports import ReportResponse, ReportSection, SourceReference
 from app.services.market_data_service import fetch_market_data_summary
@@ -20,7 +23,6 @@ DEFAULT_DISCLAIMER = (
 
 def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
     protocols = _normalize_protocols(request)
-    risk_rating = _mock_risk_rating(protocols, request)
     retrieved_context = Retriever().retrieve(
         request.strategy_description,
         top_k=4,
@@ -36,8 +38,17 @@ def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
     )
     analysis_request_id = f"analysis_{uuid4().hex[:12]}"
     report_id = f"report_{uuid4().hex[:12]}"
-    summary = _build_summary(protocols, risk_rating)
     missing_data = _build_missing_data(retrieved_context, market_data.missing_fields)
+    risk_score = score_strategy_risk(
+        strategy_description=request.strategy_description,
+        protocols=protocols,
+        manual_inputs=request.manual_inputs.model_dump(exclude_none=True),
+        missing_data=missing_data,
+    )
+    risk_rating = risk_score.rating
+    stress_scenarios = generate_stress_scenarios(risk_score)
+    monitoring_checklist = generate_monitoring_checklist(risk_score)
+    summary = _build_summary(protocols, risk_score)
 
     db.add(
         AnalysisRequestModel(
@@ -80,18 +91,15 @@ def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
             ),
             ReportSection(
                 title="Risk analysis",
-                content=(
-                    f"Mock rating: {risk_rating}. This placeholder favors caution "
-                    "for multi-protocol or leveraged DeFi strategies until real "
-                    "risk scoring is implemented."
-                ),
+                content=_summarize_risk_score(risk_score),
+            ),
+            ReportSection(
+                title="Stress scenarios",
+                content=" ".join(stress_scenarios),
             ),
             ReportSection(
                 title="Monitoring checklist",
-                content=(
-                    "Track borrow APY, liquidity, oracle status, maturity timing, "
-                    "collateral movement, protocol changes, and missing assumptions."
-                ),
+                content=" ".join(monitoring_checklist),
             ),
         ],
         sources=[
@@ -201,34 +209,23 @@ def _normalize_protocols(request: AnalysisRequest) -> list[str]:
     return detected or ["unknown"]
 
 
-def _mock_risk_rating(
-    protocols: list[str],
-    request: AnalysisRequest,
-) -> RiskRating:
-    score = 1
-    if len([protocol for protocol in protocols if protocol != "unknown"]) > 1:
-        score += 2
-    if request.manual_inputs.ltv is not None and request.manual_inputs.ltv > 0:
-        score += 1
-    if request.manual_inputs.borrow_apy is None:
-        score += 1
-    if request.manual_inputs.liquidity_usd is None:
-        score += 1
-
-    if score <= 2:
-        return "Conservative"
-    if score <= 4:
-        return "Moderate"
-    if score <= 6:
-        return "Aggressive"
-    return "Very Risky"
+def _summarize_risk_score(risk_score: object) -> str:
+    components = "; ".join(
+        f"{component.category}: +{component.points} ({component.reason})"
+        for component in risk_score.components
+    )
+    return (
+        f"Rule-based score: {risk_score.score}. Rating: {risk_score.rating}. "
+        f"Confidence: {risk_score.confidence}. Components: {components}."
+    )
 
 
-def _build_summary(protocols: list[str], risk_rating: RiskRating) -> str:
+def _build_summary(protocols: list[str], risk_score: object) -> str:
     protocol_text = ", ".join(protocols)
     return (
         f"Mock analysis completed for {protocol_text}. "
-        f"Initial placeholder risk rating: {risk_rating}. "
+        f"Rule-based MVP risk rating: {risk_score.rating} "
+        f"(score {risk_score.score}, confidence {risk_score.confidence}). "
         "Phase 5 already uses local curated RAG retrieval when the index is present. "
-        "Future phases will add market data adapters and real deterministic risk scoring."
+        "Phase 6 adds market data adapters, and Phase 7 adds deterministic risk scoring."
     )

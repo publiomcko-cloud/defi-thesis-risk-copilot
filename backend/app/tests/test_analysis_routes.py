@@ -25,7 +25,7 @@ def test_analyze_returns_report_id_and_report_can_be_retrieved() -> None:
         payload = response.json()
         assert payload["status"] == "completed"
         assert payload["report_id"].startswith("report_")
-        assert payload["risk_rating"] == "Aggressive"
+        assert payload["risk_rating"] == "Very Risky"
 
         report_response = client.get(f"/api/reports/{payload['report_id']}")
         assert report_response.status_code == 200
