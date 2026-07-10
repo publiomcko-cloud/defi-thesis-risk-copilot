@@ -12,7 +12,7 @@ class MarketDataRequest(BaseModel):
 
 
 class MarketDataResponse(BaseModel):
-    status: Literal["mocked"]
+    status: Literal["completed", "partial", "mocked"]
     source: str
     data: dict[str, Any]
     missing_fields: list[str]

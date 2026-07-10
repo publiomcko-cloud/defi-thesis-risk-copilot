@@ -36,6 +36,7 @@ def test_analyze_returns_report_id_and_report_can_be_retrieved() -> None:
         assert "Retrieved protocol documentation" not in report["missing_data"]
         assert "financial advice" in report["disclaimer"]
         assert any(source["source_type"] == "knowledge_base" for source in report["sources"])
+        assert any(section["title"] == "Market data summary" for section in report["sections"])
 
     with SessionLocal() as db:
         report_record = db.get(ReportModel, payload["report_id"])
@@ -71,6 +72,9 @@ def test_market_data_fetch_returns_missing_fields() -> None:
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["status"] == "mocked"
-    assert "live_liquidity" in payload["missing_fields"]
-    assert payload["data"]["manual_inputs"]["borrow_apy"] == 0.07
+    assert payload["status"] == "partial"
+    assert "manual.implied_apy" in payload["missing_fields"]
+    manual_adapter = next(
+        item for item in payload["data"]["adapters"] if item["source"] == "manual"
+    )
+    assert manual_adapter["data"]["borrow_apy"] == 0.07

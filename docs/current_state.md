@@ -30,11 +30,11 @@ Planned later stack additions:
 - Public database hosting on Supabase PostgreSQL
 - Production vector storage such as pgvector, Qdrant, or Chroma
 - Hosted or local LLM provider
-- Public market data adapters for DefiLlama, CoinGecko, Morpho, Aave, Pendle, and manual fallback data
+- Higher-fidelity public market integrations beyond the initial adapter layer
 
 ## Implemented Features
 
-Current status: Phase 5 complete; ready for Phase 6 market data adapters.
+Current status: Phase 6 complete; ready for Phase 7 risk framework and scoring.
 
 Initial documentation includes:
 
@@ -67,6 +67,11 @@ Initial implementation includes:
 - Lightweight local RAG ingestion, chunking, embedding, JSON vector storage, retrieval, and citation formatting.
 - Retrieval evaluation script for the MVP RAG questions.
 - Analysis workflow can include retrieved local knowledge-base sources when the RAG index exists.
+- Market data adapter interface and service layer.
+- Manual, Pendle, Morpho, Aave, DefiLlama, and CoinGecko adapters with normalized outputs.
+- Market data cache fallback using the existing `market_data_cache` table.
+- `/api/market-data/fetch` returns aggregated adapter data, assumptions, and explicit missing fields.
+- Analysis reports include a market data summary section.
 - Environment-based backend settings.
 - Backend pytest setup.
 - Backend smoke check script.
@@ -85,7 +90,7 @@ Initial implementation includes:
 
 - Higher-quality RAG embeddings or reranking.
 - Rule-based risk scoring.
-- Basic market data adapters.
+- Deeper live market API coverage and provider-specific normalization.
 - Real LLM-backed report generation.
 - Markdown export.
 - Production deployment.
@@ -119,7 +124,7 @@ python scripts/evaluate_retrieval.py
 ## Current Limitations
 
 - The application is still an MVP and uses mocked analysis logic.
-- Data adapters are planned but not built.
+- Data adapters are basic MVP implementations; several protocol adapters still rely on manual fallback.
 - RAG is local and curated only; it does not crawl protocol docs or refresh automatically.
 - Embeddings are lightweight local hash embeddings, not semantic model embeddings.
 - Risk scoring is still a placeholder heuristic, not the full rule-based framework.
@@ -127,4 +132,4 @@ python scripts/evaluate_retrieval.py
 - `/api/documents/ingest` refreshes the local curated RAG index; it does not ingest arbitrary uploaded content yet.
 - No deployed public demo exists yet.
 - No wallet connection or transaction execution will be implemented in the MVP.
-- Market data adapters are not implemented yet and may require manual fallback inputs during early development.
+- Market data may still require manual fallback inputs during early development.

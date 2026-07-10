@@ -6,7 +6,9 @@ from app.models.analysis_request import AnalysisRequestModel
 from app.rag.citations import results_to_sources
 from app.rag.retriever import Retriever
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse, RiskRating
+from app.schemas.market_data import MarketDataRequest
 from app.schemas.reports import ReportResponse, ReportSection, SourceReference
+from app.services.market_data_service import fetch_market_data_summary
 from app.services.report_service import save_report
 
 DEFAULT_DISCLAIMER = (
@@ -24,10 +26,18 @@ def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
         top_k=4,
         protocols=[protocol for protocol in protocols if protocol != "unknown"],
     )
+    market_data = fetch_market_data_summary(
+        MarketDataRequest(
+            protocols=protocols,
+            market_url=request.market_url,
+            manual_inputs=request.manual_inputs.model_dump(exclude_none=True),
+        ),
+        db,
+    )
     analysis_request_id = f"analysis_{uuid4().hex[:12]}"
     report_id = f"report_{uuid4().hex[:12]}"
     summary = _build_summary(protocols, risk_rating)
-    missing_data = _build_missing_data(retrieved_context)
+    missing_data = _build_missing_data(retrieved_context, market_data.missing_fields)
 
     db.add(
         AnalysisRequestModel(
@@ -63,6 +73,10 @@ def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
             ReportSection(
                 title="Retrieved context",
                 content=_summarize_retrieved_context(retrieved_context),
+            ),
+            ReportSection(
+                title="Market data summary",
+                content=_summarize_market_data(market_data),
             ),
             ReportSection(
                 title="Risk analysis",
@@ -128,16 +142,28 @@ def _summarize_retrieved_context(retrieved_context: list) -> str:
     return " ".join(summaries)
 
 
-def _build_missing_data(retrieved_context: list) -> list[str]:
+def _build_missing_data(
+    retrieved_context: list,
+    market_missing_fields: list[str],
+) -> list[str]:
     missing_data = [
-        "Live liquidity depth",
-        "Current borrow APY",
-        "Oracle configuration",
         "Liquidation buffer calculation",
     ]
+    missing_data.extend(f"Market data: {field}" for field in market_missing_fields)
     if not retrieved_context:
         return ["Retrieved protocol documentation"] + missing_data
     return missing_data
+
+
+def _summarize_market_data(market_data: object) -> str:
+    missing_count = len(market_data.missing_fields)
+    adapter_count = len(market_data.data.get("adapters", []))
+    if missing_count == 0:
+        return f"Market data adapters returned complete normalized output from {adapter_count} sources."
+    return (
+        f"Market data adapters returned partial normalized output from {adapter_count} sources. "
+        f"Missing fields: {', '.join(market_data.missing_fields[:10])}."
+    )
 
 
 def _render_markdown_report(report: ReportResponse) -> str:
