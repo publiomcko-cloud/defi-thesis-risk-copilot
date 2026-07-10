@@ -23,18 +23,31 @@ Current local stack:
 - Testing and validation: pytest, smoke scripts, frontend lint/build
 - Automation: GitHub Actions CI
 
-Planned later stack additions:
+Planned product-expansion additions:
+
+- Optional backend LLM synthesis for report writing
+- Source monitoring and discovery
+- Automated evaluation pipeline with human review queue
+- Strategy simulator
+- Watchlists and in-app alerts
+- Options and volatility analysis workflow
+- Advanced RAG with semantic embeddings, hybrid retrieval, reranking, and evaluation
+- Fine-tuning and ML risk classifier groundwork
+- Optional HPC and SLURM support
+
+Planned final portfolio additions:
 
 - Public frontend hosting on Vercel
 - Public backend hosting on Render
 - Public database hosting on Supabase PostgreSQL
-- Production vector storage such as pgvector, Qdrant, or Chroma
-- Hosted or local LLM provider
-- Higher-fidelity public market integrations beyond the initial adapter layer
+- Public demo screenshots and video
+- Portfolio-ready case study and README polish
 
 ## Implemented Features
 
-Current status: Phase 10 complete; ready for Phase 11 demo data and example reports.
+Current status: Phase 10 complete. Active development now moves to the post-MVP product-expansion phases described in `docs/post_mvp_development_plan.md`.
+
+The original MVP phases 11, 12, and 13 are intentionally deferred until after the product-expansion phases because they are demo data, deployment, and portfolio-polish work.
 
 Initial documentation includes:
 
@@ -49,6 +62,7 @@ Initial documentation includes:
 - deployment plan
 - portfolio readiness checklist
 - demo script
+- post-MVP development plan
 
 Initial implementation includes:
 
@@ -100,12 +114,25 @@ Initial implementation includes:
 - Production-like Compose configuration check.
 - CI workflow for backend tests, frontend lint/build, and Compose validation.
 
-## MVP Features To Implement
+## Active Product Development To Implement
 
-- Higher-quality RAG embeddings or reranking.
-- Deeper live market API coverage and provider-specific normalization.
-- LLM-backed report generation beyond the deterministic MVP template.
-- Production deployment.
+The next active product phases are:
+
+1. Optional backend LLM synthesis.
+2. Source monitoring and discovery.
+3. Automated evaluation pipeline and review queue.
+4. Strategy simulator.
+5. Watchlists and in-app alerts.
+6. Options and volatility analysis workflow.
+7. Advanced RAG and retrieval evaluation.
+8. Fine-tuning and ML risk classifier groundwork.
+9. HPC and SLURM readiness.
+
+After these product-expansion phases, return to:
+
+1. Final Phase 11 — Demo data and example reports.
+2. Final Phase 12 — Public portfolio deployment.
+3. Final Phase 13 — Portfolio polish.
 
 ## Current Validation Commands
 
@@ -133,6 +160,13 @@ cd backend
 python scripts/evaluate_retrieval.py
 ```
 
+Docker validation:
+
+```bash
+docker compose config
+docker compose -f docker-compose.production.yml config
+```
+
 ## Current Limitations
 
 - The application is still an MVP and uses deterministic local analysis logic.
@@ -142,7 +176,8 @@ python scripts/evaluate_retrieval.py
 - Risk scoring is deterministic and rule-based, but not a quantitative liquidation engine.
 - Reports are persisted and rendered through a deterministic template; report writing is not LLM generated yet.
 - `/api/documents/ingest` refreshes the local curated RAG index; it does not ingest arbitrary uploaded content yet.
+- Source monitoring, review queues, watchlists, alerts, strategy simulation, and options analysis are not implemented yet.
 - No deployed public demo exists yet.
-- No wallet connection or transaction execution will be implemented in the MVP.
+- No wallet connection or transaction execution will be implemented.
 - Market data may still require manual fallback inputs during early development.
 - The controlled workflow is deterministic and internal; it is not a multi-agent autonomous system.
