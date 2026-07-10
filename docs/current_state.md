@@ -61,20 +61,25 @@ Initial implementation includes:
 - Backend smoke check script.
 - Minimal Next.js App Router frontend.
 - Shared frontend API/type placeholders.
+- Home page with portfolio-oriented call to action.
+- Strategy input page wired to the mocked analysis endpoint.
+- Report page that renders mocked backend report data.
+- Protocols page for Pendle, Morpho, and Aave scope.
+- About page with current phase and safety boundary.
+- Reusable frontend components for strategy input, risk rating, report sections, sources, monitoring checklist, data summary, and disclaimers.
 - Docker Compose services for backend, frontend, and PostgreSQL.
 - Production-like Compose placeholder.
 
 ## MVP Features To Implement
 
-- Strategy input screen.
-- Analysis report screen.
 - RAG ingestion for selected protocol documentation.
 - Protocol source retrieval.
 - Rule-based risk scoring.
 - Basic market data adapters.
 - Report generation.
 - Markdown export.
-- Dockerized local execution.
+- Database persistence.
+- Production deployment.
 
 ## Current Validation Commands
 
