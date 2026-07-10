@@ -19,7 +19,7 @@ Current local stack:
 - Backend: FastAPI, Pydantic, SQLAlchemy, Alembic
 - Local database: SQLite by default; PostgreSQL supported through `DATABASE_URL` and Docker Compose
 - Local RAG: curated markdown knowledge base, header-aware chunking, local hash embeddings, JSON vector store
-- Frontend/backend integration: mocked analysis flow with persisted reports
+- Frontend/backend integration: controlled analysis workflow with persisted reports
 - Testing and validation: pytest, smoke scripts, frontend lint/build
 - Automation: GitHub Actions CI
 
@@ -34,7 +34,7 @@ Planned later stack additions:
 
 ## Implemented Features
 
-Current status: Phase 8 complete; ready for Phase 9 report generation and Markdown export.
+Current status: Phase 9 complete; ready for Phase 10 portfolio polish and deployment preparation.
 
 Initial documentation includes:
 
@@ -54,8 +54,8 @@ Initial implementation includes:
 
 - FastAPI backend skeleton.
 - `/health` endpoint.
-- Mocked `/api/analyze` endpoint.
-- Mocked report retrieval endpoint.
+- `/api/analyze` endpoint runs the controlled MVP analysis workflow.
+- Report retrieval endpoint returns persisted structured reports.
 - Protocol listing endpoint for Pendle, Morpho, and Aave.
 - Document ingestion endpoint refreshes the local curated RAG index from `knowledge_base/`.
 - Mocked market data endpoint with explicit missing fields.
@@ -86,8 +86,11 @@ Initial implementation includes:
 - Next.js App Router frontend.
 - Shared frontend API/type definitions.
 - Home page with portfolio-oriented call to action.
-- Strategy input page wired to the mocked analysis endpoint.
-- Report page that renders mocked backend report data.
+- Strategy input page wired to the controlled analysis endpoint.
+- Report page that renders persisted backend report data.
+- Dedicated report template with required sections for strategy description, mechanics, yield source, market data, assumptions, risk analysis, stress scenarios, exit plan, monitoring, rating, uncertainty, sources, and disclaimer.
+- Markdown report rendering and `/api/reports/{report_id}/export` endpoint.
+- Frontend Markdown export action for generated reports.
 - Protocols page for Pendle, Morpho, and Aave scope.
 - About page with current phase and safety boundary.
 - Reusable frontend components for strategy input, risk rating, report sections, sources, monitoring checklist, data summary, and disclaimers.
@@ -98,9 +101,7 @@ Initial implementation includes:
 
 - Higher-quality RAG embeddings or reranking.
 - Deeper live market API coverage and provider-specific normalization.
-- Real LLM-backed report generation.
-- Markdown export.
-- Dedicated report templates and export endpoints.
+- LLM-backed report generation beyond the deterministic MVP template.
 - Production deployment.
 
 ## Current Validation Commands
@@ -131,12 +132,12 @@ python scripts/evaluate_retrieval.py
 
 ## Current Limitations
 
-- The application is still an MVP and uses mocked analysis logic.
+- The application is still an MVP and uses deterministic local analysis logic.
 - Data adapters are basic MVP implementations; several protocol adapters still rely on manual fallback.
 - RAG is local and curated only; it does not crawl protocol docs or refresh automatically.
 - Embeddings are lightweight local hash embeddings, not semantic model embeddings.
 - Risk scoring is deterministic and rule-based, but not a quantitative liquidation engine.
-- Reports are persisted, but report writing is still template/mock based rather than LLM generated.
+- Reports are persisted and rendered through a deterministic template; report writing is not LLM generated yet.
 - `/api/documents/ingest` refreshes the local curated RAG index; it does not ingest arbitrary uploaded content yet.
 - No deployed public demo exists yet.
 - No wallet connection or transaction execution will be implemented in the MVP.

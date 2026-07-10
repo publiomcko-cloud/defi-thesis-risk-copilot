@@ -2,6 +2,7 @@ import type {
   AnalysisRequest,
   AnalysisResponse,
   HealthResponse,
+  MarkdownExportResponse,
   ProtocolListResponse,
   ReportResponse
 } from "./types";
@@ -59,6 +60,20 @@ export async function fetchReport(reportId: string): Promise<ReportResponse> {
 
   if (!response.ok) {
     throw new Error(`Report fetch failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function exportReportMarkdown(
+  reportId: string
+): Promise<MarkdownExportResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/reports/${reportId}/export`, {
+    method: "POST"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Markdown export failed with status ${response.status}`);
   }
 
   return response.json();

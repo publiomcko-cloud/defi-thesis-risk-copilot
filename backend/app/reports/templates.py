@@ -1,0 +1,16 @@
+REQUIRED_REPORT_SECTIONS = [
+    "Strategy Description",
+    "Protocols Involved",
+    "Strategy Mechanics",
+    "Yield Source",
+    "Market Data Summary",
+    "Key Assumptions",
+    "Risk Analysis",
+    "Stress Scenarios",
+    "Exit Plan",
+    "Monitoring Checklist",
+    "Risk Rating",
+    "Missing Data and Uncertainty",
+    "Sources",
+    "Disclaimer",
+]

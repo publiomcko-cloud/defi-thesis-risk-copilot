@@ -17,9 +17,10 @@ export default function AboutPage() {
       <section className="panel">
         <h2>Current Phase</h2>
         <p>
-          The frontend flow is now usable against mocked backend responses.
-          RAG, live market adapters, deterministic scoring, persistence, and
-          LLM report writing are intentionally deferred to later phases.
+          The frontend flow is usable against the controlled backend workflow:
+          persisted reports, curated local RAG retrieval, market adapters,
+          deterministic scoring, structured reports, and Markdown export. LLM
+          report writing and production deployment remain later phases.
         </p>
       </section>
 

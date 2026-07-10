@@ -29,3 +29,10 @@ def get_report(report_id: str, db: Session) -> ReportResponse | None:
     if record is None:
         return None
     return ReportResponse.model_validate(record.report_json)
+
+
+def get_report_markdown(report_id: str, db: Session) -> str | None:
+    record = db.get(ReportModel, report_id)
+    if record is None:
+        return None
+    return record.report_markdown

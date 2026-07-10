@@ -38,9 +38,9 @@ export default function Home() {
         <div className="panel">
           <h2>Demo Workflow</h2>
           <p>
-            Submit a synthetic Pendle + Morpho prompt, review mocked analysis
-            output, inspect assumptions and missing data, then open the report
-            page prepared for later RAG and market-data phases.
+            Submit a synthetic Pendle + Morpho prompt, review the generated
+            risk analysis, inspect assumptions and missing data, then open the
+            persisted report with Markdown export.
           </p>
         </div>
       </section>

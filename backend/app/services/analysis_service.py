@@ -3,8 +3,8 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.agents.orchestrator import run_analysis_workflow
-from app.agents.report_writer_agent import render_markdown_report
 from app.models.analysis_request import AnalysisRequestModel
+from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.services.report_service import save_report
 

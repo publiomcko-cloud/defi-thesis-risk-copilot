@@ -3,8 +3,9 @@ from app.rag.retriever import RetrievalResult
 from app.risk.checklist import generate_monitoring_checklist
 from app.risk.framework import RiskScore
 from app.risk.scenarios import generate_stress_scenarios
+from app.reports.renderer import make_section, validate_report_structure
 from app.schemas.market_data import MarketDataResponse
-from app.schemas.reports import ReportResponse, ReportSection, SourceReference
+from app.schemas.reports import ReportResponse, SourceReference
 
 DEFAULT_DISCLAIMER = (
     "This report is for research and educational purposes only. "
@@ -15,16 +16,20 @@ DEFAULT_DISCLAIMER = (
 
 def write_research_report(
     report_id: str,
+    strategy_description: str,
     protocols: list[str],
     risk_score: RiskScore,
     retrieved_context: list[RetrievalResult],
     market_data: MarketDataResponse,
     missing_data: list[str],
 ) -> ReportResponse:
-    return ReportResponse(
+    stress_scenarios = generate_stress_scenarios(risk_score)
+    monitoring_checklist = generate_monitoring_checklist(risk_score)
+    report = ReportResponse(
         report_id=report_id,
         risk_rating=risk_score.rating,
         executive_summary=_build_summary(protocols, risk_score),
+        strategy_description=strategy_description,
         protocols=protocols,
         assumptions=[
             "Controlled workflow uses local curated RAG retrieval without web crawling or live LLM calls.",
@@ -33,34 +38,48 @@ def write_research_report(
         ],
         missing_data=missing_data,
         sections=[
-            ReportSection(
-                title="Strategy mechanics",
-                content=(
+            make_section("Strategy Description", strategy_description),
+            make_section("Protocols Involved", ", ".join(protocols)),
+            make_section(
+                "Strategy Mechanics",
+                (
                     "The request is parsed, protocols are detected, local sources are retrieved, "
                     "market data adapters are queried, rule-based risk scoring runs, and this "
                     "structured report is generated."
                 ),
             ),
-            ReportSection(
-                title="Retrieved context",
-                content=_summarize_retrieved_context(retrieved_context),
+            make_section(
+                "Yield Source",
+                "Yield source is inferred from strategy description and available protocol context. Missing or live yield fields remain explicit.",
             ),
-            ReportSection(
-                title="Market data summary",
-                content=_summarize_market_data(market_data),
+            make_section("Market Data Summary", _summarize_market_data(market_data)),
+            make_section(
+                "Key Assumptions",
+                " ".join(
+                    [
+                        "Controlled workflow uses local curated RAG retrieval without web crawling or live LLM calls.",
+                        "Manual inputs are treated as user-provided and unverified.",
+                        "Missing data is explicitly listed instead of being inferred.",
+                    ]
+                ),
             ),
-            ReportSection(
-                title="Risk analysis",
-                content=_summarize_risk_score(risk_score),
+            make_section("Risk Analysis", _summarize_risk_score(risk_score)),
+            make_section("Stress Scenarios", " ".join(stress_scenarios)),
+            make_section(
+                "Exit Plan",
+                "Review liquidity, maturity timing, slippage, borrow costs, and liquidation buffer before any hypothetical exit.",
             ),
-            ReportSection(
-                title="Stress scenarios",
-                content=" ".join(generate_stress_scenarios(risk_score)),
+            make_section("Monitoring Checklist", " ".join(monitoring_checklist)),
+            make_section(
+                "Risk Rating",
+                f"{risk_score.rating} with score {risk_score.score} and {risk_score.confidence} confidence.",
             ),
-            ReportSection(
-                title="Monitoring checklist",
-                content=" ".join(generate_monitoring_checklist(risk_score)),
+            make_section(
+                "Missing Data and Uncertainty",
+                "\n".join(f"- {item}" for item in missing_data) if missing_data else "No missing data marked by the current workflow.",
             ),
+            make_section("Sources", _summarize_sources(retrieved_context)),
+            make_section("Disclaimer", DEFAULT_DISCLAIMER),
         ],
         sources=[
             SourceReference(
@@ -77,28 +96,8 @@ def write_research_report(
         + results_to_sources(retrieved_context),
         disclaimer=DEFAULT_DISCLAIMER,
     )
-
-
-def render_markdown_report(report: ReportResponse) -> str:
-    sections = "\n\n".join(
-        f"## {section.title}\n\n{section.content}" for section in report.sections
-    )
-    assumptions = "\n".join(f"- {item}" for item in report.assumptions)
-    missing_data = "\n".join(f"- {item}" for item in report.missing_data)
-    sources = "\n".join(
-        f"- {source.title} ({source.url or source.source_type})"
-        for source in report.sources
-    )
-    return (
-        f"# Strategy Risk Report\n\n"
-        f"Risk rating: **{report.risk_rating}**\n\n"
-        f"{report.executive_summary}\n\n"
-        f"{sections}\n\n"
-        f"## Assumptions\n\n{assumptions}\n\n"
-        f"## Missing Data\n\n{missing_data}\n\n"
-        f"## Sources\n\n{sources}\n\n"
-        f"## Disclaimer\n\n{report.disclaimer}\n"
-    )
+    validate_report_structure(report)
+    return report
 
 
 def _summarize_retrieved_context(retrieved_context: list[RetrievalResult]) -> str:
@@ -137,6 +136,15 @@ def _summarize_risk_score(risk_score: RiskScore) -> str:
     return (
         f"Rule-based score: {risk_score.score}. Rating: {risk_score.rating}. "
         f"Confidence: {risk_score.confidence}. Components: {components}."
+    )
+
+
+def _summarize_sources(retrieved_context: list[RetrievalResult]) -> str:
+    sources = results_to_sources(retrieved_context)
+    if not sources:
+        return "No local RAG sources were retrieved."
+    return "\n".join(
+        f"- {source.title} ({source.url or source.source_type})" for source in sources
     )
 
 

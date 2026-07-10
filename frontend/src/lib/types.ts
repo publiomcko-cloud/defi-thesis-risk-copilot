@@ -65,10 +65,17 @@ export type ReportResponse = {
   status: "completed";
   risk_rating: RiskRating;
   executive_summary: string;
+  strategy_description: string;
   protocols: string[];
   assumptions: string[];
   missing_data: string[];
   sections: ReportSection[];
   sources: SourceReference[];
   disclaimer: string;
+};
+
+export type MarkdownExportResponse = {
+  report_id: string;
+  filename: string;
+  markdown: string;
 };

@@ -36,8 +36,8 @@ def test_orchestrator_runs_complete_controlled_workflow() -> None:
     }
     assert result.report.report_id == "report_workflow_test"
     assert result.report.sources
-    assert any(section.title == "Market data summary" for section in result.report.sections)
-    assert any(section.title == "Risk analysis" for section in result.report.sections)
+    assert any(section.title == "Market Data Summary" for section in result.report.sections)
+    assert any(section.title == "Risk Analysis" for section in result.report.sections)
     assert "financial advice" in result.report.disclaimer
 
 
@@ -63,7 +63,7 @@ def test_api_analyze_persists_complete_workflow_report() -> None:
     report = report_response.json()
     assert report["risk_rating"] == payload["risk_rating"]
     assert report["sources"]
-    assert any(section["title"] == "Stress scenarios" for section in report["sections"])
+    assert any(section["title"] == "Stress Scenarios" for section in report["sections"])
     assert report["disclaimer"]
 
 
@@ -86,8 +86,8 @@ def test_workflow_returns_partial_report_when_rag_index_is_missing() -> None:
         assert not result.retrieved_context
         assert "Retrieved protocol documentation" in result.missing_data
         assert any(
-            section.title == "Retrieved context"
-            and "No local RAG chunks were retrieved" in section.content
+            section.title == "Sources"
+            and "No local RAG sources were retrieved" in section.content
             for section in result.report.sections
         )
         assert result.report.disclaimer

@@ -20,6 +20,7 @@ class ReportResponse(BaseModel):
     status: str = "completed"
     risk_rating: RiskRating
     executive_summary: str
+    strategy_description: str
     protocols: list[str]
     assumptions: list[str]
     missing_data: list[str]
@@ -31,3 +32,9 @@ class ReportResponse(BaseModel):
             "It is not financial, investment, legal, or tax advice."
         )
     )
+
+
+class MarkdownExportResponse(BaseModel):
+    report_id: str
+    filename: str
+    markdown: str

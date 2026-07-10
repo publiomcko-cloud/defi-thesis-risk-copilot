@@ -39,6 +39,7 @@ def run_analysis_workflow(
     risk_score = score_parsed_strategy(parsed_strategy, missing_data)
     report = write_research_report(
         report_id=report_id,
+        strategy_description=parsed_strategy.description,
         protocols=parsed_strategy.protocols,
         risk_score=risk_score,
         retrieved_context=retrieved_context,

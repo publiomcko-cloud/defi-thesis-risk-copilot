@@ -1,1 +1,1 @@
-"""Service layer for mocked MVP workflows."""
+"""Service layer for controlled MVP workflows."""

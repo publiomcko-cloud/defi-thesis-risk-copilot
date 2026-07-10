@@ -36,7 +36,7 @@ def test_analyze_returns_report_id_and_report_can_be_retrieved() -> None:
         assert "Retrieved protocol documentation" not in report["missing_data"]
         assert "financial advice" in report["disclaimer"]
         assert any(source["source_type"] == "knowledge_base" for source in report["sources"])
-        assert any(section["title"] == "Market data summary" for section in report["sections"])
+        assert any(section["title"] == "Market Data Summary" for section in report["sections"])
 
     with SessionLocal() as db:
         report_record = db.get(ReportModel, payload["report_id"])

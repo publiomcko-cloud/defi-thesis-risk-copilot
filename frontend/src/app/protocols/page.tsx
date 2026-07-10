@@ -40,8 +40,8 @@ export default async function ProtocolsPage() {
         <p className="eyebrow">MVP protocol scope</p>
         <h1>Supported Protocols</h1>
         <p>
-          Phase 3 exposes the protocol scope expected by the backend API while
-          later phases add real RAG ingestion and data adapters.
+          The backend uses this MVP protocol scope for curated RAG retrieval,
+          market data adapter selection, and deterministic risk scoring.
         </p>
       </section>
 

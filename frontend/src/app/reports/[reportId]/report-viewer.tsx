@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { DataSummaryTable } from "@/components/DataSummaryTable";
 import { DisclaimerBox } from "@/components/DisclaimerBox";
 import { MonitoringChecklist } from "@/components/MonitoringChecklist";
+import { MarkdownExportButton } from "@/components/MarkdownExportButton";
 import { ReportSection } from "@/components/ReportSection";
 import { RiskRatingCard } from "@/components/RiskRatingCard";
 import { SourcesPanel } from "@/components/SourcesPanel";
@@ -53,7 +54,7 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
       <main className="page narrow-page">
         <section className="panel">
           <h1>Loading report</h1>
-          <p>Fetching mocked report data from the backend API.</p>
+          <p>Fetching persisted report data from the backend API.</p>
         </section>
       </main>
     );
@@ -109,13 +110,7 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
         <SourcesPanel sources={report.sources} />
       </section>
 
-      <section className="panel">
-        <h2>Markdown Export</h2>
-        <p>
-          Markdown export is reserved for the report generation phase. This
-          placeholder confirms where the portfolio demo action will live.
-        </p>
-      </section>
+      <MarkdownExportButton reportId={report.report_id} />
 
       <DisclaimerBox text={report.disclaimer} />
     </main>

@@ -8,9 +8,9 @@ export default function AnalyzePage() {
         <p className="eyebrow">Strategy input</p>
         <h1>Analyze a DeFi Strategy</h1>
         <p>
-          Submit a synthetic or read-only strategy prompt. Phase 3 calls the
-          mocked backend API and prepares the flow for later RAG, market data,
-          risk scoring, and report generation.
+          Submit a synthetic or read-only strategy prompt. The backend runs the
+          controlled local workflow with curated RAG retrieval, market data
+          adapters, deterministic risk scoring, and structured report generation.
         </p>
       </section>
 
