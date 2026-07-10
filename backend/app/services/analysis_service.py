@@ -3,6 +3,8 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.models.analysis_request import AnalysisRequestModel
+from app.rag.citations import results_to_sources
+from app.rag.retriever import Retriever
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse, RiskRating
 from app.schemas.reports import ReportResponse, ReportSection, SourceReference
 from app.services.report_service import save_report
@@ -17,6 +19,11 @@ DEFAULT_DISCLAIMER = (
 def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
     protocols = _normalize_protocols(request)
     risk_rating = _mock_risk_rating(protocols, request)
+    retrieved_context = Retriever().retrieve(
+        request.strategy_description,
+        top_k=4,
+        protocols=[protocol for protocol in protocols if protocol != "unknown"],
+    )
     analysis_request_id = f"analysis_{uuid4().hex[:12]}"
     report_id = f"report_{uuid4().hex[:12]}"
     summary = _build_summary(protocols, risk_rating)
@@ -38,7 +45,7 @@ def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
         executive_summary=summary,
         protocols=protocols,
         assumptions=[
-            "Phase 2 uses mocked analysis without live RAG, market data, or LLM calls.",
+            "Phase 5 uses local curated RAG retrieval without web crawling or live LLM calls.",
             "Manual inputs are treated as user-provided and unverified.",
             "Missing data is explicitly listed instead of being inferred.",
         ],
@@ -57,6 +64,10 @@ def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
                     "analysis workflow covering retrieval, data lookup, risk scoring, "
                     "and report generation."
                 ),
+            ),
+            ReportSection(
+                title="Retrieved context",
+                content=_summarize_retrieved_context(retrieved_context),
             ),
             ReportSection(
                 title="Risk analysis",
@@ -85,7 +96,8 @@ def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
                 source_type="internal_doc",
                 url="docs/risk_framework.md",
             ),
-        ],
+        ]
+        + results_to_sources(retrieved_context),
         disclaimer=DEFAULT_DISCLAIMER,
     )
     save_report(
@@ -102,6 +114,23 @@ def analyze_strategy(request: AnalysisRequest, db: Session) -> AnalysisResponse:
         risk_rating=risk_rating,
         summary=summary,
     )
+
+
+def _summarize_retrieved_context(retrieved_context: list) -> str:
+    if not retrieved_context:
+        return (
+            "No local RAG chunks were retrieved. Run "
+            "`python scripts/ingest_demo_docs.py` to build the local knowledge index."
+        )
+
+    summaries = []
+    for result in retrieved_context[:3]:
+        metadata = result.metadata
+        summaries.append(
+            f"{metadata['protocol']} / {metadata['section_title']}: "
+            f"{result.text.replace(chr(10), ' ')[:220]}"
+        )
+    return " ".join(summaries)
 
 
 def _render_markdown_report(report: ReportResponse) -> str:

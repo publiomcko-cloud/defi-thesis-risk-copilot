@@ -4,9 +4,12 @@ from app.db.session import SessionLocal
 from app.main import app
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.report import ReportModel
+from app.rag.ingest import ingest_knowledge_base
 
 
 def test_analyze_returns_report_id_and_report_can_be_retrieved() -> None:
+    ingest_knowledge_base()
+
     with TestClient(app) as client:
         response = client.post(
             "/api/analyze",
@@ -31,6 +34,7 @@ def test_analyze_returns_report_id_and_report_can_be_retrieved() -> None:
         assert report["protocols"] == ["morpho", "pendle"]
         assert report["missing_data"]
         assert "financial advice" in report["disclaimer"]
+        assert any(source["source_type"] == "knowledge_base" for source in report["sources"])
 
     with SessionLocal() as db:
         report_record = db.get(ReportModel, payload["report_id"])

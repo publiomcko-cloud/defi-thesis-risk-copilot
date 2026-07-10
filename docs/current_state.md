@@ -59,6 +59,10 @@ Initial implementation includes:
 - SQLAlchemy database foundation.
 - Alembic migration setup with initial tables.
 - Database-backed analysis request and report persistence.
+- Curated local knowledge base for Pendle, Morpho, Aave, Chainlink, and internal risk notes.
+- Lightweight local RAG ingestion, chunking, embedding, vector storage, retrieval, and citation formatting.
+- Retrieval evaluation script for the MVP RAG questions.
+- Analysis workflow can include retrieved local knowledge-base sources when the RAG index exists.
 - Environment-based backend settings.
 - Backend pytest setup.
 - Backend smoke check script.
@@ -75,8 +79,7 @@ Initial implementation includes:
 
 ## MVP Features To Implement
 
-- RAG ingestion for selected protocol documentation.
-- Protocol source retrieval.
+- Higher-quality RAG embeddings or reranking.
 - Rule-based risk scoring.
 - Basic market data adapters.
 - Report generation.

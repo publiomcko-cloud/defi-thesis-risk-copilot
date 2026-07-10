@@ -40,3 +40,4 @@ pnpm-debug.log*
 *.db
 *.sqlite
 *.sqlite3
+backend/.rag_index.json
