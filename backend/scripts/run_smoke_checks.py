@@ -43,11 +43,20 @@ def main() -> int:
         if report.get("report_id") != report_id:
             print(f"Smoke check failed: report retrieval mismatch: {report}", file=sys.stderr)
             return 1
+
+        export = _post_json(f"{base_url}/api/reports/{report_id}/export", {})
+        markdown = export.get("markdown", "")
+        if export.get("report_id") != report_id or "# Strategy Risk Report" not in markdown:
+            print(f"Smoke check failed: markdown export mismatch: {export}", file=sys.stderr)
+            return 1
     except URLError as exc:
         print(f"Smoke check failed: API request failed: {exc}", file=sys.stderr)
         return 1
 
-    print("Smoke checks passed: /health, /api/protocols, /api/analyze, and report retrieval")
+    print(
+        "Smoke checks passed: /health, /api/protocols, /api/analyze, "
+        "report retrieval, and markdown export"
+    )
     return 0
 
 

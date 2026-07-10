@@ -95,6 +95,7 @@ Every generated report should include:
 Suggested smoke command:
 
 ```bash
+cd backend
 python scripts/run_smoke_checks.py
 ```
 
@@ -105,3 +106,22 @@ Smoke checks should verify:
 - `/api/analyze`
 - report creation
 - report retrieval
+- Markdown export
+
+## 8. CI Equivalent
+
+Run the same checks locally before opening a PR:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q
+
+cd ../frontend
+npm run lint
+npm run build
+
+cd ..
+docker compose config
+docker compose -f docker-compose.production.yml config
+```

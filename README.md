@@ -125,13 +125,34 @@ Local development can run with Docker Compose using PostgreSQL, vector storage, 
 
 ## Local Quick Start
 
-Start the local services:
+Start the local Docker services:
 
 ```bash
 docker compose up -d --build
 ```
 
-Set up backend:
+Verify the app:
+
+```bash
+curl http://127.0.0.1:8000/health
+```
+
+Open:
+
+```text
+Frontend: http://127.0.0.1:3000
+Backend health: http://127.0.0.1:8000/health
+API docs: http://127.0.0.1:8000/docs
+```
+
+Stop the local stack:
+
+```bash
+docker compose down
+```
+
+Manual backend setup, using the default local SQLite database:
+
 
 ```bash
 cd backend
@@ -142,20 +163,12 @@ alembic upgrade head
 uvicorn app.main:app --reload
 ```
 
-Set up frontend:
+Manual frontend setup:
 
 ```bash
 cd frontend
 npm install
 npm run dev
-```
-
-Open:
-
-```text
-Frontend: http://127.0.0.1:3000
-Backend health: http://127.0.0.1:8000/health
-API docs: http://127.0.0.1:8000/docs
 ```
 
 ## Validation
@@ -187,6 +200,7 @@ python scripts/evaluate_retrieval.py
 Production-like Docker configuration check:
 
 ```bash
+docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 

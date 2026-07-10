@@ -48,13 +48,23 @@ Development:
 
 ```bash
 docker compose up -d --build
+curl http://127.0.0.1:8000/health
 ```
 
 Production-like check:
 
 ```bash
+docker compose config
 docker compose -f docker-compose.production.yml config
 ```
+
+Local Docker services:
+
+- `backend`: FastAPI app, Alembic migration on startup, mounted backend source, mounted read-only `knowledge_base/`.
+- `frontend`: Next.js development server with persistent `node_modules` and `.next` volumes.
+- `postgres`: local PostgreSQL database on host port `5435`.
+
+The local Compose file overrides `DATABASE_URL` so the backend talks to the Compose PostgreSQL service. Manual backend execution uses the application default SQLite database unless a local `.env` overrides it.
 
 ## 5. Deployment Safety
 

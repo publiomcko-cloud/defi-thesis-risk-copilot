@@ -1,0 +1,11 @@
+.git
+.github
+backend/.venv
+backend/.pytest_cache
+backend/__pycache__
+backend/app/**/__pycache__
+backend/defi_copilot.db
+backend/.rag_index.json
+frontend/.next
+frontend/node_modules
+**/.DS_Store

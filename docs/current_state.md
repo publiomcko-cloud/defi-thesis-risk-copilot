@@ -34,7 +34,7 @@ Planned later stack additions:
 
 ## Implemented Features
 
-Current status: Phase 9 complete; ready for Phase 10 portfolio polish and deployment preparation.
+Current status: Phase 10 complete; ready for Phase 11 demo data and example reports.
 
 Initial documentation includes:
 
@@ -95,7 +95,10 @@ Initial implementation includes:
 - About page with current phase and safety boundary.
 - Reusable frontend components for strategy input, risk rating, report sections, sources, monitoring checklist, data summary, and disclaimers.
 - Docker Compose services for backend, frontend, and PostgreSQL.
-- Production-like Compose placeholder.
+- Backend and frontend Dockerfiles.
+- Docker Compose build wiring for local backend, frontend, and PostgreSQL services.
+- Production-like Compose configuration check.
+- CI workflow for backend tests, frontend lint/build, and Compose validation.
 
 ## MVP Features To Implement
 
