@@ -8,6 +8,8 @@ The MVP risk framework is rule-based, explainable, and conservative.
 
 It is not a guarantee of safety and must not be treated as investment advice.
 
+After the Phase 10 MVP checkpoint, the framework expands to support strategy simulation, watchlist alert rules, options/volatility analysis, and future ML-assisted risk classification.
+
 ## 2. Risk Categories
 
 ### 2.1 Protocol Risk
@@ -50,6 +52,14 @@ Risk from user mistakes, wrong chain, wrong asset, approvals, bridge issues, gas
 
 Risk that yield depends heavily on temporary rewards or emissions.
 
+### 2.11 Model and Data Risk
+
+Risk that analysis quality is reduced by stale sources, incomplete data, incorrect assumptions, weak retrieval, or overreliance on model-generated text.
+
+### 2.12 Volatility and Options Risk
+
+Risk from option premium decay, implied volatility changes, strike selection, expiration timing, bid/ask spread, and non-linear payoff exposure.
+
 ## 3. MVP Risk Ratings
 
 The MVP uses four risk levels:
@@ -87,7 +97,7 @@ Suggested mapping:
 7+ points: Very Risky
 ```
 
-## 5. Required Output
+## 5. Required Report Output
 
 Every risk report should include:
 
@@ -98,8 +108,100 @@ Every risk report should include:
 - confidence level
 - monitoring checklist
 - scenario warnings
+- sources
+- disclaimer
 
-## 6. Future Improvements
+## 6. Strategy Simulation Framework
+
+Post-MVP simulation should add deterministic scenario outputs.
+
+Initial simulations:
+
+- net spread estimate
+- borrow APY shock
+- liquidity or slippage shock
+- collateral drawdown
+- LTV and liquidation buffer approximation
+- early exit before maturity
+- incentive removal
+- combined adverse scenario
+
+Simulation outputs must include:
+
+- input assumptions
+- formulas or calculation method
+- missing fields
+- scenario result
+- risk interpretation
+- non-advisory disclaimer
+
+Simulation outputs must not include:
+
+- buy/sell instructions
+- position sizing instructions
+- guaranteed outcomes
+
+## 7. Watchlist and Alert Risk Rules
+
+Watchlist alerts should be rule-based.
+
+Initial rule types:
+
+```text
+borrow_apy_above_threshold
+net_spread_below_threshold
+liquidity_below_threshold
+maturity_date_approaching
+risk_score_changed
+missing_data_resolved
+new_discovered_item_needs_review
+source_update_detected
+```
+
+Alert events should explain why they triggered and should not recommend a trade.
+
+## 8. Options and Volatility Risk Rules
+
+Options analysis should remain educational and scenario-based.
+
+Initial option metrics:
+
+- option type
+- strike
+- expiration
+- premium
+- breakeven
+- maximum loss
+- payoff at selected prices
+- implied volatility
+- bid/ask spread
+- time to expiration
+
+Options reports should explain:
+
+- directional exposure
+- volatility exposure
+- time decay risk
+- liquidity/spread risk
+- maximum loss based on premium paid
+- missing assumptions
+
+Options reports must not say whether to buy or sell an option.
+
+## 9. LLM and ML Risk Guardrails
+
+Optional LLM synthesis may improve language quality, but it must not:
+
+- replace deterministic risk scoring
+- hide missing data
+- remove sources
+- remove disclaimers
+- invent market values
+- produce financial advice
+
+Future ML classifiers may assist the risk engine, but deterministic scoring remains the authoritative MVP framework until a validated model is explicitly promoted.
+
+## 10. Future Improvements
 
 Future phases may add:
 
@@ -109,4 +211,7 @@ Future phases may add:
 - borrow rate scenario simulation
 - liquidation buffer calculation
 - portfolio-level risk aggregation
+- options payoff modeling
+- volatility scenario analysis
+- alert rule calibration
 - trained risk classifier using PyTorch and Hugging Face
