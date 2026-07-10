@@ -14,6 +14,8 @@ The architecture is designed around five core principles:
 
 The MVP focuses on Pendle, Morpho, and Aave strategy analysis.
 
+The Phase 10 baseline now supports a working controlled analysis workflow. The next product work should extend this baseline with optional LLM synthesis, source monitoring, automated evaluation, strategy simulation, watchlists, options analysis, advanced RAG, and ML/HPC support before final portfolio deployment and polish.
+
 ## 2. Architecture Goals
 
 The architecture must support:
@@ -27,7 +29,14 @@ The architecture must support:
 - structured report generation
 - source citations
 - Dockerized local execution
-- future watchlists, alerts, simulators, options analysis, and fine-tuning
+- optional LLM-backed report synthesis
+- source monitoring and discovery
+- automated evaluation with human review
+- watchlists and alerts
+- strategy simulation
+- options and volatility analysis
+- advanced RAG evaluation and reranking
+- future fine-tuning and HPC batch processing
 
 ## 3. High-Level System Flow
 
@@ -59,7 +68,7 @@ Agent Orchestrator              PostgreSQL
 Vector Database / pgvector
     |
     v
-LLM Provider
+Optional LLM Provider
 ```
 
 ## 4. Main Applications
@@ -105,10 +114,13 @@ Responsibilities:
 - inspect market data adapter responses
 - debug risk score inputs
 - test prompt templates
+- inspect discovered source items
+- inspect evaluation results
+- review queued items before RAG ingestion
 
 ## 5. Main Backend Domains
 
-Planned backend structure:
+Backend structure:
 
 ```text
 backend/app/
@@ -122,7 +134,7 @@ backend/app/
 ├── agents/
 │   ├── orchestrator.py
 │   ├── protocol_research_agent.py
-│   ├── strategy_analysis_agent.py
+│   ├── strategy_parser.py
 │   ├── market_data_agent.py
 │   ├── risk_scoring_agent.py
 │   └── report_writer_agent.py
@@ -131,6 +143,7 @@ backend/app/
 │   ├── chunking.py
 │   ├── embeddings.py
 │   ├── retriever.py
+│   ├── vector_store.py
 │   └── citations.py
 ├── data_sources/
 │   ├── base.py
@@ -143,7 +156,8 @@ backend/app/
 ├── risk/
 │   ├── framework.py
 │   ├── scoring.py
-│   └── scenarios.py
+│   ├── scenarios.py
+│   └── checklist.py
 ├── reports/
 │   ├── templates.py
 │   ├── renderer.py
@@ -154,13 +168,47 @@ backend/app/
 │   └── errors.py
 ├── db/
 │   ├── session.py
-│   └── models.py
+│   └── base.py
 └── tests/
+```
+
+Post-MVP backend domains will add:
+
+```text
+backend/app/
+├── llm/
+│   ├── base.py
+│   ├── providers.py
+│   ├── prompts.py
+│   └── synthesis.py
+├── monitoring/
+│   ├── sources.py
+│   ├── collectors.py
+│   ├── normalizer.py
+│   └── discovery_service.py
+├── evaluation/
+│   ├── evaluator.py
+│   └── review_queue.py
+├── simulation/
+│   ├── spread.py
+│   ├── ltv.py
+│   ├── scenarios.py
+│   └── simulator.py
+├── watchlist/
+│   ├── rules.py
+│   └── service.py
+├── options/
+│   ├── payoff.py
+│   ├── volatility.py
+│   └── analysis.py
+└── ml/
+    ├── dataset_export.py
+    └── risk_classifier.py
 ```
 
 ## 6. Frontend Structure
 
-Planned frontend route structure:
+Frontend route structure:
 
 ```text
 frontend/src/
@@ -176,12 +224,23 @@ frontend/src/
 │   ├── ReportSection.tsx
 │   ├── SourcesPanel.tsx
 │   ├── DataSummaryTable.tsx
+│   ├── MarkdownExportButton.tsx
 │   └── MonitoringChecklist.tsx
 ├── lib/
 │   ├── api.ts
 │   ├── types.ts
 │   └── formatting.ts
 └── styles/
+```
+
+Post-MVP frontend routes may add:
+
+```text
+frontend/src/app/
+├── review/page.tsx
+├── simulate/page.tsx
+├── watchlist/page.tsx
+└── options/page.tsx
 ```
 
 ## 7. RAG Architecture
@@ -213,14 +272,19 @@ Vector Database
 Retriever
     |
     v
-LLM Context Builder
+Context Builder
+    |
+    v
+Optional LLM Synthesis
 ```
 
 The MVP should prioritize quality over quantity. A small curated knowledge base is better than a large noisy one.
 
+Post-MVP RAG should add semantic embeddings, hybrid retrieval, source freshness, citation validation, and a retrieval evaluation dataset.
+
 ## 8. Agent Architecture
 
-The MVP can start with one orchestrated workflow instead of fully autonomous agents.
+The MVP uses one controlled workflow instead of fully autonomous agents.
 
 ```text
 Analysis Request
@@ -242,9 +306,12 @@ Run Risk Score
     |
     v
 Generate Report
+    |
+    v
+Optional LLM Synthesis
 ```
 
-Future versions may split this workflow into specialized agents.
+Post-MVP versions may split this workflow into specialized agents, but orchestration should remain bounded, observable, and reviewable.
 
 ## 9. Data Architecture
 
@@ -257,17 +324,59 @@ The data layer should support:
 - report persistence
 - source metadata
 - vector search metadata
+- discovered source items
+- evaluation results
+- review status
+- watchlist items
+- alert events
+- simulation inputs and outputs
 
-The MVP should avoid depending on paid APIs.
+The MVP should avoid depending on paid APIs. Premium providers may be added later as optional adapters.
 
 ## 10. Safety Architecture
 
 Safety requirements:
 
-- no wallet connection in MVP
+- no wallet connection
 - no trade execution
 - no private key handling
 - no direct buy/sell recommendations
 - clear disclaimer in every report
 - explicit uncertainty when data is missing
 - source references for protocol-specific claims
+- human review before automatically trusting discovered sources
+- deterministic fallback when LLM output fails or is disabled
+- no model output may override deterministic risk scoring silently
+
+## 11. Active Product Expansion Architecture
+
+After Phase 10, the active product architecture expands in this order:
+
+```text
+Optional LLM Synthesis
+    -> Source Monitoring
+    -> Automated Evaluation
+    -> Human Review Queue
+    -> Strategy Simulator
+    -> Watchlist and Alerts
+    -> Options and Volatility Analysis
+    -> Advanced RAG
+    -> Fine-tuning Groundwork
+    -> HPC Readiness
+```
+
+The original MVP Phase 11, Phase 12, and Phase 13 remain final portfolio actions after these product-expansion phases.
+
+## 12. Final Portfolio Architecture
+
+The final portfolio deployment should happen only after the active product-expansion phases are stable.
+
+Final sequence:
+
+```text
+Demo data and example reports
+    -> public frontend/backend deployment
+    -> portfolio polish
+    -> screenshots and demo video
+    -> README and case study finalization
+```
