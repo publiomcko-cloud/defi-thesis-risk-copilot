@@ -3,6 +3,7 @@ from app.rag.retriever import RetrievalResult
 from app.risk.checklist import generate_monitoring_checklist
 from app.risk.framework import RiskScore
 from app.risk.scenarios import generate_stress_scenarios
+from app.llm.synthesis import synthesize_report
 from app.reports.renderer import make_section, validate_report_structure
 from app.schemas.market_data import MarketDataResponse
 from app.schemas.reports import ReportResponse, SourceReference
@@ -97,7 +98,13 @@ def write_research_report(
         disclaimer=DEFAULT_DISCLAIMER,
     )
     validate_report_structure(report)
-    return report
+    synthesis_result = synthesize_report(
+        base_report=report,
+        retrieved_context=retrieved_context,
+        market_data=market_data,
+        risk_score=risk_score,
+    )
+    return synthesis_result.report
 
 
 def _summarize_retrieved_context(retrieved_context: list[RetrievalResult]) -> str:

@@ -162,6 +162,11 @@ backend/app/
 │   ├── templates.py
 │   ├── renderer.py
 │   └── markdown_export.py
+├── llm/
+│   ├── base.py
+│   ├── providers.py
+│   ├── prompts.py
+│   └── synthesis.py
 ├── core/
 │   ├── config.py
 │   ├── logging.py
@@ -172,15 +177,10 @@ backend/app/
 └── tests/
 ```
 
-Post-MVP backend domains will add:
+Further post-MVP backend domains will add:
 
 ```text
 backend/app/
-├── llm/
-│   ├── base.py
-│   ├── providers.py
-│   ├── prompts.py
-│   └── synthesis.py
 ├── monitoring/
 │   ├── sources.py
 │   ├── collectors.py

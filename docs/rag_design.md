@@ -118,6 +118,8 @@ The LLM must not:
 
 If LLM synthesis fails or is disabled, deterministic report generation remains the fallback.
 
+Current implementation supports optional backend LLM synthesis after local RAG retrieval. The prompt includes retrieved chunks, market data, deterministic risk components, missing data, and safety rules. The synthesis layer can enrich explanatory wording only; deterministic report fields remain authoritative.
+
 ## 7. RAG Evaluation
 
 MVP evaluation should test whether the retriever finds correct information for questions such as:

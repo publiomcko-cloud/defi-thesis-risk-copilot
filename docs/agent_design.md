@@ -116,6 +116,9 @@ Rules:
 - LLM failure must fall back to deterministic report generation.
 - The LLM must not calculate the risk score.
 - The LLM must not produce direct financial advice.
+- The deterministic report is always generated first.
+- The LLM may only rewrite approved explanatory sections.
+- The report writer restores immutable fields after synthesis, including risk rating, protocols, missing data, sources, market values, and disclaimer.
 
 ### 6.2 SourceMonitoringAgent
 

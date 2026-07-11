@@ -106,6 +106,7 @@ strategy input
   -> risk scoring
   -> stress scenario generation
   -> structured report
+  -> optional LLM synthesis
   -> markdown export
 ```
 
@@ -197,6 +198,12 @@ source .venv/bin/activate
 python -m pytest -q
 python scripts/run_smoke_checks.py
 ```
+
+Optional LLM synthesis is disabled by default. To test it locally, set
+`LLM_SYNTHESIS_ENABLED=true` and configure either Ollama or an OpenAI-compatible
+provider. LLM output may improve explanatory wording, but deterministic risk
+scoring, missing data, sources, market values, and disclaimers remain
+authoritative.
 
 Frontend:
 

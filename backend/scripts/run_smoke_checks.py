@@ -5,6 +5,8 @@ import sys
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
+REQUEST_TIMEOUT_SECONDS = 20
+
 
 def main() -> int:
     base_url = "http://127.0.0.1:8000"
@@ -61,7 +63,7 @@ def main() -> int:
 
 
 def _get_json(url: str) -> dict:
-    with urlopen(url, timeout=5) as response:
+    with urlopen(url, timeout=REQUEST_TIMEOUT_SECONDS) as response:
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -72,7 +74,7 @@ def _post_json(url: str, payload: dict) -> dict:
         headers={"Content-Type": "application/json"},
         method="POST",
     )
-    with urlopen(request, timeout=5) as response:
+    with urlopen(request, timeout=REQUEST_TIMEOUT_SECONDS) as response:
         return json.loads(response.read().decode("utf-8"))
 
 

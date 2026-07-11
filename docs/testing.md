@@ -132,6 +132,9 @@ If optional LLM synthesis is added, tests must confirm:
 - deterministic fallback works with `LLM_PROVIDER=disabled`
 - LLM timeout does not break report generation
 - LLM output preserves risk rating, missing data, sources, and disclaimer
+- LLM synthesis assumptions clearly state whether synthesis was used or skipped
+
+The current local Ollama validation record is documented in `docs/llm_synthesis_validation.md`.
 
 ## 8. Post-MVP Source Monitoring Tests
 

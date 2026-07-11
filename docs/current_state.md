@@ -25,7 +25,6 @@ Current local stack:
 
 Planned product-expansion additions:
 
-- Optional backend LLM synthesis for report writing
 - Source monitoring and discovery
 - Automated evaluation pipeline with human review queue
 - Strategy simulator
@@ -45,7 +44,7 @@ Planned final portfolio additions:
 
 ## Implemented Features
 
-Current status: Phase 10 complete. Active development now moves to the post-MVP product-expansion phases described in `docs/post_mvp_development_plan.md`.
+Current status: Post-MVP Phase 1 complete. Optional backend LLM synthesis is available behind configuration, with deterministic fallback preserved.
 
 The original MVP phases 11, 12, and 13 are intentionally deferred until after the product-expansion phases because they are demo data, deployment, and portfolio-polish work.
 
@@ -63,6 +62,7 @@ Initial documentation includes:
 - portfolio readiness checklist
 - demo script
 - post-MVP development plan
+- LLM synthesis validation record
 
 Initial implementation includes:
 
@@ -113,20 +113,21 @@ Initial implementation includes:
 - Docker Compose build wiring for local backend, frontend, and PostgreSQL services.
 - Production-like Compose configuration check.
 - CI workflow for backend tests, frontend lint/build, and Compose validation.
+- Optional backend LLM synthesis with Ollama and OpenAI-compatible provider abstractions.
+- Local Ollama validation record for `llama3.2:3b` on GTX 1050 Ti hardware.
 
 ## Active Product Development To Implement
 
 The next active product phases are:
 
-1. Optional backend LLM synthesis.
-2. Source monitoring and discovery.
-3. Automated evaluation pipeline and review queue.
-4. Strategy simulator.
-5. Watchlists and in-app alerts.
-6. Options and volatility analysis workflow.
-7. Advanced RAG and retrieval evaluation.
-8. Fine-tuning and ML risk classifier groundwork.
-9. HPC and SLURM readiness.
+1. Source monitoring and discovery.
+2. Automated evaluation pipeline and review queue.
+3. Strategy simulator.
+4. Watchlists and in-app alerts.
+5. Options and volatility analysis workflow.
+6. Advanced RAG and retrieval evaluation.
+7. Fine-tuning and ML risk classifier groundwork.
+8. HPC and SLURM readiness.
 
 After these product-expansion phases, return to:
 
@@ -167,6 +168,10 @@ docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
+LLM validation:
+
+See `docs/llm_synthesis_validation.md` for the local Ollama test record, observed issues, and results.
+
 ## Current Limitations
 
 - The application is still an MVP and uses deterministic local analysis logic.
@@ -174,7 +179,7 @@ docker compose -f docker-compose.production.yml config
 - RAG is local and curated only; it does not crawl protocol docs or refresh automatically.
 - Embeddings are lightweight local hash embeddings, not semantic model embeddings.
 - Risk scoring is deterministic and rule-based, but not a quantitative liquidation engine.
-- Reports are persisted and rendered through a deterministic template; report writing is not LLM generated yet.
+- Reports are persisted and rendered through a deterministic template; optional LLM synthesis can enrich explanatory wording when enabled, but cannot override deterministic risk scoring, missing data, sources, market values, protocols, or disclaimers.
 - `/api/documents/ingest` refreshes the local curated RAG index; it does not ingest arbitrary uploaded content yet.
 - Source monitoring, review queues, watchlists, alerts, strategy simulation, and options analysis are not implemented yet.
 - No deployed public demo exists yet.
