@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import {
@@ -25,6 +26,7 @@ export function ReviewQueueTable() {
   const [activeId, setActiveId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [reviewerNotes, setReviewerNotes] = useState<Record<string, string>>({});
 
   const evaluatedIds = useMemo(
     () => new Set(reviewItems.map((item) => item.discovered_item_id)),
@@ -86,7 +88,7 @@ export function ReviewQueueTable() {
     setMessage(null);
     setError(null);
     try {
-      await updateReviewItemStatus(reviewItemId, status);
+      await updateReviewItemStatus(reviewItemId, status, reviewerNotes[reviewItemId]);
       setMessage(
         status === "approved_for_rag"
           ? "Item prepared for RAG ingestion review. It was not ingested automatically."
@@ -180,13 +182,14 @@ export function ReviewQueueTable() {
                 <th>Item</th>
                 <th>Risk Summary</th>
                 <th>Status</th>
+                <th>Notes</th>
                 <th>RAG Prep</th>
               </tr>
             </thead>
             <tbody>
               {reviewItems.length === 0 ? (
                 <tr>
-                  <td colSpan={4}>No evaluated items are queued yet.</td>
+                  <td colSpan={5}>No evaluated items are queued yet.</td>
                 </tr>
               ) : (
                 reviewItems.map((item) => (
@@ -194,6 +197,9 @@ export function ReviewQueueTable() {
                     <td>
                       <strong>{item.discovered_item.title}</strong>
                       <span>{item.discovered_item.protocol ?? "unknown protocol"}</span>
+                      <Link className="text-link" href={`/reports/${item.evaluation_result.report_id}`}>
+                        Open full report
+                      </Link>
                     </td>
                     <td>
                       <p>{item.evaluation_result.risk_summary}</p>
@@ -220,6 +226,20 @@ export function ReviewQueueTable() {
                           </option>
                         ))}
                       </select>
+                    </td>
+                    <td>
+                      <textarea
+                        aria-label={`Reviewer notes for ${item.discovered_item.title}`}
+                        onChange={(event) =>
+                          setReviewerNotes((current) => ({
+                            ...current,
+                            [item.id]: event.target.value
+                          }))
+                        }
+                        placeholder="Optional review note"
+                        rows={3}
+                        value={reviewerNotes[item.id] ?? item.reviewer_notes ?? ""}
+                      />
                     </td>
                     <td>{item.prepared_for_rag ? "Prepared only" : "Not prepared"}</td>
                   </tr>

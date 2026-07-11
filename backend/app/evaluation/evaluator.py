@@ -6,9 +6,12 @@ from sqlalchemy.orm import Session
 from app.agents.orchestrator import run_analysis_workflow
 from app.evaluation.review_queue import upsert_review_item
 from app.evaluation.schemas import EvaluateDiscoveredItemResponse, EvaluationResult
+from app.models.analysis_request import AnalysisRequestModel
 from app.models.discovered_item import DiscoveredItemModel
 from app.models.evaluation_result import EvaluationResultModel
+from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest
+from app.services.report_service import save_report
 
 
 def evaluate_discovered_item(
@@ -20,9 +23,27 @@ def evaluate_discovered_item(
         raise HTTPException(status_code=404, detail="Discovered item not found")
 
     request = _analysis_request_from_discovered_item(item)
+    analysis_request_id = f"eval_analysis_{uuid4().hex[:12]}"
     report_id = f"eval_report_{uuid4().hex[:12]}"
     workflow_result = run_analysis_workflow(request, report_id, db)
     risk_summary = _build_risk_summary(item, workflow_result)
+
+    db.add(
+        AnalysisRequestModel(
+            id=analysis_request_id,
+            strategy_description=workflow_result.parsed_strategy.description,
+            protocols=workflow_result.parsed_strategy.protocols,
+            market_url=workflow_result.parsed_strategy.market_url,
+            manual_inputs_json=workflow_result.parsed_strategy.manual_inputs,
+            analysis_depth=workflow_result.parsed_strategy.analysis_depth,
+        )
+    )
+    save_report(
+        report=workflow_result.report,
+        analysis_request_id=analysis_request_id,
+        report_markdown=render_markdown_report(workflow_result.report),
+        db=db,
+    )
 
     record = EvaluationResultModel(
         id=f"eval_{uuid4().hex[:12]}",

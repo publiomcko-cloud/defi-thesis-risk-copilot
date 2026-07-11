@@ -67,6 +67,13 @@ textarea {
   font-weight: 700;
 }
 
+.text-link {
+  color: var(--accent-strong);
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 .page {
   margin: 0 auto;
   max-width: 1120px;

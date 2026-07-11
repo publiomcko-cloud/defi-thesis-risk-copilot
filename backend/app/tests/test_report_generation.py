@@ -33,6 +33,14 @@ def test_generated_report_contains_required_sections() -> None:
     assert report["sources"]
     assert report["missing_data"]
     assert report["disclaimer"]
+    assert not any("without live LLM calls" in item for item in report["assumptions"])
+    key_assumptions = next(
+        section["content"]
+        for section in report["sections"]
+        if section["title"] == "Key Assumptions"
+    )
+    assert "without live LLM calls" not in key_assumptions
+    assert "Optional LLM synthesis may enrich explanatory wording only when enabled" in key_assumptions
 
 
 def test_markdown_export_endpoint_returns_markdown() -> None:

@@ -5,6 +5,7 @@ from app.db.session import SessionLocal
 from app.main import app
 from app.models.discovered_item import DiscoveredItemModel
 from app.models.evaluation_result import EvaluationResultModel
+from app.models.report import ReportModel
 from app.models.review_item import ReviewItemModel
 from app.models.source_watch import SourceWatchModel
 
@@ -26,6 +27,18 @@ def test_discovered_item_can_be_evaluated_and_queued_for_review() -> None:
     assert payload["review_item"]["status"] == "needs_review"
     assert payload["review_item"]["prepared_for_rag"] is False
     assert payload["review_item"]["discovered_item"]["id"] == discovered_item_id
+
+    with SessionLocal() as db:
+        report = db.get(ReportModel, payload["evaluation_result"]["report_id"])
+        assert report is not None
+        assert report.report_json["report_id"] == payload["evaluation_result"]["report_id"]
+
+    with TestClient(app) as client:
+        report_response = client.get(
+            f"/api/reports/{payload['evaluation_result']['report_id']}"
+        )
+
+    assert report_response.status_code == 200
 
 
 def test_review_status_update_prepares_but_does_not_ingest_for_rag() -> None:

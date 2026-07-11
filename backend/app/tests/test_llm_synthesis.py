@@ -139,6 +139,8 @@ def test_llm_assumptions_report_used_or_skipped(monkeypatch) -> None:
 
     assert any("Optional LLM synthesis was used" in item for item in used.report.assumptions)
     assert any("Optional LLM synthesis was skipped" in item for item in skipped.report.assumptions)
+    assert not any("without live LLM calls" in item for item in used.report.assumptions)
+    assert not any("without live LLM calls" in item for item in skipped.report.assumptions)
 
 
 def _base_report() -> ReportResponse:
@@ -152,7 +154,9 @@ def _base_report() -> ReportResponse:
         executive_summary="Deterministic summary.",
         strategy_description="Analyze a Pendle PT strategy using Morpho borrow.",
         protocols=["pendle", "morpho"],
-        assumptions=["Base deterministic assumption."],
+        assumptions=[
+            "Controlled workflow uses local curated RAG retrieval. Optional LLM synthesis may enrich explanatory wording only when enabled."
+        ],
         missing_data=["Liquidation buffer calculation"],
         sections=[
             ReportSection(title="Strategy Description", content="Analyze a Pendle PT strategy using Morpho borrow."),

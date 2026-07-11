@@ -14,6 +14,11 @@ DEFAULT_DISCLAIMER = (
     "personalized financial advice."
 )
 
+RAG_AND_LLM_ASSUMPTION = (
+    "Controlled workflow uses local curated RAG retrieval. "
+    "Optional LLM synthesis may enrich explanatory wording only when enabled."
+)
+
 
 def write_research_report(
     report_id: str,
@@ -33,7 +38,7 @@ def write_research_report(
         strategy_description=strategy_description,
         protocols=protocols,
         assumptions=[
-            "Controlled workflow uses local curated RAG retrieval without web crawling or live LLM calls.",
+            RAG_AND_LLM_ASSUMPTION,
             "Manual inputs are treated as user-provided and unverified.",
             "Missing data is explicitly listed instead of being inferred.",
         ],
@@ -58,7 +63,7 @@ def write_research_report(
                 "Key Assumptions",
                 " ".join(
                     [
-                        "Controlled workflow uses local curated RAG retrieval without web crawling or live LLM calls.",
+                        RAG_AND_LLM_ASSUMPTION,
                         "Manual inputs are treated as user-provided and unverified.",
                         "Missing data is explicitly listed instead of being inferred.",
                     ]
