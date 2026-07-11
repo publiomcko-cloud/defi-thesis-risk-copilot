@@ -160,6 +160,8 @@ When the evaluation pipeline is implemented, tests should validate:
 - rejected items are not ingested
 - missing data remains visible
 
+Current backend tests cover discovered-item evaluation, structured risk summaries, review item creation, review status updates, and the `approved_for_rag` prepared-only boundary.
+
 ## 10. Strategy Simulator Tests
 
 When the simulator is implemented, tests should validate:

@@ -317,6 +317,12 @@ Manual Source Monitoring
     |
     v
 Discovered Items Requiring Review
+    |
+    v
+Automated Evaluation Summary
+    |
+    v
+Human Review Queue
 ```
 
 Post-MVP versions may split this workflow into specialized agents, but orchestration should remain bounded, observable, and reviewable.
@@ -361,10 +367,7 @@ Safety requirements:
 After Phase 10, the active product architecture expands in this order:
 
 ```text
-Optional LLM Synthesis
-    -> Automated Evaluation
-    -> Human Review Queue
-    -> Strategy Simulator
+Strategy Simulator
     -> Watchlist and Alerts
     -> Options and Volatility Analysis
     -> Advanced RAG

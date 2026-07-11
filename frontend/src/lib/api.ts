@@ -1,10 +1,16 @@
 import type {
   AnalysisRequest,
   AnalysisResponse,
+  DiscoveredItemsResponse,
+  EvaluateDiscoveredItemResponse,
   HealthResponse,
   MarkdownExportResponse,
+  MonitoringRunResponse,
   ProtocolListResponse,
-  ReportResponse
+  ReportResponse,
+  ReviewItemsResponse,
+  ReviewStatus,
+  ReviewStatusUpdateResponse
 } from "./types";
 
 export function getApiBaseUrl(): string {
@@ -74,6 +80,89 @@ export async function exportReportMarkdown(
 
   if (!response.ok) {
     throw new Error(`Markdown export failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function runSourceMonitoring(): Promise<MonitoringRunResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/monitoring/run`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({})
+  });
+
+  if (!response.ok) {
+    throw new Error(`Monitoring run failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchDiscoveredItems(): Promise<DiscoveredItemsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/monitoring/discovered-items`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Discovered item fetch failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function evaluateDiscoveredItem(
+  discoveredItemId: string
+): Promise<EvaluateDiscoveredItemResponse> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/evaluation/discovered-items/${discoveredItemId}/evaluate`,
+    {
+      method: "POST"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Evaluation failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchReviewItems(): Promise<ReviewItemsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/evaluation/review-items`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Review queue fetch failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function updateReviewItemStatus(
+  reviewItemId: string,
+  status: ReviewStatus,
+  reviewerNotes?: string
+): Promise<ReviewStatusUpdateResponse> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/evaluation/review-items/${reviewItemId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        status,
+        reviewer_notes: reviewerNotes || null
+      })
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Review update failed with status ${response.status}`);
   }
 
   return response.json();

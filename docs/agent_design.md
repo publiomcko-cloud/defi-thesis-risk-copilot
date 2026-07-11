@@ -160,6 +160,14 @@ Purpose:
 
 The EvaluationAgent must not approve its own findings. Human review remains required.
 
+Current implementation:
+
+- evaluates a discovered item through the controlled analysis workflow
+- stores an `evaluation_result`
+- creates or updates a `review_item`
+- records risk score, risk rating, confidence, missing data, sources, and a short risk summary
+- keeps the review item in `needs_review` unless a human changes it
+
 ### 6.4 ReviewQueueAgent
 
 Purpose:
@@ -167,6 +175,13 @@ Purpose:
 - track discovered items that need review
 - allow statuses such as `needs_review`, `approved_for_rag`, `rejected`, `needs_more_data`, and `archived`
 - prepare approved items for RAG ingestion
+
+Current implementation:
+
+- exposes review items through `GET /api/evaluation/review-items`
+- updates review status through `PATCH /api/evaluation/review-items/{review_item_id}`
+- marks `approved_for_rag` items as prepared only
+- does not ingest reviewed items into RAG
 
 ### 6.5 StrategySimulationAgent
 

@@ -14,7 +14,7 @@ The first version should use:
 
 The system should clearly mark missing, estimated, cached, or user-provided data.
 
-After the Phase 10 MVP checkpoint, data-source work becomes an active product-expansion area. The next data-source phases should support source monitoring, discovered-item normalization, automated evaluation, human review, and optional RAG ingestion.
+After the Phase 10 MVP checkpoint, data-source work becomes an active product-expansion area. The current post-MVP foundation supports source monitoring, discovered-item normalization, automated evaluation, and human review. Optional RAG ingestion remains a later reviewed step.
 
 ## 2. Current MVP Sources
 
@@ -278,6 +278,16 @@ The evaluation pipeline must not:
 - ingest into RAG without review
 - create trade instructions
 - hide missing data
+
+Active evaluation and review endpoints:
+
+```text
+POST  /api/evaluation/discovered-items/{discovered_item_id}/evaluate
+GET   /api/evaluation/review-items
+PATCH /api/evaluation/review-items/{review_item_id}
+```
+
+Approving a review item with `approved_for_rag` only marks it as prepared for later ingestion. It does not ingest content into RAG.
 
 ## 9. Paid API Policy
 

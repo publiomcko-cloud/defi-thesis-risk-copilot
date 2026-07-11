@@ -148,6 +148,22 @@ textarea {
   color: var(--text);
 }
 
+.secondary-action {
+  background: #ffffff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  cursor: pointer;
+  font-weight: 800;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.secondary-action:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
 .content-grid {
   display: grid;
   gap: 16px;
@@ -259,6 +275,68 @@ textarea {
 .error {
   color: #a62828;
   font-weight: 700;
+}
+
+.success {
+  color: var(--accent-strong);
+  font-weight: 700;
+}
+
+.section-toolbar {
+  align-items: flex-start;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+}
+
+.section-toolbar h2 {
+  margin: 0 0 8px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  border-collapse: collapse;
+  min-width: 760px;
+  width: 100%;
+}
+
+th,
+td {
+  border-bottom: 1px solid var(--line);
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  color: var(--muted);
+  font-size: 13px;
+  text-transform: uppercase;
+}
+
+td {
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+td strong,
+td span {
+  display: block;
+}
+
+td strong {
+  color: var(--text);
+}
+
+select {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  min-height: 38px;
+  padding: 0 10px;
 }
 
 .risk-panel h2 {
