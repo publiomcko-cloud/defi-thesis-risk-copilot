@@ -128,6 +128,8 @@ Purpose:
 - normalize discovered items
 - detect duplicates
 - record source metadata and uncertainty
+- record collector failures without crashing the app
+- keep every new item in `needs_review`
 
 Initial monitored sources:
 
@@ -138,6 +140,14 @@ Initial monitored sources:
 - governance forums
 - protocol documentation pages
 - audit and risk report links
+
+Current implementation:
+
+- exposes manual monitoring through `POST /api/monitoring/run`
+- lists candidates through `GET /api/monitoring/discovered-items`
+- stores `source_watches` and `discovered_items`
+- updates duplicate candidates using a stable discovery key
+- does not ingest discovered items into RAG
 
 ### 6.3 EvaluationAgent
 

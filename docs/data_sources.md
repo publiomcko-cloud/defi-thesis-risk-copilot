@@ -111,7 +111,7 @@ Examples:
 
 ## 3. Active Post-MVP Source Categories
 
-The next product phases should add source monitoring and discovered-item normalization.
+The current post-MVP implementation includes source monitoring and discovered-item normalization.
 
 ### 3.1 Market Discovery Sources
 
@@ -123,6 +123,8 @@ Initial monitored sources:
 - DefiLlama protocol and yield data
 - CoinGecko token metadata
 
+Current implementation starts with deterministic monitored candidates for Pendle, Morpho, Aave, and DefiLlama. Live source-specific expansion can replace or extend these collectors without changing the normalized discovered-item schema.
+
 ### 3.2 Governance and Documentation Sources
 
 Initial monitored sources:
@@ -133,6 +135,8 @@ Initial monitored sources:
 - audit reports
 - risk dashboards
 - changelogs
+
+Current implementation also includes deterministic monitored candidates for protocol documentation, governance forums, and risk/audit links. These are marked `needs_review` and are not trusted automatically.
 
 ### 3.3 Optional Premium Sources
 
@@ -230,6 +234,15 @@ Collect source
     -> if new, create discovered item
     -> mark as needs_review
 ```
+
+Active endpoints:
+
+```text
+POST /api/monitoring/run
+GET  /api/monitoring/discovered-items
+```
+
+The first implementation is manually triggered. It does not run scheduled jobs and does not ingest discovered items into RAG.
 
 ## 7. Data Quality Rules
 

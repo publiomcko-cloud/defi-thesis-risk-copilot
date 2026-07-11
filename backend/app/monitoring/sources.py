@@ -1,0 +1,50 @@
+from app.monitoring.schemas import SourceWatch
+
+
+DEFAULT_SOURCE_WATCHES = [
+    SourceWatch(
+        id="watch_pendle_markets",
+        source="pendle",
+        source_type="market",
+        protocol="pendle",
+        url="https://app.pendle.finance/trade/markets",
+    ),
+    SourceWatch(
+        id="watch_morpho_markets",
+        source="morpho",
+        source_type="market",
+        protocol="morpho",
+        url="https://app.morpho.org/markets",
+    ),
+    SourceWatch(
+        id="watch_aave_reserves",
+        source="aave",
+        source_type="reserve",
+        protocol="aave",
+        url="https://app.aave.com/reserve-overview",
+    ),
+    SourceWatch(
+        id="watch_defillama_yields",
+        source="defillama",
+        source_type="yield_data",
+        url="https://yields.llama.fi/pools",
+    ),
+    SourceWatch(
+        id="watch_protocol_docs",
+        source="protocol_docs",
+        source_type="documentation",
+        url="https://docs.pendle.finance/",
+    ),
+    SourceWatch(
+        id="watch_governance_forums",
+        source="governance_forums",
+        source_type="governance",
+        url="https://gov.morpho.org/",
+    ),
+    SourceWatch(
+        id="watch_risk_audits",
+        source="risk_audits",
+        source_type="risk_report",
+        url="https://docs.aave.com/developers/deployed-contracts/security-and-audits",
+    ),
+]

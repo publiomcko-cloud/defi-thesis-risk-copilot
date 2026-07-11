@@ -282,6 +282,8 @@ The MVP should prioritize quality over quantity. A small curated knowledge base 
 
 Post-MVP RAG should add semantic embeddings, hybrid retrieval, source freshness, citation validation, and a retrieval evaluation dataset.
 
+Source monitoring now discovers review candidates separately from RAG ingestion. Discovered items must pass later evaluation and human review before they can become ingestion candidates.
+
 ## 8. Agent Architecture
 
 The MVP uses one controlled workflow instead of fully autonomous agents.
@@ -309,6 +311,12 @@ Generate Report
     |
     v
 Optional LLM Synthesis
+    |
+    v
+Manual Source Monitoring
+    |
+    v
+Discovered Items Requiring Review
 ```
 
 Post-MVP versions may split this workflow into specialized agents, but orchestration should remain bounded, observable, and reviewable.
@@ -354,7 +362,6 @@ After Phase 10, the active product architecture expands in this order:
 
 ```text
 Optional LLM Synthesis
-    -> Source Monitoring
     -> Automated Evaluation
     -> Human Review Queue
     -> Strategy Simulator

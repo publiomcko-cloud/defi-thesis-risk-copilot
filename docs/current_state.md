@@ -25,7 +25,6 @@ Current local stack:
 
 Planned product-expansion additions:
 
-- Source monitoring and discovery
 - Automated evaluation pipeline with human review queue
 - Strategy simulator
 - Watchlists and in-app alerts
@@ -44,7 +43,7 @@ Planned final portfolio additions:
 
 ## Implemented Features
 
-Current status: Post-MVP Phase 1 complete. Optional backend LLM synthesis is available behind configuration, with deterministic fallback preserved.
+Current status: Post-MVP Phase 2 complete. Optional backend LLM synthesis and manual source monitoring are available, with deterministic fallback and human-review boundaries preserved.
 
 The original MVP phases 11, 12, and 13 are intentionally deferred until after the product-expansion phases because they are demo data, deployment, and portfolio-polish work.
 
@@ -115,19 +114,24 @@ Initial implementation includes:
 - CI workflow for backend tests, frontend lint/build, and Compose validation.
 - Optional backend LLM synthesis with Ollama and OpenAI-compatible provider abstractions.
 - Local Ollama validation record for `llama3.2:3b` on GTX 1050 Ti hardware.
+- Source watch and discovered item database models.
+- Manual source monitoring endpoints: `/api/monitoring/run` and `/api/monitoring/discovered-items`.
+- Normalized discovered items for Pendle, Morpho, Aave, DefiLlama, documentation, governance, and risk/audit candidates.
+- Duplicate discovery detection through stable discovery keys.
+- Monitoring failure recording on source watches.
+- Discovered items default to `needs_review` and are not automatically ingested into RAG.
 
 ## Active Product Development To Implement
 
 The next active product phases are:
 
-1. Source monitoring and discovery.
-2. Automated evaluation pipeline and review queue.
-3. Strategy simulator.
-4. Watchlists and in-app alerts.
-5. Options and volatility analysis workflow.
-6. Advanced RAG and retrieval evaluation.
-7. Fine-tuning and ML risk classifier groundwork.
-8. HPC and SLURM readiness.
+1. Automated evaluation pipeline and review queue.
+2. Strategy simulator.
+3. Watchlists and in-app alerts.
+4. Options and volatility analysis workflow.
+5. Advanced RAG and retrieval evaluation.
+6. Fine-tuning and ML risk classifier groundwork.
+7. HPC and SLURM readiness.
 
 After these product-expansion phases, return to:
 
@@ -177,6 +181,8 @@ See `docs/llm_synthesis_validation.md` for the local Ollama test record, observe
 - The application is still an MVP and uses deterministic local analysis logic.
 - Data adapters are basic MVP implementations; several protocol adapters still rely on manual fallback.
 - RAG is local and curated only; it does not crawl protocol docs or refresh automatically.
+- Source monitoring is manually triggered and creates review candidates only; it does not approve or ingest sources.
+- Initial monitoring collectors are deterministic discovery candidates, not full live crawlers for every source.
 - Embeddings are lightweight local hash embeddings, not semantic model embeddings.
 - Risk scoring is deterministic and rule-based, but not a quantitative liquidation engine.
 - Reports are persisted and rendered through a deterministic template; optional LLM synthesis can enrich explanatory wording when enabled, but cannot override deterministic risk scoring, missing data, sources, market values, protocols, or disclaimers.
