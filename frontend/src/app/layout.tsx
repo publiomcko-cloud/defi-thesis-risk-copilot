@@ -23,6 +23,7 @@ export default function RootLayout({
           <nav aria-label="Main navigation">
             <Link href="/analyze">Analyze</Link>
             <Link href="/simulate">Simulate</Link>
+            <Link href="/watchlist">Watchlist</Link>
             <Link href="/review">Review</Link>
             <Link href="/protocols">Protocols</Link>
             <Link href="/about">About</Link>

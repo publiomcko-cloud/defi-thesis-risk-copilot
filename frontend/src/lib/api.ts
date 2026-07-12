@@ -12,7 +12,14 @@ import type {
   ReviewStatus,
   ReviewStatusUpdateResponse,
   SimulationRequest,
-  SimulationResponse
+  SimulationResponse,
+  WatchlistCreateResponse,
+  WatchlistEvaluationResponse,
+  WatchlistItemCreate,
+  WatchlistItemsResponse,
+  AlertEventsResponse,
+  AlertStatus,
+  AlertStatusUpdateResponse
 } from "./types";
 
 export function getApiBaseUrl(): string {
@@ -183,6 +190,84 @@ export async function runStrategySimulation(
 
   if (!response.ok) {
     throw new Error(`Simulation failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function createWatchlistItem(
+  payload: WatchlistItemCreate
+): Promise<WatchlistCreateResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/watchlist/items`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Watchlist item creation failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchWatchlistItems(): Promise<WatchlistItemsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/watchlist/items`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Watchlist fetch failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function evaluateWatchlistItem(
+  itemId: string
+): Promise<WatchlistEvaluationResponse> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/watchlist/items/${itemId}/evaluate`,
+    {
+      method: "POST"
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error(`Watchlist evaluation failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchAlertEvents(): Promise<AlertEventsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/watchlist/alerts`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(`Alert fetch failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function updateAlertStatus(
+  alertId: string,
+  status: AlertStatus
+): Promise<AlertStatusUpdateResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/watchlist/alerts/${alertId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ status })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Alert update failed with status ${response.status}`);
   }
 
   return response.json();

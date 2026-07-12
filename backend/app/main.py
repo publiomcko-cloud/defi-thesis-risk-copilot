@@ -10,6 +10,7 @@ from app.api.routes_monitoring import router as monitoring_router
 from app.api.routes_protocols import router as protocols_router
 from app.api.routes_reports import router as reports_router
 from app.api.routes_simulation import router as simulation_router
+from app.api.routes_watchlist import router as watchlist_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     app.include_router(monitoring_router, prefix="/api")
     app.include_router(evaluation_router, prefix="/api")
     app.include_router(simulation_router, prefix="/api")
+    app.include_router(watchlist_router, prefix="/api")
 
     return app
 

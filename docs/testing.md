@@ -188,6 +188,8 @@ When watchlists are implemented, tests should validate:
 - no external notification required in the first version
 - no trading recommendation text
 
+Current watchlist tests cover item creation, manual rule evaluation, alert event creation, alert status updates, and non-advisory alert text.
+
 ## 12. Options Analysis Tests
 
 When options analysis is implemented, tests should validate:

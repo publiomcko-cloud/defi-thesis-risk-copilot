@@ -151,7 +151,7 @@ Simulation outputs must not include:
 
 ## 7. Watchlist and Alert Risk Rules
 
-Watchlist alerts should be rule-based.
+Post-MVP Phase 5 adds manually evaluated, rule-based in-app watchlist alerts.
 
 Initial rule types:
 
@@ -167,6 +167,14 @@ source_update_detected
 ```
 
 Alert events should explain why they triggered and should not recommend a trade.
+
+Current implementation:
+
+- creates watchlist items with explicit rule thresholds and snapshot values
+- evaluates rules manually through `/api/watchlist/items/{watchlist_item_id}/evaluate`
+- stores alert events for in-app display
+- supports `open`, `acknowledged`, and `archived` alert statuses
+- does not send external notifications or recommend trades
 
 ## 8. Options and Volatility Risk Rules
 

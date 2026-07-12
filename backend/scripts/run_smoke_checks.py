@@ -120,6 +120,48 @@ def main() -> int:
         if simulation.get("status") != "completed" or len(simulation.get("scenarios", [])) < 7:
             print(f"Smoke check failed: simulation mismatch: {simulation}", file=sys.stderr)
             return 1
+
+        watch = _post_json(
+            f"{base_url}/api/watchlist/items",
+            {
+                "item_type": "strategy",
+                "title": "Smoke spread watch",
+                "protocol": "pendle",
+                "rules": {
+                    "borrow_apy_above_threshold": 0.08,
+                    "net_spread_below_threshold": 0.02,
+                    "liquidity_below_threshold": 500000,
+                },
+                "snapshot": {
+                    "borrow_apy": 0.1,
+                    "net_spread_apy": 0.01,
+                    "liquidity_usd": 250000,
+                },
+            },
+        )
+        watch_id = watch.get("item", {}).get("id")
+        if not watch_id:
+            print(f"Smoke check failed: watchlist creation mismatch: {watch}", file=sys.stderr)
+            return 1
+
+        watch_eval = _post_json(f"{base_url}/api/watchlist/items/{watch_id}/evaluate", {})
+        if not watch_eval.get("created_alerts"):
+            print(f"Smoke check failed: watchlist evaluation mismatch: {watch_eval}", file=sys.stderr)
+            return 1
+
+        alerts = _get_json(f"{base_url}/api/watchlist/alerts")
+        if not alerts.get("items"):
+            print(f"Smoke check failed: alert list empty: {alerts}", file=sys.stderr)
+            return 1
+
+        alert_id = alerts["items"][0]["id"]
+        updated_alert = _patch_json(
+            f"{base_url}/api/watchlist/alerts/{alert_id}",
+            {"status": "acknowledged"},
+        )
+        if updated_alert.get("alert", {}).get("status") != "acknowledged":
+            print(f"Smoke check failed: alert update mismatch: {updated_alert}", file=sys.stderr)
+            return 1
     except URLError as exc:
         print(f"Smoke check failed: API request failed: {exc}", file=sys.stderr)
         return 1
@@ -127,7 +169,7 @@ def main() -> int:
     print(
         "Smoke checks passed: /health, /api/protocols, /api/analyze, "
         "report retrieval, markdown export, monitoring, evaluation, review queue, "
-        "evaluation report retrieval, and simulation"
+        "evaluation report retrieval, simulation, watchlist, and alert events"
     )
     return 0
 

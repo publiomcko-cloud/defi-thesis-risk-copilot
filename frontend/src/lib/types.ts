@@ -225,3 +225,68 @@ export type SimulationResponse = {
   missing_data: string[];
   disclaimer: string;
 };
+
+export type WatchlistItemType = "strategy" | "protocol" | "market" | "discovered_item";
+export type AlertStatus = "open" | "acknowledged" | "archived";
+
+export type WatchlistItemCreate = {
+  item_type: WatchlistItemType;
+  title: string;
+  protocol?: string;
+  market_identifier?: string;
+  source_url?: string;
+  rules: Record<string, number | boolean>;
+  snapshot: Record<string, number | boolean | string>;
+};
+
+export type WatchlistItem = {
+  id: string;
+  item_type: WatchlistItemType;
+  title: string;
+  protocol?: string | null;
+  market_identifier?: string | null;
+  source_url?: string | null;
+  rules: Record<string, unknown>;
+  snapshot: Record<string, unknown>;
+  enabled: boolean;
+  created_at: string;
+  last_evaluated_at?: string | null;
+};
+
+export type AlertEvent = {
+  id: string;
+  watchlist_item_id: string;
+  alert_type: string;
+  severity: "info" | "warning" | "critical";
+  title: string;
+  message: string;
+  trigger_value?: number | null;
+  threshold_value?: number | null;
+  status: AlertStatus;
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+};
+
+export type WatchlistItemsResponse = {
+  items: WatchlistItem[];
+};
+
+export type WatchlistCreateResponse = {
+  item: WatchlistItem;
+};
+
+export type WatchlistEvaluationResponse = {
+  status: "completed";
+  watchlist_item: WatchlistItem;
+  created_alerts: AlertEvent[];
+  evaluated_rules: string[];
+};
+
+export type AlertEventsResponse = {
+  items: AlertEvent[];
+};
+
+export type AlertStatusUpdateResponse = {
+  alert: AlertEvent;
+};
