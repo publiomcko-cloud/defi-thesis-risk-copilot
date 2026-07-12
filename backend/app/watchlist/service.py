@@ -14,6 +14,8 @@ from app.watchlist.schemas import (
     WatchlistEvaluationResponse,
     WatchlistItem,
     WatchlistItemCreate,
+    WatchlistItemUpdate,
+    WatchlistUpdateResponse,
 )
 
 ALERT_STATUSES = {"open", "acknowledged", "archived"}
@@ -47,6 +49,25 @@ def list_watchlist_items(db: Session) -> list[WatchlistItem]:
     return [_item_schema(record) for record in records]
 
 
+def update_watchlist_item(
+    watchlist_item_id: str,
+    request: WatchlistItemUpdate,
+    db: Session,
+) -> WatchlistUpdateResponse:
+    item = db.get(WatchlistItemModel, watchlist_item_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Watchlist item not found")
+    if request.rules is not None:
+        item.rules_json = request.rules
+    if request.snapshot is not None:
+        item.snapshot_json = request.snapshot
+    if request.enabled is not None:
+        item.enabled = request.enabled
+    db.commit()
+    db.refresh(item)
+    return WatchlistUpdateResponse(item=_item_schema(item))
+
+
 def evaluate_watchlist_item(
     watchlist_item_id: str,
     db: Session,
@@ -65,6 +86,9 @@ def evaluate_watchlist_item(
     created_alerts = []
     now = datetime.now(UTC)
     for candidate in candidates:
+        existing_open_alert = _find_open_alert(item.id, candidate.alert_type, db)
+        if existing_open_alert is not None:
+            continue
         alert = AlertEventModel(
             id=f"alert_{uuid4().hex[:12]}",
             watchlist_item_id=item.id,
@@ -94,6 +118,20 @@ def evaluate_watchlist_item(
         created_alerts=[_alert_schema(alert) for alert in created_alerts],
         evaluated_rules=evaluated_rules,
     )
+
+
+def _find_open_alert(
+    watchlist_item_id: str,
+    alert_type: str,
+    db: Session,
+) -> AlertEventModel | None:
+    return db.execute(
+        select(AlertEventModel)
+        .where(AlertEventModel.watchlist_item_id == watchlist_item_id)
+        .where(AlertEventModel.alert_type == alert_type)
+        .where(AlertEventModel.status == "open")
+        .order_by(AlertEventModel.created_at.desc())
+    ).scalars().first()
 
 
 def list_alert_events(db: Session, status: str | None = None) -> list[AlertEvent]:

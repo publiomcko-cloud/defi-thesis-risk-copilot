@@ -42,6 +42,26 @@ def test_strategy_simulator_marks_missing_data_without_inference() -> None:
     assert "cannot be estimated" in net_spread.interpretation
 
 
+def test_combined_adverse_marks_missing_ltv_and_lltv_data() -> None:
+    response = run_strategy_simulation(
+        SimulationRequest(
+            implied_apy=0.12,
+            borrow_apy=0.05,
+            liquidity_usd=1_000_000,
+        )
+    )
+
+    combined = next(
+        scenario
+        for scenario in response.scenarios
+        if scenario.scenario_type == "combined_adverse"
+    )
+
+    assert combined.result["shocked_liquidation_buffer"] is None
+    assert "ltv or collateral_value_usd/debt_value_usd" in combined.missing_data
+    assert "lltv" in combined.missing_data
+
+
 def test_simulation_endpoint_returns_non_advisory_results() -> None:
     with TestClient(app) as client:
         response = client.post(

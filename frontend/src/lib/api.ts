@@ -16,7 +16,9 @@ import type {
   WatchlistCreateResponse,
   WatchlistEvaluationResponse,
   WatchlistItemCreate,
+  WatchlistItemUpdate,
   WatchlistItemsResponse,
+  WatchlistUpdateResponse,
   AlertEventsResponse,
   AlertStatus,
   AlertStatusUpdateResponse
@@ -220,6 +222,25 @@ export async function fetchWatchlistItems(): Promise<WatchlistItemsResponse> {
 
   if (!response.ok) {
     throw new Error(`Watchlist fetch failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function updateWatchlistItem(
+  itemId: string,
+  payload: WatchlistItemUpdate
+): Promise<WatchlistUpdateResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/watchlist/items/${itemId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Watchlist update failed with status ${response.status}`);
   }
 
   return response.json();

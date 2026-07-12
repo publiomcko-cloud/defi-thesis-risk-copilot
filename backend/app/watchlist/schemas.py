@@ -20,6 +20,14 @@ class WatchlistItemCreate(BaseModel):
     model_config = ConfigDict(extra="allow")
 
 
+class WatchlistItemUpdate(BaseModel):
+    rules: dict[str, Any] | None = None
+    snapshot: dict[str, Any] | None = None
+    enabled: bool | None = None
+
+    model_config = ConfigDict(extra="allow")
+
+
 class WatchlistItem(BaseModel):
     id: str
     item_type: WatchlistItemType
@@ -54,6 +62,10 @@ class WatchlistItemsResponse(BaseModel):
 
 
 class WatchlistCreateResponse(BaseModel):
+    item: WatchlistItem
+
+
+class WatchlistUpdateResponse(BaseModel):
     item: WatchlistItem
 
 

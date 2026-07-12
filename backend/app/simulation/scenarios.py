@@ -176,9 +176,15 @@ def _incentive_removal(request: SimulationRequest) -> SimulationScenario:
 
 
 def _combined_adverse(request: SimulationRequest) -> SimulationScenario:
-    missing = sorted(
-        set(_missing_yield_and_borrow(request) + ["liquidity_usd"] if request.liquidity_usd is None else _missing_yield_and_borrow(request))
-    )
+    missing = _missing_yield_and_borrow(request)
+    if request.liquidity_usd is None:
+        missing.append("liquidity_usd")
+    if shocked_liquidation_buffer(request) is None:
+        if current_ltv(request) is None:
+            missing.append("ltv or collateral_value_usd/debt_value_usd")
+        if request.lltv is None:
+            missing.append("lltv")
+    missing = sorted(set(missing))
     base_yield = base_yield_apy(request)
     shocked_borrow = (
         request.borrow_apy * request.borrow_apy_shock_multiplier

@@ -9,7 +9,9 @@ from app.watchlist.schemas import (
     WatchlistCreateResponse,
     WatchlistEvaluationResponse,
     WatchlistItemCreate,
+    WatchlistItemUpdate,
     WatchlistItemsResponse,
+    WatchlistUpdateResponse,
 )
 from app.watchlist.service import (
     create_watchlist_item,
@@ -17,6 +19,7 @@ from app.watchlist.service import (
     list_alert_events,
     list_watchlist_items,
     update_alert_status,
+    update_watchlist_item,
 )
 
 router = APIRouter(tags=["watchlist"])
@@ -33,6 +36,15 @@ def create_item(
 @router.get("/watchlist/items", response_model=WatchlistItemsResponse)
 def get_items(db: Session = Depends(get_db)) -> WatchlistItemsResponse:
     return WatchlistItemsResponse(items=list_watchlist_items(db))
+
+
+@router.patch("/watchlist/items/{watchlist_item_id}", response_model=WatchlistUpdateResponse)
+def patch_item(
+    watchlist_item_id: str,
+    request: WatchlistItemUpdate,
+    db: Session = Depends(get_db),
+) -> WatchlistUpdateResponse:
+    return update_watchlist_item(watchlist_item_id, request, db)
 
 
 @router.post(

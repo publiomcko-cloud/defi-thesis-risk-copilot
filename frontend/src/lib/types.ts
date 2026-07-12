@@ -239,6 +239,12 @@ export type WatchlistItemCreate = {
   snapshot: Record<string, number | boolean | string>;
 };
 
+export type WatchlistItemUpdate = {
+  rules?: Record<string, number | boolean>;
+  snapshot?: Record<string, number | boolean | string>;
+  enabled?: boolean;
+};
+
 export type WatchlistItem = {
   id: string;
   item_type: WatchlistItemType;
@@ -273,6 +279,10 @@ export type WatchlistItemsResponse = {
 };
 
 export type WatchlistCreateResponse = {
+  item: WatchlistItem;
+};
+
+export type WatchlistUpdateResponse = {
   item: WatchlistItem;
 };
 

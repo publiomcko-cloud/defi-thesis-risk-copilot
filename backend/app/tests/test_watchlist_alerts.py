@@ -72,6 +72,56 @@ def test_alert_events_can_be_listed_and_acknowledged() -> None:
     assert response.json()["alert"]["status"] == "acknowledged"
 
 
+def test_repeated_watchlist_evaluation_does_not_duplicate_open_alerts() -> None:
+    _reset_watchlist_state()
+
+    with TestClient(app) as client:
+        item = client.post(
+            "/api/watchlist/items",
+            json={
+                "item_type": "market",
+                "title": "Duplicate prevention watch",
+                "rules": {"borrow_apy_above_threshold": 0.05},
+                "snapshot": {"borrow_apy": 0.07},
+            },
+        ).json()["item"]
+        first = client.post(f"/api/watchlist/items/{item['id']}/evaluate").json()
+        second = client.post(f"/api/watchlist/items/{item['id']}/evaluate").json()
+        alerts = client.get("/api/watchlist/alerts?status=open").json()["items"]
+
+    assert len(first["created_alerts"]) == 1
+    assert second["created_alerts"] == []
+    assert len(alerts) == 1
+    assert alerts[0]["alert_type"] == "borrow_apy_above_threshold"
+
+
+def test_watchlist_item_snapshot_and_rules_can_be_updated() -> None:
+    _reset_watchlist_state()
+
+    with TestClient(app) as client:
+        item = client.post(
+            "/api/watchlist/items",
+            json={
+                "item_type": "strategy",
+                "title": "Mutable watch",
+                "rules": {"borrow_apy_above_threshold": 0.08},
+                "snapshot": {"borrow_apy": 0.04},
+            },
+        ).json()["item"]
+        response = client.patch(
+            f"/api/watchlist/items/{item['id']}",
+            json={
+                "rules": {"borrow_apy_above_threshold": 0.05},
+                "snapshot": {"borrow_apy": 0.07},
+            },
+        )
+        evaluated = client.post(f"/api/watchlist/items/{item['id']}/evaluate").json()
+
+    assert response.status_code == 200
+    assert response.json()["item"]["rules"]["borrow_apy_above_threshold"] == 0.05
+    assert len(evaluated["created_alerts"]) == 1
+
+
 def test_watchlist_rules_do_not_create_alerts_when_not_triggered() -> None:
     _reset_watchlist_state()
 
