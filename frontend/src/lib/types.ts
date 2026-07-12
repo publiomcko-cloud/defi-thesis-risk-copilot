@@ -179,3 +179,49 @@ export type EvaluateDiscoveredItemResponse = {
 export type ReviewStatusUpdateResponse = {
   review_item: ReviewItem;
 };
+
+export type SimulationRequest = {
+  strategy_description?: string;
+  protocols: string[];
+  implied_apy?: number;
+  supply_apy?: number;
+  incentive_apy?: number;
+  borrow_apy?: number;
+  ltv?: number;
+  lltv?: number;
+  collateral_value_usd?: number;
+  debt_value_usd?: number;
+  liquidity_usd?: number;
+  pt_price?: number;
+  maturity_date?: string;
+  borrow_apy_shock_multiplier?: number;
+  liquidity_shock_pct?: number;
+  collateral_drawdown_pct?: number;
+  early_exit_discount_pct?: number;
+  slippage_bps?: number;
+};
+
+export type SimulationScenario = {
+  name: string;
+  scenario_type:
+    | "net_spread"
+    | "borrow_apy_shock"
+    | "liquidity_slippage_shock"
+    | "collateral_drawdown"
+    | "early_exit"
+    | "incentive_removal"
+    | "combined_adverse";
+  result: Record<string, number | string | null>;
+  formula: string;
+  assumptions: string[];
+  missing_data: string[];
+  interpretation: string;
+};
+
+export type SimulationResponse = {
+  status: "completed" | "partial";
+  scenarios: SimulationScenario[];
+  assumptions: string[];
+  missing_data: string[];
+  disclaimer: string;
+};

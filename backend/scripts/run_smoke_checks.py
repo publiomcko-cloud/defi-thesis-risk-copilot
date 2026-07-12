@@ -102,6 +102,24 @@ def main() -> int:
                 file=sys.stderr,
             )
             return 1
+
+        simulation = _post_json(
+            f"{base_url}/api/simulation/run",
+            {
+                "strategy_description": "Pendle PT strategy using Morpho borrow",
+                "protocols": ["pendle", "morpho"],
+                "implied_apy": 0.12,
+                "borrow_apy": 0.05,
+                "incentive_apy": 0.01,
+                "ltv": 0.5,
+                "lltv": 0.86,
+                "liquidity_usd": 1000000,
+                "pt_price": 0.95,
+            },
+        )
+        if simulation.get("status") != "completed" or len(simulation.get("scenarios", [])) < 7:
+            print(f"Smoke check failed: simulation mismatch: {simulation}", file=sys.stderr)
+            return 1
     except URLError as exc:
         print(f"Smoke check failed: API request failed: {exc}", file=sys.stderr)
         return 1
@@ -109,7 +127,7 @@ def main() -> int:
     print(
         "Smoke checks passed: /health, /api/protocols, /api/analyze, "
         "report retrieval, markdown export, monitoring, evaluation, review queue, "
-        "and evaluation report retrieval"
+        "evaluation report retrieval, and simulation"
     )
     return 0
 

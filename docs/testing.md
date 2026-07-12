@@ -175,6 +175,8 @@ When the simulator is implemented, tests should validate:
 - missing input handling
 - non-advisory output language
 
+Current simulator tests cover deterministic scenario generation, missing-data visibility, endpoint behavior, and non-advisory disclaimer language.
+
 ## 11. Watchlist and Alert Tests
 
 When watchlists are implemented, tests should validate:

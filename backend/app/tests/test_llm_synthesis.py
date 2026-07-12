@@ -167,6 +167,7 @@ def _base_report() -> ReportResponse:
             ReportSection(title="Key Assumptions", content="Deterministic assumptions."),
             ReportSection(title="Risk Analysis", content="Deterministic risk analysis."),
             ReportSection(title="Stress Scenarios", content="Deterministic stress scenarios."),
+            ReportSection(title="Simulation Summary", content="Deterministic simulation summary."),
             ReportSection(title="Exit Plan", content="Deterministic exit plan."),
             ReportSection(title="Monitoring Checklist", content="Deterministic checklist."),
             ReportSection(title="Risk Rating", content="Very Risky with score 8 and low confidence."),

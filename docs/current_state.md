@@ -25,7 +25,6 @@ Current local stack:
 
 Planned product-expansion additions:
 
-- Strategy simulator
 - Watchlists and in-app alerts
 - Options and volatility analysis workflow
 - Advanced RAG with semantic embeddings, hybrid retrieval, reranking, and evaluation
@@ -42,7 +41,7 @@ Planned final portfolio additions:
 
 ## Implemented Features
 
-Current status: Post-MVP Phase 3 complete. Optional backend LLM synthesis, manual source monitoring, automated evaluation, and human review queue foundations are available, with deterministic fallback and human-review boundaries preserved.
+Current status: Post-MVP Phase 4 complete. Optional backend LLM synthesis, manual source monitoring, automated evaluation, human review queue foundations, and deterministic strategy simulation are available, with deterministic fallback and human-review boundaries preserved.
 
 The original MVP phases 11, 12, and 13 are intentionally deferred until after the product-expansion phases because they are demo data, deployment, and portfolio-polish work.
 
@@ -126,17 +125,20 @@ Initial implementation includes:
 - Review status updates support `needs_review`, `approved_for_rag`, `rejected`, `needs_more_data`, and `archived`.
 - `approved_for_rag` prepares a review item only; it does not ingest the item into RAG.
 - Frontend review page at `/review` for monitoring, evaluation, and review status updates.
+- Deterministic simulation module for net spread, borrow APY shocks, liquidity/slippage shocks, collateral drawdown, early exit, incentive removal, and combined adverse scenarios.
+- Simulation endpoint: `/api/simulation/run`.
+- Frontend simulation page at `/simulate`.
+- Generated reports include a Simulation Summary section based on available market/manual inputs.
 
 ## Active Product Development To Implement
 
 The next active product phases are:
 
-1. Strategy simulator.
-2. Watchlists and in-app alerts.
-3. Options and volatility analysis workflow.
-4. Advanced RAG and retrieval evaluation.
-5. Fine-tuning and ML risk classifier groundwork.
-6. HPC and SLURM readiness.
+1. Watchlists and in-app alerts.
+2. Options and volatility analysis workflow.
+3. Advanced RAG and retrieval evaluation.
+4. Fine-tuning and ML risk classifier groundwork.
+5. HPC and SLURM readiness.
 
 After these product-expansion phases, return to:
 
@@ -190,11 +192,12 @@ See `docs/llm_synthesis_validation.md` for the local Ollama test record, observe
 - Initial monitoring collectors are deterministic discovery candidates, not full live crawlers for every source.
 - Evaluation is manually triggered and creates review queue records; it does not approve sources by itself.
 - Review approval marks items as prepared for later RAG ingestion, but no ingestion pipeline is connected yet.
+- Simulation is deterministic and educational; it does not forecast outcomes or recommend entering/exiting positions.
 - Embeddings are lightweight local hash embeddings, not semantic model embeddings.
 - Risk scoring is deterministic and rule-based, but not a quantitative liquidation engine.
 - Reports are persisted and rendered through a deterministic template; optional LLM synthesis can enrich explanatory wording when enabled, but cannot override deterministic risk scoring, missing data, sources, market values, protocols, or disclaimers.
 - `/api/documents/ingest` refreshes the local curated RAG index; it does not ingest arbitrary uploaded content yet.
-- Watchlists, alerts, strategy simulation, and options analysis are not implemented yet.
+- Watchlists, alerts, and options analysis are not implemented yet.
 - No deployed public demo exists yet.
 - No wallet connection or transaction execution will be implemented.
 - Market data may still require manual fallback inputs during early development.

@@ -33,6 +33,7 @@ def test_generated_report_contains_required_sections() -> None:
     assert report["sources"]
     assert report["missing_data"]
     assert report["disclaimer"]
+    assert "Simulation Summary" in section_titles
     assert not any("without live LLM calls" in item for item in report["assumptions"])
     key_assumptions = next(
         section["content"]
@@ -64,6 +65,7 @@ def test_markdown_export_endpoint_returns_markdown() -> None:
     assert payload["filename"] == f"{report_id}.md"
     assert "# Strategy Risk Report" in payload["markdown"]
     assert "## Risk Analysis" in payload["markdown"]
+    assert "## Simulation Summary" in payload["markdown"]
     assert "## Missing Data and Uncertainty" in payload["markdown"]
     assert "## Disclaimer" in payload["markdown"]
 

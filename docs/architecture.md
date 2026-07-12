@@ -323,6 +323,9 @@ Automated Evaluation Summary
     |
     v
 Human Review Queue
+    |
+    v
+Deterministic Strategy Simulator
 ```
 
 Post-MVP versions may split this workflow into specialized agents, but orchestration should remain bounded, observable, and reviewable.
@@ -364,11 +367,10 @@ Safety requirements:
 
 ## 11. Active Product Expansion Architecture
 
-After Phase 10, the active product architecture expands in this order:
+After Post-MVP Phase 4, the remaining active product architecture expands in this order:
 
 ```text
-Strategy Simulator
-    -> Watchlist and Alerts
+Watchlist and Alerts
     -> Options and Volatility Analysis
     -> Advanced RAG
     -> Fine-tuning Groundwork

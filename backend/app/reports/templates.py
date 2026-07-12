@@ -7,6 +7,7 @@ REQUIRED_REPORT_SECTIONS = [
     "Key Assumptions",
     "Risk Analysis",
     "Stress Scenarios",
+    "Simulation Summary",
     "Exit Plan",
     "Monitoring Checklist",
     "Risk Rating",

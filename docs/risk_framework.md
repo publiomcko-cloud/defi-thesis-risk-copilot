@@ -113,7 +113,7 @@ Every risk report should include:
 
 ## 6. Strategy Simulation Framework
 
-Post-MVP simulation should add deterministic scenario outputs.
+Post-MVP Phase 4 adds deterministic scenario outputs.
 
 Initial simulations:
 
@@ -134,6 +134,14 @@ Simulation outputs must include:
 - scenario result
 - risk interpretation
 - non-advisory disclaimer
+
+Current implementation:
+
+- accepts explicit user inputs through `/api/simulation/run`
+- returns deterministic scenario objects with formulas, assumptions, missing data, and interpretation
+- adds a Simulation Summary section to generated reports
+- exposes a frontend simulator at `/simulate`
+- does not forecast probabilities, recommend trades, or guarantee outcomes
 
 Simulation outputs must not include:
 

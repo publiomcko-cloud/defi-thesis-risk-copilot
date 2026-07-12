@@ -7,6 +7,11 @@ from app.llm.synthesis import synthesize_report
 from app.reports.renderer import make_section, validate_report_structure
 from app.schemas.market_data import MarketDataResponse
 from app.schemas.reports import ReportResponse, SourceReference
+from app.simulation.simulator import (
+    simulation_request_from_market_data,
+    summarize_simulation,
+    run_strategy_simulation,
+)
 
 DEFAULT_DISCLAIMER = (
     "This report is for research and educational purposes only. "
@@ -31,6 +36,13 @@ def write_research_report(
 ) -> ReportResponse:
     stress_scenarios = generate_stress_scenarios(risk_score)
     monitoring_checklist = generate_monitoring_checklist(risk_score)
+    simulation = run_strategy_simulation(
+        simulation_request_from_market_data(
+            market_data,
+            strategy_description,
+            protocols,
+        )
+    )
     report = ReportResponse(
         report_id=report_id,
         risk_rating=risk_score.rating,
@@ -71,6 +83,7 @@ def write_research_report(
             ),
             make_section("Risk Analysis", _summarize_risk_score(risk_score)),
             make_section("Stress Scenarios", " ".join(stress_scenarios)),
+            make_section("Simulation Summary", summarize_simulation(simulation)),
             make_section(
                 "Exit Plan",
                 "Review liquidity, maturity timing, slippage, borrow costs, and liquidation buffer before any hypothetical exit.",
