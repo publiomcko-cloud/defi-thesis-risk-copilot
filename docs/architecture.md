@@ -14,7 +14,7 @@ The architecture is designed around five core principles:
 
 The MVP focuses on Pendle, Morpho, and Aave strategy analysis.
 
-The Phase 10 baseline now supports a working controlled analysis workflow. The next product work should extend this baseline with optional LLM synthesis, source monitoring, automated evaluation, strategy simulation, watchlists, options analysis, advanced RAG, and ML/HPC support before final portfolio deployment and polish.
+The Phase 10 baseline now supports a working controlled analysis workflow. Post-MVP work has extended this baseline with optional LLM synthesis, source monitoring, automated evaluation, strategy simulation, watchlists, options analysis, advanced RAG, and ML risk-classifier groundwork before final portfolio deployment and polish.
 
 ## 2. Architecture Goals
 
@@ -367,11 +367,10 @@ Safety requirements:
 
 ## 11. Active Product Expansion Architecture
 
-After Post-MVP Phase 7, the remaining active product architecture expands in this order:
+After Post-MVP Phase 8, the remaining active product architecture expands in this order:
 
 ```text
-Fine-tuning Groundwork
-    -> HPC Readiness
+HPC Readiness
 ```
 
 The original MVP Phase 11, Phase 12, and Phase 13 remain final portfolio actions after these product-expansion phases.

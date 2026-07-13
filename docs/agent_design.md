@@ -256,6 +256,13 @@ Purpose:
 
 The model must not silently replace the deterministic risk framework.
 
+Current implementation:
+
+- exports labeled candidate training examples from persisted reports
+- defines labels for risk rating, risk drivers, protocol category, missing data severity, and strategy type
+- provides a baseline advisory classifier interface
+- preserves deterministic risk rating as the authoritative output
+
 ## 7. Active Agent Order
 
 Recommended order:

@@ -223,7 +223,24 @@ Optional LLM synthesis may improve language quality, but it must not:
 - invent market values
 - produce financial advice
 
-Future ML classifiers may assist the risk engine, but deterministic scoring remains the authoritative MVP framework until a validated model is explicitly promoted.
+Current ML groundwork includes a baseline advisory classifier for evaluation and comparison only.
+
+The classifier may output:
+
+- predicted risk rating
+- confidence
+- extracted feature signals
+- explanation that the output is advisory
+
+It must not:
+
+- replace the deterministic report risk rating
+- silently change score components
+- remove missing data
+- remove risk drivers
+- become authoritative without an explicit future validation phase
+
+Fine-tuned or learned classifiers may assist the risk engine in later work, but deterministic scoring remains the authoritative framework until a validated model is explicitly promoted.
 
 ## 10. Future Improvements
 

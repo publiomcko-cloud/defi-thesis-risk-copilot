@@ -180,7 +180,7 @@ Phase 1: optional LLM synthesis using current RAG context
 Phase 2: source monitoring creates discovered items
 Phase 3: reviewed items become RAG ingestion candidates
 Phase 7: semantic embeddings, hybrid retrieval, reranking, and eval dataset
-Phase 8: export retrieval/report examples for future fine-tuning
+Phase 8: export retrieval/report examples for future fine-tuning groundwork
 ```
 
 ## 10. Future RAG Guardrails

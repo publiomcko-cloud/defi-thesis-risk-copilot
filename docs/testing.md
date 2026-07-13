@@ -235,6 +235,8 @@ Before any model is used in the app, tests should validate:
 - deterministic risk scoring remains available
 - model output cannot silently override deterministic scoring
 
+Current ML groundwork tests cover dataset export shape, label schema, advisory baseline classifier output, and preservation of the deterministic risk rating.
+
 ## 15. Smoke Tests
 
 Suggested smoke command:

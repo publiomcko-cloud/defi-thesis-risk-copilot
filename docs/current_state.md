@@ -39,7 +39,7 @@ Planned final portfolio additions:
 
 ## Implemented Features
 
-Current status: Post-MVP Phase 7 complete. Optional backend LLM synthesis, manual source monitoring, automated evaluation, human review queue foundations, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, and advanced RAG evaluation foundations are available.
+Current status: Post-MVP Phase 8 complete. Optional backend LLM synthesis, manual source monitoring, automated evaluation, human review queue foundations, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, and ML risk classifier groundwork are available.
 
 The original MVP phases 11, 12, and 13 are intentionally deferred until after the product-expansion phases because they are demo data, deployment, and portfolio-polish work.
 
@@ -77,6 +77,9 @@ Initial implementation includes:
 - Retrieval evaluation script and stored evaluation dataset for core RAG questions.
 - Optional hybrid RAG retriever with keyword, vector, metadata, source quality, freshness, reranking, and citation validation signals.
 - Optional deterministic local semantic embedding provider for offline retrieval experiments.
+- Candidate ML training dataset export from persisted reports.
+- Baseline advisory risk classifier interface for future model comparison.
+- Model-training workspace with label schema and guardrails.
 - Analysis workflow can include retrieved local knowledge-base sources when the RAG index exists.
 - Market data adapter interface and service layer.
 - Manual, Pendle, Morpho, Aave, DefiLlama, and CoinGecko adapters with normalized outputs.
@@ -141,8 +144,7 @@ Initial implementation includes:
 
 The next active product phases are:
 
-1. Fine-tuning and ML risk classifier groundwork.
-2. HPC and SLURM readiness.
+1. HPC and SLURM readiness.
 
 After these product-expansion phases, return to:
 
@@ -176,6 +178,13 @@ cd backend
 python scripts/evaluate_retrieval.py
 ```
 
+ML groundwork validation:
+
+```bash
+cd backend
+python scripts/export_training_dataset.py
+```
+
 Docker validation:
 
 ```bash
@@ -204,7 +213,8 @@ See `docs/llm_synthesis_validation.md` for the local Ollama test record, observe
 - Risk scoring is deterministic and rule-based, but not a quantitative liquidation engine.
 - Reports are persisted and rendered through a deterministic template; optional LLM synthesis can enrich explanatory wording when enabled, but cannot override deterministic risk scoring, missing data, sources, market values, protocols, or disclaimers.
 - `/api/documents/ingest` refreshes the local curated RAG index; it does not ingest arbitrary uploaded content yet.
-- ML risk classifier groundwork and HPC readiness are not implemented yet.
+- Fine-tuning has not been performed; the baseline classifier is advisory only and cannot override deterministic risk scoring.
+- HPC readiness is not implemented yet.
 - No deployed public demo exists yet.
 - No wallet connection or transaction execution will be implemented.
 - Market data may still require manual fallback inputs during early development.
