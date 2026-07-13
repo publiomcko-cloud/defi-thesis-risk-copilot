@@ -1,392 +1,240 @@
 # Architecture — DeFi Thesis & Risk Copilot
 
-## 1. Architectural Overview
+## 1. Overview
 
 DeFi Thesis & Risk Copilot is a full-stack AI research application for DeFi strategy analysis.
 
-The architecture is designed around five core principles:
+The architecture is designed around:
 
-- clear separation between frontend, backend, data adapters, RAG, agents, and risk logic
+- clear separation between frontend, backend, data adapters, RAG, agents, risk logic, and model providers
 - source-grounded analysis using protocol documentation
 - deterministic calculations where possible
 - LLM generation only after retrieval, normalization, and risk scoring
+- human review before trusted knowledge-base ingestion
+- role-based access for sensitive actions
 - portfolio-grade maintainability and documentation
 
-The MVP focuses on Pendle, Morpho, and Aave strategy analysis.
-
-The Phase 10 baseline now supports a working controlled analysis workflow. Post-MVP work has extended this baseline with optional LLM synthesis, source monitoring, automated evaluation, strategy simulation, watchlists, options analysis, advanced RAG, ML risk-classifier groundwork, and optional HPC/SLURM templates before final portfolio deployment and polish.
-
-## 2. Architecture Goals
-
-The architecture must support:
-
-- strategy input from a user-facing dashboard
-- protocol detection from natural language
-- retrieval of relevant protocol documentation
-- basic market data lookup
-- manual fallback for missing market data
-- risk scoring based on visible assumptions
-- structured report generation
-- source citations
-- Dockerized local execution
-- optional LLM-backed report synthesis
-- source monitoring and discovery
-- automated evaluation with human review
-- watchlists and alerts
-- strategy simulation
-- options and volatility analysis
-- advanced RAG evaluation and reranking
-- future fine-tuning and optional HPC batch processing
-
-## 3. High-Level System Flow
+## 2. Current Product Domains
 
 ```text
-User Browser
-    |
-    v
-Next.js Strategy Analysis UI
-    |
-    v
+Next.js Frontend
+  -> strategy analysis UI
+  -> report pages
+  -> review queue
+  -> simulator
+  -> watchlist
+  -> options analysis
+  -> future admin console
+
 FastAPI Backend
-    |
-    +------------------------------+
-    |                              |
-    v                              v
-Agent Orchestrator              PostgreSQL
-    |
-    +--> RAG Retriever
-    |
-    +--> Market Data Adapters
-    |
-    +--> Calculation Tools
-    |
-    +--> Risk Scoring Service
-    |
-    +--> Report Writer
-    |
-    v
-Vector Database / pgvector
-    |
-    v
-Optional LLM Provider
+  -> controlled analysis workflow
+  -> RAG retrieval
+  -> market data adapters
+  -> deterministic risk scoring
+  -> report generation
+  -> source monitoring
+  -> evaluation and review queue
+  -> simulation
+  -> watchlist and alerts
+  -> options analysis
+  -> ML dataset export and advisory classifier
+  -> future access control
+  -> future Vast.ai lifecycle manager
+
+Storage
+  -> SQLite or PostgreSQL
+  -> local knowledge_base markdown files
+  -> JSON RAG index for MVP
+  -> future encrypted credential metadata
+  -> future audit logs
 ```
 
-## 4. Main Applications
+## 3. Analysis Flow
 
-## 4.1 Strategy input interface
+```text
+User strategy input
+    -> protocol detection
+    -> local/hybrid RAG retrieval
+    -> market-data adapter lookup
+    -> manual fallback fields
+    -> deterministic risk scoring
+    -> stress scenarios
+    -> report writer
+    -> optional LLM synthesis
+    -> persisted report
+    -> markdown export
+```
 
-The strategy input interface is the user-facing entry point.
+Deterministic risk scoring remains authoritative. LLM and ML outputs are advisory or explanatory only.
 
-Responsibilities:
+## 4. Discovery-to-RAG Flow — Phase 10
 
-- collect strategy description
-- accept optional protocol selection
-- accept optional market URL
-- accept optional manual parameters
-- display missing data warnings
-- submit the strategy for analysis
+```text
+Admin triggers discovery
+    -> DefiLlama/manual/source collector
+    -> candidate filtering
+    -> candidate normalization
+    -> discovered_items table
+    -> automated evaluation
+    -> review_items table
+    -> human approval or rejection
+    -> explicit ingest-to-RAG action
+    -> markdown file under knowledge_base/discovered/
+    -> RAG index refresh
+    -> future reports can cite approved source
+```
 
-## 4.2 Report interface
+No discovered source becomes trusted automatically. Human approval plus an explicit ingest action is required.
 
-The report interface displays the generated research output.
+## 5. Access Control — Phase 11
 
-Responsibilities:
+Two user roles are planned:
 
-- show executive summary
-- show risk rating
-- show strategy mechanics
-- show data assumptions
-- show risk breakdown
-- show stress scenarios
-- show monitoring checklist
-- show retrieved sources
-- allow markdown export
+```text
+admin
+common
+```
 
-## 4.3 Admin or developer tools
+Common users can run normal analysis workflows, simulations, options analysis, and personal watchlist flows.
 
-The first version may include a minimal developer-only interface.
+Admin users can manage discovery sources, review decisions, RAG ingestion, provider credentials, Vast.ai sessions, and audit logs.
 
-Responsibilities:
+Sensitive operations must be server-side only:
 
-- inspect ingested documents
-- trigger document ingestion
-- inspect retrieved chunks
-- inspect market data adapter responses
-- debug risk score inputs
-- test prompt templates
-- inspect discovered source items
-- inspect evaluation results
-- review queued items before RAG ingestion
+- credential creation
+- credential rotation
+- discovery source configuration
+- approved source ingestion
+- Vast.ai rent/start/destroy lifecycle
+- audit-log review
 
-## 5. Main Backend Domains
+## 6. Credential and Provider Storage
 
-Backend structure:
+Provider credentials should use this model:
+
+```text
+api_credentials
+  id
+  provider
+  display_name
+  encrypted_secret or env_reference
+  secret_last_four
+  status
+  created_by_user_id
+  created_at
+  rotated_at
+  revoked_at
+```
+
+Rules:
+
+- raw secrets are never sent to the frontend
+- raw secrets are never logged
+- database-stored secrets must be encrypted
+- environment variables are acceptable for the first implementation
+- every sensitive action should create an audit event
+
+## 7. Vast.ai Ephemeral Provider — Phase 12
+
+The Vast.ai provider is a lifecycle manager, not a simple HTTP client.
+
+```text
+admin request
+    -> validate budget and role
+    -> search offer
+    -> rent instance
+    -> boot container
+    -> health-check model endpoint
+    -> run model task through OpenAI-compatible interface
+    -> collect result
+    -> destroy instance
+    -> write lifecycle/audit logs
+```
+
+Planned lifecycle states:
+
+```text
+idle
+searching_offer
+renting_instance
+booting
+starting_model_server
+health_checking
+ready
+serving_request
+cleanup
+destroyed
+failed
+```
+
+Vast.ai must be disabled by default. The first implementation should support admin manual warm-up and cleanup before automatic ephemeral usage.
+
+## 8. Backend Module Map
 
 ```text
 backend/app/
-├── api/
-│   ├── routes_analysis.py
-│   ├── routes_reports.py
-│   ├── routes_documents.py
-│   ├── routes_market_data.py
-│   ├── routes_protocols.py
-│   └── routes_health.py
-├── agents/
-│   ├── orchestrator.py
-│   ├── protocol_research_agent.py
-│   ├── strategy_parser.py
-│   ├── market_data_agent.py
-│   ├── risk_scoring_agent.py
-│   └── report_writer_agent.py
-├── rag/
-│   ├── ingest.py
-│   ├── chunking.py
-│   ├── embeddings.py
-│   ├── retriever.py
-│   ├── vector_store.py
-│   └── citations.py
-├── data_sources/
-│   ├── base.py
-│   ├── coingecko.py
-│   ├── defillama.py
-│   ├── morpho.py
-│   ├── aave.py
-│   ├── pendle.py
-│   └── manual.py
-├── risk/
-│   ├── framework.py
-│   ├── scoring.py
-│   ├── scenarios.py
-│   └── checklist.py
-├── reports/
-│   ├── templates.py
-│   ├── renderer.py
-│   └── markdown_export.py
-├── llm/
-│   ├── base.py
-│   ├── providers.py
-│   ├── prompts.py
-│   └── synthesis.py
-├── core/
-│   ├── config.py
-│   ├── logging.py
-│   └── errors.py
-├── db/
-│   ├── session.py
-│   └── base.py
-└── tests/
+  api/
+  agents/
+  core/
+  data_sources/
+  db/
+  evaluation/
+  llm/
+  market_data/
+  ml/
+  models/
+  monitoring/
+  options/
+  rag/
+  reports/
+  risk/
+  simulation/
+  watchlist/
+
+Future Phase 10:
+  discovery/
+  knowledge_base_ingestion/
+
+Future Phase 11:
+  auth/
+  credentials/
+  audit/
+
+Future Phase 12:
+  llm/vast/
 ```
 
-Further post-MVP backend domains will add:
-
-```text
-backend/app/
-├── monitoring/
-│   ├── sources.py
-│   ├── collectors.py
-│   ├── normalizer.py
-│   └── discovery_service.py
-├── evaluation/
-│   ├── evaluator.py
-│   └── review_queue.py
-├── simulation/
-│   ├── spread.py
-│   ├── ltv.py
-│   ├── scenarios.py
-│   └── simulator.py
-├── watchlist/
-│   ├── rules.py
-│   └── service.py
-├── options/
-│   ├── payoff.py
-│   ├── volatility.py
-│   └── analysis.py
-└── ml/
-    ├── dataset_export.py
-    └── risk_classifier.py
-```
-
-## 6. Frontend Structure
-
-Frontend route structure:
-
-```text
-frontend/src/
-├── app/
-│   ├── page.tsx
-│   ├── analyze/page.tsx
-│   ├── reports/[reportId]/page.tsx
-│   ├── protocols/page.tsx
-│   └── about/page.tsx
-├── components/
-│   ├── StrategyInputForm.tsx
-│   ├── RiskRatingCard.tsx
-│   ├── ReportSection.tsx
-│   ├── SourcesPanel.tsx
-│   ├── DataSummaryTable.tsx
-│   ├── MarkdownExportButton.tsx
-│   └── MonitoringChecklist.tsx
-├── lib/
-│   ├── api.ts
-│   ├── types.ts
-│   └── formatting.ts
-└── styles/
-```
-
-Post-MVP frontend routes may add:
+## 9. Frontend Route Map
 
 ```text
 frontend/src/app/
-├── review/page.tsx
-├── simulate/page.tsx
-├── watchlist/page.tsx
-└── options/page.tsx
+  page.tsx
+  analyze/page.tsx
+  reports/[reportId]/page.tsx
+  protocols/page.tsx
+  review/page.tsx
+  simulate/page.tsx
+  watchlist/page.tsx
+  options/page.tsx
+  about/page.tsx
+
+Future:
+  admin/discovery/page.tsx
+  admin/credentials/page.tsx
+  admin/vast/page.tsx
+  admin/audit/page.tsx
 ```
 
-## 7. RAG Architecture
+## 10. Non-Negotiable Boundaries
 
-The RAG system should ingest selected protocol documentation and internal risk notes.
+The app must not:
 
-```text
-Documentation Source
-    |
-    v
-Document Loader
-    |
-    v
-Text Cleaning
-    |
-    v
-Chunking
-    |
-    v
-Metadata Extraction
-    |
-    v
-Embedding Model
-    |
-    v
-Vector Database
-    |
-    v
-Retriever
-    |
-    v
-Context Builder
-    |
-    v
-Optional LLM Synthesis
-```
-
-The MVP should prioritize quality over quantity. A small curated knowledge base is better than a large noisy one.
-
-Post-MVP RAG should add semantic embeddings, hybrid retrieval, source freshness, citation validation, and a retrieval evaluation dataset.
-
-Source monitoring now discovers review candidates separately from RAG ingestion. Discovered items must pass later evaluation and human review before they can become ingestion candidates.
-
-## 8. Agent Architecture
-
-The MVP uses one controlled workflow instead of fully autonomous agents.
-
-```text
-Analysis Request
-    |
-    v
-Parse Strategy
-    |
-    v
-Retrieve Protocol Context
-    |
-    v
-Fetch Market Data
-    |
-    v
-Normalize Inputs
-    |
-    v
-Run Risk Score
-    |
-    v
-Generate Report
-    |
-    v
-Optional LLM Synthesis
-    |
-    v
-Manual Source Monitoring
-    |
-    v
-Discovered Items Requiring Review
-    |
-    v
-Automated Evaluation Summary
-    |
-    v
-Human Review Queue
-    |
-    v
-Deterministic Strategy Simulator
-```
-
-Post-MVP versions may split this workflow into specialized agents, but orchestration should remain bounded, observable, and reviewable.
-
-## 9. Data Architecture
-
-The data layer should support:
-
-- live API calls
-- cached responses
-- manual fallback data
-- normalized protocol entities
-- report persistence
-- source metadata
-- vector search metadata
-- discovered source items
-- evaluation results
-- review status
-- watchlist items
-- alert events
-- simulation inputs and outputs
-
-The MVP should avoid depending on paid APIs. Premium providers may be added later as optional adapters.
-
-## 10. Safety Architecture
-
-Safety requirements:
-
-- no wallet connection
-- no trade execution
-- no private key handling
-- no direct buy/sell recommendations
-- clear disclaimer in every report
-- explicit uncertainty when data is missing
-- source references for protocol-specific claims
-- human review before automatically trusting discovered sources
-- deterministic fallback when LLM output fails or is disabled
-- no model output may override deterministic risk scoring silently
-
-## 11. Active Product Expansion Architecture
-
-After Post-MVP Phase 9, active product expansion is complete and final portfolio work remains:
-
-```text
-Demo Data
-    -> Public Deployment
-    -> Portfolio Polish
-```
-
-The original MVP Phase 11, Phase 12, and Phase 13 remain final portfolio actions after these product-expansion phases.
-
-## 12. Final Portfolio Architecture
-
-The final portfolio deployment should happen only after the active product-expansion phases are stable.
-
-Final sequence:
-
-```text
-Demo data and example reports
-    -> public frontend/backend deployment
-    -> portfolio polish
-    -> screenshots and demo video
-    -> README and case study finalization
-```
+- connect wallets
+- request private keys or seed phrases
+- sign transactions
+- execute trades
+- custody funds
+- provide personalized financial advice
+- auto-ingest unreviewed sources
+- expose provider API keys to the frontend
+- let remote LLM output override deterministic risk scoring
