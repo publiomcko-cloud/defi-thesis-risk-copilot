@@ -4,9 +4,15 @@
 
 The deployment goal is to provide a portfolio-ready public demo with safe synthetic or read-only data.
 
-The MVP should not require paid APIs.
+After Post-MVP Phase 9, three bridge phases should be completed before final public deployment:
 
-After the Phase 10 checkpoint, public deployment remains a final portfolio phase. Active development should first focus on product-expansion phases such as optional LLM synthesis, source monitoring, evaluation, simulation, watchlists, options analysis, advanced RAG, and ML/HPC groundwork.
+```text
+Phase 10: Autonomous discovery and human-approved RAG ingestion
+Phase 11: Access control and secure provider configuration
+Phase 12: Vast.ai ephemeral model provider
+```
+
+Public deployment remains a final portfolio phase after those product and security foundations are stable.
 
 ## 2. Recommended Public Deployment
 
@@ -14,47 +20,136 @@ After the Phase 10 checkpoint, public deployment remains a final portfolio phase
 Vercel
   -> Next.js frontend
 
-Render
+Render or comparable backend host
   -> FastAPI backend
 
-Supabase
+Supabase or managed PostgreSQL
   -> PostgreSQL database
 
 Vector storage
-  -> pgvector, Qdrant, or Chroma
+  -> local JSON for MVP, pgvector/Qdrant/Chroma later
 
 LLM provider
+  -> disabled by default
   -> Ollama for local demo
-  -> OpenAI-compatible provider for hosted demo, optional
+  -> OpenAI-compatible API for hosted demo when configured
+  -> Vast.ai ephemeral provider only for admin-triggered heavy tasks
 ```
 
 ## 3. Environment Variables
 
-Example variables:
+Core variables:
 
 ```env
 APP_ENV=development
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/defi_copilot
-VECTOR_DB_PROVIDER=pgvector
+FRONTEND_ORIGIN=http://127.0.0.1:3000
+DEFILLAMA_BASE_URL=https://api.llama.fi
 LLM_PROVIDER=disabled
 OLLAMA_BASE_URL=http://localhost:11434
-OPENAI_COMPATIBLE_API_KEY=
 OPENAI_COMPATIBLE_BASE_URL=
-COINGECKO_API_KEY=
-DEFILLAMA_BASE_URL=https://api.llama.fi
+OPENAI_COMPATIBLE_API_KEY=
 ```
 
-Post-MVP phases may add:
+Phase 10 discovery variables:
 
 ```env
-SOURCE_MONITORING_ENABLED=false
-REVIEW_QUEUE_ENABLED=true
-WATCHLIST_ENABLED=true
-OPTIONS_ANALYSIS_ENABLED=true
-SEMANTIC_EMBEDDINGS_PROVIDER=disabled
+DISCOVERY_ENABLED=false
+DISCOVERY_DEFAULT_MIN_TVL_USD=5000000
+DISCOVERY_DEFAULT_MIN_POOL_TVL_USD=500000
+DISCOVERY_REQUIRE_HUMAN_APPROVAL=true
 ```
 
-## 4. Local Docker
+Phase 11 access-control variables:
+
+```env
+AUTH_ENABLED=false
+ADMIN_EMAIL=
+ADMIN_INITIAL_PASSWORD=
+APP_SECRET_KEY=
+CREDENTIAL_ENCRYPTION_KEY=
+```
+
+Phase 12 Vast.ai variables:
+
+```env
+VAST_ENABLED=false
+VAST_API_KEY=
+VAST_MAX_HOURLY_COST_USD=0.50
+VAST_MAX_SESSION_MINUTES=30
+VAST_GPU_NAME=RTX_4090
+VAST_MIN_GPU_RAM_GB=16
+VAST_DISK_GB=40
+VAST_IMAGE=
+VAST_MODEL=
+VAST_CONTAINER_PORT=8000
+VAST_AUTO_DESTROY=true
+```
+
+## 4. Secret Handling
+
+Secrets must be server-side only.
+
+Rules:
+
+- never expose `VAST_API_KEY` or model provider keys to the frontend
+- never log full API keys
+- store raw keys in environment variables for the first implementation
+- if credentials are later stored in the database, store only encrypted secrets plus non-sensitive metadata
+- show only provider name, created time, status, and last four characters in admin UI
+- require admin role for credential creation, rotation, testing, and deletion
+- keep audit logs for credential and Vast lifecycle actions
+
+## 5. Access Control
+
+Two roles are planned:
+
+```text
+admin
+common
+```
+
+Common users can:
+
+- create strategy analyses
+- view their own reports if ownership is implemented
+- run simulations and options analysis
+- manage their own watchlist items
+- view public/approved knowledge-base context
+
+Admin users can:
+
+- manage users and roles
+- configure source discovery
+- run DefiLlama/manual discovery
+- evaluate discovered items
+- approve/reject review items
+- ingest approved items into RAG
+- manage provider credentials
+- start, inspect, and destroy Vast.ai sessions
+- view lifecycle/audit logs
+
+## 6. Vast.ai Deployment Safety
+
+Vast.ai integration should default to disabled.
+
+The first deployed version should support manual admin-triggered startup before automatic ephemeral rental.
+
+Required safeguards:
+
+- max hourly cost
+- max runtime
+- max one active instance by default
+- verified/allowlisted GPU criteria where possible
+- strict timeout handling
+- auto-destroy in cleanup/finally paths
+- emergency cleanup endpoint
+- lifecycle log table
+- no common-user access to rent/destroy remote GPU instances
+
+Stopping an instance is not enough for the default safety posture; the default workflow should destroy the instance after the task unless an admin intentionally keeps it warm.
+
+## 7. Local Docker
 
 Development:
 
@@ -70,68 +165,14 @@ docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
-`docker-compose.production.yml` defaults to local SQLite and `http://127.0.0.1:8000` for configuration testing. Real hosted deployments should override `DATABASE_URL` and `NEXT_PUBLIC_API_BASE_URL`.
+## 8. Final Portfolio Deployment Phases
 
-Local Docker services:
-
-- `backend`: FastAPI app, Alembic migration on startup, mounted backend source, mounted read-only `knowledge_base/`.
-- `frontend`: Next.js development server with persistent `node_modules` and `.next` volumes.
-- `postgres`: local PostgreSQL database on host port `5435`.
-
-The local Compose file overrides `DATABASE_URL` so the backend talks to the Compose PostgreSQL service. Manual backend execution uses the application default SQLite database unless a local `.env` overrides it.
-
-## 5. Deployment Safety
-
-The deployed demo should:
-
-- use synthetic examples
-- avoid wallet connection
-- avoid transaction execution
-- avoid collecting sensitive user data
-- clearly display disclaimers
-- avoid storing private financial information
-- avoid enabling autonomous source ingestion without review
-- keep paid API keys optional and server-side only
-
-## 6. Product Expansion Before Public Deployment
-
-Before final deployment, the product-expansion roadmap should stabilize:
-
-1. Optional backend LLM synthesis with deterministic fallback.
-2. Source monitoring and discovered-item storage.
-3. Automated evaluation pipeline and review queue.
-4. Strategy simulator.
-5. Watchlists and in-app alerts.
-6. Options and volatility analysis workflow.
-7. Advanced RAG and retrieval evaluation.
-8. Fine-tuning or ML classifier groundwork if useful.
-9. Optional HPC and SLURM support.
-
-These phases are developed before the final MVP Phase 11, Phase 12, and Phase 13 portfolio actions.
-
-## 7. Final Portfolio Deployment Phases
-
-Final deployment order:
+Final deployment order after Phases 10-12:
 
 ```text
-Final Phase 11: Demo data and example reports
-Final Phase 12: Public portfolio deployment
-Final Phase 13: Portfolio polish
+Final Phase 13: Demo data and example reports
+Final Phase 14: Public portfolio deployment
+Final Phase 15: Portfolio polish
 ```
 
-Final public deployment should happen only after the active product-expansion features are stable enough to present.
-
-## 8. Future Deployment Improvements
-
-Future versions may add:
-
-- authentication
-- saved reports
-- user-specific watchlists
-- background workers
-- scheduled ingestion
-- Redis queue
-- hosted vector database
-- monitoring and logging
-- usage limits
-- paid plans
+The public demo should use safe examples, server-side secrets only, clear role boundaries, visible disclaimers, no wallet integration, and no transaction execution.
