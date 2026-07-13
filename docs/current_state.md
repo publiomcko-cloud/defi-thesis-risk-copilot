@@ -23,134 +23,119 @@ Current local stack:
 - Testing and validation: pytest, smoke scripts, frontend lint/build
 - Automation: GitHub Actions CI
 
-Planned product-expansion additions:
+## Current Status
 
-- Advanced RAG with semantic embeddings, hybrid retrieval, reranking, and evaluation
-- Fine-tuning and ML risk classifier groundwork
-- Optional HPC and SLURM support
+Current status: Post-MVP Phase 9 complete.
 
-Planned final portfolio additions:
+The app currently supports optional backend LLM synthesis, manual source monitoring, automated evaluation, human review queue foundations, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, and optional HPC/SLURM templates.
 
-- Public frontend hosting on Vercel
-- Public backend hosting on Render
-- Public database hosting on Supabase PostgreSQL
-- Public demo screenshots and video
-- Portfolio-ready case study and README polish
+Before final demo/deployment/polish, the next planned product phases are:
 
-## Implemented Features
+```text
+Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
+Post-MVP Phase 11: Access control and secure provider configuration
+Post-MVP Phase 12: Vast.ai ephemeral model provider
+Final Phase 13: Demo data and example reports
+Final Phase 14: Public portfolio deployment
+Final Phase 15: Portfolio polish
+```
 
-Current status: Post-MVP Phase 9 complete. Optional backend LLM synthesis, manual source monitoring, automated evaluation, human review queue foundations, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, and optional HPC/SLURM templates are available.
+Detailed planning for Phases 10-12 is in `docs/phase_10_12_expansion_plan.md`.
 
-The original MVP phases 11, 12, and 13 are intentionally deferred until after the product-expansion phases because they are demo data, deployment, and portfolio-polish work.
+## What the App Can Do Now
 
-Initial documentation includes:
+The current app can:
 
-- README
-- MVP scope
-- architecture document
-- data source plan
-- RAG design
-- agent design
-- risk framework
-- testing plan
-- deployment plan
-- portfolio readiness checklist
-- demo script
-- post-MVP development plan
-- LLM synthesis validation record
+- run a controlled DeFi strategy analysis workflow through `/api/analyze`
+- persist structured reports and retrieve them later
+- export generated reports to Markdown
+- list supported protocols for the core MVP scope
+- refresh the local curated RAG index from `knowledge_base/`
+- retrieve local RAG context from Pendle, Morpho, Aave, Chainlink, and internal risk notes
+- optionally use hybrid retrieval, local semantic signals, reranking, citation validation, and retrieval evaluation
+- fetch or normalize market data through manual, Pendle, Morpho, Aave, DefiLlama, and CoinGecko adapters
+- use deterministic rule-based risk scoring with visible components, confidence, and drivers
+- generate stress scenarios and monitoring checklists
+- optionally synthesize report wording with an LLM while preserving deterministic fields
+- create discovered source candidates through manual monitoring
+- evaluate discovered candidates and create review queue items
+- update review status as `needs_review`, `approved_for_rag`, `rejected`, `needs_more_data`, or `archived`
+- run deterministic strategy simulation through `/api/simulation/run`
+- create watchlist items and rule-based in-app alerts
+- run deterministic options analysis through `/api/options/analyze`
+- export candidate ML training examples from persisted reports
+- run an advisory baseline risk classifier for future model comparison only
+- use optional HPC/SLURM templates for batch RAG and ML-preparation workflows
 
-Initial implementation includes:
+## Implemented Feature Areas
 
-- FastAPI backend skeleton.
-- `/health` endpoint.
-- `/api/analyze` endpoint runs the controlled MVP analysis workflow.
-- Report retrieval endpoint returns persisted structured reports.
-- Protocol listing endpoint for Pendle, Morpho, and Aave.
-- Document ingestion endpoint refreshes the local curated RAG index from `knowledge_base/`.
-- Market data endpoint with adapter aggregation and explicit missing fields.
-- Pydantic request and response schemas for initial backend contracts.
-- SQLAlchemy database foundation.
-- Alembic migration setup with initial tables.
-- Database-backed analysis request and report persistence.
-- Curated local knowledge base for Pendle, Morpho, Aave, Chainlink, and internal risk notes.
-- Lightweight local RAG ingestion, chunking, embedding, JSON vector storage, retrieval, and citation formatting.
-- Retrieval evaluation script and stored evaluation dataset for core RAG questions.
-- Optional hybrid RAG retriever with keyword, vector, metadata, source quality, freshness, reranking, and citation validation signals.
-- Optional deterministic local semantic embedding provider for offline retrieval experiments.
-- Candidate ML training dataset export from persisted reports.
-- Baseline advisory risk classifier interface for future model comparison.
-- Model-training workspace with label schema and guardrails.
-- Optional HPC workspace with SLURM templates for RAG ingestion, retrieval evaluation, and ML dataset export.
-- Apptainer definition for portable batch execution on compatible clusters.
-- Analysis workflow can include retrieved local knowledge-base sources when the RAG index exists.
-- Market data adapter interface and service layer.
-- Manual, Pendle, Morpho, Aave, DefiLlama, and CoinGecko adapters with normalized outputs.
-- Market data cache fallback using the existing `market_data_cache` table.
-- `/api/market-data/fetch` returns aggregated adapter data, assumptions, and explicit missing fields.
-- Analysis reports include a market data summary section.
-- Rule-based MVP risk scoring engine.
-- Visible risk score components, confidence level, and main risk drivers.
-- Stress scenario generation.
-- Monitoring checklist generation.
-- Analysis reports use deterministic risk scoring instead of the earlier placeholder rating.
-- Controlled internal analysis orchestration.
-- Strategy parser, protocol research, market data, risk scoring, and report writer agent modules.
-- `/api/analyze` now runs the controlled workflow before persisting the report.
-- Environment-based backend settings.
-- Backend pytest setup.
-- Backend smoke check script.
-- Next.js App Router frontend.
-- Shared frontend API/type definitions.
-- Home page with portfolio-oriented call to action.
-- Strategy input page wired to the controlled analysis endpoint.
-- Report page that renders persisted backend report data.
-- Dedicated report template with required sections for strategy description, mechanics, yield source, market data, assumptions, risk analysis, stress scenarios, exit plan, monitoring, rating, uncertainty, sources, and disclaimer.
-- Markdown report rendering and `/api/reports/{report_id}/export` endpoint.
-- Frontend Markdown export action for generated reports.
-- Protocols page for Pendle, Morpho, and Aave scope.
-- About page with current phase and safety boundary.
-- Reusable frontend components for strategy input, risk rating, report sections, sources, monitoring checklist, data summary, and disclaimers.
-- Docker Compose services for backend, frontend, and PostgreSQL.
-- Backend and frontend Dockerfiles.
-- Docker Compose build wiring for local backend, frontend, and PostgreSQL services.
-- Production-like Compose configuration check.
-- CI workflow for backend tests, frontend lint/build, and Compose validation.
-- Optional backend LLM synthesis with Ollama and OpenAI-compatible provider abstractions.
-- Local Ollama validation record for `llama3.2:3b` on GTX 1050 Ti hardware.
-- Source watch and discovered item database models.
-- Manual source monitoring endpoints: `/api/monitoring/run` and `/api/monitoring/discovered-items`.
-- Normalized discovered items for Pendle, Morpho, Aave, DefiLlama, documentation, governance, and risk/audit candidates.
-- Duplicate discovery detection through stable discovery keys.
-- Monitoring failure recording on source watches.
-- Discovered items default to `needs_review` and are not automatically ingested into RAG.
-- Evaluation result and review item database models.
-- Evaluation endpoint for discovered items: `/api/evaluation/discovered-items/{discovered_item_id}/evaluate`.
-- Review queue endpoints: `/api/evaluation/review-items` and `/api/evaluation/review-items/{review_item_id}`.
-- Evaluation creates structured risk summaries with visible missing data and source references.
-- Review status updates support `needs_review`, `approved_for_rag`, `rejected`, `needs_more_data`, and `archived`.
-- `approved_for_rag` prepares a review item only; it does not ingest the item into RAG.
-- Frontend review page at `/review` for monitoring, evaluation, and review status updates.
-- Deterministic simulation module for net spread, borrow APY shocks, liquidity/slippage shocks, collateral drawdown, early exit, incentive removal, and combined adverse scenarios.
-- Simulation endpoint: `/api/simulation/run`.
-- Frontend simulation page at `/simulate`.
-- Generated reports include a Simulation Summary section based on available market/manual inputs.
-- Watchlist and alert event database models.
-- Watchlist endpoints: `/api/watchlist/items`, `/api/watchlist/items/{watchlist_item_id}/evaluate`, `/api/watchlist/alerts`, and `/api/watchlist/alerts/{alert_id}`.
-- Rule-based in-app alerts for borrow APY, net spread, liquidity, maturity, risk score changes, missing data resolution, discovered items, and source updates.
-- Frontend watchlist page at `/watchlist`.
-- Deterministic options analysis for call/put payoff scenarios, breakeven, max loss, bid/ask spread, implied volatility framing, and expiration timing.
-- Options endpoint: `/api/options/analyze`.
-- Frontend options page at `/options`.
+Implemented feature areas include:
+
+- FastAPI backend skeleton and health endpoint
+- Next.js frontend with main navigation and analysis/report flows
+- SQLAlchemy/Alembic database foundation
+- Docker Compose local stack
+- CI workflow for backend tests, frontend lint/build, and Compose validation
+- local curated RAG knowledge base and JSON vector store
+- optional hybrid RAG retrieval and retrieval evaluation dataset
+- market data adapter interface and MVP adapters
+- controlled internal analysis orchestration
+- deterministic risk scoring and report writer
+- optional backend LLM synthesis with Ollama and OpenAI-compatible provider abstractions
+- monitoring/discovery foundation
+- evaluation and human review queue foundation
+- strategy simulator
+- watchlist and in-app alert system
+- options and volatility analysis
+- ML dataset export and advisory baseline classifier
+- model-training workspace
+- HPC workspace with SLURM templates and Apptainer definition
 
 ## Active Product Development To Implement
 
-The active product-expansion phases are complete through Post-MVP Phase 9.
+The next active product work is not UI polish yet. It is the final product-intelligence bridge before portfolio phases:
 
-Next phases:
+1. Phase 10 — Auto-discovery and human-approved RAG ingestion.
+2. Phase 11 — Access control and secure provider configuration.
+3. Phase 12 — Vast.ai ephemeral model provider.
 
-1. Final Phase 11 — Demo data and example reports.
-2. Final Phase 12 — Public portfolio deployment.
-3. Final Phase 13 — Portfolio polish.
+Phase 11 is required before Phase 12 because Vast.ai credentials, lifecycle controls, billing/cost controls, and cleanup actions must be admin-only.
+
+## Planned User Roles
+
+### Common User
+
+Common users will be able to:
+
+- run normal strategy analysis
+- view allowed reports
+- run simulations
+- run options analysis
+- create personal watchlists
+- view their own in-app alerts
+
+Common users will not be able to:
+
+- configure API keys
+- manage Vast.ai
+- approve or ingest discovered sources
+- change global discovery settings
+- view sensitive audit logs
+- manage users
+
+### Admin User
+
+Admins will be able to:
+
+- manage users and roles
+- configure discovery sources
+- run global discovery jobs
+- approve/reject/archive review items
+- ingest approved items into the knowledge base
+- manage provider credentials
+- configure and operate Vast.ai model sessions
+- view cost/lifecycle/audit logs
+- run cleanup actions
 
 ## Current Validation Commands
 
@@ -200,30 +185,23 @@ bash -n hpc/slurm_evaluate_retrieval.sbatch
 bash -n hpc/slurm_train_risk_classifier.sbatch
 ```
 
-LLM validation:
-
-See `docs/llm_synthesis_validation.md` for the local Ollama test record, observed issues, and results.
-
 ## Current Limitations
 
 - The application is still an MVP and uses deterministic local analysis logic.
 - Data adapters are basic MVP implementations; several protocol adapters still rely on manual fallback.
 - RAG is local and curated only; it does not crawl protocol docs or refresh automatically.
 - Semantic retrieval is optional and currently uses a deterministic local semantic provider rather than an external embedding model.
-- Source monitoring is manually triggered and creates review candidates only; it does not approve or ingest sources.
-- Initial monitoring collectors are deterministic discovery candidates, not full live crawlers for every source.
-- Evaluation is manually triggered and creates review queue records; it does not approve sources by itself.
-- Review approval marks items as prepared for later RAG ingestion, but no ingestion pipeline is connected yet.
+- Source monitoring is manually triggered and creates review candidates only.
+- Review approval marks items as prepared for later RAG ingestion, but the full explicit ingest-to-RAG pipeline is planned for Phase 10.
+- There is no production authentication or role-based access control yet; this is planned for Phase 11.
+- Provider API keys and Vast.ai credentials must remain server-side and are not yet managed by an admin credential system.
+- Vast.ai integration is not implemented yet; this is planned for Phase 12.
 - Simulation is deterministic and educational; it does not forecast outcomes or recommend entering/exiting positions.
 - Watchlist alerts are manually evaluated and in-app only; no push, email, streaming, or automated execution exists.
 - Options analysis is deterministic and educational; it does not recommend buying or selling options.
-- Default report retrieval still uses lightweight local hash embeddings unless `RAG_SEMANTIC_ENABLED=true`.
 - Risk scoring is deterministic and rule-based, but not a quantitative liquidation engine.
 - Reports are persisted and rendered through a deterministic template; optional LLM synthesis can enrich explanatory wording when enabled, but cannot override deterministic risk scoring, missing data, sources, market values, protocols, or disclaimers.
-- `/api/documents/ingest` refreshes the local curated RAG index; it does not ingest arbitrary uploaded content yet.
 - Fine-tuning has not been performed; the baseline classifier is advisory only and cannot override deterministic risk scoring.
 - HPC readiness is template-based only; no SLURM job has been submitted from this local environment.
 - No deployed public demo exists yet.
 - No wallet connection or transaction execution will be implemented.
-- Market data may still require manual fallback inputs during early development.
-- The controlled workflow is deterministic and internal; it is not a multi-agent autonomous system.
