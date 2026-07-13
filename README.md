@@ -2,29 +2,42 @@
 
 [![CI](https://github.com/publiomcko-cloud/defi-thesis-risk-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/publiomcko-cloud/defi-thesis-risk-copilot/actions/workflows/ci.yml)
 
-AI-powered DeFi research and risk analysis copilot for protocol theses, yield strategies, lending markets, and structured risk reports.
+AI-powered DeFi research and risk analysis copilot for protocol theses, yield strategies, lending markets, source-grounded reports, and controlled research workflows.
 
-DeFi Thesis & Risk Copilot combines RAG, protocol documentation, market data adapters, controlled agentic workflows, rule-based risk scoring, and optional future LLM synthesis to help users analyze complex DeFi strategies before execution.
+DeFi Thesis & Risk Copilot combines RAG, protocol documentation, market data adapters, controlled agentic workflows, rule-based risk scoring, optional LLM synthesis, review queues, simulations, watchlists, options analysis, and ML/HPC groundwork to help users analyze complex DeFi strategies before execution.
 
 ## Portfolio Description
 
-Full-stack AI and DeFi portfolio app with FastAPI, Next.js, RAG, controlled agent workflows, market data integrations, risk scoring, structured report generation, Docker, and CI.
+Full-stack AI and DeFi portfolio app with FastAPI, Next.js, RAG, controlled agent workflows, market data integrations, deterministic risk scoring, structured report generation, Docker, CI, and a post-MVP roadmap for controlled discovery-to-RAG ingestion and optional ephemeral GPU model infrastructure.
 
 ## Current Status
 
-The technical MVP is complete through Phase 10:
+The technical MVP and product-expansion phases are complete through Post-MVP Phase 9:
 
 ```text
-Phase 6: market data adapters
-Phase 7: rule-based risk framework
-Phase 8: controlled agent orchestration
-Phase 9: structured reports and Markdown export
-Phase 10: Docker, local environment, and CI
+Post-MVP Phase 1: Optional backend LLM synthesis
+Post-MVP Phase 2: Source monitoring and discovery
+Post-MVP Phase 3: Automated evaluation pipeline and review queue
+Post-MVP Phase 4: Strategy simulator
+Post-MVP Phase 5: Watchlist and alerts
+Post-MVP Phase 6: Options and volatility analysis agent
+Post-MVP Phase 7: Advanced RAG and retrieval evaluation
+Post-MVP Phase 8: Fine-tuning and ML risk classifier groundwork
+Post-MVP Phase 9: HPC and SLURM readiness
 ```
 
-Active development now moves to the post-MVP product-expansion phases described in [`docs/post_mvp_development_plan.md`](docs/post_mvp_development_plan.md).
+Before final portfolio/demo work, the next planned product phases are:
 
-The original MVP phases 11, 12, and 13 are intentionally left until the end because they are final demo data, public deployment, and portfolio-polish actions.
+```text
+Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
+Post-MVP Phase 11: Access control and secure provider configuration
+Post-MVP Phase 12: Vast.ai ephemeral model provider
+Final Phase 13: Demo data and example reports
+Final Phase 14: Public portfolio deployment
+Final Phase 15: Portfolio polish
+```
+
+See [`docs/post_mvp_development_plan.md`](docs/post_mvp_development_plan.md) and [`docs/phase_10_12_expansion_plan.md`](docs/phase_10_12_expansion_plan.md).
 
 ## Live Portfolio Demo
 
@@ -44,6 +57,8 @@ The first public demo should use synthetic examples and read-only public data. T
 - Market data may be delayed, incomplete, cached, user-provided, or simulated.
 - Reports are for research and educational purposes only.
 - The system does not provide financial, investment, legal, or tax advice.
+- Future discovery-to-RAG ingestion must keep human approval before knowledge-base updates.
+- Future Vast.ai integration must be admin-only, server-side, cost-limited, and disabled by default.
 
 ## For Recruiters
 
@@ -53,11 +68,12 @@ It demonstrates:
 
 1. Retrieval-augmented generation over protocol documentation.
 2. Controlled agent workflow orchestration for research, data collection, risk scoring, and report writing.
-3. DeFi domain modeling around Pendle, Morpho, Aave, lending markets, fixed-yield assets, collateral risk, and liquidation risk.
+3. DeFi domain modeling around Pendle, Morpho, Aave, lending markets, fixed-yield assets, collateral risk, options risk, and liquidation risk.
 4. Backend API design with typed schemas and modular services.
-5. Frontend product flow for analysis input, report review, and portfolio-ready demo screens.
+5. Frontend product flow for analysis input, report review, simulation, watchlists, options, and portfolio-ready demo screens.
 6. Dockerized local development and CI.
 7. Documentation-first engineering with architecture, testing, deployment, and roadmap notes.
+8. Security-aware planning for admin/common roles, provider secrets, and ephemeral GPU infrastructure.
 
 Recommended review path:
 
@@ -65,8 +81,8 @@ Recommended review path:
 2. Open the demo dashboard.
 3. Submit the example Pendle + Morpho strategy prompt.
 4. Review the generated risk report.
-5. Inspect the retrieved sources and assumptions.
-6. Review the backend API docs.
+5. Inspect retrieved sources and assumptions.
+6. Try simulation, watchlist, and options analysis flows.
 7. Inspect the repository architecture and post-MVP development plan.
 
 ## For Clients
@@ -80,8 +96,10 @@ Client-facing value:
 - source-backed protocol explanations
 - monitoring checklist generation
 - risk classification without trade execution
+- deterministic strategy simulation
+- options and volatility scenario framing
 - safe educational workflow for complex strategies
-- extensible architecture for custom dashboards, source monitoring, watchlists, alerts, and strategy simulation
+- extensible architecture for controlled source discovery, human review, knowledge-base ingestion, watchlists, alerts, and optional remote model infrastructure
 
 ## What It Demonstrates
 
@@ -93,8 +111,9 @@ Client-facing value:
 - Public data integrations and adapter fallbacks for DefiLlama, CoinGecko, Pendle, Morpho, Aave, and manual inputs
 - Structured report generation with assumptions, risks, missing data, sources, and disclaimers
 - Markdown export
+- Strategy simulation, watchlists, options analysis, retrieval evaluation, ML groundwork, and HPC templates
 - Docker-based local execution and CI validation
-- Future-ready structure for LLM synthesis, source monitoring, automated evaluation, watchlists, options analysis, fine-tuning, and HPC batch processing
+- Future-ready structure for human-approved discovery-to-RAG ingestion, RBAC, secure provider configuration, and Vast.ai ephemeral model sessions
 
 ## Core Demo Flow
 
@@ -108,6 +127,18 @@ strategy input
   -> structured report
   -> optional LLM synthesis
   -> markdown export
+```
+
+Planned expanded demo flow:
+
+```text
+DefiLlama/manual discovery
+  -> discovered candidate
+  -> automated evaluation
+  -> human review
+  -> admin approved_for_rag
+  -> explicit ingest-to-RAG
+  -> future report cites ingested knowledge
 ```
 
 Example prompt:
@@ -137,9 +168,10 @@ Browser
   -> Supabase PostgreSQL
   -> Vector database or pgvector
   -> Optional hosted LLM provider
+  -> Optional admin-only Vast.ai ephemeral provider for approved heavy tasks
 ```
 
-Local development can run with Docker Compose using PostgreSQL, backend, frontend, local RAG files, and optional local LLM services in future phases.
+Local development can run with Docker Compose using PostgreSQL, backend, frontend, local RAG files, and optional local LLM services.
 
 ## Local Quick Start
 
@@ -199,11 +231,7 @@ python -m pytest -q
 python scripts/run_smoke_checks.py
 ```
 
-Optional LLM synthesis is disabled by default. To test it locally, set
-`LLM_SYNTHESIS_ENABLED=true` and configure either Ollama or an OpenAI-compatible
-provider. LLM output may improve explanatory wording, but deterministic risk
-scoring, missing data, sources, market values, and disclaimers remain
-authoritative.
+Optional LLM synthesis is disabled by default. To test it locally, set `LLM_SYNTHESIS_ENABLED=true` and configure either Ollama or an OpenAI-compatible provider. LLM output may improve explanatory wording, but deterministic risk scoring, missing data, sources, market values, and disclaimers remain authoritative.
 
 Frontend:
 
@@ -229,7 +257,7 @@ docker compose -f docker-compose.production.yml config
 
 ## Important Endpoints
 
-Current MVP endpoints:
+Current endpoints include:
 
 - `GET /health`
 - `POST /api/analyze`
@@ -238,16 +266,29 @@ Current MVP endpoints:
 - `GET /api/protocols`
 - `POST /api/documents/ingest`
 - `POST /api/market-data/fetch`
-
-Planned post-MVP endpoints:
-
 - `POST /api/monitoring/run`
 - `GET /api/monitoring/discovered-items`
-- `POST /api/evaluation/run`
-- `GET /api/review/items`
+- `POST /api/evaluation/discovered-items/{discovered_item_id}/evaluate`
+- `GET /api/evaluation/review-items`
+- `PATCH /api/evaluation/review-items/{review_item_id}`
 - `POST /api/simulation/run`
-- `GET /api/watchlist`
+- `POST /api/watchlist/items`
+- `POST /api/watchlist/items/{watchlist_item_id}/evaluate`
+- `GET /api/watchlist/alerts`
 - `POST /api/options/analyze`
+
+Planned Phase 10-12 endpoints include:
+
+- `POST /api/discovery/run`
+- `GET /api/discovery/candidates`
+- `POST /api/evaluation/review-items/{review_item_id}/ingest-to-rag`
+- `GET /api/knowledge-base/discovered`
+- `POST /api/admin/provider-credentials`
+- `GET /api/admin/provider-credentials`
+- `POST /api/admin/vast/sessions/start`
+- `GET /api/admin/vast/sessions/{session_id}`
+- `POST /api/admin/vast/sessions/{session_id}/destroy`
+- `POST /api/admin/vast/cleanup`
 
 ## Documentation
 
@@ -256,6 +297,7 @@ Planned post-MVP endpoints:
 - [Architecture](docs/architecture.md)
 - [MVP scope](docs/mvp_scope.md)
 - [Post-MVP development plan](docs/post_mvp_development_plan.md)
+- [Phase 10-12 expansion plan](docs/phase_10_12_expansion_plan.md)
 - [Case study](docs/case_study.md)
 - [Data sources](docs/data_sources.md)
 - [RAG design](docs/rag_design.md)
@@ -281,12 +323,14 @@ Archive:
 - Some protocol-specific metrics still require manual input.
 - Risk scoring is rule-based and should not be treated as a quantitative guarantee.
 - RAG answers depend on the quality and freshness of ingested documents.
-- Report writing is deterministic and template-based until optional LLM synthesis is implemented.
+- Review approval does not yet complete the full knowledge-base ingestion flow.
+- Production authentication and admin/common access control are not implemented yet.
+- Vast.ai integration is not implemented yet and must remain disabled by default when added.
 - No production authentication or billing system is included.
 
 ## Roadmap
 
-Completed MVP foundation:
+Completed product foundation:
 
 - Implement MVP analysis workflow for Pendle, Morpho, and Aave.
 - Add documentation ingestion and local retrieval.
@@ -295,24 +339,19 @@ Completed MVP foundation:
 - Add controlled agent orchestration.
 - Add structured report generation and Markdown export.
 - Add Docker and CI.
+- Add optional LLM synthesis, source monitoring, evaluation queue, simulation, watchlists, options analysis, advanced RAG, ML groundwork, and HPC templates.
 
-Active post-MVP product expansion:
+Next product phases:
 
-- Add optional backend LLM report synthesis.
-- Add source monitoring and discovery.
-- Add automated evaluation pipeline and human review queue.
-- Add strategy simulator.
-- Add watchlists and in-app alerts.
-- Add Derive-style options and volatility analysis.
-- Add advanced RAG, semantic embeddings, reranking, and retrieval evaluation.
-- Add fine-tuning and ML risk classifier groundwork.
-- Add SLURM and Apptainer support for HPC batch jobs.
+- Phase 10: Auto-discovery and human-approved RAG ingestion.
+- Phase 11: Access control and secure provider configuration.
+- Phase 12: Vast.ai ephemeral model provider.
 
 Final portfolio phases:
 
-- Add demo data and example reports.
-- Deploy the public portfolio demo.
-- Polish README, screenshots, demo video, and case study.
+- Phase 13: Demo data and example reports.
+- Phase 14: Public portfolio deployment.
+- Phase 15: Portfolio polish.
 
 ## License
 
