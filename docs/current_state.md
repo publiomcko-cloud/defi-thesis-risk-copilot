@@ -39,7 +39,7 @@ Planned final portfolio additions:
 
 ## Implemented Features
 
-Current status: Post-MVP Phase 6 complete. Optional backend LLM synthesis, manual source monitoring, automated evaluation, human review queue foundations, deterministic strategy simulation, in-app watchlist alerts, and options/volatility analysis are available.
+Current status: Post-MVP Phase 7 complete. Optional backend LLM synthesis, manual source monitoring, automated evaluation, human review queue foundations, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, and advanced RAG evaluation foundations are available.
 
 The original MVP phases 11, 12, and 13 are intentionally deferred until after the product-expansion phases because they are demo data, deployment, and portfolio-polish work.
 
@@ -74,7 +74,9 @@ Initial implementation includes:
 - Database-backed analysis request and report persistence.
 - Curated local knowledge base for Pendle, Morpho, Aave, Chainlink, and internal risk notes.
 - Lightweight local RAG ingestion, chunking, embedding, JSON vector storage, retrieval, and citation formatting.
-- Retrieval evaluation script for the MVP RAG questions.
+- Retrieval evaluation script and stored evaluation dataset for core RAG questions.
+- Optional hybrid RAG retriever with keyword, vector, metadata, source quality, freshness, reranking, and citation validation signals.
+- Optional deterministic local semantic embedding provider for offline retrieval experiments.
 - Analysis workflow can include retrieved local knowledge-base sources when the RAG index exists.
 - Market data adapter interface and service layer.
 - Manual, Pendle, Morpho, Aave, DefiLlama, and CoinGecko adapters with normalized outputs.
@@ -139,9 +141,8 @@ Initial implementation includes:
 
 The next active product phases are:
 
-1. Advanced RAG and retrieval evaluation.
-2. Fine-tuning and ML risk classifier groundwork.
-3. HPC and SLURM readiness.
+1. Fine-tuning and ML risk classifier groundwork.
+2. HPC and SLURM readiness.
 
 After these product-expansion phases, return to:
 
@@ -191,6 +192,7 @@ See `docs/llm_synthesis_validation.md` for the local Ollama test record, observe
 - The application is still an MVP and uses deterministic local analysis logic.
 - Data adapters are basic MVP implementations; several protocol adapters still rely on manual fallback.
 - RAG is local and curated only; it does not crawl protocol docs or refresh automatically.
+- Semantic retrieval is optional and currently uses a deterministic local semantic provider rather than an external embedding model.
 - Source monitoring is manually triggered and creates review candidates only; it does not approve or ingest sources.
 - Initial monitoring collectors are deterministic discovery candidates, not full live crawlers for every source.
 - Evaluation is manually triggered and creates review queue records; it does not approve sources by itself.
@@ -198,11 +200,11 @@ See `docs/llm_synthesis_validation.md` for the local Ollama test record, observe
 - Simulation is deterministic and educational; it does not forecast outcomes or recommend entering/exiting positions.
 - Watchlist alerts are manually evaluated and in-app only; no push, email, streaming, or automated execution exists.
 - Options analysis is deterministic and educational; it does not recommend buying or selling options.
-- Embeddings are lightweight local hash embeddings, not semantic model embeddings.
+- Default report retrieval still uses lightweight local hash embeddings unless `RAG_SEMANTIC_ENABLED=true`.
 - Risk scoring is deterministic and rule-based, but not a quantitative liquidation engine.
 - Reports are persisted and rendered through a deterministic template; optional LLM synthesis can enrich explanatory wording when enabled, but cannot override deterministic risk scoring, missing data, sources, market values, protocols, or disclaimers.
 - `/api/documents/ingest` refreshes the local curated RAG index; it does not ingest arbitrary uploaded content yet.
-- Advanced RAG, ML risk classifier groundwork, and HPC readiness are not implemented yet.
+- ML risk classifier groundwork and HPC readiness are not implemented yet.
 - No deployed public demo exists yet.
 - No wallet connection or transaction execution will be implemented.
 - Market data may still require manual fallback inputs during early development.

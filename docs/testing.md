@@ -207,6 +207,26 @@ Current options tests cover call and put payoff scenarios, breakeven, maximum lo
 
 ## 13. ML and Fine-Tuning Tests
 
+## 13. Advanced RAG Tests
+
+Current advanced RAG tests validate:
+
+- existing local retrieval still works
+- hybrid retrieval supports metadata filters
+- optional semantic retrieval can be enabled
+- citation validation reports missing metadata
+- retrieval evaluation writes metrics
+
+Run retrieval evaluation with:
+
+```bash
+cd backend
+python scripts/build_retrieval_eval_dataset.py
+python scripts/evaluate_retrieval.py --retriever hybrid_semantic
+```
+
+## 14. ML and Fine-Tuning Tests
+
 Before any model is used in the app, tests should validate:
 
 - dataset export shape
@@ -215,7 +235,7 @@ Before any model is used in the app, tests should validate:
 - deterministic risk scoring remains available
 - model output cannot silently override deterministic scoring
 
-## 14. Smoke Tests
+## 15. Smoke Tests
 
 Suggested smoke command:
 

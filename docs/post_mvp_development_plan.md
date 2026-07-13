@@ -43,6 +43,7 @@ Current known limitations:
 - Strategy simulation is deterministic and scenario-based.
 - Watchlists and in-app alerts are implemented for manual evaluation.
 - Options and volatility analysis is deterministic and educational.
+- Advanced RAG has optional hybrid retrieval, local semantic signals, reranking, citation validation, and evaluation metrics.
 - Fine-tuning and HPC support are not implemented.
 
 ## 3. Product Boundary

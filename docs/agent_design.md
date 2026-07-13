@@ -238,6 +238,14 @@ Purpose:
 - rerank retrieved chunks
 - score source freshness and quality
 
+Current implementation:
+
+- keeps the original local retriever available
+- adds `HybridRetriever` with keyword, vector, metadata, quality, freshness, and reranking signals
+- supports optional deterministic `local_semantic` embeddings
+- validates required citation metadata
+- records retrieval evaluation metrics through backend scripts
+
 ### 6.9 MLAssistAgent
 
 Purpose:

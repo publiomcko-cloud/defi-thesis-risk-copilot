@@ -1,37 +1,40 @@
+import argparse
 import sys
 from pathlib import Path
 
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
-from app.rag.retriever import Retriever
-
-
-QUESTIONS = [
-    "What is a Pendle PT?",
-    "What is maturity risk?",
-    "What is LLTV?",
-    "What is Health Factor?",
-    "What is oracle risk?",
-    "What is liquidation risk?",
-]
+from app.rag.evaluation import (
+    DEFAULT_EVAL_DATASET_PATH,
+    DEFAULT_EVAL_RESULTS_PATH,
+    evaluate_retriever,
+)
 
 
 def main() -> int:
-    retriever = Retriever()
-    for question in QUESTIONS:
-        print(f"\nQuestion: {question}")
-        results = retriever.retrieve(question, top_k=2)
-        if not results:
-            print("  No results")
-            continue
-        for result in results:
-            metadata = result.metadata
-            print(
-                "  "
-                f"{metadata['protocol']} / {metadata['section_title']} "
-                f"score={result.similarity_score:.3f}"
-            )
-    return 0
+    parser = argparse.ArgumentParser(description="Evaluate RAG retrieval quality.")
+    parser.add_argument(
+        "--retriever",
+        choices=("local", "hybrid", "hybrid_semantic"),
+        default="hybrid",
+    )
+    parser.add_argument("--dataset", type=Path, default=DEFAULT_EVAL_DATASET_PATH)
+    parser.add_argument("--output", type=Path, default=DEFAULT_EVAL_RESULTS_PATH)
+    parser.add_argument("--top-k", type=int, default=3)
+    args = parser.parse_args()
+
+    summary = evaluate_retriever(
+        retriever_name=args.retriever,
+        dataset_path=args.dataset,
+        output_path=args.output,
+        top_k=args.top_k,
+    )
+    print(
+        f"Retrieval eval passed {summary.passed_cases}/{summary.total_cases} "
+        f"({summary.pass_rate:.0%}); citation issues={summary.citation_issue_count}. "
+        f"Results written to {args.output}"
+    )
+    return 0 if summary.pass_rate >= 0.8 and summary.citation_issue_count == 0 else 1
 
 
 if __name__ == "__main__":

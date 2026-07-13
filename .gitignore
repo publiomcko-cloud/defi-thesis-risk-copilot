@@ -42,3 +42,4 @@ pnpm-debug.log*
 *.sqlite
 *.sqlite3
 backend/.rag_index.json
+backend/retrieval_eval_results.json

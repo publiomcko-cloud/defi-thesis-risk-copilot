@@ -1,0 +1,57 @@
+[
+  {
+    "id": "pendle_pt",
+    "query": "What is a Pendle PT?",
+    "expected_protocol": "pendle",
+    "expected_terms": [
+      "principal token",
+      "pt"
+    ],
+    "metadata_filters": null
+  },
+  {
+    "id": "pendle_maturity",
+    "query": "What is maturity risk?",
+    "expected_protocol": "pendle",
+    "expected_terms": [
+      "maturity"
+    ],
+    "metadata_filters": null
+  },
+  {
+    "id": "morpho_lltv",
+    "query": "What is LLTV in Morpho?",
+    "expected_protocol": "morpho",
+    "expected_terms": [
+      "lltv"
+    ],
+    "metadata_filters": null
+  },
+  {
+    "id": "aave_health_factor",
+    "query": "What is Health Factor?",
+    "expected_protocol": "aave",
+    "expected_terms": [
+      "health factor"
+    ],
+    "metadata_filters": null
+  },
+  {
+    "id": "oracle_risk",
+    "query": "What is oracle risk?",
+    "expected_protocol": "chainlink",
+    "expected_terms": [
+      "oracle"
+    ],
+    "metadata_filters": null
+  },
+  {
+    "id": "liquidation_risk",
+    "query": "What is liquidation risk?",
+    "expected_protocol": "internal_notes",
+    "expected_terms": [
+      "liquidation"
+    ],
+    "metadata_filters": null
+  }
+]

@@ -19,6 +19,11 @@ class Settings(BaseSettings):
     openai_compatible_model: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 8.0
     defillama_base_url: str = "https://api.llama.fi"
+    rag_semantic_enabled: bool = False
+    rag_embedding_provider: str = "local_semantic"
+    rag_hybrid_keyword_weight: float = 0.45
+    rag_hybrid_vector_weight: float = 0.45
+    rag_hybrid_metadata_weight: float = 0.10
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
