@@ -2,15 +2,13 @@
 
 ## 1. Purpose
 
-The RAG layer exists to reduce hallucination and ground DeFi analysis in protocol documentation and curated risk notes.
+The RAG layer grounds DeFi analysis in curated protocol documentation, internal risk notes, and human-approved discovered sources.
 
 The LLM should not answer protocol-specific questions from memory alone. It should retrieve relevant documentation before generating or synthesizing report sections.
 
-The Phase 10 baseline uses a curated local knowledge base, lightweight hash embeddings, and a JSON vector store. Post-MVP work should improve retrieval quality and add controlled ingestion from reviewed discovered sources.
+## 2. Current Knowledge Base
 
-## 2. Current MVP Knowledge Base
-
-Initial knowledge base:
+Current knowledge base:
 
 ```text
 knowledge_base/
@@ -18,12 +16,13 @@ knowledge_base/
 ├── morpho/
 ├── aave/
 ├── chainlink/
-└── internal_notes/
+├── internal_notes/
+└── discovered/        # planned Phase 10 controlled ingestion target
 ```
 
 Current behavior:
 
-- local curated markdown files
+- curated markdown files
 - markdown/header-aware chunking
 - metadata extraction
 - lightweight local hash embeddings
@@ -35,45 +34,52 @@ Current behavior:
 
 ## 3. Ingestion Flow
 
+Current curated ingestion:
+
 ```text
-Source documents
-    |
-    v
-Document loader
-    |
-    v
-Text cleaning
-    |
-    v
-Chunking
-    |
-    v
-Metadata extraction
-    |
-    v
-Embedding generation
-    |
-    v
-Vector database or local vector store
+Curated source documents
+    -> document loader
+    -> text cleaning
+    -> chunking
+    -> metadata extraction
+    -> embedding generation
+    -> local vector store
 ```
 
-## 4. Chunking Strategy
+Planned Phase 10 controlled ingestion:
 
-The MVP should use simple semantic chunking or markdown-header-aware chunking.
+```text
+Auto-discovered candidate
+    -> normalized discovered item
+    -> automated evaluation
+    -> human review
+    -> approved_for_rag
+    -> explicit ingest-to-RAG action
+    -> curated markdown under knowledge_base/discovered/
+    -> RAG index refresh
+    -> retrieval evaluation
+```
 
-Recommended metadata:
+The app must never ingest a newly discovered source automatically. Human approval and an explicit ingestion action are required.
+
+## 4. Required Metadata
+
+Every ingested chunk should preserve metadata such as:
 
 - protocol
 - source URL
+- source type
 - document title
 - section title
 - ingestion date
-- content type
-- risk category
-- version or date if available
+- discovery source
+- review status
+- reviewer notes if available
 - source quality level
 - freshness status
-- review status
+- risk category if available
+
+For discovered sources, generated markdown must clearly state that the item was automatically discovered and human-approved before ingestion.
 
 ## 5. Retrieval Strategy
 
@@ -86,16 +92,9 @@ The retriever should return:
 - document title
 - section title
 
-Post-MVP Phase 7 adds:
+Advanced retrieval already supports optional hybrid retrieval, local semantic signals, metadata filters, source quality scoring, freshness scoring, reranking, citation validation, and retrieval evaluation metrics.
 
-- `HybridRetriever` for keyword + vector + metadata scoring
-- optional `local_semantic` embeddings controlled by `RAG_SEMANTIC_ENABLED`
-- metadata filters for protocol, risk category, content type, and similar fields
-- source quality and freshness scoring
-- deterministic reranking
-- citation validation for required source metadata
-
-Future RAG phases may still add query rewriting and external embedding providers.
+Default report retrieval remains safe and deterministic. Optional semantic retrieval is controlled by environment configuration.
 
 ## 6. Prompt Construction for Optional LLM Synthesis
 
@@ -114,18 +113,16 @@ The optional LLM prompt should include:
 The LLM must not:
 
 - invent missing fields
-- change the deterministic risk score
+- change deterministic risk score
 - remove disclaimers
 - provide direct buy/sell instructions
 - hide uncertainty
 
 If LLM synthesis fails or is disabled, deterministic report generation remains the fallback.
 
-Current implementation supports optional backend LLM synthesis after local RAG retrieval. The prompt includes retrieved chunks, market data, deterministic risk components, missing data, and safety rules. The synthesis layer can enrich explanatory wording only; deterministic report fields remain authoritative.
-
 ## 7. RAG Evaluation
 
-MVP evaluation should test whether the retriever finds correct information for questions such as:
+Retrieval evaluation should check whether the retriever finds correct information for questions such as:
 
 - What is a Pendle PT?
 - What is fixed yield?
@@ -135,61 +132,34 @@ MVP evaluation should test whether the retriever finds correct information for q
 - What is oracle risk?
 - What is maturity risk?
 
-Post-MVP Phase 7 retrieval evaluation includes:
+Post-MVP retrieval evaluation includes a stored JSON evaluation dataset, citation coverage checks, source freshness/quality signals, and JSON metrics written by `backend/scripts/evaluate_retrieval.py`.
 
-- a stored JSON evaluation dataset generated by `backend/scripts/build_retrieval_eval_dataset.py`
-- expected protocols and expected answer terms
-- citation coverage checks through `validate_retrieval_citations`
-- source freshness and quality signals in hybrid retrieval metadata
-- JSON metrics written by `backend/scripts/evaluate_retrieval.py`
+## 8. Phase 10 Requirements
 
-Future evaluation work may add deeper faithfulness checks and long-term regression dashboards.
-
-## 8. Reviewed Source Ingestion
-
-Post-MVP source monitoring may discover new items, but those items should not be blindly ingested.
-
-Recommended flow:
+Phase 10 must add the missing bridge from reviewed discoveries into the knowledge base:
 
 ```text
-Discovered source
-    -> normalized discovered item
-    -> automated evaluation
-    -> human review
-    -> approved_for_rag
-    -> ingestion
-    -> retrieval evaluation
+POST /api/evaluation/review-items/{review_item_id}/ingest-to-rag
 ```
 
-Review statuses:
+Rules:
 
-```text
-needs_review
-approved_for_rag
-rejected
-needs_more_data
-archived
-```
+- only `approved_for_rag` items can be ingested
+- rejected, archived, `needs_review`, or `needs_more_data` items cannot be ingested
+- duplicate ingestion must be prevented
+- generated markdown must include source URL and review metadata
+- RAG index refresh must run after successful ingestion
+- future analysis reports may cite ingested discovered sources
 
-## 9. Active RAG Improvement Phases
+## 9. Guardrails
 
-Recommended order:
-
-```text
-Phase 1: optional LLM synthesis using current RAG context
-Phase 2: source monitoring creates discovered items
-Phase 3: reviewed items become RAG ingestion candidates
-Phase 7: semantic embeddings, hybrid retrieval, reranking, and eval dataset
-Phase 8: export retrieval/report examples for future fine-tuning groundwork
-```
-
-## 10. Future RAG Guardrails
-
-Future RAG improvements must preserve:
+RAG improvements must preserve:
 
 - visible citations
 - visible missing data
 - source freshness metadata
 - source quality metadata
 - deterministic fallback
-- human review before trusting monitored sources
+- human approval before trusting monitored sources
+- no autonomous financial advice
+- no wallet or transaction execution
