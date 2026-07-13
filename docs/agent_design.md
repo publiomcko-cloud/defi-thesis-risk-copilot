@@ -221,6 +221,13 @@ Purpose:
 - explain premium, strike, expiration, implied volatility, and spread risk
 - remain educational and non-advisory
 
+Current implementation:
+
+- exposes deterministic options analysis through `POST /api/options/analyze`
+- supports call and put payoff scenarios
+- returns breakeven, max loss, bid/ask spread, volatility summary, risks, and missing data
+- does not provide buy/sell instructions
+
 ### 6.8 AdvancedRAGAgent
 
 Purpose:

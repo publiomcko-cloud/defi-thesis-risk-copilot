@@ -21,7 +21,9 @@ import type {
   WatchlistUpdateResponse,
   AlertEventsResponse,
   AlertStatus,
-  AlertStatusUpdateResponse
+  AlertStatusUpdateResponse,
+  OptionsAnalysisRequest,
+  OptionsAnalysisResponse
 } from "./types";
 
 export function getApiBaseUrl(): string {
@@ -289,6 +291,24 @@ export async function updateAlertStatus(
 
   if (!response.ok) {
     throw new Error(`Alert update failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function analyzeOption(
+  payload: OptionsAnalysisRequest
+): Promise<OptionsAnalysisResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/options/analyze`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(`Options analysis failed with status ${response.status}`);
   }
 
   return response.json();

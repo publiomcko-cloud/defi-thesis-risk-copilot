@@ -35,14 +35,14 @@ Current baseline capabilities:
 
 Current known limitations:
 
-- Report writing is deterministic and template-based, not LLM synthesized.
+- Report writing has deterministic fallback behavior with optional LLM synthesis.
 - RAG is local and curated only.
 - Several protocol adapters are still manual fallback adapters.
-- No source monitoring or automatic discovery exists.
-- No review queue exists for newly discovered markets or sources.
-- Strategy simulation is not quantitative yet.
-- Watchlists and alerts are not implemented.
-- Options and volatility analysis are not implemented.
+- Source monitoring is manually triggered and discovery remains curated.
+- Review queue foundations exist for newly discovered markets or sources.
+- Strategy simulation is deterministic and scenario-based.
+- Watchlists and in-app alerts are implemented for manual evaluation.
+- Options and volatility analysis is deterministic and educational.
 - Fine-tuning and HPC support are not implemented.
 
 ## 3. Product Boundary

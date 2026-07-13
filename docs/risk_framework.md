@@ -204,6 +204,14 @@ Options reports should explain:
 
 Options reports must not say whether to buy or sell an option.
 
+Current implementation:
+
+- accepts manual call/put option inputs through `/api/options/analyze`
+- calculates breakeven, maximum loss, bid/ask spread, and payoff scenarios
+- frames implied volatility and expiration as uncertainty, not prediction
+- exposes a frontend options workflow at `/options`
+- avoids buy/sell instructions and position-size recommendations
+
 ## 9. LLM and ML Risk Guardrails
 
 Optional LLM synthesis may improve language quality, but it must not:

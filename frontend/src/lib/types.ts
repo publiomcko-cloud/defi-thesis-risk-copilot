@@ -300,3 +300,45 @@ export type AlertEventsResponse = {
 export type AlertStatusUpdateResponse = {
   alert: AlertEvent;
 };
+
+export type OptionType = "call" | "put";
+
+export type OptionsAnalysisRequest = {
+  option_type: OptionType;
+  underlying_asset: string;
+  underlying_price: number;
+  strike_price: number;
+  premium: number;
+  expiration_date?: string;
+  implied_volatility?: number;
+  bid?: number;
+  ask?: number;
+  contracts?: number;
+  scenario_prices: number[];
+  volatility_thesis?: string;
+};
+
+export type OptionScenario = {
+  underlying_price: number;
+  intrinsic_value: number;
+  payoff: number;
+  return_on_premium_pct?: number | null;
+  moneyness: string;
+};
+
+export type OptionsAnalysisResponse = {
+  option_type: OptionType;
+  underlying_asset: string;
+  breakeven_price: number;
+  max_loss: number;
+  max_profit: string;
+  bid_ask_spread?: number | null;
+  bid_ask_spread_pct?: number | null;
+  days_to_expiration?: number | null;
+  scenarios: OptionScenario[];
+  assumptions: string[];
+  risks: string[];
+  missing_data: string[];
+  volatility_summary: string;
+  disclaimer: string;
+};

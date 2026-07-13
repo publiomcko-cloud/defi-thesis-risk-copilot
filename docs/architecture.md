@@ -367,11 +367,10 @@ Safety requirements:
 
 ## 11. Active Product Expansion Architecture
 
-After Post-MVP Phase 5, the remaining active product architecture expands in this order:
+After Post-MVP Phase 6, the remaining active product architecture expands in this order:
 
 ```text
-Options and Volatility Analysis
-    -> Advanced RAG
+Advanced RAG
     -> Fine-tuning Groundwork
     -> HPC Readiness
 ```

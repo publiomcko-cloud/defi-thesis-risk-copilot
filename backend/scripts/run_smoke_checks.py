@@ -162,6 +162,24 @@ def main() -> int:
         if updated_alert.get("alert", {}).get("status") != "acknowledged":
             print(f"Smoke check failed: alert update mismatch: {updated_alert}", file=sys.stderr)
             return 1
+
+        options = _post_json(
+            f"{base_url}/api/options/analyze",
+            {
+                "option_type": "call",
+                "underlying_asset": "ETH",
+                "underlying_price": 3000,
+                "strike_price": 3200,
+                "premium": 150,
+                "implied_volatility": 0.75,
+                "bid": 145,
+                "ask": 155,
+                "scenario_prices": [2800, 3200, 3500],
+            },
+        )
+        if options.get("breakeven_price") != 3350 or len(options.get("scenarios", [])) != 3:
+            print(f"Smoke check failed: options analysis mismatch: {options}", file=sys.stderr)
+            return 1
     except URLError as exc:
         print(f"Smoke check failed: API request failed: {exc}", file=sys.stderr)
         return 1
@@ -169,7 +187,7 @@ def main() -> int:
     print(
         "Smoke checks passed: /health, /api/protocols, /api/analyze, "
         "report retrieval, markdown export, monitoring, evaluation, review queue, "
-        "evaluation report retrieval, simulation, watchlist, and alert events"
+        "evaluation report retrieval, simulation, watchlist, alert events, and options"
     )
     return 0
 

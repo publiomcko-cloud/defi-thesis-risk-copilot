@@ -203,6 +203,8 @@ When options analysis is implemented, tests should validate:
 - expiration handling
 - non-advisory output language
 
+Current options tests cover call and put payoff scenarios, breakeven, maximum loss framing, implied volatility/missing data handling, bid/ask spread, endpoint behavior, and non-advisory output language.
+
 ## 13. ML and Fine-Tuning Tests
 
 Before any model is used in the app, tests should validate:
