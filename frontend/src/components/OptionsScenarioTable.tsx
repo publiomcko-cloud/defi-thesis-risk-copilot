@@ -13,7 +13,7 @@ export function OptionsScenarioTable({ scenarios }: OptionsScenarioTableProps) {
             <th>Underlying</th>
             <th>Intrinsic</th>
             <th>Payoff</th>
-            <th>Return/Premium</th>
+            <th>Return/Premium %</th>
             <th>Moneyness</th>
           </tr>
         </thead>
@@ -27,7 +27,7 @@ export function OptionsScenarioTable({ scenarios }: OptionsScenarioTableProps) {
                 {scenario.return_on_premium_pct === null ||
                 scenario.return_on_premium_pct === undefined
                   ? "n/a"
-                  : `${(scenario.return_on_premium_pct * 100).toFixed(1)}%`}
+                  : `${scenario.return_on_premium_pct.toFixed(1)}%`}
               </td>
               <td>{scenario.moneyness}</td>
             </tr>

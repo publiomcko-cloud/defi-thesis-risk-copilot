@@ -1,4 +1,5 @@
 import json
+import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -20,10 +21,13 @@ DEFAULT_TRAINING_DATASET_PATH = (
 @dataclass(frozen=True)
 class RiskTrainingLabels:
     risk_rating: str
+    deterministic_risk_score: int | None
     main_risk_drivers: list[str]
     protocol_category: str
     missing_data_severity: str
     strategy_type: str
+    label_source: str = "deterministic_rules"
+    human_ground_truth: bool = False
 
 
 @dataclass(frozen=True)
@@ -34,8 +38,11 @@ class RiskTrainingExample:
     protocols: list[str]
     sections: list[dict[str, str]]
     missing_data: list[str]
+    source_references: list[dict[str, str | None]]
+    normalized_features: dict[str, Any]
     labels: RiskTrainingLabels
     source: str = "persisted_report"
+    metadata: dict[str, Any] | None = None
 
 
 def export_training_examples(
@@ -59,10 +66,13 @@ def build_training_examples(db: Session) -> list[RiskTrainingExample]:
 def label_schema() -> dict[str, str]:
     return {
         "risk_rating": "Deterministic report risk rating.",
+        "deterministic_risk_score": "Rule-based risk score when present in report text.",
         "main_risk_drivers": "Risk categories inferred from report sections and missing data.",
         "protocol_category": "Single protocol, multi-protocol, or unknown protocol grouping.",
         "missing_data_severity": "none, low, medium, or high based on missing_data length.",
         "strategy_type": "Heuristic strategy family such as lending, leverage, fixed_yield, options, or generic_defi.",
+        "label_source": "Always deterministic_rules for current exports.",
+        "human_ground_truth": "False until examples are reviewed and labeled by humans.",
     }
 
 
@@ -84,11 +94,22 @@ def _record_to_training_example(record: ReportModel) -> RiskTrainingExample:
     )
     labels = RiskTrainingLabels(
         risk_rating=str(report.get("risk_rating", record.risk_rating)),
+        deterministic_risk_score=_extract_deterministic_risk_score(combined_text),
         main_risk_drivers=_infer_main_risk_drivers(combined_text),
         protocol_category=_protocol_category(protocols),
         missing_data_severity=_missing_data_severity(missing_data),
         strategy_type=_strategy_type(strategy_description, protocols),
     )
+    sources = [
+        {
+            "title": str(source.get("title", "")),
+            "source_type": str(source.get("source_type", "")),
+            "url": source.get("url"),
+            "protocol": source.get("protocol"),
+        }
+        for source in report.get("sources", [])
+        if isinstance(source, dict)
+    ]
     return RiskTrainingExample(
         id=f"training_{record.id}",
         report_id=record.id,
@@ -96,8 +117,34 @@ def _record_to_training_example(record: ReportModel) -> RiskTrainingExample:
         protocols=protocols,
         sections=sections,
         missing_data=missing_data,
+        source_references=sources,
+        normalized_features={
+            "protocol_count": len([protocol for protocol in protocols if protocol != "unknown"]),
+            "missing_data_count": len(missing_data),
+            "section_count": len(sections),
+            "has_sources": bool(sources),
+            "strategy_type": labels.strategy_type,
+            "protocol_category": labels.protocol_category,
+        },
         labels=labels,
+        metadata={
+            "label_source": "deterministic_rules",
+            "human_ground_truth": False,
+            "production_authoritative": False,
+            "notes": (
+                "Candidate example for experimentation. Labels come from deterministic "
+                "report rules or rule-derived heuristics, not human-reviewed ground truth."
+            ),
+        },
     )
+
+
+def _extract_deterministic_risk_score(text: str) -> int | None:
+    match = re.search(r"Rule-based score:\s*(\d+)", text, flags=re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+    match = re.search(r"score\s+(\d+)", text, flags=re.IGNORECASE)
+    return int(match.group(1)) if match else None
 
 
 def _infer_main_risk_drivers(text: str) -> list[str]:

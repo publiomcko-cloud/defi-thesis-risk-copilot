@@ -5,7 +5,7 @@ from app.core.config import get_settings
 from app.rag.embeddings import LocalHashEmbeddingProvider, TOKEN_PATTERN, cosine_similarity
 from app.rag.reranker import freshness_score, rerank_results, source_quality_score
 from app.rag.retriever import RetrievalResult
-from app.rag.semantic_embeddings import get_semantic_embedding_provider
+from app.rag.semantic_embeddings import LocalSemanticEmbeddingProvider, get_semantic_embedding_provider
 from app.rag.vector_store import JsonVectorStore
 
 
@@ -29,7 +29,8 @@ class HybridRetriever:
         self.semantic_enabled = (
             settings.rag_semantic_enabled if semantic_enabled is None else semantic_enabled
         )
-        self.semantic_provider = get_semantic_embedding_provider(settings.rag_embedding_provider)
+        self.embedding_provider_name = settings.rag_embedding_provider
+        self._semantic_provider: LocalSemanticEmbeddingProvider | None = None
         self.weights = weights or HybridRetrievalWeights(
             keyword=settings.rag_hybrid_keyword_weight,
             vector=settings.rag_hybrid_vector_weight,
@@ -92,6 +93,12 @@ class HybridRetriever:
             )
 
         return rerank_results(query, results)[:top_k]
+
+    @property
+    def semantic_provider(self) -> LocalSemanticEmbeddingProvider:
+        if self._semantic_provider is None:
+            self._semantic_provider = get_semantic_embedding_provider(self.embedding_provider_name)
+        return self._semantic_provider
 
 
 def _matches_filters(metadata: dict, filters: dict[str, Any]) -> bool:

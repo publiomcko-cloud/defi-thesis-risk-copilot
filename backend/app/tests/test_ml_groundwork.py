@@ -21,9 +21,16 @@ def test_training_dataset_export_includes_label_schema(tmp_path: Path) -> None:
     payload = json.loads(output_path.read_text(encoding="utf-8"))
     assert len(examples) == 1
     assert payload[0]["labels"]["risk_rating"] == "Aggressive"
+    assert payload[0]["labels"]["deterministic_risk_score"] == 6
+    assert payload[0]["labels"]["label_source"] == "deterministic_rules"
+    assert payload[0]["labels"]["human_ground_truth"] is False
     assert payload[0]["labels"]["protocol_category"] == "multi_protocol"
     assert payload[0]["labels"]["missing_data_severity"] == "low"
+    assert payload[0]["source_references"][0]["protocol"] == "pendle"
+    assert payload[0]["normalized_features"]["has_sources"] is True
+    assert payload[0]["metadata"]["label_source"] == "deterministic_rules"
     assert "risk_rating" in label_schema()
+    assert "deterministic_risk_score" in label_schema()
 
 
 def test_baseline_classifier_is_advisory_only() -> None:
@@ -35,7 +42,7 @@ def test_baseline_classifier_is_advisory_only() -> None:
     )
 
     assert prediction.advisory_only is True
-    assert prediction.status == "advisory_only"
+    assert prediction.status == "shadow_evaluation_only"
     assert prediction.predicted_rating in {"Aggressive", "Very Risky"}
     assert "Deterministic rule-based risk scoring remains authoritative" in prediction.explanation
 
@@ -53,6 +60,19 @@ def test_classifier_output_cannot_override_deterministic_rating() -> None:
     assert merged["risk_rating"] == "Moderate"
     assert merged["classifier_advisory"]["predicted_rating"] != merged["risk_rating"]
     assert merged["authoritative_source"] == "deterministic_rule_based_scoring"
+    assert merged["shadow_mode_only"] is True
+
+
+def test_model_training_artifacts_are_not_required_for_classifier() -> None:
+    prediction = BaselineRiskClassifier().predict(
+        strategy_description="Simple Aave supply strategy.",
+        protocols=["aave"],
+        missing_data=[],
+    )
+
+    assert prediction.status == "shadow_evaluation_only"
+    assert prediction.advisory_only is True
+    assert "No model-training artifact is loaded" in prediction.limitations[0]
 
 
 def _build_test_session():
@@ -90,10 +110,17 @@ def _seed_report(db) -> None:
             "sections": [
                 {
                     "title": "Risk Analysis",
-                    "content": "Liquidation, oracle, borrow rate, and liquidity risks are relevant.",
+                    "content": "Rule-based score: 6. Liquidation, oracle, borrow rate, and liquidity risks are relevant.",
                 }
             ],
-            "sources": [],
+            "sources": [
+                {
+                    "title": "Pendle Notes - Principal Tokens (pendle)",
+                    "source_type": "knowledge_base",
+                    "url": "/knowledge_base/pendle/README.md",
+                    "protocol": "pendle",
+                }
+            ],
             "disclaimer": "Educational only.",
         },
     )

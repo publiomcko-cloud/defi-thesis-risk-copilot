@@ -4,7 +4,7 @@ from typing import Any, Literal
 from app.risk.framework import RiskRating, map_score_to_rating
 
 
-ClassifierStatus = Literal["advisory_only"]
+ClassifierStatus = Literal["shadow_evaluation_only"]
 
 
 @dataclass(frozen=True)
@@ -15,13 +15,15 @@ class BaselineRiskPrediction:
     status: ClassifierStatus
     features: dict[str, Any]
     explanation: str
+    limitations: list[str]
 
 
 class BaselineRiskClassifier:
-    """Simple advisory baseline for future ML comparison.
+    """Deterministic experimental baseline for future ML comparison.
 
     The prediction is intentionally separate from deterministic scoring and must
-    not be used as the source of truth for report risk ratings.
+    not be used as the source of truth for report risk ratings. It is suitable
+    for shadow/evaluation mode only.
     """
 
     def predict(
@@ -60,12 +62,17 @@ class BaselineRiskClassifier:
             predicted_rating=map_score_to_rating(score),
             confidence=_confidence(features["missing_data_count"]),
             advisory_only=True,
-            status="advisory_only",
+            status="shadow_evaluation_only",
             features=features,
             explanation=(
                 "Baseline classifier prediction is advisory and for evaluation only. "
                 "Deterministic rule-based risk scoring remains authoritative."
             ),
+            limitations=[
+                "No model-training artifact is loaded; this is a deterministic heuristic baseline.",
+                "Prediction is shadow/evaluation-only and must not override production risk_rating.",
+                "Confidence reflects missing-data coverage, not calibrated model probability.",
+            ],
         )
 
 
@@ -77,6 +84,7 @@ def preserve_deterministic_rating(
         "risk_rating": deterministic_rating,
         "classifier_advisory": asdict(prediction),
         "authoritative_source": "deterministic_rule_based_scoring",
+        "shadow_mode_only": True,
     }
 
 

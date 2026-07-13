@@ -65,7 +65,7 @@ def default_scenario_prices(underlying_price: float, strike_price: float) -> lis
 def _return_on_premium(value: float, premium_paid: float) -> float | None:
     if premium_paid == 0:
         return None
-    return value / premium_paid
+    return (value / premium_paid) * 100
 
 
 def _moneyness(option_type: OptionType, underlying_price: float, strike_price: float) -> str:

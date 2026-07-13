@@ -6,7 +6,7 @@ from app.options.payoff import (
     max_profit,
 )
 from app.options.schemas import OptionsAnalysisRequest, OptionsAnalysisResponse
-from app.options.volatility import bid_ask_spread, days_to_expiration, volatility_summary
+from app.options.volatility import bid_ask_spread, safe_days_to_expiration, volatility_summary
 
 OPTIONS_DISCLAIMER = (
     "Options analysis is educational and scenario-based. It is not financial advice, "
@@ -20,7 +20,7 @@ def analyze_option(request: OptionsAnalysisRequest) -> OptionsAnalysisResponse:
         request.strike_price,
     )
     spread, spread_pct = bid_ask_spread(request.bid, request.ask)
-    expiry_days = days_to_expiration(request.expiration_date)
+    expiry_days, has_valid_expiration_date = safe_days_to_expiration(request.expiration_date)
     missing_data = []
     if request.implied_volatility is None:
         missing_data.append("implied_volatility")
@@ -28,6 +28,8 @@ def analyze_option(request: OptionsAnalysisRequest) -> OptionsAnalysisResponse:
         missing_data.append("bid/ask")
     if request.expiration_date is None:
         missing_data.append("expiration_date")
+    elif not has_valid_expiration_date:
+        missing_data.append("valid_expiration_date")
 
     risks = [
         "Premium paid can be lost if the option expires out of the money.",
@@ -35,7 +37,9 @@ def analyze_option(request: OptionsAnalysisRequest) -> OptionsAnalysisResponse:
         "Implied volatility can fall even if spot direction is favorable.",
         "Scenario payoff ignores venue fees, funding, collateral constraints, and execution slippage.",
     ]
-    if expiry_days is not None and expiry_days < 0:
+    if not has_valid_expiration_date:
+        risks.append("Expiration timing could not be evaluated because the expiration date is invalid.")
+    elif expiry_days is not None and expiry_days < 0:
         risks.append("Expiration date is in the past relative to the local system date.")
     elif expiry_days is not None and expiry_days <= 7:
         risks.append("Short time to expiration increases sensitivity to timing and decay assumptions.")

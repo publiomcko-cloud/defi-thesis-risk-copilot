@@ -17,6 +17,15 @@ def days_to_expiration(expiration_date: str | None) -> int | None:
     return (parsed - datetime.now(UTC).date()).days
 
 
+def safe_days_to_expiration(expiration_date: str | None) -> tuple[int | None, bool]:
+    if not expiration_date:
+        return None, True
+    try:
+        return days_to_expiration(expiration_date), True
+    except ValueError:
+        return None, False
+
+
 def volatility_summary(implied_volatility: float | None, volatility_thesis: str | None) -> str:
     if implied_volatility is None:
         return "Implied volatility was not provided, so volatility richness cannot be framed."

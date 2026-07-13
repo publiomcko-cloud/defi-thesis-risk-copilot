@@ -34,6 +34,27 @@ def test_hybrid_retriever_supports_metadata_filters(tmp_path: Path) -> None:
     assert "retrieval_scores" in results[0].metadata
 
 
+def test_non_semantic_hybrid_retrieval_does_not_initialize_semantic_provider(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    store = JsonVectorStore(tmp_path / "rag_index.json")
+    ingest_knowledge_base(store=store)
+
+    class FakeSettings:
+        rag_semantic_enabled = False
+        rag_embedding_provider = "unsupported_provider"
+        rag_hybrid_keyword_weight = 0.45
+        rag_hybrid_vector_weight = 0.45
+        rag_hybrid_metadata_weight = 0.10
+
+    monkeypatch.setattr("app.rag.hybrid_retriever.get_settings", lambda: FakeSettings())
+
+    results = HybridRetriever(store, semantic_enabled=False).retrieve("What is LLTV?", top_k=2)
+
+    assert results
+
+
 def test_semantic_retrieval_can_be_enabled(tmp_path: Path) -> None:
     store = JsonVectorStore(tmp_path / "rag_index.json")
     ingest_knowledge_base(store=store)
