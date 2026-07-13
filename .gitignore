@@ -36,6 +36,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+hpc/logs/*
+!hpc/logs/.gitkeep
 
 # Local databases
 *.db

@@ -1,0 +1,35 @@
+Bootstrap: docker
+From: python:3.12-slim
+
+%labels
+    Author DeFi-Thesis-Risk-Copilot
+    Purpose Optional-HPC-batch-workflows
+
+%environment
+    export PYTHONDONTWRITEBYTECODE=1
+    export PYTHONUNBUFFERED=1
+    export PYTHONPATH=/workspace/backend
+
+%files
+    backend/requirements.txt /workspace/backend/requirements.txt
+    backend /workspace/backend
+    knowledge_base /workspace/knowledge_base
+
+%post
+    apt-get update
+    apt-get install -y --no-install-recommends git ca-certificates
+    rm -rf /var/lib/apt/lists/*
+    mkdir -p /workspace
+    cd /workspace/backend
+    pip install --no-cache-dir -r requirements.txt
+
+%runscript
+    cd /workspace/backend
+    exec "$@"
+
+%help
+    Optional Apptainer image for DeFi Thesis & Risk Copilot batch jobs.
+
+    Examples:
+      apptainer run defi-risk-copilot.sif python scripts/ingest_demo_docs.py
+      apptainer run defi-risk-copilot.sif python scripts/evaluate_retrieval.py --retriever hybrid_semantic

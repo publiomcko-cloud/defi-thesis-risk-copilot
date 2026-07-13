@@ -45,7 +45,8 @@ Current known limitations:
 - Options and volatility analysis is deterministic and educational.
 - Advanced RAG has optional hybrid retrieval, local semantic signals, reranking, citation validation, and evaluation metrics.
 - ML risk classifier groundwork is implemented for dataset export and advisory baseline evaluation.
-- Fine-tuning and HPC support are not implemented.
+- HPC and SLURM readiness templates are implemented for optional batch workflows.
+- Fine-tuning is not implemented.
 
 ## 3. Product Boundary
 

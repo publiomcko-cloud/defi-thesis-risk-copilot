@@ -39,7 +39,7 @@ Planned final portfolio additions:
 
 ## Implemented Features
 
-Current status: Post-MVP Phase 8 complete. Optional backend LLM synthesis, manual source monitoring, automated evaluation, human review queue foundations, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, and ML risk classifier groundwork are available.
+Current status: Post-MVP Phase 9 complete. Optional backend LLM synthesis, manual source monitoring, automated evaluation, human review queue foundations, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, and optional HPC/SLURM templates are available.
 
 The original MVP phases 11, 12, and 13 are intentionally deferred until after the product-expansion phases because they are demo data, deployment, and portfolio-polish work.
 
@@ -80,6 +80,8 @@ Initial implementation includes:
 - Candidate ML training dataset export from persisted reports.
 - Baseline advisory risk classifier interface for future model comparison.
 - Model-training workspace with label schema and guardrails.
+- Optional HPC workspace with SLURM templates for RAG ingestion, retrieval evaluation, and ML dataset export.
+- Apptainer definition for portable batch execution on compatible clusters.
 - Analysis workflow can include retrieved local knowledge-base sources when the RAG index exists.
 - Market data adapter interface and service layer.
 - Manual, Pendle, Morpho, Aave, DefiLlama, and CoinGecko adapters with normalized outputs.
@@ -142,11 +144,9 @@ Initial implementation includes:
 
 ## Active Product Development To Implement
 
-The next active product phases are:
+The active product-expansion phases are complete through Post-MVP Phase 9.
 
-1. HPC and SLURM readiness.
-
-After these product-expansion phases, return to:
+Next phases:
 
 1. Final Phase 11 — Demo data and example reports.
 2. Final Phase 12 — Public portfolio deployment.
@@ -192,6 +192,14 @@ docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
+HPC template validation:
+
+```bash
+bash -n hpc/slurm_generate_embeddings.sbatch
+bash -n hpc/slurm_evaluate_retrieval.sbatch
+bash -n hpc/slurm_train_risk_classifier.sbatch
+```
+
 LLM validation:
 
 See `docs/llm_synthesis_validation.md` for the local Ollama test record, observed issues, and results.
@@ -214,7 +222,7 @@ See `docs/llm_synthesis_validation.md` for the local Ollama test record, observe
 - Reports are persisted and rendered through a deterministic template; optional LLM synthesis can enrich explanatory wording when enabled, but cannot override deterministic risk scoring, missing data, sources, market values, protocols, or disclaimers.
 - `/api/documents/ingest` refreshes the local curated RAG index; it does not ingest arbitrary uploaded content yet.
 - Fine-tuning has not been performed; the baseline classifier is advisory only and cannot override deterministic risk scoring.
-- HPC readiness is not implemented yet.
+- HPC readiness is template-based only; no SLURM job has been submitted from this local environment.
 - No deployed public demo exists yet.
 - No wallet connection or transaction execution will be implemented.
 - Market data may still require manual fallback inputs during early development.

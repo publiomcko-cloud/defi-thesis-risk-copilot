@@ -263,7 +263,20 @@ Post-MVP smoke checks may later add:
 - simulation run
 - watchlist rule evaluation
 
-## 15. Final Portfolio Test Pass
+## 16. HPC Template Checks
+
+Phase 9 HPC files are optional templates. Local validation should check syntax and preserve normal app behavior:
+
+```bash
+bash -n hpc/slurm_generate_embeddings.sbatch
+bash -n hpc/slurm_evaluate_retrieval.sbatch
+bash -n hpc/slurm_train_risk_classifier.sbatch
+test -f hpc/apptainer.def
+```
+
+Actual `sbatch` submission and `apptainer build` depend on cluster tooling and are not required for local MVP validation.
+
+## 17. Final Portfolio Test Pass
 
 Final phases 11, 12, and 13 should run only after product-expansion phases are stable.
 
