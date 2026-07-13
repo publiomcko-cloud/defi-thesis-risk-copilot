@@ -11,13 +11,19 @@ Testing should validate:
 - data adapter fallbacks
 - frontend build quality
 - Docker configuration
-- post-MVP source monitoring and evaluation workflows
-- simulation and alert logic
+- source monitoring and evaluation workflows
+- simulation, watchlist, and alert logic
+- options analysis
 - optional LLM synthesis fallback behavior
+- ML groundwork guardrails
+- HPC template syntax
+- Phase 10 discovery-to-RAG ingestion safety
+- Phase 11 access control and credential isolation
+- Phase 12 Vast.ai lifecycle safety
 
 ## 2. Baseline Validation
 
-Before implementing any post-MVP phase, the Phase 10 baseline should pass:
+Run before and after each phase:
 
 ```bash
 cd backend
@@ -34,236 +40,27 @@ docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
-## 3. Backend Tests
-
-Recommended test areas:
-
-- analysis endpoint
-- report endpoint
-- document ingestion
-- retriever behavior
-- risk scoring
-- data adapter normalization
-- missing data handling
-- disclaimer presence
-- Markdown export
-- Alembic migrations from a clean database
-
-## 4. Frontend Tests
-
-Run:
-
-```bash
-cd frontend
-npm run lint
-npm run build
-```
-
-Future:
-
-```bash
-npm run test:e2e
-```
-
-Important UI flows:
-
-- home page loads
-- analyze page accepts basic and advanced manual inputs
-- analysis redirects to report page
-- report page displays risk rating and sections
-- Markdown export renders
-- error states are readable
-
-## 5. RAG Tests
-
-RAG evaluation questions:
-
-- What is a Pendle PT?
-- What is fixed yield?
-- What is LLTV?
-- What is Health Factor?
-- What is liquidation risk?
-- What is oracle risk?
-- What is maturity risk?
-
-The retriever should return relevant protocol chunks for each question.
-
-Post-MVP RAG tests should also validate:
-
-- semantic retrieval provider behavior
-- hybrid retrieval behavior
-- reranker behavior
-- metadata filters
-- citation validation
-- stale-source detection
-- evaluation dataset regressions
-
-## 6. Risk Scoring Tests
-
-Risk scoring should be deterministic.
-
-Example tests:
-
-- single-protocol no leverage strategy
-- multi-protocol strategy
-- leveraged strategy
-- unknown liquidity
-- volatile collateral
-- variable borrow rate
-- missing oracle data
-- missing RAG context
-
-## 7. Report Tests
-
-Every generated report should include:
-
-- executive summary
-- protocols involved
-- strategy mechanics
-- assumptions
-- risk rating
-- missing data
-- sources
-- disclaimer
-- Markdown export
-
-If optional LLM synthesis is added, tests must confirm:
-
-- deterministic fallback works with `LLM_PROVIDER=disabled`
-- LLM timeout does not break report generation
-- LLM output preserves risk rating, missing data, sources, and disclaimer
-- LLM synthesis assumptions clearly state whether synthesis was used or skipped
-
-The current local Ollama validation record is documented in `docs/llm_synthesis_validation.md`.
-
-## 8. Post-MVP Source Monitoring Tests
-
-When source monitoring is implemented, tests should validate:
-
-- source watch creation
-- manual monitoring run
-- collector failure handling
-- duplicate discovered item detection
-- normalized discovered item schema
-- `needs_review` default status
-- no automatic RAG ingestion without review
-
-## 9. Automated Evaluation and Review Queue Tests
-
-When the evaluation pipeline is implemented, tests should validate:
-
-- discovered item evaluation
-- evaluation result persistence
-- review item creation
-- review status changes
-- approved items become ingestion candidates
-- rejected items are not ingested
-- missing data remains visible
-
-Current backend tests cover discovered-item evaluation, structured risk summaries, review item creation, review status updates, and the `approved_for_rag` prepared-only boundary.
-
-## 10. Strategy Simulator Tests
-
-When the simulator is implemented, tests should validate:
-
-- net spread calculation
-- borrow APY shock
-- liquidity/slippage shock
-- collateral drawdown
-- LTV and liquidation buffer approximation
-- early exit before maturity
-- missing input handling
-- non-advisory output language
-
-Current simulator tests cover deterministic scenario generation, missing-data visibility, endpoint behavior, and non-advisory disclaimer language.
-
-## 11. Watchlist and Alert Tests
-
-When watchlists are implemented, tests should validate:
-
-- watchlist item creation
-- rule evaluation
-- alert event creation
-- alert status updates
-- no external notification required in the first version
-- no trading recommendation text
-
-Current watchlist tests cover item creation, manual rule evaluation, alert event creation, alert status updates, and non-advisory alert text.
-
-## 12. Options Analysis Tests
-
-When options analysis is implemented, tests should validate:
-
-- call payoff scenarios
-- put payoff scenarios
-- breakeven calculation
-- maximum loss framing
-- implied volatility field handling
-- bid/ask spread warning
-- expiration handling
-- non-advisory output language
-
-Current options tests cover call and put payoff scenarios, breakeven, maximum loss framing, implied volatility/missing data handling, bid/ask spread, endpoint behavior, and non-advisory output language.
-
-## 13. ML and Fine-Tuning Tests
-
-## 13. Advanced RAG Tests
-
-Current advanced RAG tests validate:
-
-- existing local retrieval still works
-- hybrid retrieval supports metadata filters
-- optional semantic retrieval can be enabled
-- citation validation reports missing metadata
-- retrieval evaluation writes metrics
-
-Run retrieval evaluation with:
+## 3. RAG Validation
 
 ```bash
 cd backend
 python scripts/build_retrieval_eval_dataset.py
+python scripts/evaluate_retrieval.py --retriever hybrid
 python scripts/evaluate_retrieval.py --retriever hybrid_semantic
 ```
 
-## 14. ML and Fine-Tuning Tests
+The retriever should return relevant protocol chunks and preserve citation metadata.
 
-Before any model is used in the app, tests should validate:
-
-- dataset export shape
-- label schema
-- baseline classifier interface
-- deterministic risk scoring remains available
-- model output cannot silently override deterministic scoring
-
-Current ML groundwork tests cover dataset export shape, label schema, advisory baseline classifier output, and preservation of the deterministic risk rating.
-
-## 15. Smoke Tests
-
-Suggested smoke command:
+## 4. ML Groundwork Validation
 
 ```bash
 cd backend
-python scripts/run_smoke_checks.py
+python scripts/export_training_dataset.py
 ```
 
-Smoke checks should verify:
+Tests should confirm exported labels are deterministic-rule labels, not human ground truth, and that baseline classifier output cannot override deterministic risk scoring.
 
-- `/health`
-- `/api/protocols`
-- `/api/analyze`
-- report creation
-- report retrieval
-- Markdown export
-
-Post-MVP smoke checks may later add:
-
-- monitoring run
-- discovered item retrieval
-- evaluation run
-- simulation run
-- watchlist rule evaluation
-
-## 16. HPC Template Checks
+## 5. HPC Template Validation
 
 Phase 9 HPC files are optional templates. Local validation should check syntax and preserve normal app behavior:
 
@@ -276,16 +73,115 @@ test -f hpc/apptainer.def
 
 Actual `sbatch` submission and `apptainer build` depend on cluster tooling and are not required for local MVP validation.
 
-## 17. Final Portfolio Test Pass
+## 6. Phase 10 — Discovery to RAG Ingestion Tests
 
-Final phases 11, 12, and 13 should run only after product-expansion phases are stable.
+Tests should validate:
 
-Final portfolio validation should include:
+- DefiLlama protocol discovery normalizes candidates
+- DefiLlama pool discovery normalizes candidates
+- options/open-interest discovery can be enabled separately
+- discovery filters exclude low-quality candidates
+- duplicate discoveries are not recreated
+- every candidate starts as `needs_review`
+- automatic evaluation creates a review item
+- `needs_review`, `rejected`, and `needs_more_data` items cannot be ingested
+- only `approved_for_rag` items can be ingested
+- ingestion requires an explicit action
+- generated markdown includes source URL, protocol, risk summary, missing data, reviewer notes, and disclaimer
+- duplicate ingestion is prevented
+- RAG index refresh is triggered after ingestion
+- future retrieval can find the ingested source
 
-- demo data loads
-- example reports render
-- screenshots are current
-- public frontend works
-- public backend health works
-- README links are correct
-- demo script matches the deployed product
+## 7. Phase 11 — Access Control and Credential Tests
+
+Tests should validate two roles:
+
+```text
+admin
+common
+```
+
+Common-user tests:
+
+- can create analysis requests
+- can run simulation and options analysis
+- can manage own watchlist items if ownership is implemented
+- cannot approve review items
+- cannot ingest into RAG
+- cannot configure discovery sources
+- cannot create/update/delete provider credentials
+- cannot start/destroy Vast.ai sessions
+
+Admin-user tests:
+
+- can manage discovery sources
+- can approve/reject review items
+- can ingest approved items into RAG
+- can create/rotate/delete provider credentials
+- can start/destroy Vast.ai sessions
+- all sensitive actions create audit-log entries
+
+Credential tests:
+
+- full API keys are never returned by API responses
+- full API keys are never rendered in frontend payloads
+- persisted credentials are encrypted or stored only through environment variables
+- provider metadata can show provider name, status, and last four characters only
+- deleted/rotated credentials cannot be used again
+
+## 8. Phase 12 — Vast.ai Provider Tests
+
+Do not call real Vast.ai APIs in unit tests.
+
+Use mocks/fakes to validate:
+
+- offer search request shape
+- max hourly cost guard
+- GPU/RAM/disk filters
+- create/rent lifecycle state transitions
+- boot timeout handling
+- model health-check timeout handling
+- OpenAI-compatible model endpoint call once ready
+- auto-destroy after successful task
+- auto-destroy after failed task
+- cleanup endpoint destroys known active instance
+- common users cannot access Vast lifecycle endpoints
+- admin actions are audit-logged
+- remote LLM output cannot override deterministic risk scoring
+
+Integration tests against Vast.ai should be manual/admin-only and disabled by default.
+
+## 9. Smoke Tests
+
+Smoke checks should verify:
+
+- `/health`
+- `/api/protocols`
+- `/api/analyze`
+- report creation
+- report retrieval
+- Markdown export
+- monitoring run
+- discovered item retrieval
+- evaluation run
+- simulation run
+- watchlist rule evaluation
+- options analysis
+
+After Phase 10, add a smoke path for approved-item ingest using a fixture or mocked discovered item.
+
+After Phase 11, add smoke checks for admin/common authorization boundaries.
+
+After Phase 12, add mocked lifecycle smoke tests only; do not rent a real Vast.ai instance in CI.
+
+## 10. Final Portfolio Test Pass
+
+Before public deployment:
+
+- backend tests pass
+- frontend lint/build pass
+- Docker config checks pass
+- RAG eval passes
+- no test requires live wallet, private key, or trade execution
+- demo data is synthetic or read-only
+- public environment has no admin secret exposed to frontend
