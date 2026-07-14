@@ -1,3 +1,4 @@
+import time
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -116,16 +117,17 @@ def start_session(
         db.commit()
         record_audit_event(db, actor.id, "vast.instance_rented", "vast_session", session.id)
 
-        _transition(db, session, "booting")
-        status = vast_client.get_instance_status(session.vast_instance_id or "")
+        status = _wait_for_instance_ready(db, actor, session, vast_client, settings)
+        if session.status in {"destroyed", "cleanup_failed"}:
+            return session
         _merge_metadata(session, {"instance_status": _safe_metadata(status)})
         session.public_endpoint_url = status.get("public_endpoint_url") or session.public_endpoint_url
         db.commit()
 
         _transition(db, session, "starting_model_server")
         _transition(db, session, "health_checking")
-        session.health_status = str(status.get("health_status") or "healthy")
-        if session.health_status not in {"healthy", "ready", "running"}:
+        session.health_status = str(status.get("health_status") or status.get("status") or "healthy")
+        if not _is_ready_status(status):
             _fail(db, actor, session, "model_health_failed", "Model health check failed")
             _attempt_cleanup(db, actor, session, vast_client)
             return session
@@ -335,6 +337,58 @@ def _active_session_count(db: Session) -> int:
     return len(
         db.execute(select(VastSessionModel).where(VastSessionModel.status.in_(list(ACTIVE_STATUSES)))).scalars().all()
     )
+
+
+def _wait_for_instance_ready(
+    db: Session,
+    actor: UserContext,
+    session: VastSessionModel,
+    client: VastClient,
+    settings: Settings,
+) -> dict:
+    _transition(db, session, "booting")
+    if settings.vast_dry_run:
+        return client.get_instance_status(session.vast_instance_id or "")
+
+    deadline = datetime.now(UTC) + timedelta(seconds=settings.vast_startup_timeout_seconds)
+    last_status: dict = {}
+    while datetime.now(UTC) <= deadline:
+        last_status = client.get_instance_status(session.vast_instance_id or "")
+        _merge_metadata(session, {"last_polled_status": _safe_metadata(last_status)})
+        session.public_endpoint_url = last_status.get("public_endpoint_url") or session.public_endpoint_url
+        session.health_status = str(last_status.get("health_status") or last_status.get("status") or "unknown")
+        db.commit()
+
+        if _is_ready_status(last_status):
+            return last_status
+        if _is_failed_status(last_status):
+            _fail(
+                db,
+                actor,
+                session,
+                "container_failed",
+                f"Vast.ai instance entered unsafe state: {session.health_status}",
+            )
+            _attempt_cleanup(db, actor, session, client)
+            return last_status
+        time.sleep(max(settings.vast_poll_interval_seconds, 0))
+
+    _fail(db, actor, session, "boot_timeout", "Vast.ai startup timed out")
+    _attempt_cleanup(db, actor, session, client)
+    return last_status or {"status": "timeout", "health_status": "timeout"}
+
+
+def _is_ready_status(status: dict) -> bool:
+    state = str(status.get("status") or "").lower()
+    health = str(status.get("health_status") or "").lower()
+    return state in {"running", "ready"} and health in {"healthy", "ready", "running", ""}
+
+
+def _is_failed_status(status: dict) -> bool:
+    state = str(status.get("status") or status.get("health_status") or "").lower()
+    health = str(status.get("health_status") or "").lower()
+    failed_values = {"exited", "offline", "unknown", "failed", "error", "stopped", "terminated"}
+    return state in failed_values or health in failed_values
 
 
 def _merge_metadata(session: VastSessionModel, metadata: dict) -> None:

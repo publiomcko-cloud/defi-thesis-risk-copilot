@@ -223,6 +223,55 @@ def test_test_prompt_uses_dry_run_provider_and_auto_destroy(vast_client) -> None
     assert payload["session"]["status"] == "destroyed"
 
 
+def test_non_dry_run_polls_until_ready(vast_client, monkeypatch) -> None:
+    _, Session = vast_client
+    monkeypatch.setenv("VAST_DRY_RUN", "false")
+    monkeypatch.setenv("VAST_STARTUP_TIMEOUT_SECONDS", "5")
+    monkeypatch.setenv("VAST_POLL_INTERVAL_SECONDS", "0")
+    get_settings.cache_clear()
+    actor = _actor()
+    with Session() as db:
+        session = start_session(db, actor, allow_remote_gpu=True, client=StatusTransitionClient([
+            {"status": "booting", "health_status": "starting"},
+            {"status": "running", "health_status": "healthy", "public_endpoint_url": "http://ready.example"},
+        ]))
+
+    assert session.status == "ready"
+    assert session.public_endpoint_url == "http://ready.example"
+
+
+def test_non_dry_run_exited_status_cleans_up(vast_client, monkeypatch) -> None:
+    _, Session = vast_client
+    monkeypatch.setenv("VAST_DRY_RUN", "false")
+    monkeypatch.setenv("VAST_STARTUP_TIMEOUT_SECONDS", "5")
+    monkeypatch.setenv("VAST_POLL_INTERVAL_SECONDS", "0")
+    get_settings.cache_clear()
+    actor = _actor()
+    with Session() as db:
+        session = start_session(db, actor, allow_remote_gpu=True, client=StatusTransitionClient([
+            {"status": "exited", "health_status": "failed"},
+        ]))
+
+    assert session.status == "destroyed"
+    assert "unsafe state" in session.last_error
+
+
+def test_non_dry_run_startup_timeout_cleans_up(vast_client, monkeypatch) -> None:
+    _, Session = vast_client
+    monkeypatch.setenv("VAST_DRY_RUN", "false")
+    monkeypatch.setenv("VAST_STARTUP_TIMEOUT_SECONDS", "0")
+    monkeypatch.setenv("VAST_POLL_INTERVAL_SECONDS", "0")
+    get_settings.cache_clear()
+    actor = _actor()
+    with Session() as db:
+        session = start_session(db, actor, allow_remote_gpu=True, client=StatusTransitionClient([
+            {"status": "booting", "health_status": "starting"},
+        ]))
+
+    assert session.status == "destroyed"
+    assert session.last_error == "Vast.ai startup timed out"
+
+
 def test_raw_api_key_is_never_returned(vast_client, monkeypatch) -> None:
     client, _ = vast_client
     monkeypatch.setenv("VAST_API_KEY", "vast-secret-key-123")
@@ -300,6 +349,38 @@ class RentFailClient:
 
     def get_instance_status(self, instance_id):
         raise AssertionError("get_instance_status should not be called")
+
+    def destroy_instance(self, instance_id):
+        return {"destroyed": True}
+
+
+class StatusTransitionClient:
+    def __init__(self, statuses):
+        self.statuses = list(statuses)
+
+    def search_offers(self):
+        return [
+            VastOffer(
+                id="offer",
+                gpu_name="RTX_4090",
+                hourly_cost_usd=0.25,
+                gpu_ram_gb=24,
+                disk_gb=80,
+                verified=True,
+            )
+        ]
+
+    def rent_instance(self, offer, image, model, disk_gb):
+        return {
+            "instance_id": "instance_status_transition",
+            "contract_id": "contract_status_transition",
+            "public_endpoint_url": "http://pending.example",
+        }
+
+    def get_instance_status(self, instance_id):
+        if len(self.statuses) > 1:
+            return self.statuses.pop(0)
+        return self.statuses[0]
 
     def destroy_instance(self, instance_id):
         return {"destroyed": True}

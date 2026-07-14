@@ -160,6 +160,42 @@ def test_approved_review_item_can_be_ingested_and_duplicate_is_prevented(
     assert exc.value.status_code == 409
 
 
+def test_rag_refresh_failure_marks_refresh_failed_and_allows_retry(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    db = _build_test_session()
+    review = _seed_review_item(db, status="approved_for_rag")
+
+    def failing_refresh(knowledge_base_path):
+        raise RuntimeError("refresh failed")
+
+    monkeypatch.setattr("app.knowledge_base.ingestion_service.ingest_knowledge_base", failing_refresh)
+
+    with pytest.raises(HTTPException) as exc:
+        ingest_review_item_to_rag(review.id, db, knowledge_base_root=tmp_path)
+
+    assert exc.value.status_code == 500
+
+    from app.models.knowledge_base_ingestion import KnowledgeBaseIngestionModel
+
+    failed_record = db.query(KnowledgeBaseIngestionModel).filter_by(review_item_id=review.id).one()
+    assert failed_record.status == "refresh_failed"
+
+    store = JsonVectorStore(tmp_path / "rag_index_retry.json")
+
+    def successful_refresh(knowledge_base_path):
+        return ingest_knowledge_base(knowledge_base_path=knowledge_base_path, store=store)
+
+    monkeypatch.setattr("app.knowledge_base.ingestion_service.ingest_knowledge_base", successful_refresh)
+
+    ingestion, refreshed_count = ingest_review_item_to_rag(review.id, db, knowledge_base_root=tmp_path)
+
+    assert ingestion.id == failed_record.id
+    assert ingestion.status == "ingested"
+    assert refreshed_count > 0
+
+
 def _build_test_session():
     engine = create_engine("sqlite:///:memory:", connect_args={"check_same_thread": False})
     Base.metadata.create_all(bind=engine)

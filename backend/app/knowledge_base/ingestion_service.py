@@ -29,7 +29,7 @@ def ingest_review_item_to_rag(
             KnowledgeBaseIngestionModel.review_item_id == review_item_id
         )
     ).scalars().first()
-    if existing is not None:
+    if existing is not None and existing.status == "ingested":
         raise HTTPException(status_code=409, detail="Review item has already been ingested into RAG")
 
     review_item = db.get(ReviewItemModel, review_item_id)
@@ -52,19 +52,38 @@ def ingest_review_item_to_rag(
         review_item,
         evaluation_result,
     )
-    record = KnowledgeBaseIngestionModel(
-        id=f"kbi_{uuid4().hex[:12]}",
-        review_item_id=review_item.id,
-        generated_markdown_path=str(markdown_path),
-        ingested_at=datetime.now(UTC),
-        ingested_by=ingested_by,
-        source_url=discovered_item.url,
-        protocol=discovered_item.protocol,
-        status="ingested",
-    )
-    db.add(record)
+    if existing is None:
+        record = KnowledgeBaseIngestionModel(
+            id=f"kbi_{uuid4().hex[:12]}",
+            review_item_id=review_item.id,
+            generated_markdown_path=str(markdown_path),
+            ingested_at=datetime.now(UTC),
+            ingested_by=ingested_by,
+            source_url=discovered_item.url,
+            protocol=discovered_item.protocol,
+            status="refresh_pending",
+        )
+        db.add(record)
+    else:
+        record = existing
+        record.generated_markdown_path = str(markdown_path)
+        record.ingested_at = datetime.now(UTC)
+        record.ingested_by = ingested_by
+        record.source_url = discovered_item.url
+        record.protocol = discovered_item.protocol
+        record.status = "refresh_pending"
     db.commit()
-    refreshed_records = ingest_knowledge_base(knowledge_base_path=knowledge_base_root)
+    try:
+        refreshed_records = ingest_knowledge_base(knowledge_base_path=knowledge_base_root)
+    except Exception as exc:
+        record.status = "refresh_failed"
+        db.commit()
+        raise HTTPException(
+            status_code=500,
+            detail="Knowledge base markdown was generated, but RAG index refresh failed. Retry ingestion after fixing the refresh issue.",
+        ) from exc
+    record.status = "ingested"
+    db.commit()
     db.refresh(record)
     return _record_schema(record), len(refreshed_records)
 
