@@ -8,14 +8,14 @@ export default function ReviewPage() {
         <p className="eyebrow">Human review</p>
         <h1>Evaluation Queue</h1>
         <p>
-          Review monitored source candidates, run controlled evaluations, and
-          explicitly mark whether an item should be prepared for later RAG
-          ingestion.
+          Review discovered source candidates, run controlled evaluations,
+          approve eligible items, and explicitly ingest approved sources into
+          local RAG.
         </p>
       </section>
 
       <ReviewQueueTable />
-      <DisclaimerBox text="Approving a review item only prepares it for a future ingestion step. This screen does not ingest sources into RAG, execute actions, or approve trading decisions." />
+      <DisclaimerBox text="Approving a review item does not ingest it automatically. Only approved items can be explicitly ingested into local RAG. This screen does not execute trades or approve trading decisions." />
     </main>
   );
 }

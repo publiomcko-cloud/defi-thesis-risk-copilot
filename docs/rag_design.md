@@ -17,7 +17,7 @@ knowledge_base/
 ├── aave/
 ├── chainlink/
 ├── internal_notes/
-└── discovered/        # planned Phase 10 controlled ingestion target
+└── discovered/        # human-approved discovered sources
 ```
 
 Current behavior:
@@ -31,6 +31,7 @@ Current behavior:
 - optional hybrid retrieval with keyword, vector, metadata, source quality, freshness, and reranking signals
 - optional deterministic local semantic embedding provider for offline evaluation
 - citation metadata validation for retrieved chunks
+- controlled human-approved ingestion under `knowledge_base/discovered/`
 
 ## 3. Ingestion Flow
 
@@ -46,7 +47,7 @@ Curated source documents
     -> local vector store
 ```
 
-Planned Phase 10 controlled ingestion:
+Controlled discovered-source ingestion:
 
 ```text
 Auto-discovered candidate
@@ -136,7 +137,7 @@ Post-MVP retrieval evaluation includes a stored JSON evaluation dataset, citatio
 
 ## 8. Phase 10 Requirements
 
-Phase 10 must add the missing bridge from reviewed discoveries into the knowledge base:
+Phase 10 adds the bridge from reviewed discoveries into the knowledge base:
 
 ```text
 POST /api/evaluation/review-items/{review_item_id}/ingest-to-rag

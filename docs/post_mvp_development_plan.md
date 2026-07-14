@@ -4,7 +4,7 @@
 
 This document defines the product-development plan after the original Phase 10 MVP checkpoint.
 
-The first post-MVP expansion block is complete through Phase 9:
+The first post-MVP expansion block is complete through Phase 10:
 
 ```text
 Post-MVP Phase 1: Optional backend LLM synthesis
@@ -16,12 +16,12 @@ Post-MVP Phase 6: Options and volatility analysis agent
 Post-MVP Phase 7: Advanced RAG and retrieval evaluation
 Post-MVP Phase 8: Fine-tuning and ML risk classifier groundwork
 Post-MVP Phase 9: HPC and SLURM readiness
+Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
 ```
 
-Before final demo, deployment, and portfolio polish, the project should add one more product-development block:
+Before final demo, deployment, and portfolio polish, the remaining product-development block is:
 
 ```text
-Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
 Post-MVP Phase 11: Access control and secure provider configuration
 Post-MVP Phase 12: Vast.ai ephemeral model provider
 Final Phase 13: Demo data and example reports
@@ -54,8 +54,8 @@ Current baseline capabilities:
 
 Current known limitations:
 
-- RAG is local and curated; approved discovered items are not fully ingested into the knowledge base yet.
-- Review approval currently prepares items for RAG but does not complete the knowledge-base update flow.
+- RAG is local and curated, with explicit human-approved ingestion for discovered items.
+- Review approval does not ingest automatically; explicit ingest-to-RAG action is required.
 - Source discovery is manually triggered and still basic.
 - No production authentication or role-based access control is implemented yet.
 - API/provider secrets are not yet managed by an admin-only configuration system.

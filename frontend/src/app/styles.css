@@ -317,6 +317,13 @@ textarea {
   margin: 0 0 8px;
 }
 
+.toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .table-wrap {
   overflow-x: auto;
 }

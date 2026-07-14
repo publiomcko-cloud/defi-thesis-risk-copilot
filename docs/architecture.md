@@ -33,7 +33,9 @@ FastAPI Backend
   -> deterministic risk scoring
   -> report generation
   -> source monitoring
+  -> public-source discovery
   -> evaluation and review queue
+  -> human-approved RAG ingestion
   -> simulation
   -> watchlist and alerts
   -> options analysis
@@ -44,6 +46,7 @@ FastAPI Backend
 Storage
   -> SQLite or PostgreSQL
   -> local knowledge_base markdown files
+  -> discovered knowledge markdown under knowledge_base/discovered/
   -> JSON RAG index for MVP
   -> future encrypted credential metadata
   -> future audit logs

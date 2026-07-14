@@ -26,6 +26,7 @@ class ReviewItem(BaseModel):
     status: DiscoveredItemStatus
     reviewer_notes: str | None = None
     prepared_for_rag: bool
+    knowledge_base_ingestion: dict | None = None
     created_at: datetime
     updated_at: datetime
     discovered_item: dict

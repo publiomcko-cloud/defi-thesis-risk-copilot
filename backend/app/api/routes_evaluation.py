@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.db.session import get_db
 from app.evaluation.evaluator import evaluate_discovered_item
 from app.evaluation.review_queue import list_review_items, update_review_status
+from app.discovery.schemas import IngestToRagResponse
+from app.knowledge_base.ingestion_service import ingest_review_item_to_rag
 from app.evaluation.schemas import (
     EvaluateDiscoveredItemResponse,
     ReviewItemsResponse,
@@ -50,4 +52,20 @@ def patch_review_item(
             request.reviewer_notes,
             db,
         )
+    )
+
+
+@router.post(
+    "/evaluation/review-items/{review_item_id}/ingest-to-rag",
+    response_model=IngestToRagResponse,
+)
+def ingest_review_item(
+    review_item_id: str,
+    db: Session = Depends(get_db),
+) -> IngestToRagResponse:
+    ingestion, refreshed_chunk_count = ingest_review_item_to_rag(review_item_id, db)
+    return IngestToRagResponse(
+        status="ingested",
+        ingestion=ingestion,
+        refreshed_chunk_count=refreshed_chunk_count,
     )

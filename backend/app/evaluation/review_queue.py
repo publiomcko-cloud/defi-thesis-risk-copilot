@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.evaluation.schemas import EvaluationResult, ReviewItem
 from app.models.discovered_item import DiscoveredItemModel
 from app.models.evaluation_result import EvaluationResultModel
+from app.models.knowledge_base_ingestion import KnowledgeBaseIngestionModel
 from app.models.review_item import ReviewItemModel
 
 REVIEW_STATUSES = {
@@ -45,7 +46,7 @@ def upsert_review_item(
 
     discovered_item.status = existing.status
     db.flush()
-    return _review_schema(existing, discovered_item, evaluation_result)
+    return _review_schema(existing, discovered_item, evaluation_result, db)
 
 
 def list_review_items(
@@ -92,14 +93,16 @@ def _review_item_from_record(record: ReviewItemModel, db: Session) -> ReviewItem
     evaluation_result = db.get(EvaluationResultModel, record.evaluation_result_id)
     if discovered_item is None or evaluation_result is None:
         raise HTTPException(status_code=500, detail="Review queue record is incomplete")
-    return _review_schema(record, discovered_item, evaluation_result)
+    return _review_schema(record, discovered_item, evaluation_result, db)
 
 
 def _review_schema(
     review: ReviewItemModel,
     discovered_item: DiscoveredItemModel,
     evaluation_result: EvaluationResultModel,
+    db: Session,
 ) -> ReviewItem:
+    ingestion = _knowledge_base_ingestion_schema(review.id, db)
     return ReviewItem(
         id=review.id,
         discovered_item_id=review.discovered_item_id,
@@ -107,6 +110,7 @@ def _review_schema(
         status=review.status,
         reviewer_notes=review.reviewer_notes,
         prepared_for_rag=review.prepared_for_rag,
+        knowledge_base_ingestion=ingestion,
         created_at=review.created_at,
         updated_at=review.updated_at,
         discovered_item={
@@ -134,3 +138,20 @@ def _review_schema(
             created_at=evaluation_result.created_at,
         ),
     )
+
+
+def _knowledge_base_ingestion_schema(review_item_id: str, db: Session) -> dict | None:
+    record = db.execute(
+        select(KnowledgeBaseIngestionModel).where(
+            KnowledgeBaseIngestionModel.review_item_id == review_item_id
+        )
+    ).scalars().first()
+    if record is None:
+        return None
+    return {
+        "id": record.id,
+        "generated_markdown_path": record.generated_markdown_path,
+        "ingested_at": record.ingested_at.isoformat(),
+        "ingested_by": record.ingested_by,
+        "status": record.status,
+    }

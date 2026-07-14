@@ -25,14 +25,13 @@ Current local stack:
 
 ## Current Status
 
-Current status: Post-MVP Phase 9 complete.
+Current status: Post-MVP Phase 10 complete.
 
-The app currently supports optional backend LLM synthesis, manual source monitoring, automated evaluation, human review queue foundations, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, and optional HPC/SLURM templates.
+The app currently supports optional backend LLM synthesis, controlled public-source discovery, automated evaluation, human review queue foundations, explicit human-approved RAG ingestion, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, and optional HPC/SLURM templates.
 
 Before final demo/deployment/polish, the next planned product phases are:
 
 ```text
-Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
 Post-MVP Phase 11: Access control and secure provider configuration
 Post-MVP Phase 12: Vast.ai ephemeral model provider
 Final Phase 13: Demo data and example reports
@@ -58,8 +57,12 @@ The current app can:
 - generate stress scenarios and monitoring checklists
 - optionally synthesize report wording with an LLM while preserving deterministic fields
 - create discovered source candidates through manual monitoring
+- run public-source discovery through `/api/discovery/run`
+- list discovery candidates through `/api/discovery/candidates`
 - evaluate discovered candidates and create review queue items
 - update review status as `needs_review`, `approved_for_rag`, `rejected`, `needs_more_data`, or `archived`
+- explicitly ingest only `approved_for_rag` review items into `knowledge_base/discovered/`
+- refresh the local RAG index after approved ingestion
 - run deterministic strategy simulation through `/api/simulation/run`
 - create watchlist items and rule-based in-app alerts
 - run deterministic options analysis through `/api/options/analyze`
@@ -83,7 +86,9 @@ Implemented feature areas include:
 - deterministic risk scoring and report writer
 - optional backend LLM synthesis with Ollama and OpenAI-compatible provider abstractions
 - monitoring/discovery foundation
+- public-source discovery and manual discovery inputs
 - evaluation and human review queue foundation
+- human-approved discovery-to-RAG ingestion
 - strategy simulator
 - watchlist and in-app alert system
 - options and volatility analysis
@@ -93,11 +98,10 @@ Implemented feature areas include:
 
 ## Active Product Development To Implement
 
-The next active product work is not UI polish yet. It is the final product-intelligence bridge before portfolio phases:
+The next active product work is:
 
-1. Phase 10 — Auto-discovery and human-approved RAG ingestion.
-2. Phase 11 — Access control and secure provider configuration.
-3. Phase 12 — Vast.ai ephemeral model provider.
+1. Phase 11 — Access control and secure provider configuration.
+2. Phase 12 — Vast.ai ephemeral model provider.
 
 Phase 11 is required before Phase 12 because Vast.ai credentials, lifecycle controls, billing/cost controls, and cleanup actions must be admin-only.
 

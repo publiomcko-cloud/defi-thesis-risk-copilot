@@ -2,6 +2,7 @@ import type {
   AnalysisRequest,
   AnalysisResponse,
   DiscoveredItemsResponse,
+  DiscoveryRunResponse,
   EvaluateDiscoveredItemResponse,
   HealthResponse,
   MarkdownExportResponse,
@@ -11,6 +12,7 @@ import type {
   ReviewItemsResponse,
   ReviewStatus,
   ReviewStatusUpdateResponse,
+  IngestToRagResponse,
   SimulationRequest,
   SimulationResponse,
   WatchlistCreateResponse,
@@ -114,13 +116,57 @@ export async function runSourceMonitoring(): Promise<MonitoringRunResponse> {
   return response.json();
 }
 
+export async function runDiscovery(): Promise<DiscoveryRunResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/discovery/run`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      include_defillama: true,
+      auto_evaluate: true,
+      evaluation_limit: 5
+    })
+  });
+
+  if (!response.ok) {
+    throw new Error(`Discovery run failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
 export async function fetchDiscoveredItems(): Promise<DiscoveredItemsResponse> {
-  const response = await fetch(`${getApiBaseUrl()}/api/monitoring/discovered-items`, {
+  const response = await fetch(`${getApiBaseUrl()}/api/discovery/candidates`, {
     cache: "no-store"
   });
 
   if (!response.ok) {
     throw new Error(`Discovered item fetch failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function ingestReviewItemToRag(
+  reviewItemId: string
+): Promise<IngestToRagResponse> {
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/evaluation/review-items/${reviewItemId}/ingest-to-rag`,
+    {
+      method: "POST"
+    }
+  );
+
+  if (!response.ok) {
+    let detail = `RAG ingestion failed with status ${response.status}`;
+    try {
+      const payload = await response.json();
+      detail = payload.detail ?? detail;
+    } catch {
+      // Keep default error.
+    }
+    throw new Error(detail);
   }
 
   return response.json();

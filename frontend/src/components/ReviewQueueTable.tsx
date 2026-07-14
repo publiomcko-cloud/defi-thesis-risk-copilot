@@ -7,6 +7,8 @@ import {
   evaluateDiscoveredItem,
   fetchDiscoveredItems,
   fetchReviewItems,
+  ingestReviewItemToRag,
+  runDiscovery,
   runSourceMonitoring,
   updateReviewItemStatus
 } from "@/lib/api";
@@ -68,6 +70,23 @@ export function ReviewQueueTable() {
     }
   }
 
+  async function handleRunDiscovery() {
+    setActiveId("discovery");
+    setMessage(null);
+    setError(null);
+    try {
+      const result = await runDiscovery();
+      setMessage(
+        `Discovery found ${result.created_count} new candidates, ${result.duplicate_count} duplicates, evaluated ${result.evaluated_count}, and recorded ${result.failed_count} failures.`
+      );
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Discovery run failed.");
+    } finally {
+      setActiveId(null);
+    }
+  }
+
   async function handleEvaluate(itemId: string) {
     setActiveId(itemId);
     setMessage(null);
@@ -91,12 +110,29 @@ export function ReviewQueueTable() {
       await updateReviewItemStatus(reviewItemId, status, reviewerNotes[reviewItemId]);
       setMessage(
         status === "approved_for_rag"
-          ? "Item prepared for RAG ingestion review. It was not ingested automatically."
+          ? "Item approved for RAG. It was not ingested automatically; use the explicit ingest action."
           : "Review status updated."
       );
       await refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Review update failed.");
+    } finally {
+      setActiveId(null);
+    }
+  }
+
+  async function handleIngestToRag(reviewItemId: string) {
+    setActiveId(`ingest:${reviewItemId}`);
+    setMessage(null);
+    setError(null);
+    try {
+      const result = await ingestReviewItemToRag(reviewItemId);
+      setMessage(
+        `Ingested to RAG at ${result.ingestion.generated_markdown_path}. Refreshed ${result.refreshed_chunk_count} chunks.`
+      );
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "RAG ingestion failed.");
     } finally {
       setActiveId(null);
     }
@@ -109,18 +145,29 @@ export function ReviewQueueTable() {
           <div>
             <h2>Discovered Candidates</h2>
             <p>
-              Monitoring creates candidates for review. Evaluation uses the
-              controlled workflow and keeps missing data visible.
+              Discovery creates candidates for review. Evaluation uses the
+              controlled workflow and keeps missing data visible. Approved items
+              require a separate ingest-to-RAG action.
             </p>
           </div>
-          <button
-            className="primary-action"
-            disabled={activeId !== null}
-            onClick={handleRunMonitoring}
-            type="button"
-          >
-            {activeId === "monitoring" ? "Running..." : "Run Monitoring"}
-          </button>
+          <div className="toolbar-actions">
+            <button
+              className="secondary-action"
+              disabled={activeId !== null}
+              onClick={handleRunMonitoring}
+              type="button"
+            >
+              {activeId === "monitoring" ? "Running..." : "Run Monitoring"}
+            </button>
+            <button
+              className="primary-action"
+              disabled={activeId !== null}
+              onClick={handleRunDiscovery}
+              type="button"
+            >
+              {activeId === "discovery" ? "Discovering..." : "Run Discovery"}
+            </button>
+          </div>
         </div>
         {message ? <p className="success">{message}</p> : null}
         {error ? <p className="error">{error}</p> : null}
@@ -183,7 +230,7 @@ export function ReviewQueueTable() {
                 <th>Risk Summary</th>
                 <th>Status</th>
                 <th>Notes</th>
-                <th>RAG Prep</th>
+                <th>RAG Ingestion</th>
               </tr>
             </thead>
             <tbody>
@@ -241,7 +288,27 @@ export function ReviewQueueTable() {
                         value={reviewerNotes[item.id] ?? item.reviewer_notes ?? ""}
                       />
                     </td>
-                    <td>{item.prepared_for_rag ? "Prepared only" : "Not prepared"}</td>
+                    <td>
+                      {item.knowledge_base_ingestion ? (
+                        <div>
+                          <strong>Ingested</strong>
+                          <span>{item.knowledge_base_ingestion.generated_markdown_path}</span>
+                        </div>
+                      ) : item.status === "approved_for_rag" ? (
+                        <button
+                          className="secondary-action"
+                          disabled={activeId !== null}
+                          onClick={() => handleIngestToRag(item.id)}
+                          type="button"
+                        >
+                          {activeId === `ingest:${item.id}` ? "Ingesting..." : "Ingest to RAG"}
+                        </button>
+                      ) : item.prepared_for_rag ? (
+                        "Prepared"
+                      ) : (
+                        "Not eligible"
+                      )}
+                    </td>
                   </tr>
                 ))
               )}

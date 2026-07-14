@@ -3,8 +3,10 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.routes_analysis import router as analysis_router
 from app.api.routes_documents import router as documents_router
+from app.api.routes_discovery import router as discovery_router
 from app.api.routes_evaluation import router as evaluation_router
 from app.api.routes_health import router as health_router
+from app.api.routes_knowledge_base import router as knowledge_base_router
 from app.api.routes_market_data import router as market_data_router
 from app.api.routes_monitoring import router as monitoring_router
 from app.api.routes_options import router as options_router
@@ -39,9 +41,11 @@ def create_app() -> FastAPI:
     app.include_router(reports_router, prefix="/api")
     app.include_router(protocols_router, prefix="/api")
     app.include_router(documents_router, prefix="/api")
+    app.include_router(discovery_router, prefix="/api")
     app.include_router(market_data_router, prefix="/api")
     app.include_router(monitoring_router, prefix="/api")
     app.include_router(evaluation_router, prefix="/api")
+    app.include_router(knowledge_base_router, prefix="/api")
     app.include_router(simulation_router, prefix="/api")
     app.include_router(watchlist_router, prefix="/api")
     app.include_router(options_router, prefix="/api")

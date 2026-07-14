@@ -84,7 +84,7 @@ Tests should validate:
 - duplicate discoveries are not recreated
 - every candidate starts as `needs_review`
 - automatic evaluation creates a review item
-- `needs_review`, `rejected`, and `needs_more_data` items cannot be ingested
+- `needs_review`, `rejected`, `needs_more_data`, and `archived` items cannot be ingested
 - only `approved_for_rag` items can be ingested
 - ingestion requires an explicit action
 - generated markdown includes source URL, protocol, risk summary, missing data, reviewer notes, and disclaimer

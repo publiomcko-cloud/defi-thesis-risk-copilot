@@ -115,6 +115,19 @@ export type DiscoveredItemsResponse = {
   items: DiscoveredItem[];
 };
 
+export type DiscoveryRunResponse = {
+  status: "completed" | "partial";
+  created_count: number;
+  duplicate_count: number;
+  evaluated_count: number;
+  failed_count: number;
+  failures: Array<{
+    source: string;
+    error: string;
+  }>;
+  candidates: DiscoveredItem[];
+};
+
 export type MonitoringRunResponse = {
   status: "completed" | "partial";
   watches_checked: number;
@@ -149,6 +162,13 @@ export type ReviewItem = {
   status: ReviewStatus;
   reviewer_notes?: string | null;
   prepared_for_rag: boolean;
+  knowledge_base_ingestion?: {
+    id: string;
+    generated_markdown_path: string;
+    ingested_at: string;
+    ingested_by: string;
+    status: string;
+  } | null;
   created_at: string;
   updated_at: string;
   discovered_item: {
@@ -178,6 +198,21 @@ export type EvaluateDiscoveredItemResponse = {
 
 export type ReviewStatusUpdateResponse = {
   review_item: ReviewItem;
+};
+
+export type IngestToRagResponse = {
+  status: "ingested";
+  ingestion: {
+    id: string;
+    review_item_id: string;
+    generated_markdown_path: string;
+    ingested_at: string;
+    ingested_by: string;
+    source_url?: string | null;
+    protocol?: string | null;
+    status: string;
+  };
+  refreshed_chunk_count: number;
 };
 
 export type SimulationRequest = {
