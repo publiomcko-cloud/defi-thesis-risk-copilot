@@ -99,6 +99,9 @@ export default function AdminPage() {
             <Link className="secondary-link" href="/admin/audit">
               Audit Events
             </Link>
+            <Link className="secondary-link" href="/admin/vast">
+              Vast.ai
+            </Link>
             <Link className="secondary-link" href="/review">
               Review Queue
             </Link>

@@ -43,7 +43,7 @@ FastAPI Backend
   -> MVP access control
   -> provider credential metadata
   -> access audit logs
-  -> future Vast.ai lifecycle manager
+  -> Vast.ai dry-run/manual lifecycle manager
 
 Storage
   -> SQLite or PostgreSQL
@@ -52,6 +52,7 @@ Storage
   -> JSON RAG index for MVP
   -> encrypted provider credential metadata
   -> access audit logs
+  -> Vast.ai lifecycle sessions
 ```
 
 ## 3. Analysis Flow
@@ -175,7 +176,7 @@ destroyed
 failed
 ```
 
-Vast.ai must be disabled by default. The first implementation should support admin manual warm-up and cleanup before automatic ephemeral usage.
+Vast.ai is disabled by default. The implemented Phase 12 path supports admin manual warm-up, dry-run lifecycle simulation, test prompts, idempotent destroy, and cleanup before any automatic ephemeral usage is enabled.
 
 ## 8. Backend Module Map
 
@@ -202,8 +203,6 @@ backend/app/
   discovery/
   knowledge_base_ingestion/
   providers/
-
-Future Phase 12:
   llm/vast/
 ```
 
@@ -222,10 +221,8 @@ frontend/src/app/
   admin/page.tsx
   admin/provider-credentials/page.tsx
   admin/audit/page.tsx
-  about/page.tsx
-
-Future:
   admin/vast/page.tsx
+  about/page.tsx
 ```
 
 ## 10. Non-Negotiable Boundaries

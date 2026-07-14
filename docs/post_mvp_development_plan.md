@@ -4,7 +4,7 @@
 
 This document defines the product-development plan after the original Phase 10 MVP checkpoint.
 
-The first post-MVP expansion block is complete through Phase 10:
+The post-MVP expansion block is complete through Phase 12:
 
 ```text
 Post-MVP Phase 1: Optional backend LLM synthesis
@@ -17,13 +17,13 @@ Post-MVP Phase 7: Advanced RAG and retrieval evaluation
 Post-MVP Phase 8: Fine-tuning and ML risk classifier groundwork
 Post-MVP Phase 9: HPC and SLURM readiness
 Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
-```
-
-Before final demo, deployment, and portfolio polish, the remaining product-development block is:
-
-```text
 Post-MVP Phase 11: Access control and secure provider configuration
 Post-MVP Phase 12: Vast.ai ephemeral model provider
+```
+
+Before final demo, deployment, and portfolio polish, the remaining work is:
+
+```text
 Final Phase 13: Demo data and example reports
 Final Phase 14: Public portfolio deployment
 Final Phase 15: Portfolio polish
@@ -57,9 +57,9 @@ Current known limitations:
 - RAG is local and curated, with explicit human-approved ingestion for discovered items.
 - Review approval does not ingest automatically; explicit ingest-to-RAG action is required.
 - Source discovery is manually triggered and still basic.
-- No production authentication or role-based access control is implemented yet.
-- API/provider secrets are not yet managed by an admin-only configuration system.
-- Vast.ai integration is not implemented yet.
+- Production authentication, MFA, ownership scoping, and rate limits are not implemented yet.
+- API/provider secrets can be managed through admin-only metadata endpoints, but hosted production should use managed secret storage or KMS-backed encryption.
+- Vast.ai dry-run/manual warm-up is implemented; automatic ephemeral use for normal reports is not enabled.
 - Fine-tuning has not been performed.
 - Public demo/deployment/polish remain final phases.
 

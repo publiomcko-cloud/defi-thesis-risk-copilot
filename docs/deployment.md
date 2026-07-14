@@ -4,13 +4,7 @@
 
 The deployment goal is to provide a portfolio-ready public demo with safe synthetic or read-only data.
 
-After Post-MVP Phase 11, one bridge phase remains before final public deployment:
-
-```text
-Phase 12: Vast.ai ephemeral model provider
-```
-
-Public deployment remains a final portfolio phase after those product and security foundations are stable.
+Post-MVP Phases 10-12 are implemented. Public deployment remains a final portfolio phase after demo data and polish are stable.
 
 ## 2. Recommended Public Deployment
 
@@ -73,16 +67,24 @@ Phase 12 Vast.ai variables:
 
 ```env
 VAST_ENABLED=false
+VAST_API_BASE_URL=https://console.vast.ai/api/v0
 VAST_API_KEY=
+VAST_CREDENTIAL_NAME=vast_ai_default
 VAST_MAX_HOURLY_COST_USD=0.50
 VAST_MAX_SESSION_MINUTES=30
-VAST_GPU_NAME=RTX_4090
+VAST_MAX_ACTIVE_INSTANCES=1
+VAST_GPU_ALLOWLIST=RTX_4090,RTX_3090,A5000,A6000
 VAST_MIN_GPU_RAM_GB=16
 VAST_DISK_GB=40
+VAST_REQUIRE_VERIFIED=true
+VAST_AUTO_DESTROY=true
+VAST_IDLE_TIMEOUT_SECONDS=300
 VAST_IMAGE=
 VAST_MODEL=
 VAST_CONTAINER_PORT=8000
-VAST_AUTO_DESTROY=true
+VAST_STARTUP_TIMEOUT_SECONDS=600
+VAST_POLL_INTERVAL_SECONDS=10
+VAST_DRY_RUN=true
 ```
 
 ## 4. Secret Handling
@@ -126,14 +128,13 @@ Admin users can:
 - ingest approved items into RAG
 - manage provider credentials
 - view access audit logs
-
-Phase 12 will add admin-only Vast.ai session start, inspect, destroy, cleanup, and lifecycle logs.
+- start, inspect, test, destroy, and clean up dry-run/manual Vast.ai sessions
 
 ## 6. Vast.ai Deployment Safety
 
-Vast.ai integration should default to disabled.
+Vast.ai integration defaults to disabled and dry-run mode defaults to enabled.
 
-The first deployed version should support manual admin-triggered startup before automatic ephemeral rental.
+The implemented version supports manual admin-triggered startup before automatic ephemeral rental. Normal report generation does not auto-rent Vast.ai instances.
 
 Required safeguards:
 

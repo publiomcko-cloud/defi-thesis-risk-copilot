@@ -31,7 +31,13 @@ import type {
   ProviderCredentialResponse,
   ProviderCredentialsResponse,
   ProviderCredentialUpdateRequest,
-  AuditEventsResponse
+  AuditEventsResponse,
+  VastCleanupResponse,
+  VastConfig,
+  VastSessionActionResponse,
+  VastSessionListResponse,
+  VastStartSessionRequest,
+  VastTestPromptResponse
 } from "./types";
 
 const AUTH_TOKEN_KEY = "defi-risk-copilot-admin-token";
@@ -352,6 +358,116 @@ export async function fetchAuditEvents(limit = 100): Promise<AuditEventsResponse
 
   if (!response.ok) {
     throw new Error(await errorDetail(response, `Audit event fetch failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function fetchVastConfig(): Promise<VastConfig> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/vast/config`, {
+    cache: "no-store",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Vast config fetch failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function acknowledgeVastConfig(note: string): Promise<VastConfig> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/vast/config`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders()
+    },
+    body: JSON.stringify({ note })
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Vast config update failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function startVastSession(
+  payload: VastStartSessionRequest
+): Promise<VastSessionActionResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/vast/sessions/start`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Vast session start failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function fetchVastSessions(): Promise<VastSessionListResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/vast/sessions`, {
+    cache: "no-store",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Vast sessions fetch failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function testVastPrompt(
+  sessionId: string,
+  prompt: string
+): Promise<VastTestPromptResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/vast/sessions/${sessionId}/test-prompt`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders()
+    },
+    body: JSON.stringify({ prompt })
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Vast test prompt failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function destroyVastSession(
+  sessionId: string
+): Promise<VastSessionActionResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/vast/sessions/${sessionId}/destroy`, {
+    method: "POST",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Vast destroy failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function cleanupVastSessions(): Promise<VastCleanupResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/vast/cleanup`, {
+    method: "POST",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Vast cleanup failed with status ${response.status}`));
   }
 
   return response.json();

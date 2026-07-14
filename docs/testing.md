@@ -143,17 +143,20 @@ Use mocks/fakes to validate:
 - max hourly cost guard
 - GPU/RAM/disk filters
 - create/rent lifecycle state transitions
-- boot timeout handling
-- model health-check timeout handling
+- disabled provider safe error
+- no acceptable offer produces `offer_not_found`
+- max active instance limit
 - OpenAI-compatible model endpoint call once ready
 - auto-destroy after successful task
-- auto-destroy after failed task
+- cleanup after failed startup
 - cleanup endpoint destroys known active instance
+- destroy is idempotent
+- raw API key is never returned
 - common users cannot access Vast lifecycle endpoints
 - admin actions are audit-logged
 - remote LLM output cannot override deterministic risk scoring
 
-Integration tests against Vast.ai should be manual/admin-only and disabled by default.
+Current automated tests use dry-run and fakes only. Integration tests against real Vast.ai should be manual/admin-only and disabled by default.
 
 ## 9. Smoke Tests
 

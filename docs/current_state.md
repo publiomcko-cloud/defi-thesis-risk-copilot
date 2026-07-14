@@ -25,14 +25,13 @@ Current local stack:
 
 ## Current Status
 
-Current status: Post-MVP Phase 11 complete.
+Current status: Post-MVP Phase 12 complete.
 
-The app currently supports optional backend LLM synthesis, controlled public-source discovery, automated evaluation, human review queue foundations, explicit human-approved RAG ingestion, MVP token access control, admin/common role checks, server-side provider credential storage metadata, audit logs, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, and optional HPC/SLURM templates.
+The app currently supports optional backend LLM synthesis, controlled public-source discovery, automated evaluation, human review queue foundations, explicit human-approved RAG ingestion, MVP token access control, admin/common role checks, server-side provider credential storage metadata, audit logs, admin-only Vast.ai dry-run/manual warm-up sessions, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, and optional HPC/SLURM templates.
 
 Before final demo/deployment/polish, the next planned product phases are:
 
 ```text
-Post-MVP Phase 12: Vast.ai ephemeral model provider
 Final Phase 13: Demo data and example reports
 Final Phase 14: Public portfolio deployment
 Final Phase 15: Portfolio polish
@@ -66,6 +65,9 @@ The current app can:
 - enforce admin/common authorization for sensitive endpoints when `AUTH_ENABLED=true`
 - store provider credentials server-side with encrypted metadata and last-four display only
 - view audit events for credential management, discovery runs, review status changes, and approved RAG ingestion
+- inspect Vast.ai runtime configuration through `/api/admin/vast/config`
+- start dry-run/manual Vast.ai model sessions through `/api/admin/vast/sessions/start`
+- list, test, destroy, and clean up Vast.ai sessions through admin-only endpoints
 - run deterministic strategy simulation through `/api/simulation/run`
 - create watchlist items and rule-based in-app alerts
 - run deterministic options analysis through `/api/options/analyze`
@@ -95,6 +97,7 @@ Implemented feature areas include:
 - MVP access control and admin/common role dependencies
 - server-side provider credential management
 - audit logging for sensitive actions
+- Vast.ai dry-run/manual warm-up lifecycle
 - strategy simulator
 - watchlist and in-app alert system
 - options and volatility analysis
@@ -106,9 +109,9 @@ Implemented feature areas include:
 
 The next active product work is:
 
-1. Phase 12 — Vast.ai ephemeral model provider.
+1. Final Phase 13 — Demo data and example reports.
 
-Phase 11 is complete enough for Phase 12 because Vast.ai credentials, lifecycle controls, billing/cost controls, and cleanup actions can now be protected by admin-only dependencies and audited.
+Phase 12 is complete for dry-run/manual warm-up. Automatic Vast.ai use for ordinary report generation remains disabled and should only be added behind explicit task approval.
 
 ## Planned User Roles
 
@@ -143,7 +146,7 @@ Admins can:
 - manage provider credentials
 - view access audit logs
 
-Admins will later be able to configure and operate Vast.ai model sessions after Phase 12.
+Admins can configure, start, test, destroy, and clean up dry-run/manual Vast.ai sessions.
 
 ## Current Validation Commands
 
@@ -203,7 +206,7 @@ bash -n hpc/slurm_train_risk_classifier.sbatch
 - Review approval does not ingest sources automatically; explicit admin ingestion is required.
 - Access control is an MVP bearer-token implementation; production-grade hosted auth, MFA, password reset, per-user resource ownership, and rate limits are not implemented.
 - Provider credentials can be stored through the admin API, but the MVP encryption helper is not a substitute for a production secret manager.
-- Vast.ai integration is not implemented yet; this is planned for Phase 12.
+- Vast.ai dry-run/manual warm-up is implemented, but automatic ephemeral rental for normal report generation is not enabled.
 - Simulation is deterministic and educational; it does not forecast outcomes or recommend entering/exiting positions.
 - Watchlist alerts are manually evaluated and in-app only; no push, email, streaming, or automated execution exists.
 - Options analysis is deterministic and educational; it does not recommend buying or selling options.

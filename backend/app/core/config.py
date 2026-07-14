@@ -30,6 +30,25 @@ class Settings(BaseSettings):
     admin_password: str = ""
     auth_secret_key: str = ""
     credential_encryption_key: str = ""
+    vast_enabled: bool = False
+    vast_api_base_url: str = "https://console.vast.ai/api/v0"
+    vast_api_key: str = ""
+    vast_credential_name: str = "vast_ai_default"
+    vast_max_hourly_cost_usd: float = 0.50
+    vast_max_session_minutes: int = 30
+    vast_max_active_instances: int = 1
+    vast_gpu_allowlist: str = "RTX_4090,RTX_3090,A5000,A6000"
+    vast_min_gpu_ram_gb: int = 16
+    vast_disk_gb: int = 40
+    vast_require_verified: bool = True
+    vast_auto_destroy: bool = True
+    vast_idle_timeout_seconds: int = 300
+    vast_image: str = ""
+    vast_model: str = ""
+    vast_container_port: int = 8000
+    vast_startup_timeout_seconds: int = 600
+    vast_poll_interval_seconds: int = 10
+    vast_dry_run: bool = True
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

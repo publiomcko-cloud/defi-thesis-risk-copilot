@@ -68,6 +68,81 @@ export type AuditEventsResponse = {
   items: AuditEvent[];
 };
 
+export type VastConfig = {
+  enabled: boolean;
+  dry_run: boolean;
+  api_base_url: string;
+  credential_name: string;
+  has_env_api_key: boolean;
+  max_hourly_cost_usd: number;
+  max_session_minutes: number;
+  max_active_instances: number;
+  gpu_allowlist: string[];
+  min_gpu_ram_gb: number;
+  disk_gb: number;
+  require_verified: boolean;
+  auto_destroy: boolean;
+  idle_timeout_seconds: number;
+  image: string;
+  model: string;
+  container_port: number;
+  startup_timeout_seconds: number;
+  poll_interval_seconds: number;
+};
+
+export type VastSession = {
+  id: string;
+  status: string;
+  provider: string;
+  vast_instance_id?: string | null;
+  vast_contract_id?: string | null;
+  offer_id?: string | null;
+  model: string;
+  image: string;
+  gpu_name?: string | null;
+  hourly_cost_usd?: number | null;
+  max_runtime_minutes: number;
+  container_port: number;
+  public_endpoint_url?: string | null;
+  health_status?: string | null;
+  last_error?: string | null;
+  created_by: string;
+  created_at: string;
+  ready_at?: string | null;
+  last_used_at?: string | null;
+  destroyed_at?: string | null;
+  cleanup_attempted_at?: string | null;
+  metadata_json: Record<string, unknown>;
+};
+
+export type VastSessionActionResponse = {
+  session: VastSession;
+};
+
+export type VastSessionListResponse = {
+  items: VastSession[];
+};
+
+export type VastStartSessionRequest = {
+  model?: string;
+  image?: string;
+  allow_remote_gpu: boolean;
+  warm_instance: boolean;
+};
+
+export type VastTestPromptResponse = {
+  session: VastSession;
+  output: string;
+  provider: string;
+  model: string;
+};
+
+export type VastCleanupResponse = {
+  cleaned_count: number;
+  failed_count: number;
+  sessions: VastSession[];
+};
+
 export type AnalysisDepth = "quick" | "standard" | "deep";
 
 export type RiskRating =

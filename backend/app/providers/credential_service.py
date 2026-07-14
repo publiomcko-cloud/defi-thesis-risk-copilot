@@ -53,6 +53,25 @@ def list_provider_credentials(db: Session) -> list[ProviderCredentialMetadata]:
     return [_metadata(record) for record in records]
 
 
+def get_enabled_credential_secret(
+    db: Session,
+    provider: str,
+    name: str,
+) -> str | None:
+    record = db.execute(
+        select(ApiCredentialModel).where(
+            ApiCredentialModel.provider == provider,
+            ApiCredentialModel.name == name,
+            ApiCredentialModel.enabled.is_(True),
+        )
+    ).scalars().first()
+    if record is None:
+        return None
+    record.last_used_at = datetime.now(UTC)
+    db.commit()
+    return decrypt_secret(record.secret_encrypted)
+
+
 def update_provider_credential(
     credential_id: str,
     request: ProviderCredentialUpdateRequest,

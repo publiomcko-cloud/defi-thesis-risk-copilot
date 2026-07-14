@@ -12,6 +12,7 @@ from app.models.review_item import ReviewItemModel
 from app.models.source_watch import SourceWatchModel
 from app.models.watchlist_item import WatchlistItemModel
 from app.models.user import UserModel
+from app.models.vast_session import VastSessionModel
 
 __all__ = [
     "AnalysisRequestModel",
@@ -27,5 +28,6 @@ __all__ = [
     "ReviewItemModel",
     "SourceWatchModel",
     "UserModel",
+    "VastSessionModel",
     "WatchlistItemModel",
 ]

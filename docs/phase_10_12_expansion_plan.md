@@ -352,7 +352,7 @@ The MVP implementation uses `AUTH_ENABLED=false` by default for local/demo use. 
 
 Provider credentials are managed through admin-only endpoints and returned as metadata only. Raw secrets are not returned to the frontend. Database-stored credentials require `CREDENTIAL_ENCRYPTION_KEY`; hosted production should replace the MVP encryption helper with a managed secret store or KMS-backed encryption.
 
-Audit events are recorded for provider credential changes, discovery runs, review status changes, and explicit approved-item RAG ingestion. Vast.ai lifecycle endpoints remain future Phase 12 work.
+Audit events are recorded for provider credential changes, discovery runs, review status changes, and explicit approved-item RAG ingestion. Phase 12 extends this with Vast.ai lifecycle audit events.
 
 ---
 
@@ -494,6 +494,12 @@ cost and runtime limits pass
 - Destroy endpoint works even after partial failures.
 - Existing local/API LLM providers still work.
 - Deterministic report fallback still works without any LLM.
+
+## Implemented Phase 12 Notes
+
+The implemented Phase 12 path focuses on Mode 1 manual warm-up with `VAST_DRY_RUN=true` by default. Admins can inspect config metadata, start a dry-run/manual session, run a safe test prompt, destroy a session, and run cleanup. Lifecycle transitions are persisted in `vast_sessions`, and sensitive actions are audit-logged.
+
+Automatic ephemeral use for ordinary `/api/analyze` report generation is intentionally not enabled. The Vast provider skeleton exists for controlled model tasks, but real rental should stay behind explicit admin/task approval, cost/runtime limits, and `allow_remote_gpu=true`.
 
 ---
 
