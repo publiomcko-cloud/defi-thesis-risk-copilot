@@ -94,6 +94,8 @@ Tests should validate:
 
 ## 7. Phase 11 — Access Control and Credential Tests
 
+Implemented Phase 11 tests cover the MVP bearer-token access-control path, admin/common role boundaries, server-side credential metadata, and audit logging.
+
 Tests should validate two roles:
 
 ```text
@@ -114,12 +116,13 @@ Common-user tests:
 
 Admin-user tests:
 
-- can manage discovery sources
+- can pass admin-only dependencies with a valid admin token
 - can approve/reject review items
 - can ingest approved items into RAG
 - can create/rotate/delete provider credentials
-- can start/destroy Vast.ai sessions
 - all sensitive actions create audit-log entries
+
+Vast.ai session authorization is tested in Phase 12 after those endpoints exist.
 
 Credential tests:
 
@@ -128,6 +131,7 @@ Credential tests:
 - persisted credentials are encrypted or stored only through environment variables
 - provider metadata can show provider name, status, and last four characters only
 - deleted/rotated credentials cannot be used again
+- missing `CREDENTIAL_ENCRYPTION_KEY` fails closed for database-stored secrets
 
 ## 8. Phase 12 — Vast.ai Provider Tests
 
@@ -170,7 +174,7 @@ Smoke checks should verify:
 
 After Phase 10, add a smoke path for approved-item ingest using a fixture or mocked discovered item.
 
-After Phase 11, add smoke checks for admin/common authorization boundaries.
+After Phase 11, smoke checks can be extended with `AUTH_ENABLED=true` fixtures for admin/common authorization boundaries.
 
 After Phase 12, add mocked lifecycle smoke tests only; do not rent a real Vast.ai instance in CI.
 

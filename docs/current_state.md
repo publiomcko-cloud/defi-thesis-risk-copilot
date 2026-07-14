@@ -25,14 +25,13 @@ Current local stack:
 
 ## Current Status
 
-Current status: Post-MVP Phase 10 complete.
+Current status: Post-MVP Phase 11 complete.
 
-The app currently supports optional backend LLM synthesis, controlled public-source discovery, automated evaluation, human review queue foundations, explicit human-approved RAG ingestion, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, and optional HPC/SLURM templates.
+The app currently supports optional backend LLM synthesis, controlled public-source discovery, automated evaluation, human review queue foundations, explicit human-approved RAG ingestion, MVP token access control, admin/common role checks, server-side provider credential storage metadata, audit logs, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, and optional HPC/SLURM templates.
 
 Before final demo/deployment/polish, the next planned product phases are:
 
 ```text
-Post-MVP Phase 11: Access control and secure provider configuration
 Post-MVP Phase 12: Vast.ai ephemeral model provider
 Final Phase 13: Demo data and example reports
 Final Phase 14: Public portfolio deployment
@@ -63,6 +62,10 @@ The current app can:
 - update review status as `needs_review`, `approved_for_rag`, `rejected`, `needs_more_data`, or `archived`
 - explicitly ingest only `approved_for_rag` review items into `knowledge_base/discovered/`
 - refresh the local RAG index after approved ingestion
+- run in local/demo mode with `AUTH_ENABLED=false`
+- enforce admin/common authorization for sensitive endpoints when `AUTH_ENABLED=true`
+- store provider credentials server-side with encrypted metadata and last-four display only
+- view audit events for credential management, discovery runs, review status changes, and approved RAG ingestion
 - run deterministic strategy simulation through `/api/simulation/run`
 - create watchlist items and rule-based in-app alerts
 - run deterministic options analysis through `/api/options/analyze`
@@ -89,6 +92,9 @@ Implemented feature areas include:
 - public-source discovery and manual discovery inputs
 - evaluation and human review queue foundation
 - human-approved discovery-to-RAG ingestion
+- MVP access control and admin/common role dependencies
+- server-side provider credential management
+- audit logging for sensitive actions
 - strategy simulator
 - watchlist and in-app alert system
 - options and volatility analysis
@@ -100,16 +106,15 @@ Implemented feature areas include:
 
 The next active product work is:
 
-1. Phase 11 — Access control and secure provider configuration.
-2. Phase 12 — Vast.ai ephemeral model provider.
+1. Phase 12 — Vast.ai ephemeral model provider.
 
-Phase 11 is required before Phase 12 because Vast.ai credentials, lifecycle controls, billing/cost controls, and cleanup actions must be admin-only.
+Phase 11 is complete enough for Phase 12 because Vast.ai credentials, lifecycle controls, billing/cost controls, and cleanup actions can now be protected by admin-only dependencies and audited.
 
 ## Planned User Roles
 
 ### Common User
 
-Common users will be able to:
+Common users can:
 
 - run normal strategy analysis
 - view allowed reports
@@ -118,28 +123,27 @@ Common users will be able to:
 - create personal watchlists
 - view their own in-app alerts
 
-Common users will not be able to:
+Common users cannot:
 
 - configure API keys
 - manage Vast.ai
-- approve or ingest discovered sources
+- approve or ingest discovered sources when `AUTH_ENABLED=true`
 - change global discovery settings
 - view sensitive audit logs
 - manage users
 
 ### Admin User
 
-Admins will be able to:
+Admins can:
 
-- manage users and roles
-- configure discovery sources
+- use the bootstrap/admin bearer-token flow
 - run global discovery jobs
 - approve/reject/archive review items
 - ingest approved items into the knowledge base
 - manage provider credentials
-- configure and operate Vast.ai model sessions
-- view cost/lifecycle/audit logs
-- run cleanup actions
+- view access audit logs
+
+Admins will later be able to configure and operate Vast.ai model sessions after Phase 12.
 
 ## Current Validation Commands
 
@@ -196,9 +200,9 @@ bash -n hpc/slurm_train_risk_classifier.sbatch
 - RAG is local and curated only; it does not crawl protocol docs or refresh automatically.
 - Semantic retrieval is optional and currently uses a deterministic local semantic provider rather than an external embedding model.
 - Source monitoring is manually triggered and creates review candidates only.
-- Review approval marks items as prepared for later RAG ingestion, but the full explicit ingest-to-RAG pipeline is planned for Phase 10.
-- There is no production authentication or role-based access control yet; this is planned for Phase 11.
-- Provider API keys and Vast.ai credentials must remain server-side and are not yet managed by an admin credential system.
+- Review approval does not ingest sources automatically; explicit admin ingestion is required.
+- Access control is an MVP bearer-token implementation; production-grade hosted auth, MFA, password reset, per-user resource ownership, and rate limits are not implemented.
+- Provider credentials can be stored through the admin API, but the MVP encryption helper is not a substitute for a production secret manager.
 - Vast.ai integration is not implemented yet; this is planned for Phase 12.
 - Simulation is deterministic and educational; it does not forecast outcomes or recommend entering/exiting positions.
 - Watchlist alerts are manually evaluated and in-app only; no push, email, streaming, or automated execution exists.

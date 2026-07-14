@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
+from app.auth.schemas import UserContext
+from app.auth.service import record_audit_event
 from app.db.session import get_db
 from app.evaluation.evaluator import evaluate_discovered_item
 from app.evaluation.review_queue import list_review_items, update_review_status
@@ -44,15 +47,24 @@ def patch_review_item(
     review_item_id: str,
     request: ReviewStatusUpdateRequest,
     db: Session = Depends(get_db),
+    current_user: UserContext = Depends(require_admin),
 ) -> ReviewStatusUpdateResponse:
-    return ReviewStatusUpdateResponse(
-        review_item=update_review_status(
-            review_item_id,
-            request.status,
-            request.reviewer_notes,
-            db,
-        )
+    review_item = update_review_status(
+        review_item_id,
+        request.status,
+        request.reviewer_notes,
+        db,
     )
+    if request.status in {"approved_for_rag", "rejected", "archived", "needs_more_data"}:
+        record_audit_event(
+            db,
+            current_user.id,
+            f"review_item.{request.status}",
+            "review_item",
+            review_item_id,
+            {"reviewer_notes": request.reviewer_notes},
+        )
+    return ReviewStatusUpdateResponse(review_item=review_item)
 
 
 @router.post(
@@ -62,8 +74,21 @@ def patch_review_item(
 def ingest_review_item(
     review_item_id: str,
     db: Session = Depends(get_db),
+    current_user: UserContext = Depends(require_admin),
 ) -> IngestToRagResponse:
-    ingestion, refreshed_chunk_count = ingest_review_item_to_rag(review_item_id, db)
+    ingestion, refreshed_chunk_count = ingest_review_item_to_rag(
+        review_item_id,
+        db,
+        ingested_by=current_user.id,
+    )
+    record_audit_event(
+        db,
+        current_user.id,
+        "review_item.ingest_to_rag",
+        "review_item",
+        review_item_id,
+        {"generated_markdown_path": ingestion.generated_markdown_path},
+    )
     return IngestToRagResponse(
         status="ingested",
         ingestion=ingestion,

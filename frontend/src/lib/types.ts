@@ -5,6 +5,69 @@ export type HealthResponse = {
   timestamp: string;
 };
 
+export type UserRole = "admin" | "common";
+
+export type UserContext = {
+  id: string;
+  email: string;
+  role: UserRole;
+  is_active: boolean;
+  auth_enabled: boolean;
+};
+
+export type ProviderName =
+  | "openai_compatible"
+  | "coingecko"
+  | "defillama_pro"
+  | "vast_ai";
+
+export type ProviderCredentialCreateRequest = {
+  provider: ProviderName;
+  name: string;
+  secret: string;
+  enabled: boolean;
+};
+
+export type ProviderCredentialUpdateRequest = {
+  name?: string;
+  secret?: string;
+  enabled?: boolean;
+};
+
+export type ProviderCredentialMetadata = {
+  id: string;
+  provider: ProviderName | string;
+  name: string;
+  secret_last4: string;
+  enabled: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  last_used_at?: string | null;
+};
+
+export type ProviderCredentialsResponse = {
+  items: ProviderCredentialMetadata[];
+};
+
+export type ProviderCredentialResponse = {
+  credential: ProviderCredentialMetadata;
+};
+
+export type AuditEvent = {
+  id: string;
+  actor_user_id?: string | null;
+  action: string;
+  resource_type: string;
+  resource_id?: string | null;
+  metadata_json: Record<string, unknown>;
+  created_at: string;
+};
+
+export type AuditEventsResponse = {
+  items: AuditEvent[];
+};
+
 export type AnalysisDepth = "quick" | "standard" | "deep";
 
 export type RiskRating =

@@ -4,11 +4,9 @@
 
 The deployment goal is to provide a portfolio-ready public demo with safe synthetic or read-only data.
 
-After Post-MVP Phase 9, three bridge phases should be completed before final public deployment:
+After Post-MVP Phase 11, one bridge phase remains before final public deployment:
 
 ```text
-Phase 10: Autonomous discovery and human-approved RAG ingestion
-Phase 11: Access control and secure provider configuration
 Phase 12: Vast.ai ephemeral model provider
 ```
 
@@ -64,9 +62,10 @@ Phase 11 access-control variables:
 
 ```env
 AUTH_ENABLED=false
-ADMIN_EMAIL=
-ADMIN_INITIAL_PASSWORD=
-APP_SECRET_KEY=
+ADMIN_EMAIL=admin@example.local
+ADMIN_BOOTSTRAP_TOKEN=
+ADMIN_PASSWORD=
+AUTH_SECRET_KEY=
 CREDENTIAL_ENCRYPTION_KEY=
 ```
 
@@ -94,15 +93,16 @@ Rules:
 
 - never expose `VAST_API_KEY` or model provider keys to the frontend
 - never log full API keys
-- store raw keys in environment variables for the first implementation
-- if credentials are later stored in the database, store only encrypted secrets plus non-sensitive metadata
+- store raw keys in environment variables or through the admin provider-credential API
+- database-stored credentials keep encrypted secrets plus non-sensitive metadata only
 - show only provider name, created time, status, and last four characters in admin UI
 - require admin role for credential creation, rotation, testing, and deletion
 - keep audit logs for credential and Vast lifecycle actions
+- replace the MVP credential encryption helper with managed secret storage or KMS-backed encryption before hosted production use
 
 ## 5. Access Control
 
-Two roles are planned:
+Two roles are implemented for MVP/local use:
 
 ```text
 admin
@@ -119,15 +119,15 @@ Common users can:
 
 Admin users can:
 
-- manage users and roles
-- configure source discovery
+- use the bootstrap/admin bearer-token flow
 - run DefiLlama/manual discovery
 - evaluate discovered items
 - approve/reject review items
 - ingest approved items into RAG
 - manage provider credentials
-- start, inspect, and destroy Vast.ai sessions
-- view lifecycle/audit logs
+- view access audit logs
+
+Phase 12 will add admin-only Vast.ai session start, inspect, destroy, cleanup, and lifecycle logs.
 
 ## 6. Vast.ai Deployment Safety
 

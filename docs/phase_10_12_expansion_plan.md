@@ -346,6 +346,14 @@ rate limits
 - Vast.ai lifecycle actions are admin-only.
 - Audit events are recorded for sensitive actions.
 
+## Implemented Phase 11 Notes
+
+The MVP implementation uses `AUTH_ENABLED=false` by default for local/demo use. When `AUTH_ENABLED=true`, FastAPI bearer-token dependencies enforce `admin` and `common` roles. A bootstrap admin can be seeded from `ADMIN_EMAIL` and `ADMIN_BOOTSTRAP_TOKEN` or `ADMIN_PASSWORD`.
+
+Provider credentials are managed through admin-only endpoints and returned as metadata only. Raw secrets are not returned to the frontend. Database-stored credentials require `CREDENTIAL_ENCRYPTION_KEY`; hosted production should replace the MVP encryption helper with a managed secret store or KMS-backed encryption.
+
+Audit events are recorded for provider credential changes, discovery runs, review status changes, and explicit approved-item RAG ingestion. Vast.ai lifecycle endpoints remain future Phase 12 work.
+
 ---
 
 # Phase 12 — Vast.ai Ephemeral Model Provider

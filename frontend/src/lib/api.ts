@@ -25,11 +25,65 @@ import type {
   AlertStatus,
   AlertStatusUpdateResponse,
   OptionsAnalysisRequest,
-  OptionsAnalysisResponse
+  OptionsAnalysisResponse,
+  UserContext,
+  ProviderCredentialCreateRequest,
+  ProviderCredentialResponse,
+  ProviderCredentialsResponse,
+  ProviderCredentialUpdateRequest,
+  AuditEventsResponse
 } from "./types";
+
+const AUTH_TOKEN_KEY = "defi-risk-copilot-admin-token";
 
 export function getApiBaseUrl(): string {
   return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+}
+
+export function getAuthToken(): string {
+  if (typeof window === "undefined") {
+    return "";
+  }
+  return window.localStorage.getItem(AUTH_TOKEN_KEY) ?? "";
+}
+
+export function setAuthToken(token: string): void {
+  if (typeof window === "undefined") {
+    return;
+  }
+  const trimmed = token.trim();
+  if (trimmed) {
+    window.localStorage.setItem(AUTH_TOKEN_KEY, trimmed);
+  } else {
+    window.localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
+
+function authHeaders(): Record<string, string> {
+  const token = getAuthToken();
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function errorDetail(response: Response, fallback: string): Promise<string> {
+  try {
+    const payload = await response.json();
+    return payload.detail ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export async function fetchCurrentUser(): Promise<UserContext> {
+  const response = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
+    cache: "no-store",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Current user fetch failed with status ${response.status}`));
+  }
+
+  return response.json();
 }
 
 export async function fetchHealth(): Promise<HealthResponse> {
@@ -120,7 +174,8 @@ export async function runDiscovery(): Promise<DiscoveryRunResponse> {
   const response = await fetch(`${getApiBaseUrl()}/api/discovery/run`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...authHeaders()
     },
     body: JSON.stringify({
       include_defillama: true,
@@ -154,19 +209,13 @@ export async function ingestReviewItemToRag(
   const response = await fetch(
     `${getApiBaseUrl()}/api/evaluation/review-items/${reviewItemId}/ingest-to-rag`,
     {
-      method: "POST"
+      method: "POST",
+      headers: authHeaders()
     }
   );
 
   if (!response.ok) {
-    let detail = `RAG ingestion failed with status ${response.status}`;
-    try {
-      const payload = await response.json();
-      detail = payload.detail ?? detail;
-    } catch {
-      // Keep default error.
-    }
-    throw new Error(detail);
+    throw new Error(await errorDetail(response, `RAG ingestion failed with status ${response.status}`));
   }
 
   return response.json();
@@ -211,7 +260,8 @@ export async function updateReviewItemStatus(
     {
       method: "PATCH",
       headers: {
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        ...authHeaders()
       },
       body: JSON.stringify({
         status,
@@ -221,7 +271,87 @@ export async function updateReviewItemStatus(
   );
 
   if (!response.ok) {
-    throw new Error(`Review update failed with status ${response.status}`);
+    throw new Error(await errorDetail(response, `Review update failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function createProviderCredential(
+  payload: ProviderCredentialCreateRequest
+): Promise<ProviderCredentialResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/provider-credentials`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Credential creation failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function fetchProviderCredentials(): Promise<ProviderCredentialsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/provider-credentials`, {
+    cache: "no-store",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Credential fetch failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function updateProviderCredential(
+  credentialId: string,
+  payload: ProviderCredentialUpdateRequest
+): Promise<ProviderCredentialResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/provider-credentials/${credentialId}`, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Credential update failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function disableProviderCredential(
+  credentialId: string
+): Promise<ProviderCredentialResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/provider-credentials/${credentialId}`, {
+    method: "DELETE",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Credential disable failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function fetchAuditEvents(limit = 100): Promise<AuditEventsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/audit-events?limit=${limit}`, {
+    cache: "no-store",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Audit event fetch failed with status ${response.status}`));
   }
 
   return response.json();

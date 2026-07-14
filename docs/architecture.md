@@ -24,7 +24,7 @@ Next.js Frontend
   -> simulator
   -> watchlist
   -> options analysis
-  -> future admin console
+  -> admin console for auth status, provider credentials, and audit logs
 
 FastAPI Backend
   -> controlled analysis workflow
@@ -40,7 +40,9 @@ FastAPI Backend
   -> watchlist and alerts
   -> options analysis
   -> ML dataset export and advisory classifier
-  -> future access control
+  -> MVP access control
+  -> provider credential metadata
+  -> access audit logs
   -> future Vast.ai lifecycle manager
 
 Storage
@@ -48,8 +50,8 @@ Storage
   -> local knowledge_base markdown files
   -> discovered knowledge markdown under knowledge_base/discovered/
   -> JSON RAG index for MVP
-  -> future encrypted credential metadata
-  -> future audit logs
+  -> encrypted provider credential metadata
+  -> access audit logs
 ```
 
 ## 3. Analysis Flow
@@ -91,7 +93,7 @@ No discovered source becomes trusted automatically. Human approval plus an expli
 
 ## 5. Access Control — Phase 11
 
-Two user roles are planned:
+Two user roles are implemented for MVP/local use:
 
 ```text
 admin
@@ -101,6 +103,8 @@ common
 Common users can run normal analysis workflows, simulations, options analysis, and personal watchlist flows.
 
 Admin users can manage discovery sources, review decisions, RAG ingestion, provider credentials, Vast.ai sessions, and audit logs.
+
+`AUTH_ENABLED=false` preserves local/demo behavior and treats protected workflows as a demo admin session. `AUTH_ENABLED=true` requires a bearer token and enforces admin/common role checks for sensitive endpoints.
 
 Sensitive operations must be server-side only:
 
@@ -113,20 +117,20 @@ Sensitive operations must be server-side only:
 
 ## 6. Credential and Provider Storage
 
-Provider credentials should use this model:
+Provider credentials use this model:
 
 ```text
 api_credentials
   id
   provider
-  display_name
-  encrypted_secret or env_reference
-  secret_last_four
-  status
-  created_by_user_id
+  name
+  secret_encrypted
+  secret_last4
+  enabled
+  created_by
   created_at
-  rotated_at
-  revoked_at
+  updated_at
+  last_used_at
 ```
 
 Rules:
@@ -134,7 +138,8 @@ Rules:
 - raw secrets are never sent to the frontend
 - raw secrets are never logged
 - database-stored secrets must be encrypted
-- environment variables are acceptable for the first implementation
+- `CREDENTIAL_ENCRYPTION_KEY` is required for database-stored secrets
+- a production deployment should replace the MVP encryption helper with a managed secret store or KMS-backed encryption
 - every sensitive action should create an audit event
 
 ## 7. Vast.ai Ephemeral Provider — Phase 12
@@ -178,6 +183,7 @@ Vast.ai must be disabled by default. The first implementation should support adm
 backend/app/
   api/
   agents/
+  auth/
   core/
   data_sources/
   db/
@@ -193,15 +199,9 @@ backend/app/
   risk/
   simulation/
   watchlist/
-
-Future Phase 10:
   discovery/
   knowledge_base_ingestion/
-
-Future Phase 11:
-  auth/
-  credentials/
-  audit/
+  providers/
 
 Future Phase 12:
   llm/vast/
@@ -219,13 +219,13 @@ frontend/src/app/
   simulate/page.tsx
   watchlist/page.tsx
   options/page.tsx
+  admin/page.tsx
+  admin/provider-credentials/page.tsx
+  admin/audit/page.tsx
   about/page.tsx
 
 Future:
-  admin/discovery/page.tsx
-  admin/credentials/page.tsx
   admin/vast/page.tsx
-  admin/audit/page.tsx
 ```
 
 ## 10. Non-Negotiable Boundaries

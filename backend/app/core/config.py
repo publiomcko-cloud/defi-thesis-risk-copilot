@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     rag_hybrid_keyword_weight: float = 0.45
     rag_hybrid_vector_weight: float = 0.45
     rag_hybrid_metadata_weight: float = 0.10
+    auth_enabled: bool = False
+    admin_email: str = "admin@example.local"
+    admin_bootstrap_token: str = ""
+    admin_password: str = ""
+    auth_secret_key: str = ""
+    credential_encryption_key: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 

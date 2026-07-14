@@ -12,7 +12,7 @@ Full-stack AI and DeFi portfolio app with FastAPI, Next.js, RAG, controlled agen
 
 ## Current Status
 
-The technical MVP and product-expansion phases are complete through Post-MVP Phase 9:
+The technical MVP and product-expansion phases are complete through Post-MVP Phase 11:
 
 ```text
 Post-MVP Phase 1: Optional backend LLM synthesis
@@ -24,13 +24,13 @@ Post-MVP Phase 6: Options and volatility analysis agent
 Post-MVP Phase 7: Advanced RAG and retrieval evaluation
 Post-MVP Phase 8: Fine-tuning and ML risk classifier groundwork
 Post-MVP Phase 9: HPC and SLURM readiness
+Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
+Post-MVP Phase 11: Access control and secure provider configuration
 ```
 
 Before final portfolio/demo work, the next planned product phases are:
 
 ```text
-Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
-Post-MVP Phase 11: Access control and secure provider configuration
 Post-MVP Phase 12: Vast.ai ephemeral model provider
 Final Phase 13: Demo data and example reports
 Final Phase 14: Public portfolio deployment
@@ -57,7 +57,7 @@ The first public demo should use synthetic examples and read-only public data. T
 - Market data may be delayed, incomplete, cached, user-provided, or simulated.
 - Reports are for research and educational purposes only.
 - The system does not provide financial, investment, legal, or tax advice.
-- Future discovery-to-RAG ingestion must keep human approval before knowledge-base updates.
+- Discovery-to-RAG ingestion keeps human approval and explicit admin ingestion before knowledge-base updates.
 - Future Vast.ai integration must be admin-only, server-side, cost-limited, and disabled by default.
 
 ## For Recruiters
@@ -113,7 +113,7 @@ Client-facing value:
 - Markdown export
 - Strategy simulation, watchlists, options analysis, retrieval evaluation, ML groundwork, and HPC templates
 - Docker-based local execution and CI validation
-- Future-ready structure for human-approved discovery-to-RAG ingestion, RBAC, secure provider configuration, and Vast.ai ephemeral model sessions
+- Human-approved discovery-to-RAG ingestion, MVP role-based access control, server-side provider credential metadata, audit logs, and future-ready structure for Vast.ai ephemeral model sessions
 
 ## Core Demo Flow
 
@@ -271,20 +271,24 @@ Current endpoints include:
 - `POST /api/evaluation/discovered-items/{discovered_item_id}/evaluate`
 - `GET /api/evaluation/review-items`
 - `PATCH /api/evaluation/review-items/{review_item_id}`
+- `POST /api/evaluation/review-items/{review_item_id}/ingest-to-rag`
+- `POST /api/discovery/run`
+- `GET /api/discovery/candidates`
+- `GET /api/knowledge-base/discovered`
+- `GET /api/auth/me`
+- `POST /api/admin/provider-credentials`
+- `GET /api/admin/provider-credentials`
+- `PATCH /api/admin/provider-credentials/{credential_id}`
+- `DELETE /api/admin/provider-credentials/{credential_id}`
+- `GET /api/admin/audit-events`
 - `POST /api/simulation/run`
 - `POST /api/watchlist/items`
 - `POST /api/watchlist/items/{watchlist_item_id}/evaluate`
 - `GET /api/watchlist/alerts`
 - `POST /api/options/analyze`
 
-Planned Phase 10-12 endpoints include:
+Planned Phase 12 endpoints include:
 
-- `POST /api/discovery/run`
-- `GET /api/discovery/candidates`
-- `POST /api/evaluation/review-items/{review_item_id}/ingest-to-rag`
-- `GET /api/knowledge-base/discovered`
-- `POST /api/admin/provider-credentials`
-- `GET /api/admin/provider-credentials`
 - `POST /api/admin/vast/sessions/start`
 - `GET /api/admin/vast/sessions/{session_id}`
 - `POST /api/admin/vast/sessions/{session_id}/destroy`
@@ -323,10 +327,10 @@ Archive:
 - Some protocol-specific metrics still require manual input.
 - Risk scoring is rule-based and should not be treated as a quantitative guarantee.
 - RAG answers depend on the quality and freshness of ingested documents.
-- Review approval does not yet complete the full knowledge-base ingestion flow.
-- Production authentication and admin/common access control are not implemented yet.
+- Review approval does not ingest sources automatically; an explicit admin ingest action is required.
+- MVP token access control is implemented for admin-only workflows when `AUTH_ENABLED=true`; hosted production auth, MFA, ownership scoping, and password reset are not implemented.
 - Vast.ai integration is not implemented yet and must remain disabled by default when added.
-- No production authentication or billing system is included.
+- No production billing system is included.
 
 ## Roadmap
 
@@ -339,12 +343,10 @@ Completed product foundation:
 - Add controlled agent orchestration.
 - Add structured report generation and Markdown export.
 - Add Docker and CI.
-- Add optional LLM synthesis, source monitoring, evaluation queue, simulation, watchlists, options analysis, advanced RAG, ML groundwork, and HPC templates.
+- Add optional LLM synthesis, source monitoring, evaluation queue, discovery-to-RAG ingestion, MVP access control, provider credential metadata, audit logs, simulation, watchlists, options analysis, advanced RAG, ML groundwork, and HPC templates.
 
 Next product phases:
 
-- Phase 10: Auto-discovery and human-approved RAG ingestion.
-- Phase 11: Access control and secure provider configuration.
 - Phase 12: Vast.ai ephemeral model provider.
 
 Final portfolio phases:
