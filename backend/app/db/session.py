@@ -5,6 +5,7 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
+from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.config import get_settings
@@ -12,7 +13,12 @@ from app.core.config import get_settings
 
 def normalize_database_url(database_url: str) -> str:
     if database_url.startswith("postgresql://"):
-        return database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+        database_url = database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+    if database_url.startswith("postgresql+psycopg://"):
+        url = make_url(database_url)
+        if "schema" in url.query:
+            url = url.difference_update_query(["schema"])
+        return url.render_as_string(hide_password=False)
     return database_url
 
 

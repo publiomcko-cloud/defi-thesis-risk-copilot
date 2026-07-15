@@ -293,6 +293,8 @@ Typical pooled URL shape:
 postgresql://postgres.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require
 ```
 
+If Supabase or a dashboard tool gives a URL containing `schema=public`, remove that query parameter before saving it on Render. The app also strips `schema` defensively because `psycopg` rejects it as an invalid connection option. Keep `sslmode=require`.
+
 Do not commit Supabase credentials. Supabase free tier may pause, limit connections, or require manual project restoration after inactivity. Keep backups if the demo database matters.
 
 ## 11. Deployment Status Endpoint
