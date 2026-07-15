@@ -68,7 +68,15 @@ jobs:
       - name: Validate public runtime preparation
         env:
           PUBLIC_DEMO_MODE: "true"
-        run: python scripts/prepare_runtime.py
+        run: python scripts/prepare_runtime.py 2>&1 | tee runtime-output.txt
+
+      - name: Upload runtime preparation log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: runtime-preparation-log
+          path: backend/runtime-output.txt
+          if-no-files-found: ignore
 
   frontend:
     name: Frontend
