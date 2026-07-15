@@ -126,6 +126,10 @@ textarea {
   margin-top: 24px;
 }
 
+.compact-actions {
+  margin-top: 14px;
+}
+
 .primary-link,
 .secondary-link,
 .primary-action {
@@ -230,6 +234,54 @@ textarea {
 .notice h2,
 .notice p {
   color: var(--warning);
+}
+
+.metric-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  margin-top: 16px;
+}
+
+.metric {
+  background: #f8faf8;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+}
+
+.metric span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.metric strong {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.success-text,
+.error-text {
+  border-radius: 8px;
+  font-weight: 700;
+  margin: 0 0 16px;
+  padding: 12px 14px;
+}
+
+.success-text {
+  background: #e8f5ee;
+  border: 1px solid #a9d8bf;
+  color: #145337;
+}
+
+.error-text {
+  background: #fff0ec;
+  border: 1px solid #efb7a8;
+  color: #8d2f1d;
 }
 
 .form-panel {

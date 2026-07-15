@@ -24,6 +24,7 @@ Next.js Frontend
   -> simulator
   -> watchlist
   -> options analysis
+  -> demo dashboard
   -> admin console for auth status, provider credentials, and audit logs
 
 FastAPI Backend
@@ -44,6 +45,7 @@ FastAPI Backend
   -> provider credential metadata
   -> access audit logs
   -> Vast.ai dry-run/manual lifecycle manager
+  -> deterministic demo seeding and scenario metadata
 
 Storage
   -> SQLite or PostgreSQL
@@ -53,6 +55,8 @@ Storage
   -> encrypted provider credential metadata
   -> access audit logs
   -> Vast.ai lifecycle sessions
+  -> synthetic demo records in normal persistence tables
+  -> example Markdown reports under examples/reports/
 ```
 
 ## 3. Analysis Flow
@@ -177,6 +181,26 @@ failed
 ```
 
 Vast.ai is disabled by default. The implemented Phase 12 path supports admin manual warm-up, dry-run lifecycle simulation, test prompts, idempotent destroy, and cleanup before any automatic ephemeral usage is enabled.
+
+## 8. Demo Data — Final Phase 13
+
+The demo module seeds deterministic portfolio examples into existing tables rather than adding separate demo-only schema.
+
+```text
+GET /api/demo/status
+GET /api/demo/scenarios
+POST /api/demo/seed
+```
+
+Seeded records include:
+
+- synthetic strategy reports
+- a discovery-to-review-to-RAG-ingestion example
+- a watchlist item with an open in-app alert
+- an options and volatility report
+- a Vast.ai dry-run session record
+
+The demo path is local, synthetic, and educational. It does not call paid APIs, connect wallets, sign transactions, execute trades, or rent real Vast.ai infrastructure.
 
 ## 8. Backend Module Map
 

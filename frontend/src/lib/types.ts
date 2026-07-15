@@ -143,6 +143,32 @@ export type VastCleanupResponse = {
   sessions: VastSession[];
 };
 
+export type DemoScenario = {
+  id: string;
+  title: string;
+  summary: string;
+  primary_path: string;
+  report_id?: string | null;
+  tags: string[];
+  safety_note: string;
+};
+
+export type DemoStatus = {
+  seeded: boolean;
+  counts: Record<string, number>;
+  report_ids: string[];
+  scenarios: DemoScenario[];
+};
+
+export type DemoSeedResult = {
+  status: "seeded";
+  seeded: boolean;
+  counts: Record<string, number>;
+  report_ids: string[];
+  scenario_ids: string[];
+  message: string;
+};
+
 export type AnalysisDepth = "quick" | "standard" | "deep";
 
 export type RiskRating =

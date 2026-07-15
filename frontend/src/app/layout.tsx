@@ -26,6 +26,7 @@ export default function RootLayout({
             <Link href="/watchlist">Watchlist</Link>
             <Link href="/options">Options</Link>
             <Link href="/review">Review</Link>
+            <Link href="/demo">Demo</Link>
             <Link href="/admin">Admin</Link>
             <Link href="/protocols">Protocols</Link>
             <Link href="/about">About</Link>

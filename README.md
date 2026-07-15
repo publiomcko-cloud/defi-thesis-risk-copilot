@@ -12,7 +12,7 @@ Full-stack AI and DeFi portfolio app with FastAPI, Next.js, RAG, controlled agen
 
 ## Current Status
 
-The technical MVP and product-expansion phases are complete through Post-MVP Phase 12:
+The technical MVP and product-expansion phases are complete through Final Phase 13:
 
 ```text
 Post-MVP Phase 1: Optional backend LLM synthesis
@@ -27,12 +27,12 @@ Post-MVP Phase 9: HPC and SLURM readiness
 Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
 Post-MVP Phase 11: Access control and secure provider configuration
 Post-MVP Phase 12: Vast.ai ephemeral model provider
+Final Phase 13: Demo data and example reports
 ```
 
-Before final portfolio/demo work, the next planned product phases are:
+Before public deployment and final polish, the next planned product phases are:
 
 ```text
-Final Phase 13: Demo data and example reports
 Final Phase 14: Public portfolio deployment
 Final Phase 15: Portfolio polish
 ```
@@ -45,9 +45,33 @@ See [`docs/post_mvp_development_plan.md`](docs/post_mvp_development_plan.md) and
 - Backend health: pending
 - API docs: pending
 - Demo video: pending
-- Downloadable walkthrough: pending
+- Downloadable walkthrough: local demo walkthrough available in [`docs/demo_walkthrough.md`](docs/demo_walkthrough.md)
 
 The first public demo should use synthetic examples and read-only public data. The application does not connect wallets, sign transactions, execute trades, or custody funds.
+
+## Local Portfolio Demo
+
+Final Phase 13 adds deterministic demo data, a `/demo` dashboard, and example reports that can be reproduced without paid APIs, wallets, or real Vast.ai rental.
+
+Seed the local demo data:
+
+```bash
+backend/.venv/bin/python backend/scripts/seed_demo_data.py
+```
+
+Or, while the backend is running, call:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/demo/seed
+```
+
+Open:
+
+```text
+Demo dashboard: http://127.0.0.1:3000/demo
+Main demo report: http://127.0.0.1:3000/reports/demo_report_pendle_pt_loop
+Example Markdown reports: examples/reports/
+```
 
 ## Demo Safety
 
@@ -78,11 +102,11 @@ It demonstrates:
 Recommended review path:
 
 1. Read the README and project case study.
-2. Open the demo dashboard.
-3. Submit the example Pendle + Morpho strategy prompt.
-4. Review the generated risk report.
+2. Seed demo data with the script or `/api/demo/seed`.
+3. Open the `/demo` dashboard.
+4. Review the seeded Pendle + Morpho report.
 5. Inspect retrieved sources and assumptions.
-6. Try simulation, watchlist, and options analysis flows.
+6. Try discovery/review, simulation, watchlist, options, and Vast dry-run pages.
 7. Inspect the repository architecture and post-MVP development plan.
 
 ## For Clients

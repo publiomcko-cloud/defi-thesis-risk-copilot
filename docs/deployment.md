@@ -4,7 +4,7 @@
 
 The deployment goal is to provide a portfolio-ready public demo with safe synthetic or read-only data.
 
-Post-MVP Phases 10-12 are implemented. Public deployment remains a final portfolio phase after demo data and polish are stable.
+Post-MVP Phases 10-12 and Final Phase 13 local demo data are implemented. Public deployment remains a final portfolio phase after demo data and polish are stable.
 
 ## 2. Recommended Public Deployment
 
@@ -159,6 +159,18 @@ docker compose up -d --build
 curl http://127.0.0.1:8000/health
 ```
 
+Local demo seed:
+
+```bash
+backend/.venv/bin/python backend/scripts/seed_demo_data.py
+```
+
+Then open:
+
+```text
+http://127.0.0.1:3000/demo
+```
+
 Production-like check:
 
 ```bash
@@ -168,10 +180,9 @@ docker compose -f docker-compose.production.yml config
 
 ## 8. Final Portfolio Deployment Phases
 
-Final deployment order after Phases 10-12:
+Final deployment order after Phases 10-13:
 
 ```text
-Final Phase 13: Demo data and example reports
 Final Phase 14: Public portfolio deployment
 Final Phase 15: Portfolio polish
 ```

@@ -20,6 +20,7 @@ Testing should validate:
 - Phase 10 discovery-to-RAG ingestion safety
 - Phase 11 access control and credential isolation
 - Phase 12 Vast.ai lifecycle safety
+- Final Phase 13 demo seed idempotency and safety
 
 ## 2. Baseline Validation
 
@@ -164,6 +165,10 @@ Smoke checks should verify:
 
 - `/health`
 - `/api/protocols`
+- `/api/demo/status`
+- `/api/demo/scenarios`
+- `/api/demo/seed`
+- seeded demo report retrieval
 - `/api/analyze`
 - report creation
 - report retrieval
@@ -181,7 +186,21 @@ After Phase 11, smoke checks can be extended with `AUTH_ENABLED=true` fixtures f
 
 After Phase 12, add mocked lifecycle smoke tests only; do not rent a real Vast.ai instance in CI.
 
-## 10. Final Portfolio Test Pass
+After Phase 13, smoke checks seed deterministic local demo records and retrieve one example report. The smoke path must not require paid APIs, external secrets, wallet access, or real Vast.ai rental.
+
+## 10. Final Phase 13 Demo Tests
+
+Demo tests should validate:
+
+- demo seed works when `AUTH_ENABLED=false`
+- demo seed requires admin when `AUTH_ENABLED=true`
+- seed operation is idempotent
+- records are clearly marked as synthetic demo data
+- seeded reports can be retrieved through the normal report endpoint
+- example Markdown reports can be generated from deterministic data
+- no external API keys, wallet state, or real Vast.ai rental are required
+
+## 11. Final Portfolio Test Pass
 
 Before public deployment:
 

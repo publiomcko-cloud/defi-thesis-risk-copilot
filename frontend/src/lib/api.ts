@@ -32,6 +32,9 @@ import type {
   ProviderCredentialsResponse,
   ProviderCredentialUpdateRequest,
   AuditEventsResponse,
+  DemoScenario,
+  DemoSeedResult,
+  DemoStatus,
   VastCleanupResponse,
   VastConfig,
   VastSessionActionResponse,
@@ -99,6 +102,43 @@ export async function fetchHealth(): Promise<HealthResponse> {
 
   if (!response.ok) {
     throw new Error(`Health check failed with status ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function fetchDemoStatus(): Promise<DemoStatus> {
+  const response = await fetch(`${getApiBaseUrl()}/api/demo/status`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Demo status failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function fetchDemoScenarios(): Promise<DemoScenario[]> {
+  const response = await fetch(`${getApiBaseUrl()}/api/demo/scenarios`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Demo scenarios failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function seedDemoData(): Promise<DemoSeedResult> {
+  const response = await fetch(`${getApiBaseUrl()}/api/demo/seed`, {
+    method: "POST",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Demo seed failed with status ${response.status}`));
   }
 
   return response.json();

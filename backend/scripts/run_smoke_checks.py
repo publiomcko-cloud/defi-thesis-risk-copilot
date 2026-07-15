@@ -27,6 +27,22 @@ def main() -> int:
             )
             return 1
 
+        demo_status = _get_json(f"{base_url}/api/demo/status")
+        demo_scenarios = _get_json(f"{base_url}/api/demo/scenarios")
+        if not isinstance(demo_scenarios, list) or len(demo_scenarios) < 4:
+            print(f"Smoke check failed: demo scenarios mismatch: {demo_scenarios}", file=sys.stderr)
+            return 1
+
+        demo_seed = _post_json(f"{base_url}/api/demo/seed", {})
+        if not demo_seed.get("seeded") or demo_seed.get("counts", {}).get("reports", 0) < 5:
+            print(f"Smoke check failed: demo seed mismatch: {demo_seed}", file=sys.stderr)
+            return 1
+
+        demo_report = _get_json(f"{base_url}/api/reports/demo_report_pendle_pt_loop")
+        if demo_report.get("report_id") != "demo_report_pendle_pt_loop":
+            print(f"Smoke check failed: demo report retrieval mismatch: {demo_report}", file=sys.stderr)
+            return 1
+
         analysis = _post_json(
             f"{base_url}/api/analyze",
             {
@@ -185,7 +201,7 @@ def main() -> int:
         return 1
 
     print(
-        "Smoke checks passed: /health, /api/protocols, /api/analyze, "
+        "Smoke checks passed: /health, /api/protocols, demo seed/status/scenarios, /api/analyze, "
         "report retrieval, markdown export, monitoring, evaluation, review queue, "
         "evaluation report retrieval, simulation, watchlist, alert events, and options"
     )

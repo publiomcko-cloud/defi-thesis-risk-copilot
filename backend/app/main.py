@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.routes_analysis import router as analysis_router
 from app.api.routes_admin import router as admin_router
 from app.api.routes_auth import router as auth_router
+from app.api.routes_demo import router as demo_router
 from app.api.routes_documents import router as documents_router
 from app.api.routes_discovery import router as discovery_router
 from app.api.routes_evaluation import router as evaluation_router
@@ -41,6 +42,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(auth_router, prefix="/api")
+    app.include_router(demo_router, prefix="/api")
     app.include_router(admin_router, prefix="/api")
     app.include_router(analysis_router, prefix="/api")
     app.include_router(reports_router, prefix="/api")

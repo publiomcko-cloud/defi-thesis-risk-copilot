@@ -10,6 +10,8 @@ Historical planning notes should be kept in `docs/archive/`.
 - Backend health: pending
 - API docs: pending
 - Demo video: pending
+- Local demo dashboard: implemented at `/demo`
+- Example Markdown reports: implemented in `examples/reports/`
 
 ## Current Stack
 
@@ -25,14 +27,13 @@ Current local stack:
 
 ## Current Status
 
-Current status: Post-MVP Phase 12 complete.
+Current status: Final Phase 13 complete.
 
-The app currently supports optional backend LLM synthesis, controlled public-source discovery, automated evaluation, human review queue foundations, explicit human-approved RAG ingestion, MVP token access control, admin/common role checks, server-side provider credential storage metadata, audit logs, admin-only Vast.ai dry-run/manual warm-up sessions, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, and optional HPC/SLURM templates.
+The app currently supports optional backend LLM synthesis, controlled public-source discovery, automated evaluation, human review queue foundations, explicit human-approved RAG ingestion, MVP token access control, admin/common role checks, server-side provider credential storage metadata, audit logs, admin-only Vast.ai dry-run/manual warm-up sessions, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, optional HPC/SLURM templates, and deterministic local demo data with example reports.
 
-Before final demo/deployment/polish, the next planned product phases are:
+Before public deployment and final polish, the next planned product phases are:
 
 ```text
-Final Phase 13: Demo data and example reports
 Final Phase 14: Public portfolio deployment
 Final Phase 15: Portfolio polish
 ```
@@ -68,6 +69,10 @@ The current app can:
 - inspect Vast.ai runtime configuration through `/api/admin/vast/config`
 - start dry-run/manual Vast.ai model sessions through `/api/admin/vast/sessions/start`
 - list, test, destroy, and clean up Vast.ai sessions through admin-only endpoints
+- seed deterministic local demo data through `/api/demo/seed` or `backend/scripts/seed_demo_data.py`
+- inspect demo status and scenarios through `/api/demo/status` and `/api/demo/scenarios`
+- view the frontend demo dashboard at `/demo`
+- review example Markdown reports in `examples/reports/`
 - run deterministic strategy simulation through `/api/simulation/run`
 - create watchlist items and rule-based in-app alerts
 - run deterministic options analysis through `/api/options/analyze`
@@ -98,6 +103,9 @@ Implemented feature areas include:
 - server-side provider credential management
 - audit logging for sensitive actions
 - Vast.ai dry-run/manual warm-up lifecycle
+- local portfolio demo dashboard
+- deterministic demo seed data
+- example Markdown reports
 - strategy simulator
 - watchlist and in-app alert system
 - options and volatility analysis
@@ -109,7 +117,7 @@ Implemented feature areas include:
 
 The next active product work is:
 
-1. Final Phase 13 — Demo data and example reports.
+1. Final Phase 14 — Public portfolio deployment.
 
 Phase 12 is complete for dry-run/manual warm-up. Automatic Vast.ai use for ordinary report generation remains disabled and should only be added behind explicit task approval.
 
@@ -199,6 +207,7 @@ bash -n hpc/slurm_train_risk_classifier.sbatch
 ## Current Limitations
 
 - The application is still an MVP and uses deterministic local analysis logic.
+- Demo scenarios are synthetic and designed for portfolio review; they are not live market assessments.
 - Data adapters are basic MVP implementations; several protocol adapters still rely on manual fallback.
 - RAG is local and curated only; it does not crawl protocol docs or refresh automatically.
 - Semantic retrieval is optional and currently uses a deterministic local semantic provider rather than an external embedding model.
@@ -214,5 +223,5 @@ bash -n hpc/slurm_train_risk_classifier.sbatch
 - Reports are persisted and rendered through a deterministic template; optional LLM synthesis can enrich explanatory wording when enabled, but cannot override deterministic risk scoring, missing data, sources, market values, protocols, or disclaimers.
 - Fine-tuning has not been performed; the baseline classifier is advisory only and cannot override deterministic risk scoring.
 - HPC readiness is template-based only; no SLURM job has been submitted from this local environment.
-- No deployed public demo exists yet.
+- No deployed public demo exists yet; local demo data and example reports are implemented.
 - No wallet connection or transaction execution will be implemented.

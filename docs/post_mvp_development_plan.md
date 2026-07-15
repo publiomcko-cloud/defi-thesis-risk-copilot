@@ -4,7 +4,7 @@
 
 This document defines the product-development plan after the original Phase 10 MVP checkpoint.
 
-The post-MVP expansion block is complete through Phase 12:
+The post-MVP expansion block and local demo phase are complete through Final Phase 13:
 
 ```text
 Post-MVP Phase 1: Optional backend LLM synthesis
@@ -19,12 +19,12 @@ Post-MVP Phase 9: HPC and SLURM readiness
 Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
 Post-MVP Phase 11: Access control and secure provider configuration
 Post-MVP Phase 12: Vast.ai ephemeral model provider
+Final Phase 13: Demo data and example reports
 ```
 
-Before final demo, deployment, and portfolio polish, the remaining work is:
+Before public deployment and final polish, the remaining work is:
 
 ```text
-Final Phase 13: Demo data and example reports
 Final Phase 14: Public portfolio deployment
 Final Phase 15: Portfolio polish
 ```
@@ -62,6 +62,7 @@ Current known limitations:
 - Vast.ai dry-run/manual warm-up is implemented; automatic ephemeral use for normal reports is not enabled.
 - Fine-tuning has not been performed.
 - Public demo/deployment/polish remain final phases.
+- Local deterministic demo data and example reports are implemented; public deployment and video polish remain final phases.
 
 ## 3. Product Boundary
 
@@ -264,6 +265,23 @@ Purpose:
 - update screenshots
 - prepare demo script
 - create showcase-ready sample data
+
+Status: implemented for local portfolio review.
+
+Implemented scope:
+
+- `/api/demo/status`, `/api/demo/scenarios`, and admin-gated `/api/demo/seed`
+- `backend/scripts/seed_demo_data.py`
+- frontend `/demo` dashboard
+- deterministic seeded reports, discovery/review/RAG-ingestion example, watchlist alert, options example, and Vast.ai dry-run session
+- example Markdown reports in `examples/reports/`
+- walkthrough in `docs/demo_walkthrough.md`
+
+Not included in Phase 13:
+
+- hosted public deployment
+- recorded demo video
+- new wallet, custody, trade, or buy/sell functionality
 
 ## 8. Final Phase 14 — Public Portfolio Deployment
 
