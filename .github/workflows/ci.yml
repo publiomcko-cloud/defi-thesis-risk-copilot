@@ -68,7 +68,7 @@ jobs:
       - name: Validate public runtime preparation
         env:
           PUBLIC_DEMO_MODE: "true"
-        run: python scripts/prepare_runtime.py 2>&1 | tee runtime-output.txt
+        run: python -m scripts.prepare_runtime 2>&1 | tee runtime-output.txt
 
       - name: Upload runtime preparation log
         if: always()
