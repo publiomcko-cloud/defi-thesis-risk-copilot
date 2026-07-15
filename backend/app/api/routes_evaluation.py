@@ -4,17 +4,18 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import require_admin
 from app.auth.schemas import UserContext
 from app.auth.service import record_audit_event
+from app.core.public_demo import block_public_demo_mutation
 from app.db.session import get_db
+from app.discovery.schemas import IngestToRagResponse
 from app.evaluation.evaluator import evaluate_discovered_item
 from app.evaluation.review_queue import list_review_items, update_review_status
-from app.discovery.schemas import IngestToRagResponse
-from app.knowledge_base.ingestion_service import ingest_review_item_to_rag
 from app.evaluation.schemas import (
     EvaluateDiscoveredItemResponse,
     ReviewItemsResponse,
     ReviewStatusUpdateRequest,
     ReviewStatusUpdateResponse,
 )
+from app.knowledge_base.ingestion_service import ingest_review_item_to_rag
 
 router = APIRouter(tags=["evaluation"])
 
@@ -22,6 +23,7 @@ router = APIRouter(tags=["evaluation"])
 @router.post(
     "/evaluation/discovered-items/{discovered_item_id}/evaluate",
     response_model=EvaluateDiscoveredItemResponse,
+    dependencies=[Depends(block_public_demo_mutation)],
 )
 def evaluate_item(
     discovered_item_id: str,
@@ -42,6 +44,7 @@ def get_review_items(
 @router.patch(
     "/evaluation/review-items/{review_item_id}",
     response_model=ReviewStatusUpdateResponse,
+    dependencies=[Depends(block_public_demo_mutation)],
 )
 def patch_review_item(
     review_item_id: str,
@@ -70,6 +73,7 @@ def patch_review_item(
 @router.post(
     "/evaluation/review-items/{review_item_id}/ingest-to-rag",
     response_model=IngestToRagResponse,
+    dependencies=[Depends(block_public_demo_mutation)],
 )
 def ingest_review_item(
     review_item_id: str,
