@@ -1,175 +1,216 @@
 # Deployment — DeFi Thesis & Risk Copilot
 
-## 1. Deployment Goal
-
-The deployment goal is to provide a portfolio-ready public demo with safe synthetic or read-only data.
-
-Post-MVP Phases 10-12, Final Phase 13 local demo data, and Final Phase 14 public deployment preparation are implemented.
-
-## 2. Recommended Public Deployment
+## 1. Live Deployment
 
 ```text
-Vercel
-  -> Next.js frontend
-
-Render or comparable backend host
-  -> FastAPI backend
-
-Supabase or managed PostgreSQL
-  -> PostgreSQL database
-
-Vector storage
-  -> local JSON for MVP, pgvector/Qdrant/Chroma later
-
-LLM provider
-  -> disabled by default
-  -> Ollama for local demo
-  -> OpenAI-compatible API for hosted demo when configured
-  -> Vast.ai ephemeral provider only for admin-triggered heavy tasks
+Vercel Next.js frontend
+  -> Render FastAPI backend
+  -> Supabase PostgreSQL
 ```
 
-## 3. Environment Variables
+Live services:
 
-Public demo backend variables for Render:
+- Frontend: `https://defi-thesis-risk-copilot.vercel.app`
+- Demo: `https://defi-thesis-risk-copilot.vercel.app/demo`
+- Backend: `https://defi-thesis-risk-copilot.onrender.com`
+- Liveness: `https://defi-thesis-risk-copilot.onrender.com/health`
+- Readiness: `https://defi-thesis-risk-copilot.onrender.com/ready`
+- Deployment status: `https://defi-thesis-risk-copilot.onrender.com/api/deployment/status`
+- OpenAPI: `https://defi-thesis-risk-copilot.onrender.com/docs`
+
+## 2. Hosted Public-Demo Posture
+
+Required backend settings:
 
 ```env
 APP_ENV=portfolio_demo
+APP_VERSION=1.0.0
 PUBLIC_DEMO_MODE=true
-DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require
-FRONTEND_ORIGIN=https://<your-vercel-app>.vercel.app
-DEFILLAMA_BASE_URL=https://api.llama.fi
+DATABASE_URL=<Supabase pooled PostgreSQL URL>
+FRONTEND_ORIGIN=https://defi-thesis-risk-copilot.vercel.app
 AUTH_ENABLED=false
 LLM_SYNTHESIS_ENABLED=false
 LLM_PROVIDER=disabled
 RAG_SEMANTIC_ENABLED=false
 VAST_ENABLED=false
 VAST_DRY_RUN=true
+DEPLOYMENT_COMMIT=<Git commit SHA>
 ```
 
-Public demo frontend variable for Vercel:
+Required frontend settings:
 
 ```env
-NEXT_PUBLIC_API_BASE_URL=https://<your-render-service>.onrender.com
+NEXT_PUBLIC_API_BASE_URL=https://defi-thesis-risk-copilot.onrender.com
 NEXT_PUBLIC_PUBLIC_DEMO_MODE=true
 ```
 
-Local development variables are documented in `.env.example`.
+`AUTH_ENABLED=false` does not make hosted visitors administrators. When public-demo mode is enabled, the unauthenticated identity is a common read-only visitor.
 
-Phase 10 discovery variables:
+## 3. Public Endpoint Policy
 
-```env
-DISCOVERY_ENABLED=false
-DISCOVERY_DEFAULT_MIN_TVL_USD=5000000
-DISCOVERY_DEFAULT_MIN_POOL_TVL_USD=500000
-DISCOVERY_REQUIRE_HUMAN_APPROVAL=true
-```
+### Public read-only
 
-Phase 11 access-control variables:
+- `GET /`
+- `GET /health`
+- `GET /ready`
+- `GET /api/deployment/status`
+- `GET /api/demo/status`
+- `GET /api/demo/scenarios`
+- `GET /api/protocols`
+- `GET /api/reports/{id}`
+- `GET /api/discovery/candidates`
+- `GET /api/evaluation/review-items`
+- `GET /api/knowledge-base/discovered`
+- `GET /api/watchlist/items`
+- `GET /api/watchlist/alerts`
 
-```env
-AUTH_ENABLED=false
-ADMIN_EMAIL=admin@example.local
-ADMIN_BOOTSTRAP_TOKEN=
-ADMIN_PASSWORD=
-AUTH_SECRET_KEY=
-CREDENTIAL_ENCRYPTION_KEY=
-```
+### Public bounded compute
 
-Phase 12 Vast.ai variables:
+- `POST /api/analyze`
+- `POST /api/market-data/fetch`
+- `POST /api/simulation/run`
+- `POST /api/options/analyze`
 
-```env
-VAST_ENABLED=false
-VAST_API_BASE_URL=https://console.vast.ai/api/v0
-VAST_API_KEY=
-VAST_CREDENTIAL_NAME=vast_ai_default
-VAST_MAX_HOURLY_COST_USD=0.50
-VAST_MAX_SESSION_MINUTES=30
-VAST_MAX_ACTIVE_INSTANCES=1
-VAST_GPU_ALLOWLIST=RTX_4090,RTX_3090,A5000,A6000
-VAST_MIN_GPU_RAM_GB=16
-VAST_DISK_GB=40
-VAST_REQUIRE_VERIFIED=true
-VAST_AUTO_DESTROY=true
-VAST_IDLE_TIMEOUT_SECONDS=300
-VAST_IMAGE=
-VAST_MODEL=
-VAST_CONTAINER_PORT=8000
-VAST_STARTUP_TIMEOUT_SECONDS=600
-VAST_POLL_INTERVAL_SECONDS=10
-VAST_DRY_RUN=true
-```
+These routes have bounded request schemas and an in-process per-client rate limit in the current single-instance deployment.
 
-## 4. Secret Handling
+### Blocked in public-demo mode
 
-Secrets must be server-side only.
+- public demo reseed/reset
+- document ingestion
+- source monitoring runs
+- global discovery runs
+- evaluation creation
+- review mutations
+- RAG ingestion
+- watchlist and alert mutations
+- credential reads/writes
+- audit logs
+- Vast.ai session controls
 
-Rules:
+## 4. Render Startup
 
-- never expose `VAST_API_KEY` or model provider keys to the frontend
-- never log full API keys
-- store raw keys in environment variables or through the admin provider-credential API
-- database-stored credentials keep encrypted secrets plus non-sensitive metadata only
-- show only provider name, created time, status, and last four characters in admin UI
-- require admin role for credential creation, rotation, testing, and deletion
-- keep audit logs for credential and Vast lifecycle actions
-- replace the MVP credential encryption helper with managed secret storage or KMS-backed encryption before hosted production use
-- in `PUBLIC_DEMO_MODE=true`, provider credential create/update/delete endpoints are blocked
-
-## 5. Access Control
-
-Two roles are implemented for MVP/local use:
-
-```text
-admin
-common
-```
-
-Common users can:
-
-- create strategy analyses
-- view their own reports if ownership is implemented
-- run simulations and options analysis
-- manage their own watchlist items
-- view public/approved knowledge-base context
-
-Admin users can:
-
-- use the bootstrap/admin bearer-token flow
-- run DefiLlama/manual discovery
-- evaluate discovered items
-- approve/reject review items
-- ingest approved items into RAG
-- manage provider credentials
-- view access audit logs
-- start, inspect, test, destroy, and clean up dry-run/manual Vast.ai sessions
-
-## 6. Vast.ai Deployment Safety
-
-Vast.ai integration defaults to disabled and dry-run mode defaults to enabled.
-
-The implemented version supports manual admin-triggered startup before automatic ephemeral rental. Normal report generation does not auto-rent Vast.ai instances.
-
-Required safeguards:
-
-- max hourly cost
-- max runtime
-- max one active instance by default
-- verified/allowlisted GPU criteria where possible
-- strict timeout handling
-- auto-destroy in cleanup/finally paths
-- emergency cleanup endpoint
-- lifecycle log table
-- no common-user access to rent/destroy remote GPU instances
-
-Stopping an instance is not enough for the default safety posture; the default workflow should destroy the instance after the task unless an admin intentionally keeps it warm.
-
-## 7. Local Docker
-
-Development:
+The Docker image starts with:
 
 ```bash
+alembic upgrade head \
+  && python scripts/prepare_runtime.py \
+  && uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+`prepare_runtime.py` performs an idempotent synthetic demo seed and builds the curated RAG index when `PUBLIC_DEMO_MODE=true`.
+
+Render configuration:
+
+```text
+Environment: Docker
+Dockerfile: ./Dockerfile.backend
+Health check: /ready
+Start command: Dockerfile default
+```
+
+The public seed endpoint is intentionally blocked. Hosted data is prepared at startup instead.
+
+## 5. Health Model
+
+- `/health` is liveness: the Python process is responding.
+- `/ready` is readiness: PostgreSQL is reachable and the public RAG index exists.
+- `/api/deployment/status` is safe UI metadata: environment, DB state, demo seed, model/Vast/RAG flags, version, and commit.
+
+No health/status response includes database URLs, passwords, provider keys, bearer tokens, or stored secrets.
+
+## 6. Vercel Setup
+
+Recommended settings:
+
+```text
+Project root: frontend
+Framework: Next.js
+Install: npm install
+Build: npm run build
+Output: .next
+```
+
+Do not configure `public` as the output directory. The included `frontend/vercel.json` uses `.next`.
+
+The frontend:
+
+- uses the Render API URL from `NEXT_PUBLIC_API_BASE_URL`;
+- hides administrator navigation in public mode;
+- exposes retry and backend-readiness actions for cold starts;
+- labels the hosted environment as shared, synthetic, and read-only for privileged workflows.
+
+## 7. Supabase Setup
+
+1. Create a Supabase project.
+2. Copy the pooled PostgreSQL connection URL.
+3. Preserve `sslmode=require` when required.
+4. Remove `schema=public` from the query string if present; the application also strips it defensively.
+5. Set the URL as Render `DATABASE_URL`.
+6. Let container startup run Alembic migrations and runtime preparation.
+7. Verify `/ready` and the main demo report.
+
+Typical URL shape:
+
+```text
+postgresql://postgres.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require
+```
+
+Do not commit the connection string.
+
+## 8. CORS
+
+Set:
+
+```env
+FRONTEND_ORIGIN=https://defi-thesis-risk-copilot.vercel.app
+```
+
+The backend also accepts comma-separated origins for controlled preview/local environments:
+
+```env
+FRONTEND_ORIGIN=https://defi-thesis-risk-copilot.vercel.app,http://127.0.0.1:3000
+```
+
+Do not use a wildcard origin with credentials.
+
+## 9. Free-Tier Behavior
+
+- Render may sleep and cold-start after inactivity.
+- Supabase free projects may pause or limit resources.
+- Render runtime files are ephemeral.
+- The curated JSON RAG index is rebuilt on each public container start.
+- Persistent reports and demo records live in PostgreSQL.
+- The public environment must not contain real provider credentials.
+
+The JSON RAG index is adequate for the portfolio deployment, but durable pgvector/object storage is planned for the real multi-user product.
+
+## 10. Secret Handling
+
+- secrets remain server-side;
+- raw secrets never return to the frontend;
+- logs and audit metadata redact sensitive fields;
+- database credential storage requires an encryption key;
+- public visitors cannot read credential metadata;
+- real Vast.ai use remains disabled publicly;
+- managed secret storage/KMS remains a production-roadmap item.
+
+Private/local authentication settings:
+
+```env
+AUTH_ENABLED=true
+ADMIN_EMAIL=admin@example.local
+ADMIN_BOOTSTRAP_TOKEN=<strong secret>
+AUTH_SECRET_KEY=<strong secret>
+CREDENTIAL_ENCRYPTION_KEY=<strong encryption material>
+```
+
+## 11. Local Docker
+
+```bash
+cp .env.example .env
 docker compose up -d --build
 curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/ready
 ```
 
 Local demo seed:
@@ -178,172 +219,61 @@ Local demo seed:
 backend/.venv/bin/python backend/scripts/seed_demo_data.py
 ```
 
-Then open:
-
-```text
-http://127.0.0.1:3000/demo
-```
-
-Production-like check:
+Production-like configuration validation:
 
 ```bash
 docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
-## 8. Render Backend Setup
+## 12. Deployment Verification
 
-Use the included `render.yaml` as a safe starting point, or configure manually.
-
-Render settings:
-
-```text
-Environment: Docker
-Dockerfile path: ./Dockerfile.backend
-Health check path: /health
-Start command: Dockerfile default
-```
-
-The Dockerfile start command runs:
+After Render deployment:
 
 ```bash
-alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+curl https://defi-thesis-risk-copilot.onrender.com/
+curl https://defi-thesis-risk-copilot.onrender.com/health
+curl https://defi-thesis-risk-copilot.onrender.com/ready
+curl https://defi-thesis-risk-copilot.onrender.com/api/deployment/status
+curl https://defi-thesis-risk-copilot.onrender.com/api/demo/status
+curl https://defi-thesis-risk-copilot.onrender.com/api/reports/demo_report_pendle_pt_loop
 ```
 
-Required Render environment variables:
-
-```env
-APP_ENV=portfolio_demo
-PUBLIC_DEMO_MODE=true
-DATABASE_URL=<Supabase pooled Postgres URL>
-FRONTEND_ORIGIN=https://<your-vercel-app>.vercel.app
-AUTH_ENABLED=false
-LLM_SYNTHESIS_ENABLED=false
-LLM_PROVIDER=disabled
-RAG_SEMANTIC_ENABLED=false
-VAST_ENABLED=false
-VAST_DRY_RUN=true
-```
-
-Optional safe metadata:
-
-```env
-APP_VERSION=0.1.0
-DEPLOYMENT_COMMIT=<short-or-full-git-sha>
-```
-
-Free-tier notes:
-
-- Render free services may sleep and cold-start slowly.
-- The backend filesystem is not durable; use Supabase for persistent records.
-- Demo seed avoids runtime example-report file writes when `PUBLIC_DEMO_MODE=true`.
-- Do not configure real provider API keys for the public portfolio demo.
-
-After deploy:
+Public mutation checks should return `403`:
 
 ```bash
-curl https://<your-render-service>.onrender.com/health
-curl https://<your-render-service>.onrender.com/api/deployment/status
-curl -X POST https://<your-render-service>.onrender.com/api/demo/seed
-curl https://<your-render-service>.onrender.com/api/reports/demo_report_pendle_pt_loop
+curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/demo/seed
+curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/monitoring/run \
+  -H 'Content-Type: application/json' -d '{}'
+curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/discovery/run \
+  -H 'Content-Type: application/json' -d '{}'
 ```
 
-## 9. Vercel Frontend Setup
+## 13. Deployment Checklist
 
-Recommended Vercel settings:
+- [ ] Vercel build succeeds.
+- [ ] Render build succeeds.
+- [ ] Alembic migrations complete.
+- [ ] Runtime preparation seeds the demo and builds RAG.
+- [ ] `/health` returns healthy.
+- [ ] `/ready` returns ready.
+- [ ] Deployment status reports DB and demo readiness.
+- [ ] The main demo report opens from Vercel.
+- [ ] CORS permits only expected frontend origins.
+- [ ] Public administrator identity is not granted.
+- [ ] Public mutations return `403`.
+- [ ] Public compute is bounded and rate-limited.
+- [ ] LLM synthesis is disabled by default.
+- [ ] Vast.ai is disabled/dry-run.
+- [ ] No real secrets are configured in the public environment.
+- [ ] Git commit/version metadata is set.
 
-```text
-Project root: frontend
-Framework preset: Next.js
-Build command: npm run build
-Install command: npm install
-Output directory: .next
-```
+## 14. Next Production Steps
 
-Do not set the output directory to `public`. This project is a Next.js application, not a static export, so Vercel must use `.next`. The repository includes `frontend/vercel.json` with the same setting.
+See [`docs/development_plan.md`](development_plan.md) for:
 
-Required Vercel environment variables:
-
-```env
-NEXT_PUBLIC_API_BASE_URL=https://<your-render-service>.onrender.com
-NEXT_PUBLIC_PUBLIC_DEMO_MODE=true
-```
-
-Backend CORS must match the deployed frontend:
-
-```env
-FRONTEND_ORIGIN=https://<your-vercel-app>.vercel.app
-```
-
-If the Render backend is asleep, the first frontend API request may show a temporary loading or fetch error until the backend wakes up. Refresh after the backend health endpoint responds.
-
-## 10. Supabase Setup
-
-Steps:
-
-1. Create a Supabase project.
-2. Copy the pooled Postgres connection string from project settings.
-3. Use the pooler URL on Render as `DATABASE_URL`.
-4. Ensure the URL includes SSL mode when required by Supabase.
-5. Let Render run `alembic upgrade head` on startup, or run it manually from a trusted shell.
-6. Seed demo data with `POST /api/demo/seed`.
-7. Verify `GET /api/reports/demo_report_pendle_pt_loop`.
-
-Typical pooled URL shape:
-
-```text
-postgresql://postgres.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require
-```
-
-If Supabase or a dashboard tool gives a URL containing `schema=public`, remove that query parameter before saving it on Render. The app also strips `schema` defensively because `psycopg` rejects it as an invalid connection option. Keep `sslmode=require`.
-
-Do not commit Supabase credentials. Supabase free tier may pause, limit connections, or require manual project restoration after inactivity. Keep backups if the demo database matters.
-
-## 11. Deployment Status Endpoint
-
-The backend exposes:
-
-```text
-GET /api/deployment/status
-```
-
-It returns safe metadata only:
-
-- app environment
-- public demo mode
-- database connectivity
-- demo seed status
-- auth/LLM/Vast/RAG safety flags
-- version and optional commit
-
-It does not return database URLs, API keys, bearer tokens, provider secrets, or credential values.
-
-## 12. Public Demo Checklist
-
-- Supabase project created.
-- Render backend deployed.
-- `DATABASE_URL` set from Supabase pooled Postgres.
-- `FRONTEND_ORIGIN` set to the Vercel URL.
-- Alembic migrations applied by Render startup or trusted shell.
-- Demo seed executed.
-- Vercel frontend deployed.
-- `NEXT_PUBLIC_API_BASE_URL` set to the Render URL.
-- CORS checked from the Vercel app.
-- `/health` checked.
-- `/api/deployment/status` checked.
-- `/demo` checked.
-- Example report opened.
-- No secrets exposed in status/API responses.
-- `VAST_ENABLED=false` and `VAST_DRY_RUN=true`.
-- `LLM_SYNTHESIS_ENABLED=false` and `LLM_PROVIDER=disabled`.
-- Provider credential mutation blocked in public demo mode.
-
-## 13. Final Portfolio Deployment Phases
-
-Final deployment order after Phases 10-14:
-
-```text
-Final Phase 15: Portfolio polish
-```
-
-The public demo should use safe examples, server-side secrets only, clear role boundaries, visible disclaimers, no wallet integration, and no transaction execution.
+- managed identity and tenant ownership
+- distributed rate limits
+- durable jobs and hybrid workers
+- object storage and pgvector
+- production monitoring, security, backups, and browser tests
