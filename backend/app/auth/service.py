@@ -71,10 +71,24 @@ def user_context(record: UserModel, auth_enabled: bool = True) -> UserContext:
 
 
 def demo_admin_context() -> UserContext:
+    """Local-development identity used only when auth and public demo are disabled."""
+
     return UserContext(
         id="demo_admin",
         email="demo-admin@example.local",
         role="admin",
+        is_active=True,
+        auth_enabled=False,
+    )
+
+
+def demo_common_context() -> UserContext:
+    """Read-only identity for unauthenticated hosted portfolio visitors."""
+
+    return UserContext(
+        id="public_demo_user",
+        email="public-demo@example.local",
+        role="common",
         is_active=True,
         auth_enabled=False,
     )
