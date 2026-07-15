@@ -12,13 +12,15 @@ import {
 } from "@/lib/api";
 import type { DemoScenario, DemoStatus, DeploymentStatus } from "@/lib/types";
 
+const publicDemoMode = process.env.NEXT_PUBLIC_PUBLIC_DEMO_MODE === "true";
+
 const quickLinks = [
-  { href: "/analyze", label: "Analyze" },
+  { href: "/reports/demo_report_pendle_pt_loop", label: "Main risk report" },
+  { href: "/analyze", label: "Strategy analysis" },
   { href: "/simulate", label: "Simulator" },
-  { href: "/watchlist", label: "Watchlist" },
   { href: "/options", label: "Options" },
-  { href: "/review", label: "Review queue" },
-  { href: "/admin", label: "Admin" }
+  { href: "/watchlist", label: "Watchlist" },
+  { href: "/review", label: "Review workflow" }
 ];
 
 export default function DemoPage() {
@@ -33,23 +35,29 @@ export default function DemoPage() {
   const refreshDemo = useCallback(async () => {
     setLoading(true);
     setError("");
-    try {
-      const [nextStatus, nextScenarios] = await Promise.all([
-        fetchDemoStatus(),
-        fetchDemoScenarios()
-      ]);
-      setStatus(nextStatus);
-      setScenarios(nextScenarios);
-      try {
-        setDeployment(await fetchDeploymentStatus());
-      } catch {
-        setDeployment(null);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Demo status failed");
-    } finally {
-      setLoading(false);
+
+    const [statusResult, scenariosResult, deploymentResult] = await Promise.allSettled([
+      fetchDemoStatus(),
+      fetchDemoScenarios(),
+      fetchDeploymentStatus()
+    ]);
+
+    if (statusResult.status === "fulfilled") {
+      setStatus(statusResult.value);
     }
+    if (scenariosResult.status === "fulfilled") {
+      setScenarios(scenariosResult.value);
+    }
+    if (deploymentResult.status === "fulfilled") {
+      setDeployment(deploymentResult.value);
+    }
+
+    if (statusResult.status === "rejected" && scenariosResult.status === "rejected") {
+      setError(
+        "The free-tier backend may be waking up. Open the backend readiness link or try again in a moment."
+      );
+    }
+    setLoading(false);
   }, []);
 
   async function handleSeed() {
@@ -68,57 +76,85 @@ export default function DemoPage() {
   }
 
   useEffect(() => {
-    refreshDemo();
+    void refreshDemo();
   }, [refreshDemo]);
 
   return (
     <main className="page">
       <section className="page-heading">
-        <p className="eyebrow">Final Phase 14</p>
-        <h1>Portfolio Demo</h1>
+        <p className="eyebrow">Live portfolio demo</p>
+        <h1>Explore the complete research workflow</h1>
         <p>
-          Seed deterministic demo records, open example reports, and walk through
-          discovery, RAG review, watchlist alerts, options analysis, and Vast.ai
-          dry-run controls without paid APIs or wallet access.
+          Follow deterministic examples through strategy analysis, source review,
+          watchlist alerts, options scenarios, and infrastructure controls without
+          paid APIs, wallet access, or real GPU rental.
         </p>
         <div className="action-row">
-          <button
-            className="primary-action"
-            disabled={seeding}
-            onClick={handleSeed}
-            type="button"
-          >
-            {seeding ? "Seeding..." : "Seed demo data"}
-          </button>
-          <Link className="secondary-link" href="/reports/demo_report_pendle_pt_loop">
-            Open main report
+          <Link className="primary-link" href="/reports/demo_report_pendle_pt_loop">
+            Open Main Report
           </Link>
+          <a
+            className="secondary-link"
+            href="https://defi-thesis-risk-copilot.onrender.com/ready"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Check Backend Readiness
+          </a>
+          {!publicDemoMode && !status?.seeded ? (
+            <button
+              className="secondary-action"
+              disabled={seeding}
+              onClick={handleSeed}
+              type="button"
+            >
+              {seeding ? "Seeding..." : "Seed local demo data"}
+            </button>
+          ) : null}
         </div>
       </section>
 
-      {error ? <p className="error-text">{error}</p> : null}
+      {error ? (
+        <section className="error-text" role="alert">
+          <p>{error}</p>
+          <button className="secondary-action" onClick={() => void refreshDemo()} type="button">
+            Retry connection
+          </button>
+        </section>
+      ) : null}
       {message ? <p className="success-text">{message}</p> : null}
 
-      {deployment?.public_demo_mode ? (
+      {publicDemoMode ? (
         <section className="notice">
-          <h2>Public Synthetic Demo</h2>
+          <h2>Public synthetic environment</h2>
           <p>
-            This hosted mode is configured for portfolio review: LLM synthesis is
-            disabled by default, Vast.ai is disabled or dry-run only, provider
-            credential changes are blocked, and every demo record is synthetic.
+            This hosted deployment is read-only for discovery, review, RAG ingestion,
+            watchlist changes, credentials, and infrastructure controls. Strategy,
+            simulation, and options inputs are bounded and rate-limited.
+          </p>
+          <p>
+            Do not submit private, confidential, wallet, or personally identifying
+            information. This is a shared demonstration environment.
           </p>
         </section>
       ) : null}
 
       <section className="panel">
-        <h2>Seed Status</h2>
-        <p>
-          {loading
-            ? "Checking demo data..."
-            : status?.seeded
-              ? "Demo data is available in the local database."
-              : "Demo data has not been seeded yet."}
-        </p>
+        <div className="section-toolbar">
+          <div>
+            <h2>Environment status</h2>
+            <p>
+              {loading
+                ? "Connecting to the free-tier backend. A cold start can take a moment..."
+                : status?.seeded
+                  ? "Deterministic demo records are ready in the hosted database."
+                  : "Demo records are not available yet."}
+            </p>
+          </div>
+          <button className="secondary-action" disabled={loading} onClick={() => void refreshDemo()} type="button">
+            {loading ? "Checking..." : "Refresh"}
+          </button>
+        </div>
         {status ? (
           <div className="metric-grid">
             {Object.entries(status.counts).map(([key, value]) => (
@@ -152,14 +188,14 @@ export default function DemoPage() {
       </section>
 
       <section className="panel">
-        <h2>Demo Paths</h2>
+        <h2>Guided demo paths</h2>
         <div className="scenario-grid">
-          {scenarios.map((scenario) => (
+          {scenarios.map((scenario, index) => (
             <article className="scenario-card" key={scenario.id}>
-              <p className="eyebrow">{scenario.tags.join(" / ")}</p>
+              <p className="eyebrow">Step {index + 1} · {scenario.tags.join(" / ")}</p>
               <h3>{scenario.title}</h3>
               <p>{scenario.summary}</p>
-              <p>{scenario.safety_note}</p>
+              <p className="muted-small">{scenario.safety_note}</p>
               <div className="action-row compact-actions">
                 <Link className="secondary-link" href={scenario.primary_path}>
                   Open workflow
@@ -172,11 +208,14 @@ export default function DemoPage() {
               </div>
             </article>
           ))}
+          {!loading && scenarios.length === 0 ? (
+            <p>No scenario metadata is currently available.</p>
+          ) : null}
         </div>
       </section>
 
       <section className="panel">
-        <h2>Quick Links</h2>
+        <h2>Explore by capability</h2>
         <div className="action-row">
           {quickLinks.map((link) => (
             <Link className="secondary-link" href={link.href} key={link.href}>
@@ -186,13 +225,30 @@ export default function DemoPage() {
         </div>
       </section>
 
-      <section className="notice">
-        <h2>Reproduce from a terminal</h2>
+      <section className="panel">
+        <h2>Inspect the implementation</h2>
         <p>
-          Run <code>backend/.venv/bin/python backend/scripts/seed_demo_data.py</code>{" "}
-          or POST <code>/api/demo/seed</code>, then open <code>/demo</code> and
-          the linked reports.
+          Review the architecture, tests, deployment configuration, and consolidated
+          development plan directly in the repository.
         </p>
+        <div className="action-row compact-actions">
+          <a
+            className="secondary-link"
+            href="https://github.com/publiomcko-cloud/defi-thesis-risk-copilot"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Open GitHub
+          </a>
+          <a
+            className="secondary-link"
+            href="https://defi-thesis-risk-copilot.onrender.com/docs"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Open API Docs
+          </a>
+        </div>
       </section>
 
       <DisclaimerBox text="Demo records are synthetic and educational. They do not provide financial advice, connect wallets, sign transactions, execute trades, or rent real GPU infrastructure." />
