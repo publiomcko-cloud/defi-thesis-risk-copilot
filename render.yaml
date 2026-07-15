@@ -8,6 +8,8 @@ services:
     envVars:
       - key: APP_ENV
         value: portfolio_demo
+      - key: APP_VERSION
+        value: 1.0.0
       - key: PUBLIC_DEMO_MODE
         value: "true"
       - key: DATABASE_URL
