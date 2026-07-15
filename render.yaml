@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: defi-thesis-risk-copilot-api
+    env: docker
+    plan: free
+    dockerfilePath: ./Dockerfile.backend
+    healthCheckPath: /health
+    envVars:
+      - key: APP_ENV
+        value: portfolio_demo
+      - key: PUBLIC_DEMO_MODE
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: AUTH_ENABLED
+        value: "false"
+      - key: LLM_SYNTHESIS_ENABLED
+        value: "false"
+      - key: LLM_PROVIDER
+        value: disabled
+      - key: RAG_SEMANTIC_ENABLED
+        value: "false"
+      - key: VAST_ENABLED
+        value: "false"
+      - key: VAST_DRY_RUN
+        value: "true"
+      - key: DEPLOYMENT_COMMIT
+        sync: false

@@ -143,6 +143,91 @@ def test_demo_data_requires_no_external_keys_or_live_vast(demo_client, monkeypat
     assert "real vast" not in payload_text
 
 
+def test_public_demo_seed_skips_runtime_example_writes(demo_client, monkeypatch) -> None:
+    client, _, examples_dir = demo_client
+    monkeypatch.setenv("AUTH_ENABLED", "false")
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    get_settings.cache_clear()
+
+    first = client.post("/api/demo/seed")
+    second = client.post("/api/demo/seed")
+
+    assert first.status_code == 200
+    assert second.status_code == 200
+    assert first.json()["counts"] == second.json()["counts"]
+    assert not (examples_dir / "pendle_pt_loop_report.md").exists()
+
+
+def test_deployment_status_returns_safe_public_demo_metadata(demo_client, monkeypatch) -> None:
+    client, _, _ = demo_client
+    monkeypatch.setenv("AUTH_ENABLED", "false")
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    monkeypatch.setenv("APP_ENV", "portfolio_demo")
+    monkeypatch.setenv("DATABASE_URL", "postgresql://user:secret@example.supabase.co:6543/postgres")
+    monkeypatch.setenv("OPENAI_COMPATIBLE_API_KEY", "sk-secret-value")
+    monkeypatch.setenv("VAST_API_KEY", "vast-secret-value")
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "false")
+    monkeypatch.setenv("LLM_PROVIDER", "disabled")
+    monkeypatch.setenv("VAST_ENABLED", "false")
+    monkeypatch.setenv("VAST_DRY_RUN", "true")
+    get_settings.cache_clear()
+    client.post("/api/demo/seed")
+
+    response = client.get("/api/deployment/status")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["public_demo_mode"] is True
+    assert payload["app_environment"] == "portfolio_demo"
+    assert payload["database_connected"] is True
+    assert payload["demo_seeded"] is True
+    assert payload["llm_synthesis_enabled"] is False
+    assert payload["llm_provider"] == "disabled"
+    assert payload["vast_enabled"] is False
+    assert payload["vast_dry_run"] is True
+    payload_text = str(payload).lower()
+    assert "secret" not in payload_text
+    assert "supabase" not in payload_text
+    assert "postgresql" not in payload_text
+
+
+def test_public_demo_blocks_provider_credential_mutation(demo_client, monkeypatch) -> None:
+    client, _, _ = demo_client
+    monkeypatch.setenv("AUTH_ENABLED", "false")
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/api/admin/provider-credentials",
+        json={
+            "provider": "openai_compatible",
+            "name": "public-demo-secret",
+            "secret": "sk-should-not-store",
+            "enabled": True,
+        },
+    )
+
+    assert response.status_code == 403
+    assert "public demo mode" in response.json()["detail"].lower()
+
+
+def test_public_demo_blocks_real_vast_start(demo_client, monkeypatch) -> None:
+    client, _, _ = demo_client
+    monkeypatch.setenv("AUTH_ENABLED", "false")
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    monkeypatch.setenv("VAST_ENABLED", "true")
+    monkeypatch.setenv("VAST_DRY_RUN", "false")
+    get_settings.cache_clear()
+
+    response = client.post(
+        "/api/admin/vast/sessions/start",
+        json={"allow_remote_gpu": True, "warm_instance": False},
+    )
+
+    assert response.status_code == 403
+    assert "public demo mode" in response.json()["detail"].lower()
+
+
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 

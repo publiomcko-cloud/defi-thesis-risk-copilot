@@ -46,6 +46,7 @@ FastAPI Backend
   -> access audit logs
   -> Vast.ai dry-run/manual lifecycle manager
   -> deterministic demo seeding and scenario metadata
+  -> safe deployment status metadata
 
 Storage
   -> SQLite or PostgreSQL
@@ -202,7 +203,20 @@ Seeded records include:
 
 The demo path is local, synthetic, and educational. It does not call paid APIs, connect wallets, sign transactions, execute trades, or rent real Vast.ai infrastructure.
 
-## 8. Backend Module Map
+## 9. Public Deployment Mode — Final Phase 14
+
+`PUBLIC_DEMO_MODE=true` changes deployment posture for hosted portfolio review:
+
+- demo seed remains idempotent and skips runtime example-report file writes
+- committed example Markdown reports remain available in the repository
+- provider credential create/update/delete routes are blocked
+- Vast.ai real startup is blocked if dry-run is accidentally disabled
+- optional LLM synthesis remains disabled by default
+- `/api/deployment/status` returns safe metadata only
+
+The deployment status endpoint reports environment, database connectivity, demo seed status, auth/LLM/Vast/RAG flags, version, and optional commit. It never returns database URLs, provider API keys, bearer tokens, or stored credential values.
+
+## 10. Backend Module Map
 
 ```text
 backend/app/
@@ -230,7 +244,7 @@ backend/app/
   llm/vast/
 ```
 
-## 9. Frontend Route Map
+## 11. Frontend Route Map
 
 ```text
 frontend/src/app/
@@ -239,6 +253,7 @@ frontend/src/app/
   reports/[reportId]/page.tsx
   protocols/page.tsx
   review/page.tsx
+  demo/page.tsx
   simulate/page.tsx
   watchlist/page.tsx
   options/page.tsx
@@ -249,7 +264,7 @@ frontend/src/app/
   about/page.tsx
 ```
 
-## 10. Non-Negotiable Boundaries
+## 12. Non-Negotiable Boundaries
 
 The app must not:
 

@@ -4,7 +4,7 @@
 
 The deployment goal is to provide a portfolio-ready public demo with safe synthetic or read-only data.
 
-Post-MVP Phases 10-12 and Final Phase 13 local demo data are implemented. Public deployment remains a final portfolio phase after demo data and polish are stable.
+Post-MVP Phases 10-12, Final Phase 13 local demo data, and Final Phase 14 public deployment preparation are implemented.
 
 ## 2. Recommended Public Deployment
 
@@ -30,18 +30,30 @@ LLM provider
 
 ## 3. Environment Variables
 
-Core variables:
+Public demo backend variables for Render:
 
 ```env
-APP_ENV=development
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/defi_copilot
-FRONTEND_ORIGIN=http://127.0.0.1:3000
+APP_ENV=portfolio_demo
+PUBLIC_DEMO_MODE=true
+DATABASE_URL=postgresql://postgres.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require
+FRONTEND_ORIGIN=https://<your-vercel-app>.vercel.app
 DEFILLAMA_BASE_URL=https://api.llama.fi
+AUTH_ENABLED=false
+LLM_SYNTHESIS_ENABLED=false
 LLM_PROVIDER=disabled
-OLLAMA_BASE_URL=http://localhost:11434
-OPENAI_COMPATIBLE_BASE_URL=
-OPENAI_COMPATIBLE_API_KEY=
+RAG_SEMANTIC_ENABLED=false
+VAST_ENABLED=false
+VAST_DRY_RUN=true
 ```
+
+Public demo frontend variable for Vercel:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=https://<your-render-service>.onrender.com
+NEXT_PUBLIC_PUBLIC_DEMO_MODE=true
+```
+
+Local development variables are documented in `.env.example`.
 
 Phase 10 discovery variables:
 
@@ -101,6 +113,7 @@ Rules:
 - require admin role for credential creation, rotation, testing, and deletion
 - keep audit logs for credential and Vast lifecycle actions
 - replace the MVP credential encryption helper with managed secret storage or KMS-backed encryption before hosted production use
+- in `PUBLIC_DEMO_MODE=true`, provider credential create/update/delete endpoints are blocked
 
 ## 5. Access Control
 
@@ -178,12 +191,154 @@ docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
-## 8. Final Portfolio Deployment Phases
+## 8. Render Backend Setup
 
-Final deployment order after Phases 10-13:
+Use the included `render.yaml` as a safe starting point, or configure manually.
+
+Render settings:
 
 ```text
-Final Phase 14: Public portfolio deployment
+Environment: Docker
+Dockerfile path: ./Dockerfile.backend
+Health check path: /health
+Start command: Dockerfile default
+```
+
+The Dockerfile start command runs:
+
+```bash
+alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+Required Render environment variables:
+
+```env
+APP_ENV=portfolio_demo
+PUBLIC_DEMO_MODE=true
+DATABASE_URL=<Supabase pooled Postgres URL>
+FRONTEND_ORIGIN=https://<your-vercel-app>.vercel.app
+AUTH_ENABLED=false
+LLM_SYNTHESIS_ENABLED=false
+LLM_PROVIDER=disabled
+RAG_SEMANTIC_ENABLED=false
+VAST_ENABLED=false
+VAST_DRY_RUN=true
+```
+
+Optional safe metadata:
+
+```env
+APP_VERSION=0.1.0
+DEPLOYMENT_COMMIT=<short-or-full-git-sha>
+```
+
+Free-tier notes:
+
+- Render free services may sleep and cold-start slowly.
+- The backend filesystem is not durable; use Supabase for persistent records.
+- Demo seed avoids runtime example-report file writes when `PUBLIC_DEMO_MODE=true`.
+- Do not configure real provider API keys for the public portfolio demo.
+
+After deploy:
+
+```bash
+curl https://<your-render-service>.onrender.com/health
+curl https://<your-render-service>.onrender.com/api/deployment/status
+curl -X POST https://<your-render-service>.onrender.com/api/demo/seed
+curl https://<your-render-service>.onrender.com/api/reports/demo_report_pendle_pt_loop
+```
+
+## 9. Vercel Frontend Setup
+
+Recommended Vercel settings:
+
+```text
+Project root: frontend
+Framework preset: Next.js
+Build command: npm run build
+Install command: npm install
+Output: Next.js default
+```
+
+Required Vercel environment variables:
+
+```env
+NEXT_PUBLIC_API_BASE_URL=https://<your-render-service>.onrender.com
+NEXT_PUBLIC_PUBLIC_DEMO_MODE=true
+```
+
+Backend CORS must match the deployed frontend:
+
+```env
+FRONTEND_ORIGIN=https://<your-vercel-app>.vercel.app
+```
+
+If the Render backend is asleep, the first frontend API request may show a temporary loading or fetch error until the backend wakes up. Refresh after the backend health endpoint responds.
+
+## 10. Supabase Setup
+
+Steps:
+
+1. Create a Supabase project.
+2. Copy the pooled Postgres connection string from project settings.
+3. Use the pooler URL on Render as `DATABASE_URL`.
+4. Ensure the URL includes SSL mode when required by Supabase.
+5. Let Render run `alembic upgrade head` on startup, or run it manually from a trusted shell.
+6. Seed demo data with `POST /api/demo/seed`.
+7. Verify `GET /api/reports/demo_report_pendle_pt_loop`.
+
+Typical pooled URL shape:
+
+```text
+postgresql://postgres.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require
+```
+
+Do not commit Supabase credentials. Supabase free tier may pause, limit connections, or require manual project restoration after inactivity. Keep backups if the demo database matters.
+
+## 11. Deployment Status Endpoint
+
+The backend exposes:
+
+```text
+GET /api/deployment/status
+```
+
+It returns safe metadata only:
+
+- app environment
+- public demo mode
+- database connectivity
+- demo seed status
+- auth/LLM/Vast/RAG safety flags
+- version and optional commit
+
+It does not return database URLs, API keys, bearer tokens, provider secrets, or credential values.
+
+## 12. Public Demo Checklist
+
+- Supabase project created.
+- Render backend deployed.
+- `DATABASE_URL` set from Supabase pooled Postgres.
+- `FRONTEND_ORIGIN` set to the Vercel URL.
+- Alembic migrations applied by Render startup or trusted shell.
+- Demo seed executed.
+- Vercel frontend deployed.
+- `NEXT_PUBLIC_API_BASE_URL` set to the Render URL.
+- CORS checked from the Vercel app.
+- `/health` checked.
+- `/api/deployment/status` checked.
+- `/demo` checked.
+- Example report opened.
+- No secrets exposed in status/API responses.
+- `VAST_ENABLED=false` and `VAST_DRY_RUN=true`.
+- `LLM_SYNTHESIS_ENABLED=false` and `LLM_PROVIDER=disabled`.
+- Provider credential mutation blocked in public demo mode.
+
+## 13. Final Portfolio Deployment Phases
+
+Final deployment order after Phases 10-14:
+
+```text
 Final Phase 15: Portfolio polish
 ```
 

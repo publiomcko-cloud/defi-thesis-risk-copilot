@@ -43,6 +43,11 @@ def main() -> int:
             print(f"Smoke check failed: demo report retrieval mismatch: {demo_report}", file=sys.stderr)
             return 1
 
+        deployment_status = _get_json(f"{base_url}/api/deployment/status")
+        if not deployment_status.get("database_connected"):
+            print(f"Smoke check failed: deployment status mismatch: {deployment_status}", file=sys.stderr)
+            return 1
+
         analysis = _post_json(
             f"{base_url}/api/analyze",
             {
@@ -201,7 +206,8 @@ def main() -> int:
         return 1
 
     print(
-        "Smoke checks passed: /health, /api/protocols, demo seed/status/scenarios, /api/analyze, "
+        "Smoke checks passed: /health, /api/protocols, demo seed/status/scenarios, "
+        "deployment status, /api/analyze, "
         "report retrieval, markdown export, monitoring, evaluation, review queue, "
         "evaluation report retrieval, simulation, watchlist, alert events, and options"
     )

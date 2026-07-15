@@ -6,12 +6,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     app_env: str = "development"
     app_name: str = "DeFi Thesis & Risk Copilot"
+    public_demo_mode: bool = False
+    app_version: str = "0.1.0"
+    deployment_commit: str = ""
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     frontend_origin: str = "http://127.0.0.1:3000"
     database_url: str = "sqlite:///./defi_copilot.db"
     llm_synthesis_enabled: bool = False
-    llm_provider: str = "ollama"
+    llm_provider: str = "disabled"
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"
     openai_compatible_base_url: str = ""

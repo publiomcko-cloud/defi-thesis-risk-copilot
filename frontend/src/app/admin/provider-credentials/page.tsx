@@ -21,6 +21,8 @@ const providerOptions: ProviderName[] = [
   "vast_ai"
 ];
 
+const publicDemoMode = process.env.NEXT_PUBLIC_PUBLIC_DEMO_MODE === "true";
+
 export default function ProviderCredentialsPage() {
   const [items, setItems] = useState<ProviderCredentialMetadata[]>([]);
   const [provider, setProvider] = useState<ProviderName>("openai_compatible");
@@ -103,6 +105,17 @@ export default function ProviderCredentialsPage() {
           the browser.
         </p>
       </section>
+
+      {publicDemoMode ? (
+        <section className="notice">
+          <h2>Public Demo Mode</h2>
+          <p>
+            Credential creation, rotation, and deletion are blocked by the
+            backend in public demo mode. Do not enter real provider secrets in a
+            hosted portfolio demo.
+          </p>
+        </section>
+      ) : null}
 
       <div className="stack">
         <section className="panel">

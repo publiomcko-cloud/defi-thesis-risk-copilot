@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.config import get_settings
 from app.demo.scenarios import DEMO_SCENARIOS, DemoScenario
 from app.models.alert_event import AlertEventModel
 from app.models.analysis_request import AnalysisRequestModel
@@ -38,7 +39,9 @@ class DemoStatus(BaseModel):
     scenarios: list[DemoScenario]
 
 
-def seed_demo_data(db: Session, write_examples: bool = True) -> DemoSeedResult:
+def seed_demo_data(db: Session, write_examples: bool | None = None) -> DemoSeedResult:
+    settings = get_settings()
+    should_write_examples = (not settings.public_demo_mode) if write_examples is None else write_examples
     now = datetime.now(UTC)
     reports = _demo_reports()
     for report in reports:
@@ -47,7 +50,7 @@ def seed_demo_data(db: Session, write_examples: bool = True) -> DemoSeedResult:
     _upsert_watchlist(db, now)
     _upsert_vast_session(db, now)
     db.commit()
-    if write_examples:
+    if should_write_examples:
         write_example_reports(reports)
     status = get_demo_status(db)
     return DemoSeedResult(

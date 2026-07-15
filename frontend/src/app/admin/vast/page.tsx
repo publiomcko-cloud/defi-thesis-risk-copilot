@@ -14,6 +14,8 @@ import {
 } from "@/lib/api";
 import type { VastConfig, VastSession } from "@/lib/types";
 
+const publicDemoMode = process.env.NEXT_PUBLIC_PUBLIC_DEMO_MODE === "true";
+
 export default function VastAdminPage() {
   const [config, setConfig] = useState<VastConfig | null>(null);
   const [sessions, setSessions] = useState<VastSession[]>([]);
@@ -131,6 +133,16 @@ export default function VastAdminPage() {
           prompt, and destroy stale GPU sessions.
         </p>
       </section>
+
+      {publicDemoMode ? (
+        <section className="notice">
+          <h2>Public Demo Mode</h2>
+          <p>
+            Real Vast.ai rental is disabled for the hosted portfolio demo. This
+            page may show disabled or dry-run lifecycle state only.
+          </p>
+        </section>
+      ) : null}
 
       <div className="stack">
         <section className="panel">

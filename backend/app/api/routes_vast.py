@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_admin
 from app.auth.schemas import UserContext
 from app.auth.service import record_audit_event
+from app.core.config import get_settings
 from app.db.session import get_db
 from app.llm.vast.lifecycle import (
     cleanup_sessions,
@@ -57,6 +58,12 @@ def start_vast_session(
     db: Session = Depends(get_db),
     current_user: UserContext = Depends(require_admin),
 ) -> VastSessionActionResponse:
+    settings = get_settings()
+    if settings.public_demo_mode and not settings.vast_dry_run:
+        raise HTTPException(
+            status_code=403,
+            detail="Real Vast.ai sessions are disabled in public demo mode.",
+        )
     session = start_session(
         db,
         current_user,

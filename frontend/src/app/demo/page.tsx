@@ -5,11 +5,12 @@ import { useCallback, useEffect, useState } from "react";
 
 import { DisclaimerBox } from "@/components/DisclaimerBox";
 import {
+  fetchDeploymentStatus,
   fetchDemoScenarios,
   fetchDemoStatus,
   seedDemoData
 } from "@/lib/api";
-import type { DemoScenario, DemoStatus } from "@/lib/types";
+import type { DemoScenario, DemoStatus, DeploymentStatus } from "@/lib/types";
 
 const quickLinks = [
   { href: "/analyze", label: "Analyze" },
@@ -22,6 +23,7 @@ const quickLinks = [
 
 export default function DemoPage() {
   const [status, setStatus] = useState<DemoStatus | null>(null);
+  const [deployment, setDeployment] = useState<DeploymentStatus | null>(null);
   const [scenarios, setScenarios] = useState<DemoScenario[]>([]);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -38,6 +40,11 @@ export default function DemoPage() {
       ]);
       setStatus(nextStatus);
       setScenarios(nextScenarios);
+      try {
+        setDeployment(await fetchDeploymentStatus());
+      } catch {
+        setDeployment(null);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Demo status failed");
     } finally {
@@ -67,7 +74,7 @@ export default function DemoPage() {
   return (
     <main className="page">
       <section className="page-heading">
-        <p className="eyebrow">Final Phase 13</p>
+        <p className="eyebrow">Final Phase 14</p>
         <h1>Portfolio Demo</h1>
         <p>
           Seed deterministic demo records, open example reports, and walk through
@@ -92,6 +99,17 @@ export default function DemoPage() {
       {error ? <p className="error-text">{error}</p> : null}
       {message ? <p className="success-text">{message}</p> : null}
 
+      {deployment?.public_demo_mode ? (
+        <section className="notice">
+          <h2>Public Synthetic Demo</h2>
+          <p>
+            This hosted mode is configured for portfolio review: LLM synthesis is
+            disabled by default, Vast.ai is disabled or dry-run only, provider
+            credential changes are blocked, and every demo record is synthetic.
+          </p>
+        </section>
+      ) : null}
+
       <section className="panel">
         <h2>Seed Status</h2>
         <p>
@@ -109,6 +127,26 @@ export default function DemoPage() {
                 <strong>{value}</strong>
               </div>
             ))}
+          </div>
+        ) : null}
+        {deployment ? (
+          <div className="meta-grid">
+            <div>
+              <span>Environment</span>
+              <strong>{deployment.app_environment}</strong>
+            </div>
+            <div>
+              <span>Database</span>
+              <strong>{deployment.database_connected ? "connected" : "unavailable"}</strong>
+            </div>
+            <div>
+              <span>LLM synthesis</span>
+              <strong>{deployment.llm_synthesis_enabled ? "enabled" : "disabled"}</strong>
+            </div>
+            <div>
+              <span>Vast.ai</span>
+              <strong>{deployment.vast_enabled ? "enabled" : "disabled"}</strong>
+            </div>
           </div>
         ) : null}
       </section>

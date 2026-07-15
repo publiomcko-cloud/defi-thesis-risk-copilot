@@ -21,6 +21,7 @@ Testing should validate:
 - Phase 11 access control and credential isolation
 - Phase 12 Vast.ai lifecycle safety
 - Final Phase 13 demo seed idempotency and safety
+- Final Phase 14 public-demo deployment safety
 
 ## 2. Baseline Validation
 
@@ -169,6 +170,7 @@ Smoke checks should verify:
 - `/api/demo/scenarios`
 - `/api/demo/seed`
 - seeded demo report retrieval
+- `/api/deployment/status`
 - `/api/analyze`
 - report creation
 - report retrieval
@@ -200,7 +202,20 @@ Demo tests should validate:
 - example Markdown reports can be generated from deterministic data
 - no external API keys, wallet state, or real Vast.ai rental are required
 
-## 11. Final Portfolio Test Pass
+## 11. Final Phase 14 Deployment-Safety Tests
+
+Tests should validate:
+
+- hosted/public demo mode does not expose secrets
+- demo seed remains idempotent in hosted mode
+- hosted demo seed does not require runtime filesystem durability
+- deployment status returns safe metadata only
+- provider credential mutation is blocked in public demo mode
+- real Vast.ai startup is blocked in public demo mode
+- LLM synthesis is disabled by default for public demo settings
+- local defaults continue to work
+
+## 12. Final Portfolio Test Pass
 
 Before public deployment:
 

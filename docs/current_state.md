@@ -6,9 +6,9 @@ Historical planning notes should be kept in `docs/archive/`.
 
 ## Public Demo
 
-- Frontend: pending
-- Backend health: pending
-- API docs: pending
+- Frontend: deployment-ready placeholder `https://<your-vercel-app>.vercel.app`
+- Backend health: deployment-ready placeholder `https://<your-render-service>.onrender.com/health`
+- API docs: deployment-ready placeholder `https://<your-render-service>.onrender.com/docs`
 - Demo video: pending
 - Local demo dashboard: implemented at `/demo`
 - Example Markdown reports: implemented in `examples/reports/`
@@ -27,14 +27,13 @@ Current local stack:
 
 ## Current Status
 
-Current status: Final Phase 13 complete.
+Current status: Final Phase 14 complete.
 
-The app currently supports optional backend LLM synthesis, controlled public-source discovery, automated evaluation, human review queue foundations, explicit human-approved RAG ingestion, MVP token access control, admin/common role checks, server-side provider credential storage metadata, audit logs, admin-only Vast.ai dry-run/manual warm-up sessions, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, optional HPC/SLURM templates, and deterministic local demo data with example reports.
+The app currently supports optional backend LLM synthesis, controlled public-source discovery, automated evaluation, human review queue foundations, explicit human-approved RAG ingestion, MVP token access control, admin/common role checks, server-side provider credential storage metadata, audit logs, admin-only Vast.ai dry-run/manual warm-up sessions, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, optional HPC/SLURM templates, deterministic local demo data with example reports, and public-demo deployment preparation for Vercel, Render, and Supabase.
 
-Before public deployment and final polish, the next planned product phases are:
+Before final polish, the next planned product phase is:
 
 ```text
-Final Phase 14: Public portfolio deployment
 Final Phase 15: Portfolio polish
 ```
 
@@ -71,6 +70,7 @@ The current app can:
 - list, test, destroy, and clean up Vast.ai sessions through admin-only endpoints
 - seed deterministic local demo data through `/api/demo/seed` or `backend/scripts/seed_demo_data.py`
 - inspect demo status and scenarios through `/api/demo/status` and `/api/demo/scenarios`
+- inspect safe deployment metadata through `/api/deployment/status`
 - view the frontend demo dashboard at `/demo`
 - review example Markdown reports in `examples/reports/`
 - run deterministic strategy simulation through `/api/simulation/run`
@@ -106,6 +106,9 @@ Implemented feature areas include:
 - local portfolio demo dashboard
 - deterministic demo seed data
 - example Markdown reports
+- hosted public-demo mode
+- safe deployment status endpoint
+- Render/Vercel/Supabase deployment documentation
 - strategy simulator
 - watchlist and in-app alert system
 - options and volatility analysis
@@ -117,7 +120,7 @@ Implemented feature areas include:
 
 The next active product work is:
 
-1. Final Phase 14 — Public portfolio deployment.
+1. Final Phase 15 — Portfolio polish.
 
 Phase 12 is complete for dry-run/manual warm-up. Automatic Vast.ai use for ordinary report generation remains disabled and should only be added behind explicit task approval.
 
@@ -215,6 +218,7 @@ bash -n hpc/slurm_train_risk_classifier.sbatch
 - Review approval does not ingest sources automatically; explicit admin ingestion is required.
 - Access control is an MVP bearer-token implementation; production-grade hosted auth, MFA, password reset, per-user resource ownership, and rate limits are not implemented.
 - Provider credentials can be stored through the admin API, but the MVP encryption helper is not a substitute for a production secret manager.
+- Provider credential mutations are blocked when `PUBLIC_DEMO_MODE=true`.
 - Vast.ai dry-run/manual warm-up is implemented, but automatic ephemeral rental for normal report generation is not enabled.
 - Simulation is deterministic and educational; it does not forecast outcomes or recommend entering/exiting positions.
 - Watchlist alerts are manually evaluated and in-app only; no push, email, streaming, or automated execution exists.
@@ -223,5 +227,5 @@ bash -n hpc/slurm_train_risk_classifier.sbatch
 - Reports are persisted and rendered through a deterministic template; optional LLM synthesis can enrich explanatory wording when enabled, but cannot override deterministic risk scoring, missing data, sources, market values, protocols, or disclaimers.
 - Fine-tuning has not been performed; the baseline classifier is advisory only and cannot override deterministic risk scoring.
 - HPC readiness is template-based only; no SLURM job has been submitted from this local environment.
-- No deployed public demo exists yet; local demo data and example reports are implemented.
+- Public deployment configuration and docs are prepared, but actual hosted URLs must still be created in Render/Vercel/Supabase by the project owner.
 - No wallet connection or transaction execution will be implemented.

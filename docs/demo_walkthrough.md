@@ -1,6 +1,6 @@
 # Demo Walkthrough
 
-This walkthrough is for a local, synthetic portfolio demo. It does not connect wallets, request keys, sign transactions, execute trades, provide buy/sell instructions, or rent real Vast.ai infrastructure.
+This walkthrough is for a local or hosted synthetic portfolio demo. It does not connect wallets, request keys, sign transactions, execute trades, provide buy/sell instructions, or rent real Vast.ai infrastructure.
 
 ## 1. Start the Stack
 
@@ -82,3 +82,32 @@ Included files:
 - Deterministic risk scoring remains the source of truth.
 - LLM wording, if enabled elsewhere, cannot override deterministic fields.
 - No wallet, custody, trading, or personalized financial advice is implemented.
+
+## 7. Hosted Public Demo
+
+For a hosted portfolio demo, use:
+
+```env
+PUBLIC_DEMO_MODE=true
+LLM_SYNTHESIS_ENABLED=false
+LLM_PROVIDER=disabled
+VAST_ENABLED=false
+VAST_DRY_RUN=true
+RAG_SEMANTIC_ENABLED=false
+```
+
+Check:
+
+```text
+https://<your-render-service>.onrender.com/health
+https://<your-render-service>.onrender.com/api/deployment/status
+https://<your-vercel-app>.vercel.app/demo
+```
+
+Then seed the hosted demo:
+
+```bash
+curl -X POST https://<your-render-service>.onrender.com/api/demo/seed
+```
+
+Hosted mode uses the committed example Markdown files and persisted database records. It does not rely on durable runtime filesystem writes.

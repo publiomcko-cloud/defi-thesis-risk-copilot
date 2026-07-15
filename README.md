@@ -12,7 +12,7 @@ Full-stack AI and DeFi portfolio app with FastAPI, Next.js, RAG, controlled agen
 
 ## Current Status
 
-The technical MVP and product-expansion phases are complete through Final Phase 13:
+The technical MVP and product-expansion phases are complete through Final Phase 14:
 
 ```text
 Post-MVP Phase 1: Optional backend LLM synthesis
@@ -28,12 +28,12 @@ Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
 Post-MVP Phase 11: Access control and secure provider configuration
 Post-MVP Phase 12: Vast.ai ephemeral model provider
 Final Phase 13: Demo data and example reports
+Final Phase 14: Public portfolio deployment preparation
 ```
 
-Before public deployment and final polish, the next planned product phases are:
+Before final portfolio polish, the next planned product phase is:
 
 ```text
-Final Phase 14: Public portfolio deployment
 Final Phase 15: Portfolio polish
 ```
 
@@ -41,13 +41,34 @@ See [`docs/post_mvp_development_plan.md`](docs/post_mvp_development_plan.md) and
 
 ## Live Portfolio Demo
 
-- Frontend: pending
-- Backend health: pending
-- API docs: pending
+- Frontend: `https://<your-vercel-app>.vercel.app`
+- Backend health: `https://<your-render-service>.onrender.com/health`
+- Deployment status: `https://<your-render-service>.onrender.com/api/deployment/status`
+- API docs: `https://<your-render-service>.onrender.com/docs`
 - Demo video: pending
 - Downloadable walkthrough: local demo walkthrough available in [`docs/demo_walkthrough.md`](docs/demo_walkthrough.md)
 
-The first public demo should use synthetic examples and read-only public data. The application does not connect wallets, sign transactions, execute trades, or custody funds.
+The public demo is designed for synthetic examples and read-only public data. The application does not connect wallets, sign transactions, execute trades, or custody funds.
+
+Recommended free-tier deployment:
+
+```text
+Vercel frontend
+  -> Render FastAPI backend
+  -> Supabase pooled Postgres
+```
+
+Public demo defaults:
+
+```env
+PUBLIC_DEMO_MODE=true
+AUTH_ENABLED=false
+LLM_SYNTHESIS_ENABLED=false
+LLM_PROVIDER=disabled
+VAST_ENABLED=false
+VAST_DRY_RUN=true
+RAG_SEMANTIC_ENABLED=false
+```
 
 ## Local Portfolio Demo
 
@@ -191,8 +212,8 @@ Browser
   -> Render FastAPI backend
   -> Supabase PostgreSQL
   -> Vector database or pgvector
-  -> Optional hosted LLM provider
-  -> Optional admin-only Vast.ai ephemeral provider for approved heavy tasks
+  -> LLM disabled by default in public demo
+  -> Vast.ai disabled or dry-run only in public demo
 ```
 
 Local development can run with Docker Compose using PostgreSQL, backend, frontend, local RAG files, and optional local LLM services.
@@ -279,6 +300,12 @@ docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
+Public deployment setup is documented in [`docs/deployment.md`](docs/deployment.md). After deploying the backend and running migrations, seed the hosted demo with:
+
+```bash
+curl -X POST https://<your-render-service>.onrender.com/api/demo/seed
+```
+
 ## Important Endpoints
 
 Current endpoints include:
@@ -288,6 +315,10 @@ Current endpoints include:
 - `GET /api/reports/{report_id}`
 - `POST /api/reports/{report_id}/export`
 - `GET /api/protocols`
+- `GET /api/deployment/status`
+- `GET /api/demo/status`
+- `GET /api/demo/scenarios`
+- `POST /api/demo/seed`
 - `POST /api/documents/ingest`
 - `POST /api/market-data/fetch`
 - `POST /api/monitoring/run`
@@ -373,7 +404,7 @@ Completed product foundation:
 Final portfolio phases:
 
 - Phase 13: Demo data and example reports.
-- Phase 14: Public portfolio deployment.
+- Phase 14: Public portfolio deployment preparation.
 - Phase 15: Portfolio polish.
 
 ## License

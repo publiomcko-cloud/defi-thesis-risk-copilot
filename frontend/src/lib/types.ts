@@ -169,6 +169,23 @@ export type DemoSeedResult = {
   message: string;
 };
 
+export type DeploymentStatus = {
+  status: string;
+  app_environment: string;
+  public_demo_mode: boolean;
+  database_connected: boolean;
+  demo_seeded: boolean;
+  auth_enabled: boolean;
+  llm_synthesis_enabled: boolean;
+  llm_provider: string;
+  vast_enabled: boolean;
+  vast_dry_run: boolean;
+  rag_semantic_enabled: boolean;
+  version: string;
+  commit?: string | null;
+  timestamp: string;
+};
+
 export type AnalysisDepth = "quick" | "standard" | "deep";
 
 export type RiskRating =

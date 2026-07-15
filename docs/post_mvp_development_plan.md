@@ -4,7 +4,7 @@
 
 This document defines the product-development plan after the original Phase 10 MVP checkpoint.
 
-The post-MVP expansion block and local demo phase are complete through Final Phase 13:
+The post-MVP expansion block and final portfolio deployment preparation are complete through Final Phase 14:
 
 ```text
 Post-MVP Phase 1: Optional backend LLM synthesis
@@ -20,12 +20,12 @@ Post-MVP Phase 10: Auto-discovery and human-approved RAG ingestion
 Post-MVP Phase 11: Access control and secure provider configuration
 Post-MVP Phase 12: Vast.ai ephemeral model provider
 Final Phase 13: Demo data and example reports
+Final Phase 14: Public portfolio deployment
 ```
 
-Before public deployment and final polish, the remaining work is:
+Before final polish, the remaining work is:
 
 ```text
-Final Phase 14: Public portfolio deployment
 Final Phase 15: Portfolio polish
 ```
 
@@ -61,7 +61,7 @@ Current known limitations:
 - API/provider secrets can be managed through admin-only metadata endpoints, but hosted production should use managed secret storage or KMS-backed encryption.
 - Vast.ai dry-run/manual warm-up is implemented; automatic ephemeral use for normal reports is not enabled.
 - Fine-tuning has not been performed.
-- Public demo/deployment/polish remain final phases.
+- Public deployment configuration is prepared for Vercel, Render, and Supabase; recorded demo video and final visual polish remain.
 - Local deterministic demo data and example reports are implemented; public deployment and video polish remain final phases.
 
 ## 3. Product Boundary
@@ -295,6 +295,27 @@ Purpose:
 - keep Vast.ai disabled unless safely configured
 - test public demo links
 - update README with live links
+
+Status: deployment preparation implemented.
+
+Implemented scope:
+
+- `PUBLIC_DEMO_MODE` backend setting
+- `GET /api/deployment/status` safe metadata endpoint
+- hosted demo seed skips runtime example-file writes
+- provider credential mutations blocked in public demo mode
+- real Vast.ai startup blocked when public mode is misconfigured away from dry-run
+- Render blueprint in `render.yaml`
+- Vercel/Render/Supabase deployment instructions in `docs/deployment.md`
+- public-demo frontend messaging and admin warnings
+
+Still manual:
+
+- creating the Supabase project
+- deploying the Render service
+- deploying the Vercel frontend
+- replacing README placeholder URLs with live URLs
+- recording a demo video
 
 ## 9. Final Phase 15 — Portfolio Polish
 

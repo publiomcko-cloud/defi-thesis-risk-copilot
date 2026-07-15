@@ -35,6 +35,7 @@ import type {
   DemoScenario,
   DemoSeedResult,
   DemoStatus,
+  DeploymentStatus,
   VastCleanupResponse,
   VastConfig,
   VastSessionActionResponse,
@@ -114,6 +115,18 @@ export async function fetchDemoStatus(): Promise<DemoStatus> {
 
   if (!response.ok) {
     throw new Error(await errorDetail(response, `Demo status failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function fetchDeploymentStatus(): Promise<DeploymentStatus> {
+  const response = await fetch(`${getApiBaseUrl()}/api/deployment/status`, {
+    cache: "no-store"
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Deployment status failed with status ${response.status}`));
   }
 
   return response.json();
