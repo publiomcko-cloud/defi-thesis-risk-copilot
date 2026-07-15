@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { PublicAdminBoundary } from "@/components/PublicAdminBoundary";
 import {
   createProviderCredential,
   fetchProviderCredentials,
@@ -34,7 +35,9 @@ export default function ProviderCredentialsPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void refresh();
+    if (!publicDemoMode) {
+      void refresh();
+    }
   }, []);
 
   async function refresh() {
@@ -95,27 +98,22 @@ export default function ProviderCredentialsPage() {
     }
   }
 
+  if (publicDemoMode) {
+    return (
+      <PublicAdminBoundary
+        title="Provider credentials are private"
+        description="Provider keys and credential metadata are available only inside an authenticated private deployment."
+      />
+    );
+  }
+
   return (
     <main className="page">
       <section className="page-heading">
         <p className="eyebrow">Admin</p>
         <h1>Provider Credentials</h1>
-        <p>
-          Store provider secrets on the backend and expose only safe metadata to
-          the browser.
-        </p>
+        <p>Store provider secrets on the backend and expose only safe metadata to the browser.</p>
       </section>
-
-      {publicDemoMode ? (
-        <section className="notice">
-          <h2>Public Demo Mode</h2>
-          <p>
-            Credential creation, rotation, and deletion are blocked by the
-            backend in public demo mode. Do not enter real provider secrets in a
-            hosted portfolio demo.
-          </p>
-        </section>
-      ) : null}
 
       <div className="stack">
         <section className="panel">
@@ -124,56 +122,29 @@ export default function ProviderCredentialsPage() {
               <h2>Add Credential</h2>
               <p>Secrets are write-only from the UI after submission.</p>
             </div>
-            <Link className="secondary-link" href="/admin">
-              Admin Home
-            </Link>
+            <Link className="secondary-link" href="/admin">Admin Home</Link>
           </div>
           <div className="manual-grid">
             <label>
               Provider
-              <select
-                onChange={(event) => setProvider(event.target.value as ProviderName)}
-                value={provider}
-              >
-                {providerOptions.map((option) => (
-                  <option key={option} value={option}>
-                    {option}
-                  </option>
-                ))}
+              <select onChange={(event) => setProvider(event.target.value as ProviderName)} value={provider}>
+                {providerOptions.map((option) => <option key={option} value={option}>{option}</option>)}
               </select>
             </label>
             <label>
               Name
-              <input
-                onChange={(event) => setName(event.target.value)}
-                placeholder="Local OpenAI-compatible gateway"
-                value={name}
-              />
+              <input onChange={(event) => setName(event.target.value)} placeholder="Local OpenAI-compatible gateway" value={name} />
             </label>
             <label>
               Secret
-              <input
-                autoComplete="off"
-                onChange={(event) => setSecret(event.target.value)}
-                type="password"
-                value={secret}
-              />
+              <input autoComplete="off" onChange={(event) => setSecret(event.target.value)} type="password" value={secret} />
             </label>
             <label className="checkbox-label">
-              <input
-                checked={enabled}
-                onChange={(event) => setEnabled(event.target.checked)}
-                type="checkbox"
-              />
+              <input checked={enabled} onChange={(event) => setEnabled(event.target.checked)} type="checkbox" />
               Enabled
             </label>
           </div>
-          <button
-            className="primary-action"
-            disabled={activeId !== null || !name.trim() || !secret.trim()}
-            onClick={handleCreate}
-            type="button"
-          >
+          <button className="primary-action" disabled={activeId !== null || !name.trim() || !secret.trim()} onClick={handleCreate} type="button">
             {activeId === "create" ? "Saving..." : "Save Credential"}
           </button>
           {message ? <p className="success">{message}</p> : null}
@@ -185,52 +156,27 @@ export default function ProviderCredentialsPage() {
           <div className="table-wrap">
             <table>
               <thead>
-                <tr>
-                  <th>Credential</th>
-                  <th>Secret</th>
-                  <th>Status</th>
-                  <th>Updated</th>
-                  <th>Actions</th>
-                </tr>
+                <tr><th>Credential</th><th>Secret</th><th>Status</th><th>Updated</th><th>Actions</th></tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>No provider credentials stored.</td>
+                  <tr><td colSpan={5}>No provider credentials stored.</td></tr>
+                ) : items.map((item) => (
+                  <tr key={item.id}>
+                    <td><strong>{item.name}</strong><span>{item.provider}</span></td>
+                    <td>ending {item.secret_last4}</td>
+                    <td>{item.enabled ? "enabled" : "disabled"}</td>
+                    <td>{new Date(item.updated_at).toLocaleString()}</td>
+                    <td>
+                      <div className="toolbar-actions">
+                        <button className="secondary-action" disabled={activeId !== null} onClick={() => handleToggle(item)} type="button">
+                          {item.enabled ? "Disable" : "Enable"}
+                        </button>
+                        <button className="secondary-action" disabled={activeId !== null} onClick={() => handleRotate(item)} type="button">Rotate</button>
+                      </div>
+                    </td>
                   </tr>
-                ) : (
-                  items.map((item) => (
-                    <tr key={item.id}>
-                      <td>
-                        <strong>{item.name}</strong>
-                        <span>{item.provider}</span>
-                      </td>
-                      <td>ending {item.secret_last4}</td>
-                      <td>{item.enabled ? "enabled" : "disabled"}</td>
-                      <td>{new Date(item.updated_at).toLocaleString()}</td>
-                      <td>
-                        <div className="toolbar-actions">
-                          <button
-                            className="secondary-action"
-                            disabled={activeId !== null}
-                            onClick={() => handleToggle(item)}
-                            type="button"
-                          >
-                            {item.enabled ? "Disable" : "Enable"}
-                          </button>
-                          <button
-                            className="secondary-action"
-                            disabled={activeId !== null}
-                            onClick={() => handleRotate(item)}
-                            type="button"
-                          >
-                            Rotate
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                )}
+                ))}
               </tbody>
             </table>
           </div>
