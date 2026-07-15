@@ -93,7 +93,7 @@ The Docker image starts with:
 
 ```bash
 alembic upgrade head \
-  && python scripts/prepare_runtime.py \
+  && python -m scripts.prepare_runtime \
   && uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
