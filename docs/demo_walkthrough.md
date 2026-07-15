@@ -1,113 +1,197 @@
 # Demo Walkthrough
 
-This walkthrough is for a local or hosted synthetic portfolio demo. It does not connect wallets, request keys, sign transactions, execute trades, provide buy/sell instructions, or rent real Vast.ai infrastructure.
+The demo uses synthetic educational data. It does not connect wallets, request keys, sign transactions, execute trades, provide buy/sell instructions, or rent real Vast.ai infrastructure.
 
-## 1. Start the Stack
+## 1. Hosted Demo
+
+Open:
+
+- Guided demo: `https://defi-thesis-risk-copilot.vercel.app/demo`
+- Main report: `https://defi-thesis-risk-copilot.vercel.app/reports/demo_report_pendle_pt_loop`
+- Backend readiness: `https://defi-thesis-risk-copilot.onrender.com/ready`
+- API docs: `https://defi-thesis-risk-copilot.onrender.com/docs`
+
+The Render free tier may need a short cold start. The demo page and report page expose retry/readiness actions.
+
+The hosted backend seeds deterministic data and builds the curated RAG index during startup. The public `/api/demo/seed` endpoint is blocked intentionally.
+
+## 2. Recommended Review Sequence
+
+### Step 1 — Product overview
+
+Open the homepage and note:
+
+- the research-not-trading boundary
+- deterministic risk scoring
+- controlled knowledge workflow
+- hosted Vercel/Render/Supabase architecture
+
+### Step 2 — Guided demo dashboard
+
+Open `/demo` and review:
+
+- environment/database state
+- demo record counts
+- public read-only notice
+- shared-database privacy warning
+- guided scenario cards
+
+### Step 3 — Main Pendle/Morpho report
+
+Open the main report and inspect:
+
+- executive summary
+- deterministic risk rating
+- assumptions
+- missing data
+- stress and monitoring sections
+- clickable source references
+- Markdown copy/download
+- non-advisory disclaimer
+
+### Step 4 — Strategy analysis
+
+Open `/analyze`.
+
+Use the provided synthetic example or another non-sensitive thesis. Percentage fields use normal user units:
+
+```text
+5 = 5%
+50 = 50%
+```
+
+Do not submit wallet addresses, credentials, private positions, confidential information, or personally identifying data. Public reports use a shared demonstration database.
+
+### Step 5 — Simulator
+
+Open `/simulate` and show:
+
+- core assumptions
+- advanced stress controls
+- borrow-rate shock
+- liquidity/slippage shock
+- collateral drawdown
+- early-exit and combined adverse cases
+- transparent calculation details
+
+### Step 6 — Options analysis
+
+Open `/options` and show:
+
+- long call/put selection
+- premium and contracts
+- implied volatility in percentage units
+- breakeven
+- maximum loss
+- bid/ask spread
+- payoff scenarios
+- educational volatility framing
+
+### Step 7 — Read-only research workflow
+
+Open `/review`.
+
+The hosted page demonstrates:
+
+- discovered candidates
+- source provenance
+- evaluation summaries
+- risk/confidence metadata
+- reviewer notes
+- approved/ingested status
+
+Public visitors cannot run discovery, create evaluations, change review status, or ingest content.
+
+### Step 8 — Read-only watchlist
+
+Open `/watchlist` and show:
+
+- human-readable threshold rules
+- current snapshot
+- open alert metadata
+- no trade execution or notification dependency
+
+Public visitors cannot mutate shared watchlist/alert records.
+
+### Step 9 — API and source review
+
+Open:
+
+- API docs
+- backend readiness
+- deployment status
+- GitHub repository
+- consolidated development plan
+
+## 3. Local Demo
+
+Start:
 
 ```bash
 docker compose up -d --build
 curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:8000/ready
 ```
 
 Open:
 
 ```text
 Frontend: http://127.0.0.1:3000
-Demo dashboard: http://127.0.0.1:3000/demo
+Demo: http://127.0.0.1:3000/demo
 API docs: http://127.0.0.1:8000/docs
 ```
 
-## 2. Seed Demo Data
-
-Use either option:
+Seed manually when running a non-public local environment:
 
 ```bash
 backend/.venv/bin/python backend/scripts/seed_demo_data.py
 ```
 
+or:
+
 ```bash
 curl -X POST http://127.0.0.1:8000/api/demo/seed
 ```
 
-The seed operation is idempotent and writes synthetic data into existing persistence tables.
+The seed is idempotent.
 
-## 3. Review the Main Report
+## 4. Example Reports
 
-Open:
-
-```text
-http://127.0.0.1:3000/reports/demo_report_pendle_pt_loop
-```
-
-What to show:
-
-- deterministic risk rating
-- assumptions and missing data
-- source references
-- stress and monitoring sections
-- non-advisory disclaimer
-
-## 4. Walk Through Demo Scenarios
-
-Use `/demo` to open:
-
-- Pendle PT + lending loop report
-- discovery-to-review-to-RAG example through `/review`
-- watchlist alert example through `/watchlist`
-- options/volatility workflow through `/options`
-- Vast.ai dry-run admin page through `/admin/vast`
-
-The Vast.ai demo record is dry-run metadata only. It does not rent a real remote GPU.
-
-## 5. Inspect Example Markdown Reports
-
-Example reports live in:
+Committed Markdown examples:
 
 ```text
-examples/reports/
+examples/reports/pendle_pt_loop_report.md
+examples/reports/discovery_to_rag_report.md
+examples/reports/watchlist_alert_report.md
+examples/reports/options_volatility_report.md
+examples/reports/vast_dry_run_report.md
 ```
 
-Included files:
+## 5. Public Safety Checks
 
-- `pendle_pt_loop_report.md`
-- `discovery_to_rag_report.md`
-- `watchlist_alert_report.md`
-- `options_volatility_report.md`
-- `vast_dry_run_report.md`
+Expected public behavior:
+
+```bash
+curl https://defi-thesis-risk-copilot.onrender.com/ready
+curl https://defi-thesis-risk-copilot.onrender.com/api/demo/status
+curl https://defi-thesis-risk-copilot.onrender.com/api/reports/demo_report_pendle_pt_loop
+```
+
+Expected `403`:
+
+```bash
+curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/demo/seed
+curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/monitoring/run \
+  -H 'Content-Type: application/json' -d '{}'
+curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/discovery/run \
+  -H 'Content-Type: application/json' -d '{}'
+```
 
 ## 6. Safety Notes
 
-- All demo values are synthetic.
-- Reports are educational research artifacts.
-- Deterministic risk scoring remains the source of truth.
-- LLM wording, if enabled elsewhere, cannot override deterministic fields.
-- No wallet, custody, trading, or personalized financial advice is implemented.
-
-## 7. Hosted Public Demo
-
-For a hosted portfolio demo, use:
-
-```env
-PUBLIC_DEMO_MODE=true
-LLM_SYNTHESIS_ENABLED=false
-LLM_PROVIDER=disabled
-VAST_ENABLED=false
-VAST_DRY_RUN=true
-RAG_SEMANTIC_ENABLED=false
-```
-
-Check:
-
-```text
-https://<your-render-service>.onrender.com/health
-https://<your-render-service>.onrender.com/api/deployment/status
-https://<your-vercel-app>.vercel.app/demo
-```
-
-Then seed the hosted demo:
-
-```bash
-curl -X POST https://<your-render-service>.onrender.com/api/demo/seed
-```
-
-Hosted mode uses the committed example Markdown files and persisted database records. It does not rely on durable runtime filesystem writes.
+- All seeded values are synthetic.
+- Reports are research artifacts, not recommendations.
+- Deterministic scoring remains authoritative.
+- Optional model wording cannot override deterministic fields.
+- Public privileged workflows are read-only.
+- No wallet, custody, transaction signing, trade execution, or personalized financial advice is implemented.
