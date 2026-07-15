@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_admin
 from app.auth.schemas import UserContext
-from app.auth.service import record_audit_event
+from app.core.public_demo import block_public_demo_mutation
 from app.db.session import get_db
 from app.discovery.schemas import DiscoveryRunRequest, DiscoveryRunResponse
 from app.discovery.service import list_discovery_candidates, run_discovery
@@ -12,13 +12,19 @@ from app.monitoring.schemas import DiscoveredItemsResponse
 router = APIRouter(tags=["discovery"])
 
 
-@router.post("/discovery/run", response_model=DiscoveryRunResponse)
+@router.post(
+    "/discovery/run",
+    response_model=DiscoveryRunResponse,
+    dependencies=[Depends(block_public_demo_mutation)],
+)
 def run_public_discovery(
     request: DiscoveryRunRequest | None = None,
     db: Session = Depends(get_db),
     current_user: UserContext = Depends(require_admin),
 ) -> DiscoveryRunResponse:
     response = run_discovery(request or DiscoveryRunRequest(), db)
+    from app.auth.service import record_audit_event
+
     record_audit_event(
         db,
         current_user.id,
