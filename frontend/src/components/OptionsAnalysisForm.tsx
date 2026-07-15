@@ -139,7 +139,7 @@ export function OptionsAnalysisForm() {
             <div className="metric">
               <span>Bid/ask spread</span>
               <strong>
-                {result.bid_ask_spread_pct === null
+                {result.bid_ask_spread_pct == null
                   ? "Unavailable"
                   : `${result.bid_ask_spread_pct.toFixed(2)}%`}
               </strong>
