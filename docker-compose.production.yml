@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile.backend
     image: defi-thesis-risk-copilot-backend:latest
-    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    command: sh -c "alembic upgrade head && python scripts/prepare_runtime.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     environment:
       APP_ENV: production
       PUBLIC_DEMO_MODE: ${PUBLIC_DEMO_MODE:-true}
