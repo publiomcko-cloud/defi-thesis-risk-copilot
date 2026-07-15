@@ -2,34 +2,32 @@
 
 ## 1. Testing Goals
 
-Testing should validate:
+Validation covers:
 
-- backend API behavior
-- risk scoring consistency
-- RAG retrieval quality
-- report generation structure
-- data adapter fallbacks
-- frontend build quality
-- Docker configuration
-- source monitoring and evaluation workflows
-- simulation, watchlist, and alert logic
-- options analysis
-- optional LLM synthesis fallback behavior
-- ML groundwork guardrails
-- HPC template syntax
-- Phase 10 discovery-to-RAG ingestion safety
-- Phase 11 access control and credential isolation
-- Phase 12 Vast.ai lifecycle safety
-- Final Phase 13 demo seed idempotency and safety
-- Final Phase 14 public-demo deployment safety
+- API contracts and authorization
+- deterministic risk-scoring behavior
+- RAG retrieval and citation metadata
+- report generation and persistence
+- market-data fallbacks and cache expiration
+- discovery, evaluation, review, and ingestion safety
+- simulation and options calculations
+- watchlist and alert rules
+- credential isolation
+- Vast.ai lifecycle guardrails
+- public-demo mutation boundaries
+- startup preparation and readiness
+- frontend type/build quality
+- Docker and deployment configuration
+
+No automated test may require a wallet, private key, trade execution, paid model API, or real Vast.ai rental.
 
 ## 2. Baseline Validation
-
-Run before and after each phase:
 
 ```bash
 cd backend
 source .venv/bin/activate
+alembic upgrade head
+python -m compileall app
 python -m pytest -q
 python scripts/run_smoke_checks.py
 
@@ -42,7 +40,83 @@ docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
-## 3. RAG Validation
+## 3. Public-Demo Security Tests
+
+`backend/app/tests/test_public_demo_security.py` validates:
+
+- unauthenticated public visitors receive a `common` identity
+- public visitors do not receive an administrator identity
+- credential metadata is not public
+- public demo seeding is blocked
+- monitoring runs are blocked
+- document/RAG refresh mutations are blocked
+- discovery runs are blocked
+- evaluation creation is blocked
+- watchlist mutations are blocked
+- bounded compute remains available
+- public compute rate limits return `429` and `Retry-After`
+
+Additional existing deployment tests validate:
+
+- provider credential mutations return `403`
+- real Vast.ai startup returns `403`
+- deployment metadata contains no URLs, passwords, keys, or secrets
+- public runtime seed skips example-report filesystem writes
+
+## 4. Input Validation Tests
+
+Public request schemas enforce:
+
+- strategy-description maximum length
+- protocol-count maximum
+- URL and text limits
+- percentage/range limits
+- scenario-count limits
+- maximum document-content size
+- unknown-field rejection where contracts should be strict
+
+Tests should include both valid boundary values and rejected oversized payloads.
+
+## 5. Runtime and Health Tests
+
+The application exposes:
+
+- `/health` for liveness
+- `/ready` for database and RAG readiness
+- `/api/deployment/status` for safe operational metadata
+
+Tests should validate:
+
+- root endpoint returns service links without secrets
+- health works independently of database state
+- readiness returns `503` when PostgreSQL is unavailable
+- readiness returns `503` in public mode when the RAG index is absent
+- readiness succeeds after runtime preparation
+- public runtime preparation is idempotent
+- local non-public runtime preparation does not unexpectedly seed data
+
+## 6. PostgreSQL Integration
+
+CI should run Alembic against PostgreSQL, not only SQLite.
+
+Required path:
+
+```text
+PostgreSQL service
+  -> alembic upgrade head
+  -> runtime preparation in public-demo mode
+  -> pytest
+```
+
+This catches:
+
+- dialect differences
+- migration-order failures
+- timezone behavior
+- JSON-column behavior
+- pooler-compatible URL handling
+
+## 7. RAG Validation
 
 ```bash
 cd backend
@@ -51,20 +125,131 @@ python scripts/evaluate_retrieval.py --retriever hybrid
 python scripts/evaluate_retrieval.py --retriever hybrid_semantic
 ```
 
-The retriever should return relevant protocol chunks and preserve citation metadata.
+The retriever should:
 
-## 4. ML Groundwork Validation
+- return protocol-relevant chunks
+- preserve source metadata
+- respect protocol filters
+- keep citation fields intact
+- retrieve approved ingested knowledge after a successful refresh
+
+RAG ingestion tests cover:
+
+- eligibility only for `approved_for_rag`
+- explicit action requirement
+- duplicate prevention
+- Markdown provenance and disclaimer
+- `refresh_pending`
+- `refresh_failed`
+- retry after refresh failure
+- `ingested` only after successful refresh
+
+## 8. Access Control and Credentials
+
+Authentication tests cover:
+
+```text
+admin
+common
+public demo common identity
+local auth-disabled demo admin
+```
+
+Credential tests verify:
+
+- full secrets never return from the API
+- full secrets never enter frontend payloads
+- database secrets are encrypted
+- missing encryption configuration fails closed
+- audit metadata is redacted
+- common users cannot manage credentials
+- public users cannot read credential metadata
+- disabled/rotated credentials are not reused
+
+The bearer-token path is an MVP foundation. Managed-identity tests are planned for V1 Phase 16.
+
+## 9. Discovery, Review, and RAG
+
+Tests cover:
+
+- collector normalization
+- quality/TVL filters
+- duplicate discovery prevention
+- initial `needs_review` state
+- optional automatic evaluation
+- review-item creation
+- allowed review states
+- private/admin review mutations
+- public read-only listing
+- human approval before ingestion
+- audit events for privileged actions
+
+## 10. Market-Data Cache
+
+Tests should verify:
+
+- live data is normalized and cached
+- repeated source/key writes update rather than append indefinitely
+- duplicate historical rows are cleaned
+- expired rows are not used
+- unexpired cache is used after live failure
+- unavailable state and missing fields are explicit without valid cache
+
+## 11. Simulation and Options
+
+Simulation tests cover:
+
+- net spread
+- borrow-rate shock
+- liquidity/slippage shock
+- collateral drawdown
+- early exit
+- incentive removal
+- combined adverse scenario
+- bounded numeric inputs
+
+Options tests cover:
+
+- call and put breakeven
+- maximum loss
+- payoff scenarios
+- contracts
+- spread calculation
+- expiration calculation
+- scenario-count bounds
+- no buy/sell recommendation language
+
+## 12. Vast.ai
+
+Automated tests use fakes/dry-run only.
+
+Coverage includes:
+
+- disabled-provider error
+- offer filters
+- cost/runtime limits
+- active-instance limit
+- startup polling and timeout
+- unsafe remote states
+- test prompt through mocked OpenAI-compatible endpoint
+- cleanup after failure
+- idempotent destroy
+- raw API-key isolation
+- audit events
+- common/public denial
+
+## 13. ML and HPC Groundwork
+
+ML validation:
 
 ```bash
 cd backend
 python scripts/export_training_dataset.py
 ```
 
-Tests should confirm exported labels are deterministic-rule labels, not human ground truth, and that baseline classifier output cannot override deterministic risk scoring.
+Exported labels must be identified as deterministic-rule labels rather than human ground truth. Model output remains advisory.
 
-## 5. HPC Template Validation
-
-Phase 9 HPC files are optional templates. Local validation should check syntax and preserve normal app behavior:
+HPC syntax validation:
 
 ```bash
 bash -n hpc/slurm_generate_embeddings.sbatch
@@ -73,156 +258,66 @@ bash -n hpc/slurm_train_risk_classifier.sbatch
 test -f hpc/apptainer.def
 ```
 
-Actual `sbatch` submission and `apptainer build` depend on cluster tooling and are not required for local MVP validation.
+## 14. Smoke Testing Modes
 
-## 6. Phase 10 — Discovery to RAG Ingestion Tests
+### Local/private smoke path
 
-Tests should validate:
+The existing smoke script can exercise mutations when:
 
-- DefiLlama protocol discovery normalizes candidates
-- DefiLlama pool discovery normalizes candidates
-- options/open-interest discovery can be enabled separately
-- discovery filters exclude low-quality candidates
-- duplicate discoveries are not recreated
-- every candidate starts as `needs_review`
-- automatic evaluation creates a review item
-- `needs_review`, `rejected`, `needs_more_data`, and `archived` items cannot be ingested
-- only `approved_for_rag` items can be ingested
-- ingestion requires an explicit action
-- generated markdown includes source URL, protocol, risk summary, missing data, reviewer notes, and disclaimer
-- duplicate ingestion is prevented
-- RAG index refresh is triggered after ingestion
-- future retrieval can find the ingested source
-
-## 7. Phase 11 — Access Control and Credential Tests
-
-Implemented Phase 11 tests cover the MVP bearer-token access-control path, admin/common role boundaries, server-side credential metadata, and audit logging.
-
-Tests should validate two roles:
-
-```text
-admin
-common
+```env
+PUBLIC_DEMO_MODE=false
 ```
 
-Common-user tests:
+It may seed, run monitoring/discovery, update review state, create/evaluate watchlists, and run compute flows.
 
-- can create analysis requests
-- can run simulation and options analysis
-- can manage own watchlist items if ownership is implemented
-- cannot approve review items
-- cannot ingest into RAG
-- cannot configure discovery sources
-- cannot create/update/delete provider credentials
-- cannot start/destroy Vast.ai sessions
+### Hosted public smoke path
 
-Admin-user tests:
+A deployed smoke check should verify:
 
-- can pass admin-only dependencies with a valid admin token
-- can approve/reject review items
-- can ingest approved items into RAG
-- can create/rotate/delete provider credentials
-- all sensitive actions create audit-log entries
+- root, health, readiness, and deployment status
+- demo status/scenarios
+- seeded report retrieval
+- protocols
+- simulation and options compute
+- expected `403` for public mutations
+- no secret-bearing fields
 
-Vast.ai session authorization is tested in Phase 12 after those endpoints exist.
+Do not run the local mutation smoke script unchanged against the public deployment.
 
-Credential tests:
+## 15. Frontend Quality
 
-- full API keys are never returned by API responses
-- full API keys are never rendered in frontend payloads
-- persisted credentials are encrypted or stored only through environment variables
-- provider metadata can show provider name, status, and last four characters only
-- deleted/rotated credentials cannot be used again
-- missing `CREDENTIAL_ENCRYPTION_KEY` fails closed for database-stored secrets
+Current frontend validation:
 
-## 8. Phase 12 — Vast.ai Provider Tests
+```bash
+cd frontend
+npm run lint
+npm run build
+```
 
-Do not call real Vast.ai APIs in unit tests.
+The current `lint` script performs strict TypeScript compilation. Planned production additions:
 
-Use mocks/fakes to validate:
+- ESLint
+- Playwright end-to-end tests
+- axe accessibility checks
+- visual regression checks
+- mobile viewport tests
+- cold-start retry tests
+- public/private navigation tests
 
-- offer search request shape
-- max hourly cost guard
-- GPU/RAM/disk filters
-- create/rent lifecycle state transitions
-- disabled provider safe error
-- no acceptable offer produces `offer_not_found`
-- max active instance limit
-- OpenAI-compatible model endpoint call once ready
-- auto-destroy after successful task
-- cleanup after failed startup
-- cleanup endpoint destroys known active instance
-- destroy is idempotent
-- raw API key is never returned
-- common users cannot access Vast lifecycle endpoints
-- admin actions are audit-logged
-- remote LLM output cannot override deterministic risk scoring
+## 16. Phase 15 Completion Gate
 
-Current automated tests use dry-run and fakes only. Integration tests against real Vast.ai should be manual/admin-only and disabled by default.
+Before merging V1 Phase 15:
 
-## 9. Smoke Tests
-
-Smoke checks should verify:
-
-- `/health`
-- `/api/protocols`
-- `/api/demo/status`
-- `/api/demo/scenarios`
-- `/api/demo/seed`
-- seeded demo report retrieval
-- `/api/deployment/status`
-- `/api/analyze`
-- report creation
-- report retrieval
-- Markdown export
-- monitoring run
-- discovered item retrieval
-- evaluation run
-- simulation run
-- watchlist rule evaluation
-- options analysis
-
-After Phase 10, add a smoke path for approved-item ingest using a fixture or mocked discovered item.
-
-After Phase 11, smoke checks can be extended with `AUTH_ENABLED=true` fixtures for admin/common authorization boundaries.
-
-After Phase 12, add mocked lifecycle smoke tests only; do not rent a real Vast.ai instance in CI.
-
-After Phase 13, smoke checks seed deterministic local demo records and retrieve one example report. The smoke path must not require paid APIs, external secrets, wallet access, or real Vast.ai rental.
-
-## 10. Final Phase 13 Demo Tests
-
-Demo tests should validate:
-
-- demo seed works when `AUTH_ENABLED=false`
-- demo seed requires admin when `AUTH_ENABLED=true`
-- seed operation is idempotent
-- records are clearly marked as synthetic demo data
-- seeded reports can be retrieved through the normal report endpoint
-- example Markdown reports can be generated from deterministic data
-- no external API keys, wallet state, or real Vast.ai rental are required
-
-## 11. Final Phase 14 Deployment-Safety Tests
-
-Tests should validate:
-
-- hosted/public demo mode does not expose secrets
-- demo seed remains idempotent in hosted mode
-- hosted demo seed does not require runtime filesystem durability
-- deployment status returns safe metadata only
-- provider credential mutation is blocked in public demo mode
-- real Vast.ai startup is blocked in public demo mode
-- LLM synthesis is disabled by default for public demo settings
-- local defaults continue to work
-
-## 12. Final Portfolio Test Pass
-
-Before public deployment:
-
-- backend tests pass
-- frontend lint/build pass
-- Docker config checks pass
-- RAG eval passes
-- no test requires live wallet, private key, or trade execution
-- demo data is synthetic or read-only
-- public environment has no admin secret exposed to frontend
+- [ ] Alembic succeeds on PostgreSQL.
+- [ ] Backend tests pass.
+- [ ] Public-security tests pass.
+- [ ] Frontend TypeScript check passes.
+- [ ] Next.js build passes.
+- [ ] Compose files validate.
+- [ ] Vercel preview succeeds.
+- [ ] Render deployment succeeds.
+- [ ] `/ready` succeeds after startup.
+- [ ] Public mutation probes return `403`.
+- [ ] Main report, simulation, options, review, and watchlist pages render.
+- [ ] No secret is exposed.
+- [ ] Known limitations remain documented.
