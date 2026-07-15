@@ -257,8 +257,10 @@ Project root: frontend
 Framework preset: Next.js
 Build command: npm run build
 Install command: npm install
-Output: Next.js default
+Output directory: .next
 ```
+
+Do not set the output directory to `public`. This project is a Next.js application, not a static export, so Vercel must use `.next`. The repository includes `frontend/vercel.json` with the same setting.
 
 Required Vercel environment variables:
 
