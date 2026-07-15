@@ -14,6 +14,8 @@ import {
 } from "@/lib/api";
 import type { DiscoveredItem, ReviewItem, ReviewStatus } from "@/lib/types";
 
+const publicDemoMode = process.env.NEXT_PUBLIC_PUBLIC_DEMO_MODE === "true";
+
 const reviewStatuses: ReviewStatus[] = [
   "needs_review",
   "approved_for_rag",
@@ -140,37 +142,54 @@ export function ReviewQueueTable() {
 
   return (
     <div className="stack">
+      {publicDemoMode ? (
+        <section className="notice">
+          <h2>Human-review workflow preview</h2>
+          <p>
+            This page shows seeded candidates and review outcomes. Monitoring,
+            discovery, evaluation, status changes, and RAG ingestion are disabled in
+            the public deployment so visitors cannot alter the shared knowledge base.
+          </p>
+        </section>
+      ) : null}
+
       <section className="panel">
         <div className="section-toolbar">
           <div>
             <h2>Discovered Candidates</h2>
             <p>
-              Discovery creates candidates for review. Evaluation uses the
-              controlled workflow and keeps missing data visible. Approved items
-              require a separate ingest-to-RAG action.
+              Discovery creates candidates for evaluation and human review. Approval
+              never triggers ingestion automatically.
             </p>
           </div>
           <div className="toolbar-actions">
-            <button
-              className="secondary-action"
-              disabled={activeId !== null}
-              onClick={handleRunMonitoring}
-              type="button"
-            >
-              {activeId === "monitoring" ? "Running..." : "Run Monitoring"}
+            <button className="secondary-action" onClick={() => void refresh()} type="button">
+              Refresh
             </button>
-            <button
-              className="primary-action"
-              disabled={activeId !== null}
-              onClick={handleRunDiscovery}
-              type="button"
-            >
-              {activeId === "discovery" ? "Discovering..." : "Run Discovery"}
-            </button>
+            {!publicDemoMode ? (
+              <>
+                <button
+                  className="secondary-action"
+                  disabled={activeId !== null}
+                  onClick={handleRunMonitoring}
+                  type="button"
+                >
+                  {activeId === "monitoring" ? "Running..." : "Run Monitoring"}
+                </button>
+                <button
+                  className="primary-action"
+                  disabled={activeId !== null}
+                  onClick={handleRunDiscovery}
+                  type="button"
+                >
+                  {activeId === "discovery" ? "Discovering..." : "Run Discovery"}
+                </button>
+              </>
+            ) : null}
           </div>
         </div>
         {message ? <p className="success">{message}</p> : null}
-        {error ? <p className="error">{error}</p> : null}
+        {error ? <p className="error" role="alert">{error}</p> : null}
         <div className="table-wrap">
           <table>
             <thead>
@@ -178,13 +197,13 @@ export function ReviewQueueTable() {
                 <th>Candidate</th>
                 <th>Source</th>
                 <th>Status</th>
-                <th>Action</th>
+                {!publicDemoMode ? <th>Action</th> : null}
               </tr>
             </thead>
             <tbody>
               {discoveredItems.length === 0 ? (
                 <tr>
-                  <td colSpan={4}>No candidates discovered yet.</td>
+                  <td colSpan={publicDemoMode ? 3 : 4}>No candidates discovered yet.</td>
                 </tr>
               ) : (
                 discoveredItems.map((item) => (
@@ -192,26 +211,33 @@ export function ReviewQueueTable() {
                     <td>
                       <strong>{item.title}</strong>
                       <span>{item.protocol ?? "unknown protocol"}</span>
+                      {item.url ? (
+                        <a className="text-link" href={item.url} rel="noreferrer" target="_blank">
+                          Open source
+                        </a>
+                      ) : null}
                     </td>
                     <td>
-                      <code>{item.source}</code>
-                      <span>{item.source_type}</span>
+                      <span>{humanize(item.source)}</span>
+                      <span>{humanize(item.source_type)}</span>
                     </td>
-                    <td>{item.status}</td>
-                    <td>
-                      <button
-                        className="secondary-action"
-                        disabled={activeId !== null || evaluatedIds.has(item.id)}
-                        onClick={() => handleEvaluate(item.id)}
-                        type="button"
-                      >
-                        {activeId === item.id
-                          ? "Evaluating..."
-                          : evaluatedIds.has(item.id)
-                            ? "Queued"
-                            : "Evaluate"}
-                      </button>
-                    </td>
+                    <td><StatusBadge status={item.status} /></td>
+                    {!publicDemoMode ? (
+                      <td>
+                        <button
+                          className="secondary-action"
+                          disabled={activeId !== null || evaluatedIds.has(item.id)}
+                          onClick={() => handleEvaluate(item.id)}
+                          type="button"
+                        >
+                          {activeId === item.id
+                            ? "Evaluating..."
+                            : evaluatedIds.has(item.id)
+                              ? "Queued"
+                              : "Evaluate"}
+                        </button>
+                      </td>
+                    ) : null}
                   </tr>
                 ))
               )}
@@ -229,7 +255,7 @@ export function ReviewQueueTable() {
                 <th>Item</th>
                 <th>Risk Summary</th>
                 <th>Status</th>
-                <th>Notes</th>
+                <th>Reviewer Notes</th>
                 <th>RAG Ingestion</th>
               </tr>
             </thead>
@@ -251,42 +277,45 @@ export function ReviewQueueTable() {
                     <td>
                       <p>{item.evaluation_result.risk_summary}</p>
                       <span>
-                        Score {item.evaluation_result.risk_score} ·{" "}
-                        {item.evaluation_result.risk_rating} · confidence{" "}
-                        {item.evaluation_result.confidence}
+                        Score {item.evaluation_result.risk_score} · {item.evaluation_result.risk_rating} · confidence {item.evaluation_result.confidence}
                       </span>
                     </td>
                     <td>
-                      <select
-                        disabled={activeId !== null}
-                        onChange={(event) =>
-                          handleStatusChange(
-                            item.id,
-                            event.target.value as ReviewStatus
-                          )
-                        }
-                        value={item.status}
-                      >
-                        {reviewStatuses.map((status) => (
-                          <option key={status} value={status}>
-                            {status}
-                          </option>
-                        ))}
-                      </select>
+                      {publicDemoMode ? (
+                        <StatusBadge status={item.status} />
+                      ) : (
+                        <select
+                          disabled={activeId !== null}
+                          onChange={(event) =>
+                            handleStatusChange(item.id, event.target.value as ReviewStatus)
+                          }
+                          value={item.status}
+                        >
+                          {reviewStatuses.map((status) => (
+                            <option key={status} value={status}>
+                              {humanize(status)}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </td>
                     <td>
-                      <textarea
-                        aria-label={`Reviewer notes for ${item.discovered_item.title}`}
-                        onChange={(event) =>
-                          setReviewerNotes((current) => ({
-                            ...current,
-                            [item.id]: event.target.value
-                          }))
-                        }
-                        placeholder="Optional review note"
-                        rows={3}
-                        value={reviewerNotes[item.id] ?? item.reviewer_notes ?? ""}
-                      />
+                      {publicDemoMode ? (
+                        <p>{item.reviewer_notes || "No reviewer note recorded."}</p>
+                      ) : (
+                        <textarea
+                          aria-label={`Reviewer notes for ${item.discovered_item.title}`}
+                          onChange={(event) =>
+                            setReviewerNotes((current) => ({
+                              ...current,
+                              [item.id]: event.target.value
+                            }))
+                          }
+                          placeholder="Optional review note"
+                          rows={3}
+                          value={reviewerNotes[item.id] ?? item.reviewer_notes ?? ""}
+                        />
+                      )}
                     </td>
                     <td>
                       {item.knowledge_base_ingestion ? (
@@ -294,7 +323,7 @@ export function ReviewQueueTable() {
                           <strong>Ingested</strong>
                           <span>{item.knowledge_base_ingestion.generated_markdown_path}</span>
                         </div>
-                      ) : item.status === "approved_for_rag" ? (
+                      ) : item.status === "approved_for_rag" && !publicDemoMode ? (
                         <button
                           className="secondary-action"
                           disabled={activeId !== null}
@@ -304,7 +333,7 @@ export function ReviewQueueTable() {
                           {activeId === `ingest:${item.id}` ? "Ingesting..." : "Ingest to RAG"}
                         </button>
                       ) : item.prepared_for_rag ? (
-                        "Prepared"
+                        "Prepared for controlled ingestion"
                       ) : (
                         "Not eligible"
                       )}
@@ -318,4 +347,12 @@ export function ReviewQueueTable() {
       </section>
     </div>
   );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  return <span className={`status-badge status-${status}`}>{humanize(status)}</span>;
+}
+
+function humanize(value: string): string {
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
