@@ -4,6 +4,7 @@ import { SiteFooter } from "@/components/SiteFooter";
 import { SiteHeader } from "@/components/SiteHeader";
 
 import "./styles.css";
+import "./v1.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://defi-thesis-risk-copilot.vercel.app"),
