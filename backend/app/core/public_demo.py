@@ -26,16 +26,16 @@ def block_public_demo_mutation() -> None:
 def enforce_public_compute_rate_limit(request: Request) -> None:
     """Apply a lightweight per-client limit to public compute endpoints.
 
-    This in-process limiter is intentionally small and dependency-free for the
-    single-instance portfolio deployment. A shared Redis-backed limiter is part
-    of the production-scale roadmap.
+    This in-process limiter is intentionally dependency-free for the current
+    single-instance portfolio deployment. A shared limiter belongs in the
+    multi-instance production roadmap.
     """
 
     settings = get_settings()
     if not settings.public_demo_mode:
         return
 
-    limit = max(settings.public_compute_rate_limit_per_minute, 1)
+    limit = max(int(getattr(settings, "public_compute_rate_limit_per_minute", 20)), 1)
     now = monotonic()
     key = f"{_client_identifier(request)}:{request.url.path}"
 
