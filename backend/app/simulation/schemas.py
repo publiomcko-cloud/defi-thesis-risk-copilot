@@ -1,6 +1,8 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.percentages import normalize_percent_style
 
 
 class SimulationRequest(BaseModel):
@@ -24,6 +26,22 @@ class SimulationRequest(BaseModel):
     slippage_bps: float | None = Field(default=None, ge=0, le=100_000)
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator(
+        "implied_apy",
+        "supply_apy",
+        "incentive_apy",
+        "borrow_apy",
+        "ltv",
+        "lltv",
+        "liquidity_shock_pct",
+        "collateral_drawdown_pct",
+        "early_exit_discount_pct",
+        mode="before",
+    )
+    @classmethod
+    def normalize_percentage_fields(cls, value: object) -> object:
+        return normalize_percent_style(value)
 
 
 class SimulationScenario(BaseModel):

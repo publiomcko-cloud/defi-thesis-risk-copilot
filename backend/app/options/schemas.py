@@ -1,6 +1,8 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.percentages import normalize_percent_style
 
 
 OptionType = Literal["call", "put"]
@@ -21,6 +23,11 @@ class OptionsAnalysisRequest(BaseModel):
     volatility_thesis: str | None = Field(default=None, max_length=2000)
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator("implied_volatility", mode="before")
+    @classmethod
+    def normalize_implied_volatility(cls, value: object) -> object:
+        return normalize_percent_style(value)
 
 
 class OptionScenario(BaseModel):

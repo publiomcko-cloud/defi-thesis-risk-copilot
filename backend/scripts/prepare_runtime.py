@@ -6,12 +6,8 @@ from app.rag.ingest import ingest_knowledge_base
 
 def main() -> int:
     settings = get_settings()
-    if not settings.public_demo_mode:
-        print("Runtime preparation skipped: PUBLIC_DEMO_MODE is disabled.")
-        return 0
-
     with SessionLocal() as db:
-        result = seed_demo_data(db, write_examples=False)
+        result = seed_demo_data(db, write_examples=not settings.public_demo_mode)
         print(f"Demo seed ready: {result.counts}")
 
     records = ingest_knowledge_base()

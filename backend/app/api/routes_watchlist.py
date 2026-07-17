@@ -43,6 +43,11 @@ def get_items(db: Session = Depends(get_db)) -> WatchlistItemsResponse:
     return WatchlistItemsResponse(items=list_watchlist_items(db))
 
 
+@router.get("/watchlist", response_model=WatchlistItemsResponse)
+def get_watchlist(db: Session = Depends(get_db)) -> WatchlistItemsResponse:
+    return WatchlistItemsResponse(items=list_watchlist_items(db))
+
+
 @router.patch(
     "/watchlist/items/{watchlist_item_id}",
     response_model=WatchlistUpdateResponse,

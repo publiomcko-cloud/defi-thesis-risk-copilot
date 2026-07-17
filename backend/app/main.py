@@ -25,7 +25,9 @@ from app.api.routes_vast import router as vast_router
 from app.api.routes_watchlist import router as watchlist_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
+from app.core.logging import configure_logging
 
+configure_logging()
 logger = logging.getLogger("defi_copilot.requests")
 
 
@@ -60,7 +62,12 @@ def create_app() -> FastAPI:
         duration_ms = round((perf_counter() - started) * 1000, 2)
         response.headers["X-Request-ID"] = request_id
         logger.info(
-            "API request",
+            "API request request_id=%s method=%s path=%s status=%s duration_ms=%s",
+            request_id,
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
             extra={
                 "request_id": request_id,
                 "method": request.method,

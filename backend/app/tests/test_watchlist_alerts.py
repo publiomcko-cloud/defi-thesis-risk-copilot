@@ -72,6 +72,25 @@ def test_alert_events_can_be_listed_and_acknowledged() -> None:
     assert response.json()["alert"]["status"] == "acknowledged"
 
 
+def test_watchlist_root_alias_lists_items() -> None:
+    _reset_watchlist_state()
+
+    with TestClient(app) as client:
+        item = client.post(
+            "/api/watchlist/items",
+            json={
+                "item_type": "market",
+                "title": "Alias watch",
+                "rules": {"borrow_apy_above_threshold": 0.05},
+                "snapshot": {"borrow_apy": 0.07},
+            },
+        ).json()["item"]
+        response = client.get("/api/watchlist")
+
+    assert response.status_code == 200
+    assert response.json()["items"][0]["id"] == item["id"]
+
+
 def test_repeated_watchlist_evaluation_does_not_duplicate_open_alerts() -> None:
     _reset_watchlist_state()
 

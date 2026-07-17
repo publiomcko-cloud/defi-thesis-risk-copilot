@@ -78,3 +78,23 @@ def test_market_data_fetch_returns_missing_fields() -> None:
         item for item in payload["data"]["adapters"] if item["source"] == "manual"
     )
     assert manual_adapter["data"]["borrow_apy"] == 0.07
+
+
+def test_analysis_accepts_percentage_style_manual_inputs() -> None:
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/analyze",
+            json={
+                "strategy_description": "Deposit ETH collateral into Morpho, borrow USDC at 5% APY, buy Pendle PT with an implied APY of 10%, and hold until maturity.",
+                "protocols": ["morpho", "pendle"],
+                "manual_inputs": {
+                    "borrow_apy": 5,
+                    "implied_apy": 10,
+                    "ltv": 50,
+                    "lltv": 86,
+                },
+                "analysis_depth": "standard",
+            },
+        )
+
+    assert response.status_code == 200

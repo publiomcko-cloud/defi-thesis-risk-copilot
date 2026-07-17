@@ -1,6 +1,8 @@
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.percentages import normalize_percent_style
 
 
 AnalysisDepth = Literal["quick", "standard", "deep"]
@@ -24,6 +26,19 @@ class ManualInputs(BaseModel):
     reserve_asset: str | None = Field(default=None, max_length=64)
 
     model_config = ConfigDict(extra="forbid")
+
+    @field_validator(
+        "borrow_apy",
+        "implied_apy",
+        "ltv",
+        "lltv",
+        "supply_apy",
+        "liquidation_threshold",
+        mode="before",
+    )
+    @classmethod
+    def normalize_percentage_fields(cls, value: object) -> object:
+        return normalize_percent_style(value)
 
 
 class AnalysisRequest(BaseModel):
