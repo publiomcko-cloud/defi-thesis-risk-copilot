@@ -1,19 +1,20 @@
 import { NextResponse } from "next/server";
 
-import { getApiBaseUrl } from "@/lib/api";
-import { readSessionToken } from "@/lib/server-auth";
+import { backendApiBaseUrl, getValidAccessToken } from "@/lib/server-auth";
 
 export async function GET() {
-  const token = await readSessionToken();
+  const result = NextResponse.json({ authenticated: false });
+  const token = await getValidAccessToken(result);
   if (!token) {
-    return NextResponse.json({ authenticated: false });
+    return result;
   }
-  const response = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
+  const response = await fetch(`${backendApiBaseUrl()}/api/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: "no-store"
   });
   if (!response.ok) {
-    return NextResponse.json({ authenticated: false }, { status: 401 });
+    return result;
   }
-  return NextResponse.json({ authenticated: true, user: await response.json() });
+  const body = await response.json();
+  return NextResponse.json({ authenticated: true, user: body }, { headers: result.headers });
 }

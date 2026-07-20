@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_admin
+from app.auth.schemas import UserContext
 from app.core.public_demo import block_public_demo_mutation
 from app.db.session import get_db
 from app.monitoring.discovery_service import list_discovered_items, run_monitoring
@@ -21,6 +23,7 @@ router = APIRouter(tags=["monitoring"])
 def run_source_monitoring(
     request: MonitoringRunRequest | None = None,
     db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
 ) -> MonitoringRunResponse:
     return run_monitoring(request or MonitoringRunRequest(), db)
 

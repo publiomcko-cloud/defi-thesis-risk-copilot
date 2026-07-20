@@ -9,6 +9,7 @@ from app.auth.security import hash_token, redact_sensitive
 from app.auth.supabase import SupabaseClaims
 from app.core.config import get_settings
 from app.models.access_audit_event import AccessAuditEventModel
+from app.models.consent_record import ConsentRecordModel
 from app.models.user import UserModel
 
 
@@ -79,6 +80,8 @@ def sync_supabase_user(db: Session, claims: SupabaseClaims) -> UserModel:
     verified_at = now if claims.email_verified else None
     if record is None:
         record = db.execute(select(UserModel).where(UserModel.email == normalized_email)).scalars().first()
+        if record is not None and record.auth_provider != "pending_invitation":
+            raise ValueError("Email is already linked to a different local account")
     if record is None:
         record = UserModel(
             id=f"user_{uuid4().hex[:12]}",
@@ -98,11 +101,14 @@ def sync_supabase_user(db: Session, claims: SupabaseClaims) -> UserModel:
         record.email = normalized_email
         record.auth_provider = "supabase"
         record.auth_subject = claims.subject
+        record.is_active = True
+        record.account_status = "active"
         if verified_at is not None:
             record.email_verified_at = verified_at
         record.last_login_at = now
         record.updated_at = now
     db.commit()
+    _record_signup_consents(db, record, claims.raw)
     db.refresh(record)
     return record
 
@@ -205,3 +211,33 @@ def audit_event_response(record: AccessAuditEventModel) -> AuditEventResponse:
 
 def normalize_email(email: str) -> str:
     return email.strip().lower()
+
+
+def _record_signup_consents(db: Session, record: UserModel, claims: dict) -> None:
+    metadata = claims.get("user_metadata") if isinstance(claims.get("user_metadata"), dict) else {}
+    for document_type, key in {
+        "terms": "accepted_terms_version",
+        "privacy": "accepted_privacy_version",
+    }.items():
+        version = metadata.get(key)
+        if not isinstance(version, str) or not version:
+            continue
+        existing = db.execute(
+            select(ConsentRecordModel)
+            .where(ConsentRecordModel.user_id == record.id)
+            .where(ConsentRecordModel.document_type == document_type)
+            .where(ConsentRecordModel.document_version == version)
+            .where(ConsentRecordModel.withdrawn_at.is_(None))
+        ).scalars().first()
+        if existing is None:
+            db.add(
+                ConsentRecordModel(
+                    id=f"consent_{uuid4().hex[:12]}",
+                    user_id=record.id,
+                    document_type=document_type,
+                    document_version=version,
+                    accepted_at=datetime.now(UTC),
+                    metadata_json={"source": "supabase_signup_metadata"},
+                )
+            )
+            db.commit()

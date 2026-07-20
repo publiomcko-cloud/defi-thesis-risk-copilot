@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.policies import can_manage_members, can_manage_organization
 from app.auth.schemas import UserContext
-from app.auth.service import create_user, normalize_email
+from app.auth.service import normalize_email
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 from app.organizations.schemas import (
@@ -131,8 +131,21 @@ def add_member(
         raise HTTPException(status_code=403, detail="Organization owner/admin role required")
     email = normalize_email(request.email)
     user = db.execute(select(UserModel).where(UserModel.email == email)).scalars().first()
+    pending = False
     if user is None:
-        user = create_user(db, email=email, role="common", is_active=True)
+        user = UserModel(
+            id=f"user_{uuid4().hex[:12]}",
+            email=email,
+            role="common",
+            platform_role="user",
+            account_status="pending_invitation",
+            plan="free",
+            auth_provider="pending_invitation",
+            is_active=False,
+        )
+        db.add(user)
+        db.flush()
+        pending = True
     existing = db.execute(
         select(OrganizationMembershipModel)
         .where(OrganizationMembershipModel.organization_id == org.id)
@@ -145,14 +158,14 @@ def add_member(
             organization_id=org.id,
             user_id=user.id,
             role=request.role,
-            status="active",
+            status="pending" if pending else "active",
             created_at=now,
             updated_at=now,
         )
         db.add(existing)
     else:
         existing.role = request.role
-        existing.status = "active"
+        existing.status = "pending" if pending else "active"
         existing.updated_at = now
     db.commit()
     db.refresh(existing)

@@ -52,7 +52,16 @@ def require_user(
             claims = verify_supabase_jwt(credentials.credentials, settings)
         except SupabaseTokenError:
             raise HTTPException(status_code=401, detail="Invalid authentication token") from None
-        user = sync_supabase_user(db, claims)
+        try:
+            user = sync_supabase_user(db, claims)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Account cannot be synchronized") from None
+        if (
+            settings.admin_mfa_required
+            and user.platform_role == "admin"
+            and claims.raw.get("aal") != "aal2"
+        ):
+            raise HTTPException(status_code=403, detail="Administrator MFA required")
         context = user_context(user)
     else:
         raise HTTPException(status_code=500, detail="Unsupported authentication provider")

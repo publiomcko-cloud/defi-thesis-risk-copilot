@@ -5,7 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 OrganizationRole = Literal["owner", "admin", "member", "viewer"]
-MembershipStatus = Literal["active", "removed"]
+MembershipStatus = Literal["active", "pending", "removed"]
 
 
 class OrganizationCreateRequest(BaseModel):

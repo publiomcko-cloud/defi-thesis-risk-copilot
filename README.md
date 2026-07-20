@@ -350,9 +350,9 @@ The former Post-MVP and Phase 10-12 plan files now redirect to the consolidated 
 
 ## Current Roadmap
 
-Completed work is documented through V1 Phase 16 foundation.
+Completed work is documented through V1 Phase 15. V1 Phase 16 identity, ownership, and quota hardening is in progress.
 
-V1 Phase 16 adds:
+V1 Phase 16 is adding:
 
 - Supabase Auth JWT validation with secure-cookie frontend foundations
 - local application users, explicit platform roles, organizations, and memberships

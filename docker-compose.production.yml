@@ -32,6 +32,7 @@ services:
     image: defi-thesis-risk-copilot-frontend:latest
     command: sh -c "npm run build && npm run start -- --hostname 0.0.0.0"
     environment:
+      BACKEND_API_BASE_URL: ${BACKEND_API_BASE_URL:-http://backend:8000}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://127.0.0.1:8000}
       NEXT_PUBLIC_PUBLIC_DEMO_MODE: ${NEXT_PUBLIC_PUBLIC_DEMO_MODE:-true}
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}

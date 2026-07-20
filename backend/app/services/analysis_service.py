@@ -1,9 +1,11 @@
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import UserContext
 from app.agents.orchestrator import run_analysis_workflow
+from app.core.config import get_settings
 from app.models.analysis_request import AnalysisRequestModel
 from app.quotas.service import ACTION_ANALYSIS, consume_quota
 from app.reports.markdown_export import render_markdown_report
@@ -21,10 +23,12 @@ def analyze_strategy(
     analysis_request_id = f"analysis_{uuid4().hex[:12]}"
     report_id = f"report_{uuid4().hex[:12]}"
     workflow_result = run_analysis_workflow(request, report_id, db)
-    visibility = "public_demo" if actor is None else (
-        "private" if not actor.anonymous_session_id else "private"
+    visibility = "public_demo" if actor is None else "private"
+    expires_at = (
+        datetime.now(UTC) + timedelta(hours=get_settings().anonymous_retention_hours)
+        if actor and actor.anonymous_session_id
+        else None
     )
-    expires_at = None
 
     db.add(
         AnalysisRequestModel(

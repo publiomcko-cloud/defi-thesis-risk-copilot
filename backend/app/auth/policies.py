@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import UserContext
-from app.models.organization import OrganizationMembershipModel
+from app.models.organization import OrganizationMembershipModel, OrganizationModel
 
 
 class ScopedResource(Protocol):
@@ -80,13 +80,19 @@ def has_org_role(
 ) -> bool:
     membership = db.execute(
         select(OrganizationMembershipModel)
+        .join(OrganizationModel, OrganizationModel.id == OrganizationMembershipModel.organization_id)
         .where(OrganizationMembershipModel.user_id == user_id)
         .where(OrganizationMembershipModel.organization_id == organization_id)
         .where(OrganizationMembershipModel.status == "active")
+        .where(OrganizationModel.status == "active")
+        .where(OrganizationModel.deleted_at.is_(None))
     ).scalars().first()
     return membership is not None and membership.role in allowed_roles
 
 
 def _deleted_or_expired(resource: ScopedResource) -> bool:
     now = datetime.now(UTC)
-    return bool(resource.deleted_at or (resource.expires_at and resource.expires_at <= now))
+    expires_at = resource.expires_at
+    if expires_at is not None and expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return bool(resource.deleted_at or (expires_at and expires_at <= now))

@@ -18,6 +18,7 @@ const publicLinks = [
 const protectedLinks = [
   { href: "/account", label: "Account" },
   { href: "/theses", label: "Theses" },
+  { href: "/organizations", label: "Organizations" },
   { href: "/review", label: "Review" },
   { href: "/admin", label: "Admin" }
 ];

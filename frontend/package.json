@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit --incremental false"
+    "lint": "tsc --noEmit --incremental false",
+    "test:e2e": "node scripts/e2e-smoke.mjs"
   },
   "dependencies": {
     "next": "^15.5.20",

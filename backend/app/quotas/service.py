@@ -10,12 +10,16 @@ from sqlalchemy.orm import Session
 from app.auth.schemas import UserContext
 from app.core.config import get_settings
 from app.models.usage_quota import UsageQuotaModel
+from app.models.saved_thesis import SavedThesisModel
+from app.models.watchlist_item import WatchlistItemModel
 
 
 ACTION_ANALYSIS = "analysis"
 ACTION_SIMULATION = "simulation"
 ACTION_OPTIONS = "options_analysis"
 ACTION_MARKET_DATA = "market_data_fetch"
+RESOURCE_SAVED_THESES = "saved_theses"
+RESOURCE_WATCHLISTS = "watchlists"
 
 
 def consume_quota(
@@ -103,6 +107,36 @@ def usage_summary(db: Session, actor: UserContext) -> dict:
             for record in records
         ],
     }
+
+
+def enforce_resource_count_limit(db: Session, actor: UserContext, resource: str) -> None:
+    settings = get_settings()
+    if actor.is_admin and settings.quota_admin_exempt:
+        return
+    if actor.anonymous_session_id:
+        raise HTTPException(status_code=403, detail=f"Anonymous users cannot create {resource}.")
+    if resource == RESOURCE_SAVED_THESES:
+        limit = settings.quota_free_saved_theses
+        count = len(
+            db.execute(
+                select(SavedThesisModel)
+                .where(SavedThesisModel.owner_user_id == actor.id)
+                .where(SavedThesisModel.deleted_at.is_(None))
+            ).scalars().all()
+        )
+    elif resource == RESOURCE_WATCHLISTS:
+        limit = settings.quota_free_watchlists
+        count = len(
+            db.execute(
+                select(WatchlistItemModel)
+                .where(WatchlistItemModel.owner_user_id == actor.id)
+                .where(WatchlistItemModel.deleted_at.is_(None))
+            ).scalars().all()
+        )
+    else:
+        return
+    if count >= limit:
+        raise HTTPException(status_code=429, detail=f"{resource} quota exceeded.")
 
 
 def _limit_for(plan: str, action: str) -> int | None:

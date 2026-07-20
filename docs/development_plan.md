@@ -376,7 +376,7 @@ Completion gate:
 - Render readiness succeeds
 - deployed read-only behavior is manually verified
 
-## V1 Phase 16 — Production Identity, Ownership, and Quotas — Implemented Foundation
+## V1 Phase 16 — Production Identity, Ownership, and Quotas — In Progress
 
 Goal: move from a shared portfolio environment to a real multi-user product.
 

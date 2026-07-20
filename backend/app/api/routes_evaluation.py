@@ -28,6 +28,7 @@ router = APIRouter(tags=["evaluation"])
 def evaluate_item(
     discovered_item_id: str,
     db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
 ) -> EvaluateDiscoveredItemResponse:
     return evaluate_discovered_item(discovered_item_id, db)
 

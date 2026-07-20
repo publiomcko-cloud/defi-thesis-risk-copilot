@@ -49,6 +49,7 @@ services:
     working_dir: /app
     command: npm run dev -- --hostname 0.0.0.0
     environment:
+      BACKEND_API_BASE_URL: http://backend:8000
       NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
       NEXT_PUBLIC_PUBLIC_DEMO_MODE: ${NEXT_PUBLIC_PUBLIC_DEMO_MODE:-false}
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}

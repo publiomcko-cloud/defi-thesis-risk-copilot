@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { setSessionCookie, supabaseAuthFetch } from "@/lib/server-auth";
+import { setSupabaseSessionCookies, supabaseAuthFetch } from "@/lib/server-auth";
 
 export async function POST(request: Request) {
   const payload = await request.json();
@@ -16,6 +16,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ detail: "Login failed." }, { status: response.status });
   }
   const result = NextResponse.json({ status: "authenticated" });
-  await setSessionCookie(result, body.access_token);
+  await setSupabaseSessionCookies(result, body);
   return result;
 }

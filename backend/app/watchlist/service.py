@@ -9,6 +9,7 @@ from app.auth.policies import can_read_resource, can_update_resource
 from app.auth.schemas import UserContext
 from app.models.alert_event import AlertEventModel
 from app.models.watchlist_item import WatchlistItemModel
+from app.quotas.service import RESOURCE_WATCHLISTS, enforce_resource_count_limit
 from app.watchlist.rules import evaluate_rules
 from app.watchlist.schemas import (
     AlertEvent,
@@ -28,6 +29,8 @@ def create_watchlist_item(
     db: Session,
     actor: UserContext | None = None,
 ) -> WatchlistCreateResponse:
+    if actor is not None:
+        enforce_resource_count_limit(db, actor, RESOURCE_WATCHLISTS)
     item = WatchlistItemModel(
         id=f"watch_{uuid4().hex[:12]}",
         item_type=request.item_type,

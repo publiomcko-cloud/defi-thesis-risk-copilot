@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 
-import { readSessionToken, setSessionCookie, supabaseAuthFetch } from "@/lib/server-auth";
+import { getValidAccessToken, supabaseAuthFetch } from "@/lib/server-auth";
 
 export async function POST(request: Request) {
   const payload = await request.json();
-  const token = payload.access_token || (await readSessionToken());
+  const result = NextResponse.json({ status: "password_updated" });
+  const token = await getValidAccessToken(result);
   if (!token) {
     return NextResponse.json({ detail: "Reset session is missing or expired." }, { status: 401 });
   }
@@ -17,7 +18,6 @@ export async function POST(request: Request) {
   if (!response.ok) {
     return NextResponse.json({ detail: "Password reset failed." }, { status: response.status });
   }
-  const result = NextResponse.json({ status: "password_updated" });
-  await setSessionCookie(result, body.access_token ?? token);
+  void body;
   return result;
 }

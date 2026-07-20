@@ -4,6 +4,7 @@
 
 ```text
 Vercel Next.js frontend
+  -> same-origin Next.js BFF routes
   -> Render FastAPI backend
   -> Supabase PostgreSQL
 ```
@@ -40,9 +41,12 @@ DEPLOYMENT_COMMIT=<Git commit SHA>
 Required frontend settings:
 
 ```env
-NEXT_PUBLIC_API_BASE_URL=https://defi-thesis-risk-copilot.onrender.com
+BACKEND_API_BASE_URL=https://defi-thesis-risk-copilot.onrender.com
+NEXT_PUBLIC_API_BASE_URL=/api/backend
 NEXT_PUBLIC_PUBLIC_DEMO_MODE=true
 ```
+
+The browser should call the same Vercel origin through `/api/backend/...`. Next.js route handlers forward only approved backend paths and attach the HttpOnly Supabase session when present. `BACKEND_API_BASE_URL` is server-side only; for Docker Compose it is `http://backend:8000`, and for Vercel it should be the Render backend URL.
 
 `AUTH_ENABLED=false` does not make hosted visitors administrators. When public-demo mode is enabled, the unauthenticated identity is a common read-only visitor.
 
@@ -134,7 +138,8 @@ Do not configure `public` as the output directory. The included `frontend/vercel
 
 The frontend:
 
-- uses the Render API URL from `NEXT_PUBLIC_API_BASE_URL`;
+- uses same-origin `/api/backend` browser calls for backend access;
+- uses server-side `BACKEND_API_BASE_URL` from the Next.js BFF to reach Render;
 - hides administrator navigation in public mode;
 - exposes retry and backend-readiness actions for cold starts;
 - labels the hosted environment as shared, synthetic, and read-only for privileged workflows.
@@ -284,6 +289,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
 ```
 
 Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only and do not expose it through `NEXT_PUBLIC_*`.
+
+The frontend stores Supabase access and refresh tokens only in HttpOnly cookies created by Next.js auth routes. Password reset and session checks use the same server-side cookie path. Logout and failed refresh attempts clear both access and refresh cookies.
 
 Production fails closed when `AUTH_ENABLED=true`, `AUTH_PROVIDER=supabase`, and required Supabase JWT configuration is missing. `AUTH_PROVIDER=legacy_local` is only for explicit local development and is rejected in production.
 

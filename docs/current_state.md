@@ -26,10 +26,10 @@ Completed:
 Active iteration:
 
 ```text
-V1 Phase 16 — Production Identity, Ownership, and Quotas
+V1 Phase 16 — In Progress
 ```
 
-Phase 16 adds the multi-user product foundation on top of the public-safe Phase 15 demo boundary.
+Phase 16 is hardening the multi-user product foundation on top of the public-safe Phase 15 demo boundary.
 
 ## Current Stack
 
@@ -58,9 +58,10 @@ Phase 16 implements:
 - authenticated account export and soft deletion
 - versioned consent records for terms and privacy
 - isolated anonymous sessions with secure random server-generated IDs stored in HttpOnly cookies
+- same-origin Next.js BFF forwarding through `/api/backend/*`, with Supabase access/refresh cookies kept HttpOnly and backend destinations allowlisted
 - `python -m scripts.cleanup_expired_data --dry-run` for retention cleanup
 
-Frontend Phase 16 foundation includes `/login`, `/signup`, `/verify-email`, `/forgot-password`, `/reset-password`, `/account`, `/account/security`, `/terms`, `/privacy`, and `/theses`.
+Frontend Phase 16 foundation includes `/login`, `/signup`, `/verify-email`, `/forgot-password`, `/reset-password`, `/account`, `/account/security`, `/terms`, `/privacy`, `/theses`, and `/organizations`.
 
 MFA enrollment/challenge support depends on Supabase project MFA configuration. The UI and configuration hooks are present, but full external MFA verification must be tested against the deployed Supabase project before commercial use.
 

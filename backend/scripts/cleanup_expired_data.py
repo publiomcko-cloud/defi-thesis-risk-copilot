@@ -9,6 +9,7 @@ from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.anonymous_session import AnonymousSessionModel
+from app.models.alert_event import AlertEventModel
 from app.models.report import ReportModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.user import UserModel
@@ -69,6 +70,17 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
         )
         if dry_run:
             return counts
+        expired_watchlist_ids = [
+            item.id
+            for item in db.execute(
+                select(WatchlistItemModel)
+                .where(WatchlistItemModel.visibility != "public_demo")
+                .where(WatchlistItemModel.expires_at.is_not(None))
+                .where(WatchlistItemModel.expires_at <= now)
+            ).scalars().all()
+        ]
+        if expired_watchlist_ids:
+            db.execute(delete(AlertEventModel).where(AlertEventModel.watchlist_item_id.in_(expired_watchlist_ids)))
         db.execute(delete(AnonymousSessionModel).where(AnonymousSessionModel.expires_at <= now))
         db.execute(
             delete(ReportModel)
@@ -93,6 +105,18 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
             .where(SavedThesisModel.deleted_at.is_not(None))
             .where(SavedThesisModel.deleted_at <= deleted_cutoff)
         )
+        deleted_users = db.execute(
+            select(UserModel)
+            .where(UserModel.deleted_at.is_not(None))
+            .where(UserModel.deleted_at <= deleted_cutoff)
+        ).scalars().all()
+        for user in deleted_users:
+            user.email = f"deleted-{user.id}@deleted.local"
+            user.auth_subject = None
+            user.access_token_hash = None
+            user.account_status = "deleted"
+            user.is_active = False
+            user.updated_at = now
         db.commit()
     return counts
 

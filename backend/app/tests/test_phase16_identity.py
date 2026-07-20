@@ -21,8 +21,10 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.analysis_request import AnalysisRequestModel
+from app.models.anonymous_session import AnonymousSessionModel
 from app.models.report import ReportModel
 from app.models.saved_thesis import SavedThesisModel
+from app.models.watchlist_item import WatchlistItemModel
 from app.quotas.service import ACTION_ANALYSIS, consume_quota
 from scripts.cleanup_expired_data import cleanup_expired_data
 
@@ -205,8 +207,182 @@ def test_supabase_jwt_validation_with_jwks(monkeypatch) -> None:
     assert claims.email_verified is True
 
 
+def test_supabase_jwt_rejects_invalid_claims_and_signature(monkeypatch) -> None:
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    other_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_numbers = private_key.public_key().public_numbers()
+    jwk = {
+        "kty": "RSA",
+        "kid": "test-key",
+        "n": _b64int(public_numbers.n),
+        "e": _b64int(public_numbers.e),
+    }
+    settings = Settings(
+        auth_enabled=True,
+        auth_provider="supabase",
+        supabase_jwks_url="https://example.test/.well-known/jwks.json",
+        supabase_jwt_issuer="https://project.supabase.co/auth/v1",
+        supabase_jwt_audience="authenticated",
+    )
+
+    class FakeResponse:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> dict:
+            return {"keys": [jwk]}
+
+    monkeypatch.setattr("app.auth.supabase.httpx.get", lambda *args, **kwargs: FakeResponse())
+    base_payload = {
+        "sub": "supabase-user-1",
+        "email": "user@example.test",
+        "email_verified": True,
+        "iss": settings.supabase_jwt_issuer,
+        "aud": "authenticated",
+        "exp": int(time.time()) + 300,
+    }
+
+    bad_tokens = [
+        "not.a.jwt",
+        _signed_jwt(private_key, {**base_payload, "exp": int(time.time()) - 1}),
+        _signed_jwt(private_key, {**base_payload, "iss": "https://wrong.example"}),
+        _signed_jwt(private_key, {**base_payload, "aud": "wrong"}),
+        _signed_jwt(other_key, base_payload),
+    ]
+
+    for token in bad_tokens:
+        with pytest.raises(Exception):
+            verify_supabase_jwt(token, settings)
+
+
+def test_anonymous_report_isolation_and_expiration(phase16_client, monkeypatch) -> None:
+    monkeypatch.setenv("AUTH_ENABLED", "true")
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    monkeypatch.setenv("COOKIE_SECURE", "false")
+    monkeypatch.setenv("ANONYMOUS_RETENTION_HOURS", "1")
+    get_settings.cache_clear()
+    client, Session = phase16_client
+    now = datetime.now(UTC)
+    with Session() as db:
+        db.add_all(
+            [
+                AnonymousSessionModel(
+                    id="anon_a",
+                    status="active",
+                    created_at=now,
+                    last_seen_at=now,
+                    expires_at=now + timedelta(hours=1),
+                ),
+                AnonymousSessionModel(
+                    id="anon_expired",
+                    status="active",
+                    created_at=now - timedelta(hours=2),
+                    last_seen_at=now - timedelta(hours=2),
+                    expires_at=now - timedelta(minutes=1),
+                ),
+            ]
+        )
+        analysis = AnalysisRequestModel(
+            id="analysis_anon",
+            strategy_description="Anonymous strategy",
+            protocols=["pendle"],
+            manual_inputs_json={},
+            analysis_depth="standard",
+            visibility="private",
+            anonymous_session_id="anon_a",
+            expires_at=now + timedelta(hours=1),
+        )
+        report = ReportModel(
+            id="report_anon",
+            analysis_request_id=analysis.id,
+            title="Anon Report",
+            risk_rating="Moderate",
+            summary="Anon summary",
+            report_markdown="# Anon",
+            report_json=_report_json("report_anon"),
+            visibility="private",
+            anonymous_session_id="anon_a",
+            expires_at=now + timedelta(hours=1),
+        )
+        db.add_all([analysis, report])
+        db.commit()
+
+    client.cookies.set("defi_copilot_anon", "anon_a")
+    assert client.get("/api/reports/report_anon").status_code == 200
+    client.cookies.clear()
+    assert client.get("/api/reports/report_anon").status_code == 404
+    client.cookies.clear()
+    client.cookies.set("defi_copilot_anon", "anon_expired")
+    assert client.get("/api/reports/report_anon").status_code == 404
+
+
+def test_watchlist_resource_count_quota(phase16_client, monkeypatch) -> None:
+    monkeypatch.setenv("QUOTA_FREE_WATCHLISTS", "1")
+    get_settings.cache_clear()
+    client, Session = phase16_client
+    with Session() as db:
+        create_user(db, "watch@example.test", token="watch-token")
+    payload = {
+        "item_type": "market",
+        "title": "Borrow watch",
+        "rules": {"borrow_apy_above_threshold": 0.05},
+        "snapshot": {"borrow_apy": 0.07},
+    }
+    first = client.post("/api/watchlist/items", json=payload, headers=_auth("watch-token"))
+    second = client.post("/api/watchlist/items", json={**payload, "title": "Borrow watch 2"}, headers=_auth("watch-token"))
+    assert first.status_code == 200
+    assert second.status_code == 429
+
+
+def test_cleanup_anonymizes_deleted_user_and_removes_expired_watchlist(phase16_client, monkeypatch) -> None:
+    _, Session = phase16_client
+    old = datetime.now(UTC) - timedelta(days=90)
+    with Session() as db:
+        user = create_user(db, "delete-me@example.test", token="delete-token")
+        user_id = user.id
+        user.deleted_at = old
+        user.account_status = "deleted"
+        watch = WatchlistItemModel(
+            id="watch_expired",
+            item_type="market",
+            title="Expired watch",
+            rules_json={},
+            snapshot_json={},
+            visibility="private",
+            owner_user_id=user.id,
+            expires_at=datetime.now(UTC) - timedelta(minutes=1),
+        )
+        db.add(watch)
+        db.commit()
+    monkeypatch.setattr("scripts.cleanup_expired_data.SessionLocal", Session)
+    cleanup_expired_data(dry_run=False)
+    with Session() as db:
+        from app.models.user import UserModel
+
+        user = db.get(UserModel, user_id)
+        assert user.email.endswith("@deleted.local")
+        assert user.access_token_hash is None
+        assert db.get(WatchlistItemModel, "watch_expired") is None
+
+
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _report_json(report_id: str) -> dict:
+    return {
+        "report_id": report_id,
+        "status": "completed",
+        "risk_rating": "Moderate",
+        "executive_summary": "Summary",
+        "strategy_description": "Strategy",
+        "protocols": ["pendle"],
+        "assumptions": [],
+        "missing_data": [],
+        "sections": [],
+        "sources": [],
+        "disclaimer": "Educational only.",
+    }
 
 
 def _signed_jwt(private_key, payload: dict) -> str:

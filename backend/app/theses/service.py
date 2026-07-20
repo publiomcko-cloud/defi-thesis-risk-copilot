@@ -10,10 +10,12 @@ from sqlalchemy.orm import Session
 from app.auth.policies import can_read_resource, can_update_resource, has_org_role
 from app.auth.schemas import UserContext
 from app.models.saved_thesis import SavedThesisModel
+from app.quotas.service import RESOURCE_SAVED_THESES, enforce_resource_count_limit
 from app.theses.schemas import ThesisCreateRequest, ThesisResponse, ThesisUpdateRequest
 
 
 def create_thesis(db: Session, actor: UserContext, request: ThesisCreateRequest) -> ThesisResponse:
+    enforce_resource_count_limit(db, actor, RESOURCE_SAVED_THESES)
     if request.visibility == "organization":
         if not request.organization_id or not has_org_role(db, actor.id, request.organization_id, {"owner", "admin", "member"}):
             raise HTTPException(status_code=403, detail="Organization membership required")
@@ -73,6 +75,8 @@ def update_thesis(
         if request.visibility == "organization" and not record.organization_id:
             raise HTTPException(status_code=422, detail="organization_id is required for organization visibility")
         record.visibility = request.visibility
+        if request.visibility == "private":
+            record.organization_id = None
     record.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(record)

@@ -45,7 +45,10 @@ import type {
 } from "./types";
 
 export function getApiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+  if (typeof window !== "undefined") {
+    return "/api/backend";
+  }
+  return process.env.BACKEND_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 }
 
 export function getAuthToken(): string {

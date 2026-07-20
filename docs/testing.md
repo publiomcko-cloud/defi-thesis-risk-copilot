@@ -340,6 +340,8 @@ Manual/external checks still required before commercial launch:
 - Vercel-to-Render cookie/BFF behavior on the production domains
 - browser E2E tests for organization-scoped reports, theses, and watchlists
 
+The lightweight frontend smoke script checks Phase 16 route reachability and same-origin BFF readiness locally, but it is not a substitute for deployed Supabase Auth/MFA verification.
+
 Recommended Phase 16 commands:
 
 ```bash
@@ -351,4 +353,9 @@ alembic downgrade -1
 alembic upgrade head
 python -m pytest -q
 python -m scripts.cleanup_expired_data --dry-run
+
+cd ../frontend
+npm run lint
+npm run build
+npm run test:e2e
 ```

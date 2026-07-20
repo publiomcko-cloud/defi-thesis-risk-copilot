@@ -19,6 +19,7 @@ DeFi Thesis & Risk Copilot is designed around:
 ```text
 Browser
   -> Vercel Next.js frontend
+  -> same-origin Next.js BFF route handlers
   -> Render FastAPI backend
   -> Supabase PostgreSQL
 
@@ -302,14 +303,17 @@ This permits a local worker without open inbound router ports. Workers authentic
 
 ```text
 Browser
-  -> Vercel Next.js auth route handlers
-  -> HttpOnly session cookie
-  -> FastAPI with Authorization bearer token forwarding
+  -> Vercel Next.js auth and BFF route handlers
+  -> HttpOnly Supabase access/refresh cookies
+  -> approved same-origin /api/backend/* forwarding
+  -> FastAPI with Authorization bearer token forwarding when authenticated
   -> Supabase JWKS token validation
   -> local users, organizations, policies, quotas
 ```
 
 Supabase JWT claims only establish identity. Application roles, platform administrator status, account status, organization roles, and quota plan come from the application database.
+
+Browser code does not call authenticated backend endpoints directly. It calls the Next.js BFF on the same origin; the BFF forwards only fixed backend path prefixes, rotates refresh cookies through Supabase when needed, clears cookies on failed refresh, and never accepts arbitrary proxy destinations.
 
 Central authorization policies evaluate owner user, organization membership, resource visibility, anonymous session, deleted state, and expiration state. Report IDs alone do not grant access.
 

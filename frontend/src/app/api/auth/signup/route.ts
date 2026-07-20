@@ -8,7 +8,11 @@ export async function POST(request: Request) {
     method: "POST",
     body: JSON.stringify({
       email: payload.email,
-      password: payload.password
+      password: payload.password,
+      data: {
+        accepted_terms_version: payload.terms_version ?? "2026-07-20",
+        accepted_privacy_version: payload.privacy_version ?? "2026-07-20"
+      }
     })
   });
   if (!response.ok) {
