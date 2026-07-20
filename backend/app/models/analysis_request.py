@@ -16,10 +16,16 @@ class AnalysisRequestModel(Base):
     market_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     manual_inputs_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     analysis_depth: Mapped[str] = mapped_column(String(32), nullable=False)
+    owner_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    organization_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    visibility: Mapped[str] = mapped_column(String(32), default="private", nullable=False, index=True)
+    anonymous_session_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.now(UTC),
         nullable=False,
     )
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     reports = relationship("ReportModel", back_populates="analysis_request")

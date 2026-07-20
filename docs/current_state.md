@@ -26,10 +26,10 @@ Completed:
 Active iteration:
 
 ```text
-V1 Phase 15 — Product Hardening and Public-Safe UX
+V1 Phase 16 — Production Identity, Ownership, and Quotas
 ```
 
-Phase 15 addresses the security, API, deployment, design, and UX findings from the full deployed-project evaluation.
+Phase 16 adds the multi-user product foundation on top of the public-safe Phase 15 demo boundary.
 
 ## Current Stack
 
@@ -41,6 +41,28 @@ Phase 15 addresses the security, API, deployment, design, and UX findings from t
 - Testing: pytest, TypeScript checks, Next.js build, smoke scripts, Compose validation
 - Automation: GitHub Actions and platform deployments
 - Optional model providers: Ollama, OpenAI-compatible APIs, and admin-only Vast.ai dry-run/manual warm-up
+
+## Identity and Ownership Foundation
+
+Phase 16 implements:
+
+- `AUTH_PROVIDER=supabase` backend JWT validation through Supabase JWKS with issuer, audience, expiration, subject, and signature checks
+- `AUTH_PROVIDER=legacy_local` only for explicit local-development compatibility
+- idempotent Supabase identity synchronization into local application users
+- database-owned platform roles; JWT metadata cannot self-assign administrator access
+- organization and organization-membership tables with owner/admin/member/viewer roles
+- central authorization helpers for resource ownership, organization membership, public demo visibility, anonymous sessions, and deleted/expired resources
+- ownership fields for analysis requests, reports, and watchlists
+- saved theses
+- durable daily usage quotas for analysis, simulation, options, and market-data fetches
+- authenticated account export and soft deletion
+- versioned consent records for terms and privacy
+- isolated anonymous sessions with secure random server-generated IDs stored in HttpOnly cookies
+- `python -m scripts.cleanup_expired_data --dry-run` for retention cleanup
+
+Frontend Phase 16 foundation includes `/login`, `/signup`, `/verify-email`, `/forgot-password`, `/reset-password`, `/account`, `/account/security`, `/terms`, `/privacy`, and `/theses`.
+
+MFA enrollment/challenge support depends on Supabase project MFA configuration. The UI and configuration hooks are present, but full external MFA verification must be tested against the deployed Supabase project before commercial use.
 
 ## Public Product Boundary
 
@@ -192,7 +214,7 @@ python scripts/evaluate_retrieval.py --retriever hybrid
 
 - Phase 15 uses an in-process rate limiter suitable for the current single-instance demo, not a distributed production limiter.
 - The hosted environment still uses a shared database for public generated reports; inputs must not contain private or sensitive information.
-- Production-grade identity, secure cookie sessions, MFA, account recovery, ownership, and tenant isolation are not implemented yet.
+- Phase 16 adds identity and ownership foundations, but full deployed Supabase Auth/MFA verification, production tenant-specific vector storage, and commercial legal review remain required.
 - The local JSON RAG index is rebuilt on startup but is not durable or tenant-aware; pgvector/object storage is planned.
 - Heavy background work does not yet use a durable job queue or hybrid workers.
 - Render free-tier cold starts can temporarily delay requests.

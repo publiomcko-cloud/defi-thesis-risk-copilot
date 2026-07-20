@@ -268,7 +268,40 @@ curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/discovery/run 
 - [ ] No real secrets are configured in the public environment.
 - [ ] Git commit/version metadata is set.
 
-## 14. Next Production Steps
+## 14. Supabase Auth Setup
+
+For a private product deployment:
+
+```env
+AUTH_ENABLED=true
+AUTH_PROVIDER=supabase
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_JWKS_URL=https://<project>.supabase.co/auth/v1/.well-known/jwks.json
+SUPABASE_JWT_ISSUER=https://<project>.supabase.co/auth/v1
+SUPABASE_JWT_AUDIENCE=authenticated
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
+```
+
+Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only and do not expose it through `NEXT_PUBLIC_*`.
+
+Production fails closed when `AUTH_ENABLED=true`, `AUTH_PROVIDER=supabase`, and required Supabase JWT configuration is missing. `AUTH_PROVIDER=legacy_local` is only for explicit local development and is rejected in production.
+
+MFA:
+
+- ordinary users may use MFA when Supabase MFA is configured;
+- `ADMIN_MFA_REQUIRED=true` documents and surfaces the administrator requirement;
+- full TOTP enrollment/challenge verification must be tested against the deployed Supabase project.
+
+Retention cleanup is manual in Phase 16:
+
+```bash
+cd backend
+python -m scripts.cleanup_expired_data --dry-run
+python -m scripts.cleanup_expired_data
+```
+
+## 15. Next Production Steps
 
 See [`docs/development_plan.md`](development_plan.md) for:
 

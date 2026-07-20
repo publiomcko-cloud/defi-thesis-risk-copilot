@@ -350,11 +350,19 @@ The former Post-MVP and Phase 10-12 plan files now redirect to the consolidated 
 
 ## Current Roadmap
 
-Completed work is documented through Final Phase 14. The active v1 hardening iteration is V1 Phase 15.
+Completed work is documented through V1 Phase 16 foundation.
+
+V1 Phase 16 adds:
+
+- Supabase Auth JWT validation with secure-cookie frontend foundations
+- local application users, explicit platform roles, organizations, and memberships
+- private reports, watchlists, alerts, and saved theses foundations
+- isolated anonymous demo sessions
+- durable daily product-usage quotas
+- account export/deletion, retention cleanup, terms/privacy, and consent records
 
 Future real-product phases cover:
 
-- managed authentication, ownership, and quotas
 - durable jobs and hybrid local/cloud workers
 - durable object and vector storage
 - production observability and security

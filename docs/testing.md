@@ -321,3 +321,34 @@ Before merging V1 Phase 15:
 - [ ] Main report, simulation, options, review, and watchlist pages render.
 - [ ] No secret is exposed.
 - [ ] Known limitations remain documented.
+
+## 17. Phase 16 Identity and Ownership Tests
+
+Backend coverage now includes:
+
+- Supabase JWKS JWT validation with issuer, audience, expiration, subject, and signature checks
+- private report isolation between users
+- organization final-owner protection
+- durable quota boundary and exceeded-limit behavior
+- cleanup dry-run behavior
+
+Manual/external checks still required before commercial launch:
+
+- Supabase email verification in the deployed project
+- password recovery links from Supabase
+- TOTP MFA enrollment and challenge verification
+- Vercel-to-Render cookie/BFF behavior on the production domains
+- browser E2E tests for organization-scoped reports, theses, and watchlists
+
+Recommended Phase 16 commands:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m compileall app scripts
+alembic upgrade head
+alembic downgrade -1
+alembic upgrade head
+python -m pytest -q
+python -m scripts.cleanup_expired_data --dry-run
+```

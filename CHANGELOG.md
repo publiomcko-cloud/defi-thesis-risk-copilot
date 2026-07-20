@@ -4,6 +4,16 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 
 ## Unreleased — V1 Product Hardening
 
+### Phase 16 Identity, Ownership, and Quotas
+
+- Added Supabase Auth JWT validation through JWKS with issuer, audience, expiration, subject, and signature checks.
+- Added local user synchronization, explicit platform roles, account status, verified-email enforcement, and production fail-closed auth configuration.
+- Added organization and membership models with owner/admin/member/viewer roles and final-owner protection.
+- Added central authorization policies for private, organization, public-demo, anonymous, deleted, and expired resources.
+- Added ownership fields for analysis requests, reports, and watchlists plus private report/watchlist filtering.
+- Added saved theses, account export/deletion, consent records, anonymous sessions, durable quotas, and retention cleanup.
+- Added frontend auth, account, security, terms, privacy, and theses pages with HttpOnly-cookie auth route foundations.
+
 ### Security
 
 - Public hosted visitors now receive a common read-only identity instead of an implicit administrator identity.

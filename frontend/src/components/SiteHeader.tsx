@@ -10,10 +10,14 @@ const publicLinks = [
   { href: "/options", label: "Options" },
   { href: "/watchlist", label: "Watchlist" },
   { href: "/protocols", label: "Protocols" },
-  { href: "/about", label: "About" }
+  { href: "/about", label: "About" },
+  { href: "/login", label: "Login" },
+  { href: "/signup", label: "Signup" }
 ];
 
 const protectedLinks = [
+  { href: "/account", label: "Account" },
+  { href: "/theses", label: "Theses" },
   { href: "/review", label: "Review" },
   { href: "/admin", label: "Admin" }
 ];

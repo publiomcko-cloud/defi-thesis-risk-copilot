@@ -11,8 +11,13 @@ export type UserContext = {
   id: string;
   email: string;
   role: UserRole;
+  platform_role?: "admin" | "user";
+  plan?: string;
   is_active: boolean;
   auth_enabled: boolean;
+  auth_provider?: string;
+  email_verified?: boolean;
+  anonymous_session_id?: string | null;
 };
 
 export type ProviderName =

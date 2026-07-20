@@ -332,7 +332,7 @@ Public defaults:
 
 # Real Product Roadmap
 
-## V1 Phase 15 — Product Hardening and Public-Safe UX — In Progress
+## V1 Phase 15 — Product Hardening and Public-Safe UX — Complete
 
 This phase turns the portfolio deployment into a credible v1 product boundary.
 
@@ -376,27 +376,33 @@ Completion gate:
 - Render readiness succeeds
 - deployed read-only behavior is manually verified
 
-## V1 Phase 16 — Production Identity, Ownership, and Quotas — Planned
+## V1 Phase 16 — Production Identity, Ownership, and Quotas — Implemented Foundation
 
 Goal: move from a shared portfolio environment to a real multi-user product.
 
 Deliverables:
 
-- Supabase Auth or equivalent managed identity
-- verified email login
-- secure cookie sessions instead of browser-stored bearer tokens
-- optional administrator MFA
-- account recovery
-- user and organization ownership
-- row-level authorization
-- per-user reports, watchlists, alerts, and saved theses
-- per-organization knowledge bases
-- explicit administrator assignment
-- API quotas by role/plan
-- account deletion and data export
-- anonymous-demo isolation
-- retention and TTL cleanup
-- terms, privacy policy, and consent language
+- Supabase Auth JWT validation through JWKS
+- verified-email enforcement for managed auth
+- secure HttpOnly session-cookie BFF foundation instead of browser-stored bearer tokens
+- optional administrator MFA configuration and UI foundation
+- account recovery and password-reset pages
+- user and organization ownership tables
+- central authorization policies
+- private reports, watchlists, alerts, and saved theses foundations
+- organization-scoped knowledge-base metadata foundation; durable tenant vector storage remains Phase 18
+- explicit administrator assignment through application database fields
+- durable daily API quotas by role/plan
+- account deletion and bounded account data export
+- isolated anonymous-demo sessions
+- retention and TTL cleanup command
+- terms, privacy, and versioned consent records
+
+Remaining validation before commercial launch:
+
+- configure Supabase Auth/MFA in the deployed project and verify the complete external email/MFA flow
+- perform browser E2E coverage for authenticated organization workflows
+- complete legal review of terms and privacy copy
 
 ## V1 Phase 17 — Durable Job Queue and Hybrid Workers — Planned
 

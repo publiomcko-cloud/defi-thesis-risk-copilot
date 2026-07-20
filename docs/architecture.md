@@ -298,6 +298,23 @@ Vercel frontend
 
 This permits a local worker without open inbound router ports. Workers authenticate with scoped credentials, lease jobs, publish progress, and store outputs durably.
 
+## 12.1 Phase 16 Identity Architecture
+
+```text
+Browser
+  -> Vercel Next.js auth route handlers
+  -> HttpOnly session cookie
+  -> FastAPI with Authorization bearer token forwarding
+  -> Supabase JWKS token validation
+  -> local users, organizations, policies, quotas
+```
+
+Supabase JWT claims only establish identity. Application roles, platform administrator status, account status, organization roles, and quota plan come from the application database.
+
+Central authorization policies evaluate owner user, organization membership, resource visibility, anonymous session, deleted state, and expiration state. Report IDs alone do not grant access.
+
+The current RAG index remains local JSON/runtime storage. Phase 16 adds organization ownership metadata and policy boundaries; durable tenant-specific vector storage is deferred to Phase 18.
+
 ## 13. Non-Negotiable Boundaries
 
 The application must not:

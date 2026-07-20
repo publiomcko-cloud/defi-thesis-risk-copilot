@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.schemas import AuditEventResponse, UserContext, UserResponse, UserRole
 from app.auth.security import hash_token, redact_sensitive
+from app.auth.supabase import SupabaseClaims
 from app.core.config import get_settings
 from app.models.access_audit_event import AccessAuditEventModel
 from app.models.user import UserModel
@@ -23,6 +24,10 @@ def ensure_bootstrap_admin(db: Session) -> UserModel | None:
             id=f"user_{uuid4().hex[:12]}",
             email=settings.admin_email,
             role="admin",
+            platform_role="admin",
+            account_status="active",
+            auth_provider="legacy_local",
+            email_verified_at=datetime.now(UTC),
             is_active=True,
             access_token_hash=token_hash,
         )
@@ -44,8 +49,12 @@ def create_user(
 ) -> UserModel:
     record = UserModel(
         id=f"user_{uuid4().hex[:12]}",
-        email=email,
+        email=normalize_email(email),
         role=role,
+        platform_role="admin" if role == "admin" else "user",
+        account_status="active" if is_active else "inactive",
+        auth_provider="legacy_local",
+        email_verified_at=datetime.now(UTC) if is_active else None,
         is_active=is_active,
         access_token_hash=hash_token(token) if token else None,
     )
@@ -60,13 +69,56 @@ def user_from_token(db: Session, token: str) -> UserModel | None:
     return db.execute(select(UserModel).where(UserModel.access_token_hash == token_hash)).scalars().first()
 
 
+def sync_supabase_user(db: Session, claims: SupabaseClaims) -> UserModel:
+    settings = get_settings()
+    now = datetime.now(UTC)
+    record = db.execute(
+        select(UserModel).where(UserModel.auth_subject == claims.subject)
+    ).scalars().first()
+    normalized_email = normalize_email(claims.email)
+    verified_at = now if claims.email_verified else None
+    if record is None:
+        record = db.execute(select(UserModel).where(UserModel.email == normalized_email)).scalars().first()
+    if record is None:
+        record = UserModel(
+            id=f"user_{uuid4().hex[:12]}",
+            email=normalized_email,
+            role="common",
+            platform_role="user",
+            account_status="active",
+            plan=settings.default_user_plan,
+            auth_provider="supabase",
+            auth_subject=claims.subject,
+            email_verified_at=verified_at,
+            is_active=True,
+            last_login_at=now,
+        )
+        db.add(record)
+    else:
+        record.email = normalized_email
+        record.auth_provider = "supabase"
+        record.auth_subject = claims.subject
+        if verified_at is not None:
+            record.email_verified_at = verified_at
+        record.last_login_at = now
+        record.updated_at = now
+    db.commit()
+    db.refresh(record)
+    return record
+
+
 def user_context(record: UserModel, auth_enabled: bool = True) -> UserContext:
     return UserContext(
         id=record.id,
         email=record.email,
         role=record.role,
-        is_active=record.is_active,
+        platform_role=record.platform_role,
+        plan=record.plan,
+        is_active=record.is_active and record.account_status == "active" and record.deleted_at is None,
         auth_enabled=auth_enabled,
+        auth_provider=record.auth_provider,
+        auth_subject=record.auth_subject,
+        email_verified=record.email_verified_at is not None,
     )
 
 
@@ -77,8 +129,11 @@ def demo_admin_context() -> UserContext:
         id="demo_admin",
         email="demo-admin@example.local",
         role="admin",
+        platform_role="admin",
+        plan="admin",
         is_active=True,
         auth_enabled=False,
+        email_verified=True,
     )
 
 
@@ -89,8 +144,11 @@ def demo_common_context() -> UserContext:
         id="public_demo_user",
         email="public-demo@example.local",
         role="common",
+        platform_role="user",
+        plan="anonymous",
         is_active=True,
         auth_enabled=False,
+        email_verified=True,
     )
 
 
@@ -99,7 +157,13 @@ def user_response(record: UserModel) -> UserResponse:
         id=record.id,
         email=record.email,
         role=record.role,
+        platform_role=record.platform_role,
+        account_status=record.account_status,
+        plan=record.plan,
         is_active=record.is_active,
+        auth_provider=record.auth_provider,
+        email_verified_at=record.email_verified_at,
+        last_login_at=record.last_login_at,
         created_at=record.created_at,
         updated_at=record.updated_at,
     )
@@ -137,3 +201,7 @@ def audit_event_response(record: AccessAuditEventModel) -> AuditEventResponse:
         metadata_json=record.metadata_json,
         created_at=record.created_at,
     )
+
+
+def normalize_email(email: str) -> str:
+    return email.strip().lower()
