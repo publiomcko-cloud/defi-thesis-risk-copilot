@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.core.public_demo import block_public_demo_mutation
 from app.db.session import get_db
 from app.watchlist.schemas import (
     AlertEventsResponse,
@@ -25,7 +26,11 @@ from app.watchlist.service import (
 router = APIRouter(tags=["watchlist"])
 
 
-@router.post("/watchlist/items", response_model=WatchlistCreateResponse)
+@router.post(
+    "/watchlist/items",
+    response_model=WatchlistCreateResponse,
+    dependencies=[Depends(block_public_demo_mutation)],
+)
 def create_item(
     request: WatchlistItemCreate,
     db: Session = Depends(get_db),
@@ -38,7 +43,16 @@ def get_items(db: Session = Depends(get_db)) -> WatchlistItemsResponse:
     return WatchlistItemsResponse(items=list_watchlist_items(db))
 
 
-@router.patch("/watchlist/items/{watchlist_item_id}", response_model=WatchlistUpdateResponse)
+@router.get("/watchlist", response_model=WatchlistItemsResponse)
+def get_watchlist(db: Session = Depends(get_db)) -> WatchlistItemsResponse:
+    return WatchlistItemsResponse(items=list_watchlist_items(db))
+
+
+@router.patch(
+    "/watchlist/items/{watchlist_item_id}",
+    response_model=WatchlistUpdateResponse,
+    dependencies=[Depends(block_public_demo_mutation)],
+)
 def patch_item(
     watchlist_item_id: str,
     request: WatchlistItemUpdate,
@@ -50,6 +64,7 @@ def patch_item(
 @router.post(
     "/watchlist/items/{watchlist_item_id}/evaluate",
     response_model=WatchlistEvaluationResponse,
+    dependencies=[Depends(block_public_demo_mutation)],
 )
 def evaluate_item(
     watchlist_item_id: str,
@@ -69,6 +84,7 @@ def get_alerts(
 @router.patch(
     "/watchlist/alerts/{alert_id}",
     response_model=AlertStatusUpdateResponse,
+    dependencies=[Depends(block_public_demo_mutation)],
 )
 def patch_alert(
     alert_id: str,

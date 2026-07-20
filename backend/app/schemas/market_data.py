@@ -4,11 +4,11 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class MarketDataRequest(BaseModel):
-    protocols: list[str] = Field(default_factory=list)
-    market_url: str | None = None
-    manual_inputs: dict[str, Any] = Field(default_factory=dict)
+    protocols: list[str] = Field(default_factory=list, max_length=10)
+    market_url: str | None = Field(default=None, max_length=2048)
+    manual_inputs: dict[str, Any] = Field(default_factory=dict, max_length=30)
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
 
 class MarketDataResponse(BaseModel):

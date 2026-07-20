@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { DataSummaryTable } from "@/components/DataSummaryTable";
 import { DisclaimerBox } from "@/components/DisclaimerBox";
-import { MonitoringChecklist } from "@/components/MonitoringChecklist";
 import { MarkdownExportButton } from "@/components/MarkdownExportButton";
+import { MonitoringChecklist } from "@/components/MonitoringChecklist";
 import { ReportSection } from "@/components/ReportSection";
 import { RiskRatingCard } from "@/components/RiskRatingCard";
 import { SourcesPanel } from "@/components/SourcesPanel";
@@ -17,44 +17,49 @@ type ReportViewerProps = {
   reportId: string;
 };
 
+const separatelyRenderedSections = new Set([
+  "Monitoring Checklist",
+  "Sources",
+  "Disclaimer",
+  "Risk Rating"
+]);
+
 export function ReportViewer({ reportId }: ReportViewerProps) {
   const [report, setReport] = useState<ReportResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    let isMounted = true;
-
-    fetchReport(reportId)
-      .then((payload) => {
-        if (isMounted) {
-          setReport(payload);
-        }
-      })
-      .catch((caught) => {
-        if (isMounted) {
-          setError(
-            caught instanceof Error ? caught.message : "Report fetch failed."
-          );
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsLoading(false);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
+  const loadReport = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      setReport(await fetchReport(reportId));
+    } catch (caught) {
+      setReport(null);
+      setError(caught instanceof Error ? caught.message : "Report fetch failed.");
+    } finally {
+      setIsLoading(false);
+    }
   }, [reportId]);
+
+  useEffect(() => {
+    void loadReport();
+  }, [loadReport]);
+
+  const visibleSections = useMemo(
+    () => report?.sections.filter((section) => !separatelyRenderedSections.has(section.title)) ?? [],
+    [report]
+  );
 
   if (isLoading) {
     return (
       <main className="page narrow-page">
-        <section className="panel">
+        <section className="panel loading-panel" aria-live="polite">
+          <div className="loading-indicator" aria-hidden="true" />
           <h1>Loading report</h1>
-          <p>Fetching persisted report data from the backend API.</p>
+          <p>
+            Fetching the persisted report. The free-tier backend may need a short cold start.
+          </p>
         </section>
       </main>
     );
@@ -64,13 +69,25 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
     return (
       <main className="page narrow-page">
         <section className="panel">
-          <h1>Report unavailable</h1>
+          <h1>Report temporarily unavailable</h1>
           <p>{error ?? "The report could not be loaded."}</p>
           <p>
-            Reports are stored by the backend persistence layer. If this report
-            is unavailable, confirm the backend is running and the local database
-            has been migrated.
+            The hosted backend may be waking up. Check readiness, then retry without
+            leaving this page.
           </p>
+          <div className="action-row">
+            <button className="primary-action" onClick={() => void loadReport()} type="button">
+              Retry report
+            </button>
+            <a
+              className="secondary-link"
+              href="https://defi-thesis-risk-copilot.onrender.com/ready"
+              rel="noreferrer"
+              target="_blank"
+            >
+              Check backend readiness
+            </a>
+          </div>
         </section>
       </main>
     );
@@ -79,7 +96,7 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
   return (
     <main className="page">
       <section className="page-heading">
-        <p className="eyebrow">Report {report.report_id}</p>
+        <p className="eyebrow">Persisted research report</p>
         <h1>Strategy Risk Report</h1>
         <p>{report.executive_summary}</p>
         <p className="tag-row">
@@ -89,18 +106,16 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
             </span>
           ))}
         </p>
+        <p className="field-help">Report ID: {report.report_id}</p>
       </section>
 
       <section className="content-grid">
         <RiskRatingCard rating={report.risk_rating} />
-        <DataSummaryTable
-          assumptions={report.assumptions}
-          missingData={report.missing_data}
-        />
+        <DataSummaryTable assumptions={report.assumptions} missingData={report.missing_data} />
       </section>
 
       <section className="stack">
-        {report.sections.map((section) => (
+        {visibleSections.map((section) => (
           <ReportSection key={section.title} section={section} />
         ))}
       </section>
@@ -111,7 +126,6 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
       </section>
 
       <MarkdownExportButton reportId={report.report_id} />
-
       <DisclaimerBox text={report.disclaimer} />
     </main>
   );

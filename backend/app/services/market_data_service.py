@@ -107,7 +107,7 @@ def _run_adapter(
         if cached is not None:
             cached["status"] = "cached"
             cached.setdefault("assumptions", []).append(
-                f"{adapter.name} live fetch failed; using cached data."
+                f"{adapter.name} live fetch failed; using unexpired cached data."
             )
             return cached
         return {
@@ -117,7 +117,7 @@ def _run_adapter(
             "missing_fields": ["live_data"],
             "assumptions": [
                 f"{adapter.name} adapter unavailable: {type(exc).__name__}.",
-                "No cached data was available; downstream reports must mark this uncertainty.",
+                "No unexpired cached data was available; downstream reports must mark this uncertainty.",
             ],
         }
 
@@ -130,15 +130,32 @@ def _cache_key(source: str, query: dict) -> str:
 
 
 def _save_cache(source: str, cache_key: str, payload: dict, db: Session) -> None:
-    record = MarketDataCacheModel(
-        id=f"cache_{uuid4().hex[:12]}",
-        source=source,
-        cache_key=cache_key,
-        payload_json=payload,
-        fetched_at=datetime.now(UTC),
-        expires_at=datetime.now(UTC) + timedelta(minutes=30),
-    )
-    db.add(record)
+    now = datetime.now(UTC)
+    records = db.execute(
+        select(MarketDataCacheModel)
+        .where(MarketDataCacheModel.source == source)
+        .where(MarketDataCacheModel.cache_key == cache_key)
+        .order_by(MarketDataCacheModel.fetched_at.desc())
+    ).scalars().all()
+
+    if records:
+        record = records[0]
+        record.payload_json = payload
+        record.fetched_at = now
+        record.expires_at = now + timedelta(minutes=30)
+        for duplicate in records[1:]:
+            db.delete(duplicate)
+    else:
+        db.add(
+            MarketDataCacheModel(
+                id=f"cache_{uuid4().hex[:12]}",
+                source=source,
+                cache_key=cache_key,
+                payload_json=payload,
+                fetched_at=now,
+                expires_at=now + timedelta(minutes=30),
+            )
+        )
     db.commit()
 
 
@@ -147,6 +164,7 @@ def _load_cache(source: str, cache_key: str, db: Session) -> dict | None:
         select(MarketDataCacheModel)
         .where(MarketDataCacheModel.source == source)
         .where(MarketDataCacheModel.cache_key == cache_key)
+        .where(MarketDataCacheModel.expires_at > datetime.now(UTC))
         .order_by(MarketDataCacheModel.fetched_at.desc())
     )
     record = db.execute(statement).scalars().first()

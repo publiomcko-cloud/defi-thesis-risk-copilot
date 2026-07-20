@@ -6,9 +6,10 @@ import type { AlertEvent } from "@/lib/types";
 type AlertEventsPanelProps = {
   alerts: AlertEvent[];
   onUpdated: () => Promise<void>;
+  readOnly?: boolean;
 };
 
-export function AlertEventsPanel({ alerts, onUpdated }: AlertEventsPanelProps) {
+export function AlertEventsPanel({ alerts, onUpdated, readOnly = false }: AlertEventsPanelProps) {
   async function acknowledge(alertId: string) {
     await updateAlertStatus(alertId, "acknowledged");
     await onUpdated();
@@ -24,13 +25,13 @@ export function AlertEventsPanel({ alerts, onUpdated }: AlertEventsPanelProps) {
               <th>Alert</th>
               <th>Type</th>
               <th>Status</th>
-              <th>Action</th>
+              {!readOnly ? <th>Action</th> : null}
             </tr>
           </thead>
           <tbody>
             {alerts.length === 0 ? (
               <tr>
-                <td colSpan={4}>No alert events yet.</td>
+                <td colSpan={readOnly ? 3 : 4}>No alert events yet.</td>
               </tr>
             ) : (
               alerts.map((alert) => (
@@ -40,20 +41,24 @@ export function AlertEventsPanel({ alerts, onUpdated }: AlertEventsPanelProps) {
                     <span>{alert.message}</span>
                   </td>
                   <td>
-                    <code>{alert.alert_type}</code>
-                    <span>{alert.severity}</span>
+                    <span>{humanize(alert.alert_type)}</span>
+                    <span className={`status-badge status-${alert.severity}`}>{alert.severity}</span>
                   </td>
-                  <td>{alert.status}</td>
                   <td>
-                    <button
-                      className="secondary-action"
-                      disabled={alert.status !== "open"}
-                      onClick={() => acknowledge(alert.id)}
-                      type="button"
-                    >
-                      Acknowledge
-                    </button>
+                    <span className="status-badge">{humanize(alert.status)}</span>
                   </td>
+                  {!readOnly ? (
+                    <td>
+                      <button
+                        className="secondary-action"
+                        disabled={alert.status !== "open"}
+                        onClick={() => acknowledge(alert.id)}
+                        type="button"
+                      >
+                        Acknowledge
+                      </button>
+                    </td>
+                  ) : null}
                 </tr>
               ))
             )}
@@ -62,4 +67,8 @@ export function AlertEventsPanel({ alerts, onUpdated }: AlertEventsPanelProps) {
       </div>
     </section>
   );
+}
+
+function humanize(value: string): string {
+  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }

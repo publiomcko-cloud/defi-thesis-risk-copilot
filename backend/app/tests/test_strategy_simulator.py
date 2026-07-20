@@ -84,3 +84,29 @@ def test_simulation_endpoint_returns_non_advisory_results() -> None:
     assert len(payload["scenarios"]) == 7
     assert "recommendations" in payload["disclaimer"]
     assert "enter or exit" in payload["disclaimer"]
+
+
+def test_simulation_accepts_percentage_style_inputs() -> None:
+    request = SimulationRequest(
+        implied_apy=10,
+        borrow_apy=5,
+        ltv=50,
+        lltv=86,
+        liquidity_shock_pct=50,
+        collateral_drawdown_pct=10,
+        early_exit_discount_pct=3,
+    )
+    response = run_strategy_simulation(
+        request
+    )
+
+    net_spread = next(
+        scenario for scenario in response.scenarios if scenario.scenario_type == "net_spread"
+    )
+
+    assert request.implied_apy == 0.1
+    assert request.borrow_apy == 0.05
+    assert request.ltv == 0.5
+    assert request.lltv == 0.86
+    assert request.liquidity_shock_pct == 0.5
+    assert net_spread.result["net_spread_apy"] == 0.05

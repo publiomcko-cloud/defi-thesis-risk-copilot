@@ -1,176 +1,172 @@
 # Current State — DeFi Thesis & Risk Copilot
 
-This document describes the current public portfolio state of DeFi Thesis & Risk Copilot.
+This document describes the current implementation and deployment state. The authoritative phase history and roadmap are in [`docs/development_plan.md`](development_plan.md).
 
-Historical planning notes should be kept in `docs/archive/`.
+## Live Deployment
 
-## Public Demo
+- Frontend: `https://defi-thesis-risk-copilot.vercel.app`
+- Guided demo: `https://defi-thesis-risk-copilot.vercel.app/demo`
+- Backend: `https://defi-thesis-risk-copilot.onrender.com`
+- Liveness: `https://defi-thesis-risk-copilot.onrender.com/health`
+- Readiness: `https://defi-thesis-risk-copilot.onrender.com/ready`
+- Deployment status: `https://defi-thesis-risk-copilot.onrender.com/api/deployment/status`
+- API docs: `https://defi-thesis-risk-copilot.onrender.com/docs`
 
-- Frontend: deployment-ready placeholder `https://<your-vercel-app>.vercel.app`
-- Backend health: deployment-ready placeholder `https://<your-render-service>.onrender.com/health`
-- API docs: deployment-ready placeholder `https://<your-render-service>.onrender.com/docs`
-- Demo video: pending
-- Local demo dashboard: implemented at `/demo`
-- Example Markdown reports: implemented in `examples/reports/`
-
-## Current Stack
-
-Current local stack:
-
-- Frontend: Next.js App Router, TypeScript, global CSS
-- Backend: FastAPI, Pydantic, SQLAlchemy, Alembic
-- Local database: SQLite by default; PostgreSQL supported through `DATABASE_URL` and Docker Compose
-- Local RAG: curated markdown knowledge base, header-aware chunking, local hash embeddings, JSON vector store
-- Frontend/backend integration: controlled analysis workflow with persisted reports
-- Testing and validation: pytest, smoke scripts, frontend lint/build
-- Automation: GitHub Actions CI
+The Render free-tier backend may cold-start after inactivity.
 
 ## Current Status
 
-Current status: Final Phase 14 complete.
+Completed:
 
-The app currently supports optional backend LLM synthesis, controlled public-source discovery, automated evaluation, human review queue foundations, explicit human-approved RAG ingestion, MVP token access control, admin/common role checks, server-side provider credential storage metadata, audit logs, admin-only Vast.ai dry-run/manual warm-up sessions, deterministic strategy simulation, in-app watchlist alerts, options/volatility analysis, advanced RAG evaluation foundations, ML risk classifier groundwork, optional HPC/SLURM templates, deterministic local demo data with example reports, and public-demo deployment preparation for Vercel, Render, and Supabase.
+- Core technical MVP
+- Post-MVP Phases 1-12
+- Final Phase 13 demo data and example reports
+- Final Phase 14 Vercel/Render/Supabase deployment
 
-Before final polish, the next planned product phase is:
+Active iteration:
 
 ```text
-Final Phase 15: Portfolio polish
+V1 Phase 15 — Product Hardening and Public-Safe UX
 ```
 
-Detailed planning for Phases 10-12 is in `docs/phase_10_12_expansion_plan.md`.
+Phase 15 addresses the security, API, deployment, design, and UX findings from the full deployed-project evaluation.
 
-## What the App Can Do Now
+## Current Stack
 
-The current app can:
+- Frontend: Next.js App Router, React, TypeScript, responsive CSS, Vercel
+- Backend: FastAPI, Pydantic, SQLAlchemy, Alembic, Render
+- Database: Supabase PostgreSQL in the hosted deployment; SQLite/PostgreSQL supported locally
+- RAG: curated Markdown, header-aware chunking, deterministic local embeddings, JSON index
+- Public data adapters: manual, Pendle, Morpho, Aave, DefiLlama, and CoinGecko foundations
+- Testing: pytest, TypeScript checks, Next.js build, smoke scripts, Compose validation
+- Automation: GitHub Actions and platform deployments
+- Optional model providers: Ollama, OpenAI-compatible APIs, and admin-only Vast.ai dry-run/manual warm-up
 
-- run a controlled DeFi strategy analysis workflow through `/api/analyze`
-- persist structured reports and retrieve them later
-- export generated reports to Markdown
-- list supported protocols for the core MVP scope
-- refresh the local curated RAG index from `knowledge_base/`
-- retrieve local RAG context from Pendle, Morpho, Aave, Chainlink, and internal risk notes
-- optionally use hybrid retrieval, local semantic signals, reranking, citation validation, and retrieval evaluation
-- fetch or normalize market data through manual, Pendle, Morpho, Aave, DefiLlama, and CoinGecko adapters
-- use deterministic rule-based risk scoring with visible components, confidence, and drivers
-- generate stress scenarios and monitoring checklists
+## Public Product Boundary
+
+### Public read-only access
+
+Visitors may inspect:
+
+- demo status and scenario metadata
+- protocols
+- persisted reports
+- discovery candidates
+- evaluation/review outcomes
+- discovered knowledge-base metadata
+- seeded watchlists and alerts
+- safe deployment metadata
+
+### Public bounded compute
+
+Visitors may run bounded and rate-limited:
+
+- strategy analysis
+- deterministic simulation
+- options analysis
+- market-data retrieval
+
+### Publicly blocked operations
+
+When `PUBLIC_DEMO_MODE=true`, visitors cannot:
+
+- become an administrator through disabled authentication
+- seed/reset the hosted demo through the public API
+- run monitoring or global discovery
+- create evaluations
+- change review state
+- ingest sources into RAG
+- ingest documents
+- create or modify watchlists and alert status
+- read audit events or credential metadata
+- create, rotate, or disable credentials
+- control Vast.ai sessions
+
+The hosted UI hides administrator navigation and renders review/watchlist demonstrations as read-only.
+
+## Startup and Readiness
+
+The public backend startup sequence is:
+
+```text
+Alembic upgrade
+  -> deterministic demo seed
+  -> curated RAG index build
+  -> Uvicorn
+```
+
+Endpoints:
+
+- `/health` checks process liveness.
+- `/ready` checks database connectivity and the public RAG index.
+- `/api/deployment/status` exposes safe environment flags and demo state.
+
+Render uses `/ready` as its health-check path.
+
+## Current Capabilities
+
+The application can:
+
+- parse a DeFi strategy thesis
+- retrieve curated protocol context
+- fetch or normalize public/manual market data
+- expose assumptions and missing fields
+- calculate deterministic risk ratings and drivers
+- generate and persist structured reports
+- export Markdown
+- simulate lending/fixed-yield stress conditions
+- analyze long crypto call/put payoff scenarios
+- display seeded watchlists and alerts
+- discover and normalize public-source candidates
+- evaluate candidates and create review records
+- maintain human approval before RAG trust
+- ingest approved knowledge in a private/admin environment
 - optionally synthesize report wording with an LLM while preserving deterministic fields
-- create discovered source candidates through manual monitoring
-- run public-source discovery through `/api/discovery/run`
-- list discovery candidates through `/api/discovery/candidates`
-- evaluate discovered candidates and create review queue items
-- update review status as `needs_review`, `approved_for_rag`, `rejected`, `needs_more_data`, or `archived`
-- explicitly ingest only `approved_for_rag` review items into `knowledge_base/discovered/`
-- refresh the local RAG index after approved ingestion
-- run in local/demo mode with `AUTH_ENABLED=false`
-- enforce admin/common authorization for sensitive endpoints when `AUTH_ENABLED=true`
-- store provider credentials server-side with encrypted metadata and last-four display only
-- view audit events for credential management, discovery runs, review status changes, and approved RAG ingestion
-- inspect Vast.ai runtime configuration through `/api/admin/vast/config`
-- start dry-run/manual Vast.ai model sessions through `/api/admin/vast/sessions/start`
-- list, test, destroy, and clean up Vast.ai sessions through admin-only endpoints
-- seed deterministic local demo data through `/api/demo/seed` or `backend/scripts/seed_demo_data.py`
-- inspect demo status and scenarios through `/api/demo/status` and `/api/demo/scenarios`
-- inspect safe deployment metadata through `/api/deployment/status`
-- view the frontend demo dashboard at `/demo`
-- review example Markdown reports in `examples/reports/`
-- run deterministic strategy simulation through `/api/simulation/run`
-- create watchlist items and rule-based in-app alerts
-- run deterministic options analysis through `/api/options/analyze`
-- export candidate ML training examples from persisted reports
-- run an advisory baseline risk classifier for future model comparison only
-- use optional HPC/SLURM templates for batch RAG and ML-preparation workflows
+- prepare datasets and HPC templates for future model work
 
-## Implemented Feature Areas
+## Phase 15 Improvements in This Iteration
 
-Implemented feature areas include:
+### Backend and security
 
-- FastAPI backend skeleton and health endpoint
-- Next.js frontend with main navigation and analysis/report flows
-- SQLAlchemy/Alembic database foundation
-- Docker Compose local stack
-- CI workflow for backend tests, frontend lint/build, and Compose validation
-- local curated RAG knowledge base and JSON vector store
-- optional hybrid RAG retrieval and retrieval evaluation dataset
-- market data adapter interface and MVP adapters
-- controlled internal analysis orchestration
-- deterministic risk scoring and report writer
-- optional backend LLM synthesis with Ollama and OpenAI-compatible provider abstractions
-- monitoring/discovery foundation
-- public-source discovery and manual discovery inputs
-- evaluation and human review queue foundation
-- human-approved discovery-to-RAG ingestion
-- MVP access control and admin/common role dependencies
-- server-side provider credential management
-- audit logging for sensitive actions
-- Vast.ai dry-run/manual warm-up lifecycle
-- local portfolio demo dashboard
-- deterministic demo seed data
-- example Markdown reports
-- hosted public-demo mode
-- safe deployment status endpoint
-- Render/Vercel/Supabase deployment documentation
-- strategy simulator
-- watchlist and in-app alert system
-- options and volatility analysis
-- ML dataset export and advisory baseline classifier
-- model-training workspace
-- HPC workspace with SLURM templates and Apptainer definition
+- public visitors use a common read-only identity
+- public mutations are centrally blocked
+- bounded public compute is rate-limited
+- request payloads have size and range limits
+- request IDs and request-duration logging are included
+- unhandled errors are logged without returning internals
+- database/RAG readiness is explicit
+- market cache expiration is enforced
+- repeated cache keys update rather than grow indefinitely
 
-## Active Product Development To Implement
+### Frontend and UX
 
-The next active product work is:
+- live demo is the primary product entry
+- actual production URLs replace placeholders
+- public admin links are hidden
+- direct admin access explains the protected boundary
+- review and watchlist screens become read-only publicly
+- APY, LTV, LLTV, implied volatility, USD, and basis-point units are explicit
+- advanced controls use progressive disclosure
+- cold-start retry states and readiness links are visible
+- sources are clickable
+- Markdown supports copy/download
+- duplicate report sections are removed
+- navigation, footer, badges, focus states, hover states, responsive behavior, and reduced motion are improved
+- shared public-database privacy warnings are visible
 
-1. Final Phase 15 — Portfolio polish.
+## Validation
 
-Phase 12 is complete for dry-run/manual warm-up. Automatic Vast.ai use for ordinary report generation remains disabled and should only be added behind explicit task approval.
-
-## Planned User Roles
-
-### Common User
-
-Common users can:
-
-- run normal strategy analysis
-- view allowed reports
-- run simulations
-- run options analysis
-- create personal watchlists
-- view their own in-app alerts
-
-Common users cannot:
-
-- configure API keys
-- manage Vast.ai
-- approve or ingest discovered sources when `AUTH_ENABLED=true`
-- change global discovery settings
-- view sensitive audit logs
-- manage users
-
-### Admin User
-
-Admins can:
-
-- use the bootstrap/admin bearer-token flow
-- run global discovery jobs
-- approve/reject/archive review items
-- ingest approved items into the knowledge base
-- manage provider credentials
-- view access audit logs
-
-Admins can configure, start, test, destroy, and clean up dry-run/manual Vast.ai sessions.
-
-## Current Validation Commands
-
-Backend validation:
+Backend:
 
 ```bash
 cd backend
 source .venv/bin/activate
+alembic upgrade head
 python -m pytest -q
 python scripts/run_smoke_checks.py
 ```
 
-Frontend validation:
+Frontend:
 
 ```bash
 cd frontend
@@ -178,54 +174,44 @@ npm run lint
 npm run build
 ```
 
-RAG validation:
-
-```bash
-cd backend
-python scripts/evaluate_retrieval.py
-```
-
-ML groundwork validation:
-
-```bash
-cd backend
-python scripts/export_training_dataset.py
-```
-
-Docker validation:
+Docker:
 
 ```bash
 docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
-HPC template validation:
+RAG:
 
 ```bash
-bash -n hpc/slurm_generate_embeddings.sbatch
-bash -n hpc/slurm_evaluate_retrieval.sbatch
-bash -n hpc/slurm_train_risk_classifier.sbatch
+cd backend
+python scripts/evaluate_retrieval.py --retriever hybrid
 ```
 
-## Current Limitations
+## Known Limitations
 
-- The application is still an MVP and uses deterministic local analysis logic.
-- Demo scenarios are synthetic and designed for portfolio review; they are not live market assessments.
-- Data adapters are basic MVP implementations; several protocol adapters still rely on manual fallback.
-- RAG is local and curated only; it does not crawl protocol docs or refresh automatically.
-- Semantic retrieval is optional and currently uses a deterministic local semantic provider rather than an external embedding model.
-- Source monitoring is manually triggered and creates review candidates only.
-- Review approval does not ingest sources automatically; explicit admin ingestion is required.
-- Access control is an MVP bearer-token implementation; production-grade hosted auth, MFA, password reset, per-user resource ownership, and rate limits are not implemented.
-- Provider credentials can be stored through the admin API, but the MVP encryption helper is not a substitute for a production secret manager.
-- Provider credential mutations are blocked when `PUBLIC_DEMO_MODE=true`.
-- Vast.ai dry-run/manual warm-up is implemented, but automatic ephemeral rental for normal report generation is not enabled.
-- Simulation is deterministic and educational; it does not forecast outcomes or recommend entering/exiting positions.
-- Watchlist alerts are manually evaluated and in-app only; no push, email, streaming, or automated execution exists.
-- Options analysis is deterministic and educational; it does not recommend buying or selling options.
-- Risk scoring is deterministic and rule-based, but not a quantitative liquidation engine.
-- Reports are persisted and rendered through a deterministic template; optional LLM synthesis can enrich explanatory wording when enabled, but cannot override deterministic risk scoring, missing data, sources, market values, protocols, or disclaimers.
-- Fine-tuning has not been performed; the baseline classifier is advisory only and cannot override deterministic risk scoring.
-- HPC readiness is template-based only; no SLURM job has been submitted from this local environment.
-- Public deployment configuration and docs are prepared, but actual hosted URLs must still be created in Render/Vercel/Supabase by the project owner.
-- No wallet connection or transaction execution will be implemented.
+- Phase 15 uses an in-process rate limiter suitable for the current single-instance demo, not a distributed production limiter.
+- The hosted environment still uses a shared database for public generated reports; inputs must not contain private or sensitive information.
+- Production-grade identity, secure cookie sessions, MFA, account recovery, ownership, and tenant isolation are not implemented yet.
+- The local JSON RAG index is rebuilt on startup but is not durable or tenant-aware; pgvector/object storage is planned.
+- Heavy background work does not yet use a durable job queue or hybrid workers.
+- Render free-tier cold starts can temporarily delay requests.
+- Browser end-to-end, automated accessibility, load, and PostgreSQL integration coverage need expansion.
+- Centralized monitoring, distributed tracing, alerting, backup drills, WAF policy, and security headers are planned.
+- Several market adapters remain foundational and may use partial/manual fallback.
+- Discovery and monitoring remain manually initiated in private/admin environments.
+- Vast.ai automatic use for ordinary reports remains disabled.
+- No wallet connection, custody, signing, or transaction execution exists.
+
+## Next Product Phases
+
+The consolidated roadmap defines:
+
+1. V1 Phase 16 — Production identity, ownership, and quotas
+2. V1 Phase 17 — Durable job queue and hybrid workers
+3. V1 Phase 18 — Production RAG and knowledge storage
+4. V1 Phase 19 — Production operations and security
+5. V1 Phase 20 — Analytics, notifications, and commercial readiness
+6. V1 Phase 21 — Model and research-intelligence expansion
+
+See [`docs/development_plan.md`](development_plan.md) for the completion gates and detailed scope.

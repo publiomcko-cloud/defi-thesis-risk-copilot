@@ -1,6 +1,8 @@
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.percentages import normalize_percent_style
 
 
 OptionType = Literal["call", "put"]
@@ -8,17 +10,24 @@ OptionType = Literal["call", "put"]
 
 class OptionsAnalysisRequest(BaseModel):
     option_type: OptionType
-    underlying_asset: str = "ETH"
-    underlying_price: float = Field(ge=0)
-    strike_price: float = Field(ge=0)
-    premium: float = Field(ge=0)
-    expiration_date: str | None = None
-    implied_volatility: float | None = Field(default=None, ge=0)
-    bid: float | None = Field(default=None, ge=0)
-    ask: float | None = Field(default=None, ge=0)
-    contracts: float = Field(default=1, gt=0)
-    scenario_prices: list[float] = Field(default_factory=list)
-    volatility_thesis: str | None = None
+    underlying_asset: str = Field(default="ETH", min_length=1, max_length=32)
+    underlying_price: float = Field(ge=0, le=1_000_000_000)
+    strike_price: float = Field(ge=0, le=1_000_000_000)
+    premium: float = Field(ge=0, le=1_000_000_000)
+    expiration_date: str | None = Field(default=None, max_length=32)
+    implied_volatility: float | None = Field(default=None, ge=0, le=20)
+    bid: float | None = Field(default=None, ge=0, le=1_000_000_000)
+    ask: float | None = Field(default=None, ge=0, le=1_000_000_000)
+    contracts: float = Field(default=1, gt=0, le=1_000_000)
+    scenario_prices: list[float] = Field(default_factory=list, max_length=100)
+    volatility_thesis: str | None = Field(default=None, max_length=2000)
+
+    model_config = ConfigDict(extra="forbid")
+
+    @field_validator("implied_volatility", mode="before")
+    @classmethod
+    def normalize_implied_volatility(cls, value: object) -> object:
+        return normalize_percent_style(value)
 
 
 class OptionScenario(BaseModel):

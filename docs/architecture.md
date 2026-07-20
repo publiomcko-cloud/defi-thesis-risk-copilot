@@ -1,129 +1,195 @@
 # Architecture — DeFi Thesis & Risk Copilot
 
-## 1. Overview
+## 1. Architecture Goals
 
-DeFi Thesis & Risk Copilot is a full-stack AI research application for DeFi strategy analysis.
+DeFi Thesis & Risk Copilot is designed around:
 
-The architecture is designed around:
+- clear domain separation
+- source-grounded research
+- deterministic risk fields
+- optional model synthesis after retrieval and scoring
+- human approval before knowledge trust
+- server-side credentials
+- safe public defaults
+- optional heavy compute
+- an incremental path from portfolio deployment to a multi-user product
 
-- clear separation between frontend, backend, data adapters, RAG, agents, risk logic, and model providers
-- source-grounded analysis using protocol documentation
-- deterministic calculations where possible
-- LLM generation only after retrieval, normalization, and risk scoring
-- human review before trusted knowledge-base ingestion
-- role-based access for sensitive actions
-- portfolio-grade maintainability and documentation
+## 2. Current Hosted Architecture
 
-## 2. Current Product Domains
+```text
+Browser
+  -> Vercel Next.js frontend
+  -> Render FastAPI backend
+  -> Supabase PostgreSQL
+
+Render container
+  -> Alembic migrations
+  -> deterministic demo seed
+  -> curated RAG index build
+  -> Uvicorn API
+```
+
+Live endpoints:
+
+- Frontend: `https://defi-thesis-risk-copilot.vercel.app`
+- Backend: `https://defi-thesis-risk-copilot.onrender.com`
+- Liveness: `/health`
+- Readiness: `/ready`
+- Deployment metadata: `/api/deployment/status`
+- OpenAPI: `/docs`
+
+## 3. Product Domains
 
 ```text
 Next.js Frontend
-  -> strategy analysis UI
-  -> report pages
-  -> review queue
+  -> landing and guided demo
+  -> strategy analysis
+  -> persisted reports and export
   -> simulator
-  -> watchlist
   -> options analysis
-  -> demo dashboard
-  -> admin console for auth status, provider credentials, and audit logs
+  -> watchlist and alerts
+  -> discovery/review workflow
+  -> private admin tools
 
 FastAPI Backend
-  -> controlled analysis workflow
+  -> request validation and public safety dependencies
+  -> analysis orchestration
   -> RAG retrieval
-  -> market data adapters
+  -> market-data adapters and cache
   -> deterministic risk scoring
-  -> report generation
-  -> source monitoring
-  -> public-source discovery
-  -> evaluation and review queue
-  -> human-approved RAG ingestion
+  -> report generation and persistence
+  -> discovery and evaluation
+  -> review queue and approved RAG ingestion
   -> simulation
-  -> watchlist and alerts
+  -> watchlist and alert rules
   -> options analysis
-  -> ML dataset export and advisory classifier
-  -> MVP access control
-  -> provider credential metadata
-  -> access audit logs
-  -> Vast.ai dry-run/manual lifecycle manager
-  -> deterministic demo seeding and scenario metadata
-  -> safe deployment status metadata
+  -> identity and authorization
+  -> provider credentials and audit logs
+  -> Vast.ai lifecycle controls
+  -> deterministic demo and deployment metadata
 
 Storage
-  -> SQLite or PostgreSQL
-  -> local knowledge_base markdown files
-  -> discovered knowledge markdown under knowledge_base/discovered/
-  -> JSON RAG index for MVP
-  -> encrypted provider credential metadata
-  -> access audit logs
-  -> Vast.ai lifecycle sessions
-  -> synthetic demo records in normal persistence tables
-  -> example Markdown reports under examples/reports/
+  -> Supabase PostgreSQL for hosted persistence
+  -> SQLite or PostgreSQL locally
+  -> curated Markdown knowledge base
+  -> local JSON RAG index for the current deployment
+  -> committed example reports
 ```
 
-## 3. Analysis Flow
+## 4. Analysis Flow
 
 ```text
-User strategy input
-    -> protocol detection
-    -> local/hybrid RAG retrieval
-    -> market-data adapter lookup
-    -> manual fallback fields
-    -> deterministic risk scoring
-    -> stress scenarios
-    -> report writer
-    -> optional LLM synthesis
-    -> persisted report
-    -> markdown export
+strategy input
+  -> bounded request validation
+  -> protocol detection
+  -> curated/hybrid retrieval
+  -> public/manual market-data adapters
+  -> cache or explicit unavailable state
+  -> deterministic risk scoring
+  -> stress scenarios
+  -> structured report writer
+  -> optional LLM wording synthesis
+  -> persisted report
+  -> browser rendering and Markdown export
 ```
 
-Deterministic risk scoring remains authoritative. LLM and ML outputs are advisory or explanatory only.
+Deterministic risk scoring, source metadata, missing data, market fields, and disclaimers remain authoritative.
 
-## 4. Discovery-to-RAG Flow — Phase 10
+## 5. Discovery and Knowledge Trust
 
 ```text
-Admin triggers discovery
-    -> DefiLlama/manual/source collector
-    -> candidate filtering
-    -> candidate normalization
-    -> discovered_items table
-    -> automated evaluation
-    -> review_items table
-    -> human approval or rejection
-    -> explicit ingest-to-RAG action
-    -> markdown file under knowledge_base/discovered/
-    -> RAG index refresh
-    -> future reports can cite approved source
+private/admin discovery trigger
+  -> DefiLlama/manual collectors
+  -> filtering and normalization
+  -> stable-key deduplication
+  -> discovered item
+  -> deterministic evaluation
+  -> human review
+  -> approved_for_rag
+  -> explicit private/admin ingestion
+  -> curated Markdown
+  -> RAG index refresh
 ```
 
-No discovered source becomes trusted automatically. Human approval plus an explicit ingest action is required.
+Discovery, approval, and ingestion are separate states. No automatically discovered content becomes trusted without review.
 
-## 5. Access Control — Phase 11
+RAG ingestion uses:
 
-Two user roles are implemented for MVP/local use:
+```text
+refresh_pending
+  -> ingested
+```
+
+or:
+
+```text
+refresh_pending
+  -> refresh_failed
+  -> retry
+```
+
+## 6. Public Safety Architecture
+
+`PUBLIC_DEMO_MODE=true` creates three endpoint classes.
+
+### Public read-only
+
+- demo status and scenarios
+- protocols
+- reports
+- discovery candidates
+- review records
+- knowledge-base ingestion metadata
+- watchlists and alerts
+- deployment status
+
+### Public bounded compute
+
+- strategy analysis
+- market-data fetch
+- simulation
+- options analysis
+
+These requests use:
+
+- maximum payload sizes
+- numeric bounds
+- maximum list sizes
+- per-client in-process rate limiting
+- safe error responses
+
+The in-process limiter is suitable for the current single-instance demo. A distributed limiter is planned for multi-instance production.
+
+### Private/admin mutations
+
+Blocked in the hosted public environment:
+
+- demo reseeding/reset
+- monitoring runs
+- discovery runs
+- evaluation creation
+- review decisions
+- RAG ingestion
+- document ingestion
+- watchlist/alert mutations
+- provider credentials
+- audit logs
+- Vast.ai lifecycle operations
+
+When authentication is disabled locally, the application can use a local demo administrator. When authentication is disabled in the public deployment, visitors receive a `common` read-only identity instead.
+
+## 7. Identity and Credential Architecture
+
+Current roles:
 
 ```text
 admin
 common
 ```
 
-Common users can run normal analysis workflows, simulations, options analysis, and personal watchlist flows.
+Current private/local authentication is bearer-token based. Production managed identity is planned.
 
-Admin users can manage discovery sources, review decisions, RAG ingestion, provider credentials, Vast.ai sessions, and audit logs.
-
-`AUTH_ENABLED=false` preserves local/demo behavior and treats protected workflows as a demo admin session. `AUTH_ENABLED=true` requires a bearer token and enforces admin/common role checks for sensitive endpoints.
-
-Sensitive operations must be server-side only:
-
-- credential creation
-- credential rotation
-- discovery source configuration
-- approved source ingestion
-- Vast.ai rent/start/destroy lifecycle
-- audit-log review
-
-## 6. Credential and Provider Storage
-
-Provider credentials use this model:
+Provider credential model:
 
 ```text
 api_credentials
@@ -141,139 +207,109 @@ api_credentials
 
 Rules:
 
-- raw secrets are never sent to the frontend
-- raw secrets are never logged
-- database-stored secrets must be encrypted
-- `CREDENTIAL_ENCRYPTION_KEY` is required for database-stored secrets
-- a production deployment should replace the MVP encryption helper with a managed secret store or KMS-backed encryption
-- every sensitive action should create an audit event
+- secrets never return to the browser
+- secrets are never logged
+- database storage requires encryption configuration
+- audit metadata is redacted
+- public credential reads and writes are denied by the public common identity
+- a production secret manager/KMS remains a future improvement
 
-## 7. Vast.ai Ephemeral Provider — Phase 12
+## 8. Runtime Reliability
 
-The Vast.ai provider is a lifecycle manager, not a simple HTTP client.
+Startup:
+
+```text
+alembic upgrade head
+  -> scripts/prepare_runtime.py
+     -> idempotent synthetic seed
+     -> RAG index generation
+  -> uvicorn
+```
+
+Health model:
+
+- `/health`: process liveness only
+- `/ready`: database plus public RAG readiness
+- `/api/deployment/status`: safe operational metadata for the UI
+
+Request middleware adds:
+
+- request ID
+- status code
+- request duration
+- response `X-Request-ID`
+
+Unhandled exceptions are logged server-side and return a generic error with request ID.
+
+## 9. Market-Data Cache
+
+The current cache:
+
+- keys by adapter and query identity
+- updates an existing current record instead of appending indefinitely
+- removes duplicate rows for the same key
+- enforces `expires_at`
+- uses only unexpired fallback data
+- reports unavailable data explicitly when no valid cache exists
+
+## 10. Vast.ai Provider
 
 ```text
 admin request
-    -> validate budget and role
-    -> search offer
-    -> rent instance
-    -> boot container
-    -> health-check model endpoint
-    -> run model task through OpenAI-compatible interface
-    -> collect result
-    -> destroy instance
-    -> write lifecycle/audit logs
+  -> role and public-mode checks
+  -> cost/runtime/GPU constraints
+  -> offer search
+  -> rental
+  -> startup polling
+  -> OpenAI-compatible health check
+  -> test task
+  -> cleanup/destroy
+  -> audit events
 ```
 
-Planned lifecycle states:
+The provider is disabled and dry-run by default. Automatic rental for normal reports is not enabled.
+
+## 11. Frontend Architecture
+
+Public mode:
+
+- hides administrator navigation
+- provides guided scenario paths
+- renders review/watchlist as read-only
+- shows shared-database privacy guidance
+- handles Render cold starts with retry/readiness actions
+- presents percentages and financial units explicitly
+- supports keyboard focus and reduced motion
+
+Private/local mode retains mutation and administrator controls.
+
+## 12. Planned Production Architecture
 
 ```text
-idle
-searching_offer
-renting_instance
-booting
-starting_model_server
-health_checking
-ready
-serving_request
-cleanup
-destroyed
-failed
+Vercel frontend
+  -> API/control plane
+  -> managed auth and tenant authorization
+  -> PostgreSQL control database
+  -> durable job queue
+  -> local/cloud workers pull jobs outbound
+  -> object storage
+  -> pgvector or dedicated vector store
 ```
 
-Vast.ai is disabled by default. The implemented Phase 12 path supports admin manual warm-up, dry-run lifecycle simulation, test prompts, idempotent destroy, and cleanup before any automatic ephemeral usage is enabled.
+This permits a local worker without open inbound router ports. Workers authenticate with scoped credentials, lease jobs, publish progress, and store outputs durably.
 
-## 8. Demo Data — Final Phase 13
+## 13. Non-Negotiable Boundaries
 
-The demo module seeds deterministic portfolio examples into existing tables rather than adding separate demo-only schema.
+The application must not:
 
-```text
-GET /api/demo/status
-GET /api/demo/scenarios
-POST /api/demo/seed
-```
-
-Seeded records include:
-
-- synthetic strategy reports
-- a discovery-to-review-to-RAG-ingestion example
-- a watchlist item with an open in-app alert
-- an options and volatility report
-- a Vast.ai dry-run session record
-
-The demo path is local, synthetic, and educational. It does not call paid APIs, connect wallets, sign transactions, execute trades, or rent real Vast.ai infrastructure.
-
-## 9. Public Deployment Mode — Final Phase 14
-
-`PUBLIC_DEMO_MODE=true` changes deployment posture for hosted portfolio review:
-
-- demo seed remains idempotent and skips runtime example-report file writes
-- committed example Markdown reports remain available in the repository
-- provider credential create/update/delete routes are blocked
-- Vast.ai real startup is blocked if dry-run is accidentally disabled
-- optional LLM synthesis remains disabled by default
-- `/api/deployment/status` returns safe metadata only
-
-The deployment status endpoint reports environment, database connectivity, demo seed status, auth/LLM/Vast/RAG flags, version, and optional commit. It never returns database URLs, provider API keys, bearer tokens, or stored credential values.
-
-## 10. Backend Module Map
-
-```text
-backend/app/
-  api/
-  agents/
-  auth/
-  core/
-  data_sources/
-  db/
-  evaluation/
-  llm/
-  market_data/
-  ml/
-  models/
-  monitoring/
-  options/
-  rag/
-  reports/
-  risk/
-  simulation/
-  watchlist/
-  discovery/
-  knowledge_base_ingestion/
-  providers/
-  llm/vast/
-```
-
-## 11. Frontend Route Map
-
-```text
-frontend/src/app/
-  page.tsx
-  analyze/page.tsx
-  reports/[reportId]/page.tsx
-  protocols/page.tsx
-  review/page.tsx
-  demo/page.tsx
-  simulate/page.tsx
-  watchlist/page.tsx
-  options/page.tsx
-  admin/page.tsx
-  admin/provider-credentials/page.tsx
-  admin/audit/page.tsx
-  admin/vast/page.tsx
-  about/page.tsx
-```
-
-## 12. Non-Negotiable Boundaries
-
-The app must not:
-
-- connect wallets
+- connect wallets implicitly
 - request private keys or seed phrases
 - sign transactions
 - execute trades
 - custody funds
+- promise returns
 - provide personalized financial advice
-- auto-ingest unreviewed sources
-- expose provider API keys to the frontend
-- let remote LLM output override deterministic risk scoring
+- hide missing data
+- auto-trust discovered content
+- expose provider secrets
+- let model output override deterministic risk fields

@@ -3,7 +3,13 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import UserContext
-from app.auth.service import demo_admin_context, ensure_bootstrap_admin, user_context, user_from_token
+from app.auth.service import (
+    demo_admin_context,
+    demo_common_context,
+    ensure_bootstrap_admin,
+    user_context,
+    user_from_token,
+)
 from app.core.config import get_settings
 from app.db.session import get_db
 
@@ -17,6 +23,8 @@ def require_user(
 ) -> UserContext:
     settings = get_settings()
     if not settings.auth_enabled:
+        if settings.public_demo_mode:
+            return demo_common_context()
         return demo_admin_context()
 
     ensure_bootstrap_admin(db)
@@ -33,5 +41,10 @@ def require_user(
 
 def require_admin(current_user: UserContext = Depends(require_user)) -> UserContext:
     if current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Admin role required")
+        detail = (
+            "Admin actions are disabled in public demo mode."
+            if get_settings().public_demo_mode
+            else "Admin role required"
+        )
+        raise HTTPException(status_code=403, detail=detail)
     return current_user

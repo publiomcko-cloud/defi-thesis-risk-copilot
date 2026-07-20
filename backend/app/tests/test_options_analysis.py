@@ -110,3 +110,18 @@ def test_options_endpoint_handles_invalid_expiration_date_without_server_error()
     payload = response.json()
     assert payload["days_to_expiration"] is None
     assert "valid_expiration_date" in payload["missing_data"]
+
+
+def test_options_accepts_percentage_style_implied_volatility() -> None:
+    result = analyze_option(
+        OptionsAnalysisRequest(
+            option_type="call",
+            underlying_price=3000,
+            strike_price=3200,
+            premium=150,
+            implied_volatility=75,
+            scenario_prices=[3500],
+        )
+    )
+
+    assert "75.00%" in result.volatility_summary

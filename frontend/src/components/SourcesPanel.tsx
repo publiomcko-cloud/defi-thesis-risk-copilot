@@ -15,8 +15,12 @@ export function SourcesPanel({ sources }: SourcesPanelProps) {
           {sources.map((source) => (
             <li key={`${source.title}-${source.url ?? source.source_type}`}>
               <strong>{source.title}</strong>
-              <span>{source.source_type}</span>
-              {source.url ? <code>{source.url}</code> : null}
+              <span>{source.source_type}{source.protocol ? ` · ${source.protocol}` : ""}</span>
+              {source.url ? (
+                <a className="text-link" href={source.url} rel="noreferrer" target="_blank">
+                  Open source
+                </a>
+              ) : null}
             </li>
           ))}
         </ul>

@@ -4,10 +4,12 @@ services:
     env: docker
     plan: free
     dockerfilePath: ./Dockerfile.backend
-    healthCheckPath: /health
+    healthCheckPath: /ready
     envVars:
       - key: APP_ENV
         value: portfolio_demo
+      - key: APP_VERSION
+        value: 1.0.0
       - key: PUBLIC_DEMO_MODE
         value: "true"
       - key: DATABASE_URL

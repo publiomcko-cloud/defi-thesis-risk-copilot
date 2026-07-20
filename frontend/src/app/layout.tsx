@@ -1,11 +1,26 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+
+import { SiteFooter } from "@/components/SiteFooter";
+import { SiteHeader } from "@/components/SiteHeader";
 
 import "./styles.css";
+import "./v1.css";
 
 export const metadata: Metadata = {
-  title: "DeFi Thesis & Risk Copilot",
-  description: "Research and risk analysis copilot for DeFi strategy review."
+  metadataBase: new URL("https://defi-thesis-risk-copilot.vercel.app"),
+  title: {
+    default: "DeFi Thesis & Risk Copilot",
+    template: "%s | DeFi Thesis & Risk Copilot"
+  },
+  description:
+    "Source-grounded DeFi strategy research, deterministic risk scoring, simulation, options analysis, and controlled discovery-to-RAG workflows.",
+  openGraph: {
+    title: "DeFi Thesis & Risk Copilot",
+    description:
+      "A full-stack AI and DeFi research product with deterministic risk scoring and controlled workflows.",
+    type: "website",
+    url: "/demo"
+  }
 };
 
 export default function RootLayout({
@@ -16,23 +31,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <header className="site-header">
-          <Link className="brand" href="/">
-            DeFi Thesis & Risk Copilot
-          </Link>
-          <nav aria-label="Main navigation">
-            <Link href="/analyze">Analyze</Link>
-            <Link href="/simulate">Simulate</Link>
-            <Link href="/watchlist">Watchlist</Link>
-            <Link href="/options">Options</Link>
-            <Link href="/review">Review</Link>
-            <Link href="/demo">Demo</Link>
-            <Link href="/admin">Admin</Link>
-            <Link href="/protocols">Protocols</Link>
-            <Link href="/about">About</Link>
-          </nav>
-        </header>
+        <SiteHeader />
         {children}
+        <SiteFooter />
       </body>
     </html>
   );
