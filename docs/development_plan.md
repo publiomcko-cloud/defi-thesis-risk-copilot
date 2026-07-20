@@ -1,199 +1,172 @@
-# DeFi Thesis & Risk Copilot — Consolidated Development Plan
+# DeFi Thesis & Risk Copilot — Authoritative Development Plan
 
-This is the single authoritative product and engineering roadmap for DeFi Thesis & Risk Copilot.
+This document is the authoritative roadmap, phase-status index, and dependency map for DeFi Thesis & Risk Copilot.
 
-It replaces the fragmented planning documents previously stored in:
+Detailed implementation requirements live in:
 
-- `docs/post_mvp_development_plan.md`
-- `docs/phase_10_12_expansion_plan.md`
+- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md) — complete Phase 16 contract and current blockers;
+- [`future_phase_contracts.md`](future_phase_contracts.md) — complete Phase 17–21 contracts;
+- [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
+- [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
 
-Git history preserves the original Codex-ready task specifications. This document preserves every completed phase, the important architectural decisions from those plans, and the new path from portfolio demo to a real product.
-
-## 1. Product Mission
-
-DeFi Thesis & Risk Copilot standardizes research and risk review for complex DeFi strategies.
-
-The product should help a user:
-
-1. describe a strategy or market thesis;
-2. retrieve protocol and internal risk context;
-3. collect public or manually supplied market data;
-4. expose assumptions and missing information;
-5. apply deterministic risk scoring;
-6. test transparent stress scenarios;
-7. generate a structured, source-grounded report;
-8. monitor relevant thresholds and research changes;
-9. maintain a controlled, human-approved knowledge base.
-
-The product does **not** connect wallets, sign transactions, hold assets, execute trades, or provide personalized financial advice.
-
-## 2. Permanent Engineering Principles
-
-- Deterministic calculations and risk fields remain the source of truth.
-- LLM output may improve language but may not invent or overwrite deterministic values.
-- Missing data and uncertainty must remain visible.
-- Source provenance must remain visible.
-- Discovery and trust are separate: discovered content requires evaluation and human approval before RAG ingestion.
-- Provider credentials remain server-side and are never returned to the browser.
-- Public deployments are safe by default and read-only for privileged workflows.
-- Heavy infrastructure is optional, cost-limited, auditable, and explicitly controlled.
-- Wallet, custody, signing, execution, and automated capital allocation remain out of scope unless separately designed and reviewed.
+The former `post_mvp_development_plan.md` and `phase_10_12_expansion_plan.md` are historical. Git history preserves their original detailed prompts.
 
 ---
 
-# Completed Product History
+## 1. Product mission
 
-## Phase 0 — Core Technical MVP — Complete
+DeFi Thesis & Risk Copilot converts a DeFi strategy or market thesis into a structured, source-grounded risk report.
+
+The product should:
+
+1. accept a bounded strategy description;
+2. identify protocols, markets, and assumptions;
+3. retrieve approved protocol and internal research context;
+4. collect public or manually supplied market data;
+5. show missing data and uncertainty;
+6. calculate deterministic risk drivers and ratings;
+7. run transparent stress scenarios;
+8. produce a structured report with source provenance;
+9. maintain saved theses, reports, watchlists, alerts, and organizations;
+10. preserve human approval before new knowledge becomes trusted;
+11. support optional model assistance without replacing deterministic truth.
+
+The product does not connect wallets, request private keys, sign transactions, custody funds, execute trades, allocate capital, guarantee returns, or provide personalized financial advice.
+
+---
+
+## 2. Permanent engineering principles
+
+- Deterministic calculations and risk fields remain authoritative.
+- LLM output may improve wording but cannot invent or overwrite deterministic values, market facts, sources, missing data, or disclaimers.
+- Missing data and uncertainty remain visible.
+- Every trusted knowledge source preserves provenance and approval lineage.
+- Discovery, evaluation, approval, ingestion, and retrieval are separate states.
+- Provider credentials and session secrets remain server-side.
+- Public deployments are safe by default.
+- Authentication establishes identity; application data establishes roles, ownership, plan, and authorization.
+- Resource identifiers never grant access by themselves.
+- Tenant and organization filters are server-derived.
+- Heavy work is bounded, durable, retryable, idempotent, and cost-controlled before commercial use.
+- Every phase must document normal, failure, authorization, concurrency, deletion, and recovery behavior.
+- Placeholder UI, mocked provider flows, or scaffolding are not completion.
+- Documentation must distinguish implemented, tested, externally unverified, planned, and blocked work.
+
+---
+
+# Completed product history
+
+## Phase 0 — Core technical MVP — Complete
 
 Established:
 
-- FastAPI backend
-- Next.js frontend
-- SQLAlchemy and Alembic persistence
-- Docker Compose local stack
-- curated Markdown knowledge base
-- local retrieval pipeline
-- market-data adapter interfaces
-- deterministic risk scoring
-- structured report generation
-- Markdown report export
-- backend tests and frontend build checks
+- FastAPI backend;
+- Next.js frontend;
+- SQLAlchemy/Alembic persistence;
+- Docker Compose stack;
+- curated Markdown knowledge base;
+- local retrieval;
+- market-data adapter interfaces;
+- deterministic risk scoring;
+- structured report generation;
+- Markdown export;
+- backend and frontend validation foundations.
 
-Core workflow:
+Core flow:
 
 ```text
 strategy input
-  -> strategy parsing
-  -> protocol-context retrieval
-  -> market-data adapters
-  -> deterministic risk scoring
+  -> parsing
+  -> curated retrieval
+  -> market data
+  -> deterministic scoring
   -> stress scenarios
-  -> structured report
-  -> persistence
-  -> Markdown export
+  -> report
+  -> persistence/export
 ```
 
-## Post-MVP Phase 1 — Optional Backend LLM Synthesis — Complete
+## Post-MVP Phase 1 — Optional backend LLM synthesis — Complete
 
-- disabled deterministic fallback
-- local Ollama provider
-- OpenAI-compatible provider
-- timeout and safe fallback
-- reports continue working without an LLM
-- model wording cannot override risk, market data, sources, missing data, or disclaimers
+- disabled deterministic fallback;
+- Ollama provider;
+- OpenAI-compatible provider;
+- timeout and safe fallback;
+- deterministic report fields remain authoritative.
 
-## Post-MVP Phase 2 — Source Monitoring and Discovery — Complete
+## Post-MVP Phase 2 — Source monitoring and discovery — Complete
 
-- source watches
-- manual/public discovery inputs
-- normalized discovered-item records
-- duplicate detection
-- failure tracking
-- discovered-item listing
+- source watches;
+- manual/public discovery;
+- normalized discovered items;
+- deduplication;
+- failure tracking;
+- candidate listing.
 
-## Post-MVP Phase 3 — Automated Evaluation and Review Queue — Complete
+## Post-MVP Phase 3 — Evaluation and review queue — Complete
 
-- deterministic candidate evaluation
-- persisted evaluation results
-- review-item creation
-- reviewer notes
-- linked reports
-- visible confidence and missing data
+- deterministic candidate evaluation;
+- persisted evaluation results;
+- review records and notes;
+- confidence and missing data;
+- review states: `needs_review`, `approved_for_rag`, `needs_more_data`, `rejected`, `archived`.
 
-Review states:
+## Post-MVP Phase 4 — Strategy simulator — Complete
 
-```text
-needs_review
-approved_for_rag
-needs_more_data
-rejected
-archived
-```
+- net spread;
+- borrow-rate shock;
+- liquidity/slippage shock;
+- collateral drawdown;
+- early exit;
+- incentive removal;
+- combined adverse case.
 
-## Post-MVP Phase 4 — Strategy Simulator — Complete
+## Post-MVP Phase 5 — Watchlists and alerts — Complete
 
-- net-spread analysis
-- borrow-rate shock
-- liquidity and slippage shock
-- collateral drawdown
-- early-exit discount
-- incentive removal
-- combined adverse case
-- formulas, assumptions, missing data, and interpretations
+- watchlist persistence;
+- threshold rules;
+- manually evaluated snapshots;
+- in-app alert events;
+- severity/status;
+- no trade execution.
 
-## Post-MVP Phase 5 — Watchlists and Alerts — Complete
+## Post-MVP Phase 6 — Options and volatility analysis — Complete
 
-- watchlist persistence
-- configurable threshold rules
-- manually evaluated snapshots
-- in-app alert events
-- severity and status
-- no trade execution or external notification dependency
+- long calls/puts;
+- premium and contracts;
+- breakeven and maximum loss;
+- spread and expiration;
+- payoff scenarios;
+- return-on-premium and volatility framing.
 
-## Post-MVP Phase 6 — Options and Volatility Analysis — Complete
+## Post-MVP Phase 7 — Advanced RAG and retrieval evaluation — Complete
 
-- long calls and puts
-- premium and contract count
-- breakeven
-- maximum loss and profit framing
-- bid/ask spread
-- expiration timing
-- payoff scenarios and moneyness
-- return on premium
-- volatility thesis and risk framing
+- heading-aware chunking;
+- local deterministic embeddings;
+- keyword/vector/metadata hybrid retrieval;
+- reranking/citation foundations;
+- retrieval evaluation scripts and dataset.
 
-## Post-MVP Phase 7 — Advanced RAG and Retrieval Evaluation — Complete
+## Post-MVP Phase 8 — Fine-tuning and ML groundwork — Complete
 
-- header-aware chunking
-- local hash embeddings
-- keyword/vector/metadata hybrid weighting
-- reranking foundations
-- citation validation foundations
-- retrieval-evaluation dataset and scripts
-- deterministic local fallback
+- report-to-dataset export;
+- deterministic labels separated from human ground truth;
+- baseline classifier workspace;
+- advisory model boundary.
 
-## Post-MVP Phase 8 — Fine-Tuning and ML Risk Groundwork — Complete
+## Post-MVP Phase 9 — HPC and SLURM readiness — Complete
 
-- report-to-dataset export
-- deterministic labels distinguished from human ground truth
-- baseline classifier workspace
-- advisory model outputs cannot override deterministic scoring
-- model-training workspace
+- embedding-generation template;
+- retrieval-evaluation template;
+- classifier-training template;
+- Apptainer definition;
+- no HPC dependency for normal operation.
 
-## Post-MVP Phase 9 — HPC and SLURM Readiness — Complete
-
-- SLURM embedding-generation template
-- retrieval-evaluation template
-- classifier-training template
-- Apptainer definition
-- no HPC dependency for normal operation
-
-## Post-MVP Phase 10 — Auto-Discovery and Human-Approved RAG Ingestion — Complete
-
-Discovery sources and candidate types:
-
-- DefiLlama public/free endpoints
-- manual candidate lists
-- protocols
-- yield pools
-- options/open-interest sources where practical
-- fees/revenue sources where practical
-
-Discovery controls:
-
-- minimum protocol and pool TVL
-- chain, category, and protocol allow/block lists
-- recency controls
-- include flags
-- stable discovery keys
-- normalization and deduplication
-
-Required trust workflow:
+## Post-MVP Phase 10 — Auto-discovery and human-approved RAG ingestion — Complete
 
 ```text
 discovery
-  -> normalization and deduplication
-  -> automated evaluation
+  -> normalize/deduplicate
+  -> evaluate
   -> human review
   -> approved_for_rag
   -> explicit admin ingestion
@@ -201,338 +174,284 @@ discovery
   -> RAG refresh
 ```
 
-Automatic discovery and evaluation are allowed. Automatic ingestion is not.
+Automatic discovery/evaluation is allowed. Automatic trust/ingestion is not.
 
-Ingestion safeguards:
+## Post-MVP Phase 11 — Access control and provider configuration — Complete for MVP
 
-- only `approved_for_rag` items are eligible
-- duplicate ingestion is prevented
-- Markdown records provenance, risk summary, missing data, reviewer notes, and disclaimer
-- generated sources state that they were automatically discovered and human-approved
-- refresh failures are recorded as `refresh_failed`
-- ingestion is marked `ingested` only after a successful refresh
-- failed refresh can be retried
+- `admin` and `common` roles;
+- server-side encrypted credential storage;
+- safe credential metadata;
+- redacted audit events;
+- administrator protection for credentials, review, ingestion, and Vast operations;
+- bearer-token local/private foundation.
 
-## Post-MVP Phase 11 — Access Control and Secure Provider Configuration — Complete for MVP
+Production managed identity is superseded by the Phase 16 contract.
 
-Roles:
+## Post-MVP Phase 12 — Vast.ai ephemeral provider — Complete for dry-run/manual warm-up
 
-```text
-admin
-common
-```
+- offer filtering;
+- cost/runtime/GPU controls;
+- startup polling and health checks;
+- test request path;
+- cleanup and idempotent destroy;
+- disabled/dry-run defaults;
+- no live rental in CI or ordinary public reports.
 
-Common-user capabilities:
+## Final Phase 13 — Demo data and reports — Complete
 
-- normal analysis
-- allowed reports
-- simulation
-- options analysis
-- personal-resource foundations
+- deterministic seed;
+- Pendle/Morpho report;
+- discovery-to-RAG report;
+- watchlist report;
+- options report;
+- Vast dry-run report;
+- `/demo` dashboard;
+- committed Markdown examples.
 
-Admin capabilities:
-
-- provider credentials
-- discovery controls
-- review actions
-- RAG ingestion
-- audit events
-- Vast.ai controls
-
-Credential rules:
-
-- server-side only
-- encrypted database storage or environment-backed credentials
-- database storage fails closed without an encryption key
-- frontend receives safe metadata and last four characters only
-- secrets are redacted from audit metadata
-
-Known limitation: the bearer-token implementation is an MVP foundation, not final production identity. Managed authentication, ownership, MFA, recovery, and quotas are planned below.
-
-## Post-MVP Phase 12 — Vast.ai Ephemeral Model Provider — Complete for Dry-Run and Manual Warm-Up
-
-Lifecycle:
-
-```text
-idle
-  -> searching_offer
-  -> renting_instance
-  -> booting
-  -> starting_model_server
-  -> health_checking
-  -> ready
-  -> serving_request
-  -> cleanup
-  -> destroyed
-```
-
-Failure states:
-
-- offer not found
-- rent failure
-- boot timeout
-- container failure
-- model-health failure
-- request failure
-- cleanup failure
-
-Guardrails:
-
-- disabled and dry-run by default
-- admin-only
-- hourly-cost and runtime limits
-- GPU allow list
-- RAM/disk/verified-host filters
-- maximum active instances
-- startup polling and timeout
-- idempotent destroy
-- cleanup after failure
-- no live rental in automated tests
-
-Automatic Vast.ai rental for ordinary public reports remains disabled.
-
-## Final Phase 13 — Demo Data and Example Reports — Complete
-
-- Pendle PT/lending-loop report
-- discovery-to-RAG report
-- watchlist-alert report
-- options/volatility report
-- Vast.ai dry-run report
-- idempotent seed
-- `/demo` dashboard
-- committed Markdown examples
-- no external keys or live rental required
-
-## Final Phase 14 — Public Portfolio Deployment — Complete
-
-Architecture:
+## Final Phase 14 — Public portfolio deployment — Complete
 
 ```text
 Vercel frontend
-  -> Render FastAPI backend
+  -> Render FastAPI
   -> Supabase PostgreSQL
 ```
 
-Live services:
+- public demo deployed;
+- startup migrations and seed;
+- safe deployment metadata;
+- deterministic/LLM-disabled defaults;
+- no durable reliance on generated runtime report files.
 
-- Frontend: `https://defi-thesis-risk-copilot.vercel.app`
-- Backend: `https://defi-thesis-risk-copilot.onrender.com`
-- API docs: `https://defi-thesis-risk-copilot.onrender.com/docs`
+## V1 Phase 15 — Product hardening and public-safe UX — Complete
 
-Public defaults:
+Backend/security:
 
-- synthetic demo mode
-- LLM synthesis disabled
-- Vast.ai disabled/dry-run
-- semantic RAG optional and disabled by default
-- safe deployment-status endpoint
-- no durable dependence on Render runtime report files
+- public visitor no longer receives implicit administrator identity;
+- privileged public mutations blocked;
+- bounded public compute rate-limited;
+- request size/range limits;
+- request IDs and safe error handling;
+- `/health`, `/ready`, and safe deployment status;
+- runtime demo/RAG preparation;
+- market cache expiration and update-in-place behavior.
+
+Frontend/UX:
+
+- guided demo as primary entry;
+- public admin navigation hidden;
+- read-only public review/watchlist;
+- cold-start and retry states;
+- unit clarity;
+- source links;
+- Markdown copy/download;
+- responsive/focus/reduced-motion improvements;
+- shared-demo privacy warning.
+
+Phase 15 is the permanent public-safety baseline for all later phases.
 
 ---
 
-# Real Product Roadmap
+# Active phase
 
-## V1 Phase 15 — Product Hardening and Public-Safe UX — Complete
+## V1 Phase 16 — Production identity, ownership, and quotas — In Progress
 
-This phase turns the portfolio deployment into a credible v1 product boundary.
+Goal: support anonymous visitors and authenticated multi-user/organization workflows securely in the same product architecture.
 
-Security and API scope:
+Authoritative requirements and current audit:
 
-- public visitors receive a `common` read-only identity instead of an implicit administrator identity
-- privileged and state-changing public-demo routes return `403`
-- public discovery, monitoring, evaluation, review mutation, RAG ingestion, watchlist mutation, credential, audit, document-ingestion, and Vast lifecycle actions are blocked
-- bounded compute endpoints remain available with rate limiting
-- request schemas enforce size and range limits
-- request IDs and safe request/error logging are added
-- database/RAG-aware `/ready` endpoint is added
-- API root links health, readiness, deployment status, docs, and frontend
-- Render uses readiness rather than liveness
-- startup seeds deterministic data and rebuilds the RAG index
-- market cache uses expiration and update-in-place behavior
+- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md)
 
-UX scope:
-
-- live demo becomes the primary entry point
-- public admin navigation is hidden
-- direct admin pages explain the protected boundary
-- review and watchlist screens are read-only publicly
-- shared-demo privacy warning is visible
-- cold-start and retry states are visible
-- APY, LTV, LLTV, volatility, USD, and basis-point units are explicit
-- advanced fields use progressive disclosure
-- raw JSON and snake-case values are replaced with readable labels
-- report sources are clickable
-- Markdown can be copied or downloaded
-- duplicate report panels are removed
-- responsive navigation, footer, focus-visible states, hover states, reduced-motion support, badges, and loading indicators are added
-
-Completion gate:
-
-- backend tests pass
-- frontend TypeScript/build pass
-- Compose files validate
-- public mutation tests pass
-- Vercel deployment succeeds
-- Render readiness succeeds
-- deployed read-only behavior is manually verified
-
-## V1 Phase 16 — Production Identity, Ownership, and Quotas — In Progress
-
-Goal: move from a shared portfolio environment to a real multi-user product.
-
-Deliverables:
-
-- Supabase Auth JWT validation through JWKS
-- verified-email enforcement for managed auth
-- secure HttpOnly session-cookie BFF foundation instead of browser-stored bearer tokens
-- optional administrator MFA configuration and UI foundation
-- account recovery and password-reset pages
-- user and organization ownership tables
-- central authorization policies
-- private reports, watchlists, alerts, and saved theses foundations
-- organization-scoped knowledge-base metadata foundation; durable tenant vector storage remains Phase 18
-- explicit administrator assignment through application database fields
-- durable daily API quotas by role/plan
-- account deletion and bounded account data export
-- isolated anonymous-demo sessions
-- retention and TTL cleanup command
-- terms, privacy, and versioned consent records
-
-Remaining validation before commercial launch:
-
-- configure Supabase Auth/MFA in the deployed project and verify the complete external email/MFA flow
-- perform browser E2E coverage for authenticated organization workflows
-- complete legal review of terms and privacy copy
-
-## V1 Phase 17 — Durable Job Queue and Hybrid Workers — Planned
-
-Goal: execute heavy work outside the public web process.
+Current branch:
 
 ```text
-Vercel frontend
-  -> Render API/control plane
-  -> Supabase job queue and persistence
-  -> local or cloud workers pull jobs outbound
+agent/v1-phase-16-identity-ownership
 ```
 
-Deliverables:
+Reviewed correction commit:
 
-- job state machine
-- scoped worker authentication
-- lease and heartbeat
-- retry and dead-letter handling
-- idempotent execution
-- cancellation and progress events
-- local Docker worker requiring no inbound ports
-- optional private Cloudflare/Tailscale administration
-- Vast.ai worker adapter
-- object-storage artifacts
-- capacity and cost controls
+```text
+bf1b9ddc6153e02f2018c4a43ba20bb634e82709
+```
 
-## V1 Phase 18 — Production RAG and Knowledge Storage — Planned
+Implemented foundation includes:
 
-Goal: eliminate runtime-filesystem dependence and support tenant-specific corpora.
+- Supabase JWT/JWKS verification;
+- verified-email checks;
+- local user synchronization and database-owned platform roles;
+- HttpOnly access/refresh session-cookie and Next.js BFF foundation;
+- anonymous session records and expiring anonymous reports;
+- organizations, memberships, pending invitations, and final-owner protection;
+- ownership fields and centralized policy helpers;
+- saved theses;
+- daily compute quotas and saved-resource quotas;
+- account export/deletion and retention cleanup;
+- terms/privacy pages and consent-record foundation;
+- administrator `aal2` enforcement foundation;
+- account/thesis/organization frontend components;
+- expanded Phase 16 tests.
 
-Deliverables:
+Phase 16 remains in progress because its contract still identifies blockers, including:
 
-- object storage for documents
-- PostgreSQL/pgvector or dedicated vector store
-- durable chunks and embeddings
-- tenant/protocol metadata filters
-- worker-based ingestion
-- document versioning
-- re-embedding migrations
-- source deletion and tombstones
-- retrieval observability
-- citation-integrity checks
-- evaluation dashboards
-- approved-source lineage
-- knowledge-version rollback
+- effective BFF path and cookie allowlisting;
+- actor-based public/authenticated coexistence for mutations;
+- strict private versus organization visibility;
+- concurrency-safe quota creation and resource limits;
+- complete recovery callback;
+- server-owned consent versions;
+- usable MFA enrollment/challenge flow;
+- tenant knowledge-base authorization metadata and retrieval boundaries;
+- ownership foreign-key/index review;
+- full browser/PostgreSQL/deployed Supabase validation;
+- security audit-event coverage and legal review.
 
-## V1 Phase 19 — Production Operations and Security — Planned
-
-Deliverables:
-
-- distributed rate limiting
-- WAF policy
-- dependency and container scanning
-- automated dependency updates
-- centralized logs, errors, traces, and latency metrics
-- request/job correlation IDs
-- uptime checks and dashboards
-- backup/restore drills
-- migration rollback process
-- secret rotation
-- CSP and security headers
-- abuse detection
-- incident-response runbook
-- threat model and penetration-test checklist
-- PostgreSQL integration tests
-- browser end-to-end tests
-- accessibility automation
-- load and failure testing
-
-## V1 Phase 20 — Product Analytics, Notifications, and Commercial Readiness — Planned
-
-Deliverables:
-
-- privacy-conscious analytics
-- onboarding and workflow metrics
-- email/webhook/Telegram notifications
-- notification preferences
-- scheduled monitoring jobs
-- usage metering and plan limits
-- subscription/billing foundation
-- organization workspaces and invitations
-- audit export
-- customer-facing status page
-- support and feedback workflow
-
-## V1 Phase 21 — Model and Research Intelligence Expansion — Planned
-
-Deliverables:
-
-- explicit task-level provider selection
-- safe ephemeral GPU execution through workers
-- model evaluation before provider promotion
-- output-quality scoring
-- prompt/model versioning
-- regression datasets
-- human feedback capture
-- source-quality scoring
-- broader protocol/market coverage
-- catalysts and thesis tracking
-- scenario comparison across saved reports
+Do not mark Phase 16 complete until every gate in the contract passes.
 
 ---
 
-# Release Gates
+# Planned phases
 
-## V1.0 Product Gate
+The complete contracts are in [`future_phase_contracts.md`](future_phase_contracts.md).
 
-The application may be labeled a production v1.0 when:
+## V1 Phase 17 — Durable job queue and hybrid workers — Planned
 
-- public users cannot access privileged mutations;
-- real authentication and ownership protect private data;
-- anonymous inputs are isolated or automatically deleted;
-- rate limiting is durable across instances;
-- RAG and artifacts use durable storage;
-- heavy work runs through jobs/workers;
-- logs, metrics, alerts, backups, and security headers are active;
+Goal: execute heavy/retryable/provider work outside the public web process.
+
+Core outcomes:
+
+- durable job state machine;
+- scoped worker authentication;
+- atomic leasing/heartbeat;
+- retry, backoff, dead-letter;
+- idempotency;
+- cancellation/progress;
+- local Docker worker with no inbound ports;
+- Vast adapter through jobs;
+- artifact records;
+- concurrency and cost controls.
+
+Phase 17 must preserve Phase 16 ownership, quotas, actor boundaries, and auditability.
+
+## V1 Phase 18 — Production RAG and knowledge storage — Planned
+
+Goal: eliminate runtime-filesystem authority and support durable, versioned, tenant-filtered knowledge.
+
+Core outcomes:
+
+- object storage;
+- durable document/version/chunk records;
+- pgvector or justified vector store;
+- server-derived tenant/protocol filters;
+- worker ingestion;
+- approved-source lineage;
+- re-embedding migration;
+- deletion/tombstones;
+- rollback;
+- retrieval observability and evaluation.
+
+## V1 Phase 19 — Production operations and security — Planned
+
+Goal: make identity, API, jobs, workers, storage, and retrieval hardened, observable, recoverable, and supportable.
+
+Core outcomes:
+
+- threat model;
+- distributed rate limiting;
+- WAF/security headers/CSRF/SSRF controls;
+- centralized logs/errors/traces/metrics;
+- request-to-job correlation;
+- uptime checks/alerts;
+- backup and restore drills;
+- secret rotation;
+- dependency/container/secret scanning;
+- incident runbooks;
+- PostgreSQL/browser/accessibility/load/failure tests.
+
+## V1 Phase 20 — Analytics, notifications, and commercial readiness — Planned
+
+Goal: add privacy-conscious product analytics, scheduled monitoring, controlled notifications, plan entitlements, billing foundations, support, and legal launch readiness.
+
+Core outcomes:
+
+- consent-aware analytics;
+- scheduled jobs;
+- email/webhook/Telegram preferences and delivery;
+- usage metering and entitlement rules;
+- billing webhook/idempotency foundation;
+- organization invitations and seat controls;
+- audit export;
+- status/support/feedback workflows;
+- qualified legal/privacy/commercial review.
+
+## V1 Phase 21 — Model and research intelligence expansion — Planned
+
+Goal: expand model-assisted research only after evaluation, provenance, privacy, cost, and rollback controls exist.
+
+Core outcomes:
+
+- task-level provider routing;
+- model/prompt registry;
+- evaluation-before-promotion;
+- regression datasets;
+- output/citation quality scoring;
+- prompt-injection/source-poisoning defenses;
+- controlled feedback;
+- thesis/catalyst/scenario tracking;
+- safe worker-based ephemeral GPU execution;
+- fine-tuning dataset/model governance.
+
+---
+
+# Release gates
+
+## Production v1 gate
+
+The product may be labeled production v1 only when:
+
+- Phase 16 identity/ownership contract is complete;
+- public and authenticated users coexist safely;
+- private and organization data isolation is verified;
+- anonymous data is isolated and cleaned;
+- durable jobs/workers exist;
+- RAG/artifacts use durable tenant-aware storage;
+- rate limiting works across instances;
+- observability, alerts, backups, security headers, and incident procedures exist;
 - browser and PostgreSQL integration tests run in CI;
-- legal and privacy copy is published;
-- wallet, signing, custody, and execution have not been introduced implicitly.
+- legal/privacy copy has qualified review;
+- no wallet/signing/custody/execution capability was introduced implicitly.
 
-## Definition of Done for Every Future Phase
+## Definition of done for every phase
 
 A phase is complete only when:
 
-1. code and migrations are committed;
-2. tests cover normal, failure, and authorization paths;
-3. frontend type/build checks pass;
-4. Docker configuration validates;
-5. documentation and current state are updated;
-6. secrets are not exposed;
-7. public safety boundaries remain intact;
-8. deployment behavior is verified;
-9. known limitations are explicit.
+1. the implementation matches its detailed contract;
+2. code and migrations are committed;
+3. normal, failure, authorization, concurrency, deletion, and recovery tests pass;
+4. PostgreSQL-specific behavior is tested when relevant;
+5. frontend type/build and browser tests pass;
+6. Docker/deployment configuration validates;
+7. secrets and tenant data remain protected;
+8. Phase 15 public safety and deterministic-risk behavior do not regress;
+9. operational evidence appropriate to the phase exists;
+10. external/manual checks are recorded;
+11. documentation matches reality;
+12. known limitations are explicit;
+13. CI is green;
+14. the phase is not merely scaffolding, placeholder UI, or mocked external behavior.
+
+---
+
+# Short-prompt workflow
+
+Future agents should use [`agent_execution_guide.md`](agent_execution_guide.md).
+
+Standard phase prompt:
+
+```text
+Implement V1 Phase <N> on a new branch from current main.
+Read docs/current_state.md, docs/development_plan.md,
+the relevant phase contract, docs/architecture.md, docs/deployment.md,
+docs/testing.md, and docs/agent_execution_guide.md.
+Follow the contract exactly, preserve completed behavior, run all required
+checks, update the docs, commit logically, push the branch, open a draft PR,
+and do not merge.
+```
