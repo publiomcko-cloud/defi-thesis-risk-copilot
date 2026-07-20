@@ -6,21 +6,26 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 
 ### Phase 16 Identity, Ownership, and Quotas
 
-- Added Supabase Auth JWT validation through JWKS with issuer, audience, expiration, subject, and signature checks.
-- Added local user synchronization, explicit platform roles, account status, verified-email enforcement, and production fail-closed auth configuration.
-- Added organization and membership models with owner/admin/member/viewer roles and final-owner protection.
-- Added central authorization policies for private, organization, public-demo, anonymous, deleted, and expired resources.
-- Added ownership fields for analysis requests, reports, and watchlists plus private report/watchlist filtering.
-- Added saved theses, account export/deletion, consent records, anonymous sessions, durable quotas, and retention cleanup.
-- Added frontend auth, account, security, terms, privacy, and theses pages with HttpOnly-cookie auth route foundations.
+- Added Supabase Auth JWT validation through JWKS with issuer, audience, expiration, subject, email, and signature checks.
+- Added local user synchronization, explicit platform roles, account status, verified-email enforcement, and production fail-closed authentication configuration.
+- Added Next.js same-origin BFF and HttpOnly access/refresh/expiration cookie foundations.
+- Added organization and membership models with owner/admin/member/viewer roles, pending invitations, and final-owner protection.
+- Added centralized authorization policies for private, organization, public-demo, anonymous, deleted, and expired resources.
+- Added ownership fields for analysis requests, reports, and watchlists plus saved theses.
+- Added account export/deletion, consent records, anonymous sessions, daily quotas, saved-resource limits, and retention cleanup.
+- Added administrator MFA assurance checking foundation.
+- Added account, thesis, and organization frontend foundations.
+- Expanded JWT, anonymous isolation, quota, organization, and cleanup tests.
+
+Phase 16 remains **In Progress**. The complete blocker and completion-gate list is maintained in `docs/phase_16_identity_ownership_contract.md`.
 
 ### Security
 
-- Public hosted visitors now receive a common read-only identity instead of an implicit administrator identity.
-- Public discovery, monitoring, evaluation, review, RAG, document, watchlist, credential, audit, and Vast.ai mutations are blocked.
-- Public compute endpoints use bounded request schemas and per-client rate limiting.
-- Analysis, simulation, options, market-data, and document schemas enforce size and numeric limits.
-- Provider secrets remain server-side and public credential metadata is denied.
+- Public hosted visitors receive a common/anonymous restricted identity instead of implicit administrator access.
+- Public discovery, monitoring, evaluation, review, RAG, document, watchlist, credential, audit, and Vast.ai mutations remain restricted.
+- Public compute endpoints use bounded request schemas and per-client limiting.
+- Provider and session secrets remain server-side.
+- Phase 16 documentation now explicitly requires effective BFF route allowlisting, cookie filtering, actor-based hybrid authorization, strict visibility semantics, concurrency-safe quotas, complete recovery, server-owned consent versions, usable MFA, and tenant knowledge boundaries.
 
 ### Backend
 
@@ -29,29 +34,28 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 - Added deterministic demo seeding and RAG-index generation during hosted startup.
 - Updated Render to use `/ready` for health checks.
 - Enforced market-cache expiration and update-in-place behavior.
-- Added PostgreSQL migration/test coverage in CI.
-- Added public-demo security tests.
+- Added PostgreSQL migration/test foundations in CI.
 
 ### Frontend
 
 - Made the live demo the primary product entry point.
-- Added public-aware navigation, footer, active/focus/hover states, badges, loading feedback, responsive behavior, and reduced-motion support.
-- Added free-tier cold-start retry and readiness flows.
-- Added shared-public-database privacy guidance.
+- Added public-aware navigation, footer, states, badges, responsive behavior, and reduced-motion support.
+- Added cold-start retry/readiness flows and shared-demo privacy guidance.
 - Converted review and watchlist workflows to read-only hosted demonstrations.
 - Protected direct credential, audit, and Vast.ai pages in public mode.
-- Clarified APY, LTV, LLTV, volatility, USD, and basis-point units.
-- Added progressive disclosure for advanced controls.
-- Replaced raw JSON and snake-case values with readable labels.
-- Added clickable report sources and Markdown copy/download.
-- Removed duplicate report sections.
+- Clarified financial units and advanced controls.
+- Added clickable sources and Markdown copy/download.
+- Added Phase 16 authentication/account/thesis/organization foundations.
 
 ### Documentation
 
-- Replaced fragmented planning documents with `docs/development_plan.md` as the authoritative phase history and roadmap.
-- Preserved completed phases through Final Phase 14.
-- Added V1 Phases 15-21 for hardening, identity, hybrid workers, durable RAG, operations/security, commercial readiness, and research intelligence.
-- Updated README, current state, architecture, deployment, testing, and demo walkthrough with actual live URLs and the public endpoint policy.
+- Added `docs/phase_16_identity_ownership_contract.md` as the complete Phase 16 implementation and security contract.
+- Added `docs/future_phase_contracts.md` with detailed contracts for Phases 17–21.
+- Added `docs/agent_execution_guide.md` so future work can use short prompts safely.
+- Rebuilt the authoritative development plan around phase contracts and dependency gates.
+- Updated current state to separate deployed `main` from branch-only Phase 16 work.
+- Revised architecture, deployment, testing, and README to match the contracts and current implementation audit.
+- Recorded the remaining Phase 16 blockers instead of presenting foundations as completed production behavior.
 
 ## 0.1.0 — Technical MVP and Portfolio Expansion
 
