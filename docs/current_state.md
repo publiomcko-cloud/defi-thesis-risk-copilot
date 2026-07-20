@@ -140,6 +140,8 @@ The active branch currently contains the following foundations.
 ### Frontend session/BFF
 
 - same-origin `/api/backend/*` BFF foundation;
+- explicit BFF backend route-family allowlist without a catch-all `/` prefix;
+- BFF cookie filtering that forwards only the anonymous-session cookie to FastAPI;
 - HttpOnly access-token, refresh-token, and expiration cookies;
 - refresh-token exchange and rotation foundation;
 - cookie clearing after failed refresh;
@@ -157,6 +159,7 @@ The active branch currently contains the following foundations.
 - ownership/scope fields on analysis requests, reports, and watchlists;
 - saved theses;
 - centralized resource policy helpers.
+- strict private-vs-organization visibility checks so stale `organization_id` values do not grant organization access.
 
 ### Anonymous isolation
 
@@ -169,10 +172,11 @@ The active branch currently contains the following foundations.
 ### Quotas and lifecycle
 
 - persistent daily usage quotas for analysis, simulation, options, and market-data fetches;
-- saved-thesis and watchlist resource-count limits;
+- controlled first-use quota creation retry and per-user resource-count lock rows for saved-thesis and watchlist limits;
 - account export;
 - account soft deletion;
 - consent records;
+- server-owned terms/privacy version configuration for consent persistence;
 - terms/privacy pages;
 - retention cleanup for expired sessions/resources and old deleted-user identifiers;
 - dry-run cleanup mode.
@@ -180,6 +184,7 @@ The active branch currently contains the following foundations.
 ### Frontend product foundations
 
 - login/signup/verification/recovery/reset pages;
+- server-side recovery callback/code-exchange foundation for Supabase recovery links;
 - account and account-security pages;
 - thesis management component;
 - organization management component;
@@ -195,21 +200,13 @@ Phase 16 is not complete. The authoritative blocker list is maintained in [`phas
 
 Current known blockers include:
 
-1. the BFF allowlist currently contains `/`, which matches every absolute backend path;
-2. the BFF forwards the full frontend cookie header to Render instead of only required backend cookies;
-3. `block_public_demo_mutation` remains global deployment-mode logic and can block authenticated mutations in a public+authenticated deployment;
-4. resource policy may grant organization access whenever `organization_id` exists without first requiring `visibility=organization`;
-5. daily quota first-use creation is not concurrency-safe;
-6. saved-resource count-then-create limits are not concurrency-safe;
-7. recovery lacks a complete provider callback/code-exchange path;
-8. signup consent versions are still client-influenced rather than exclusively server-owned;
-9. MFA enrollment/challenge/unenrollment is not a complete usable workflow;
-10. organization knowledge-base ownership and tenant retrieval are not fully implemented;
-11. migration foreign keys and compound ownership indexes need review;
-12. organization/security lifecycle audit coverage is incomplete;
-13. browser E2E and PostgreSQL concurrency coverage are incomplete;
-14. deployed Supabase email/recovery/MFA/session behavior is unverified;
-15. terms/privacy require qualified legal review.
+1. MFA enrollment/challenge/unenrollment is not a complete usable workflow;
+2. organization knowledge-base ownership and tenant retrieval are not fully implemented; current RAG remains global/local;
+3. migration foreign keys and compound ownership indexes need review beyond the Phase 16 index foundation;
+4. organization/security lifecycle audit coverage is incomplete;
+5. browser E2E and PostgreSQL concurrency coverage are incomplete beyond local smoke and unit coverage;
+6. deployed Supabase email/recovery/MFA/session behavior is unverified;
+7. terms/privacy require qualified legal review.
 
 The branch must not be described as commercially production-ready.
 

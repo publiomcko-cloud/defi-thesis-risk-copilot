@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_user
+from app.auth.dependencies import require_authenticated_user, require_user
 from app.auth.schemas import (
     AccountDeleteRequest,
     AccountDeleteResponse,
@@ -46,7 +46,7 @@ def logout(response: Response) -> AuthLogoutResponse:
 @router.get("/account", response_model=AccountResponse)
 def get_account(
     db: Session = Depends(get_db),
-    current_user: UserContext = Depends(require_user),
+    current_user: UserContext = Depends(require_authenticated_user),
 ) -> AccountResponse:
     user = _current_user_record(db, current_user)
     memberships = db.execute(
@@ -69,7 +69,7 @@ def get_account(
 @router.get("/account/export", response_model=AccountExportResponse)
 def export_account(
     db: Session = Depends(get_db),
-    current_user: UserContext = Depends(require_user),
+    current_user: UserContext = Depends(require_authenticated_user),
 ) -> AccountExportResponse:
     user = _current_user_record(db, current_user)
     reports = db.execute(
@@ -153,7 +153,7 @@ def export_account(
 def delete_account(
     request: AccountDeleteRequest,
     db: Session = Depends(get_db),
-    current_user: UserContext = Depends(require_user),
+    current_user: UserContext = Depends(require_authenticated_user),
 ) -> AccountDeleteResponse:
     user = _current_user_record(db, current_user)
     active_owner_memberships = db.execute(
@@ -190,7 +190,7 @@ def delete_account(
 @router.get("/usage")
 def get_usage(
     db: Session = Depends(get_db),
-    current_user: UserContext = Depends(require_user),
+    current_user: UserContext = Depends(require_authenticated_user),
 ) -> dict:
     return usage_summary(db, current_user)
 
@@ -198,7 +198,7 @@ def get_usage(
 @router.get("/consents")
 def get_consents(
     db: Session = Depends(get_db),
-    current_user: UserContext = Depends(require_user),
+    current_user: UserContext = Depends(require_authenticated_user),
 ) -> dict:
     records = db.execute(
         select(ConsentRecordModel).where(ConsentRecordModel.user_id == current_user.id)
@@ -210,12 +210,28 @@ def get_consents(
 def post_consent(
     payload: dict,
     db: Session = Depends(get_db),
-    current_user: UserContext = Depends(require_user),
+    current_user: UserContext = Depends(require_authenticated_user),
 ) -> dict:
     document_type = payload.get("document_type")
-    document_version = payload.get("document_version")
-    if document_type not in {"terms", "privacy"} or not isinstance(document_version, str):
+    settings = get_settings()
+    document_version = (
+        settings.current_terms_version
+        if document_type == "terms"
+        else settings.current_privacy_version
+        if document_type == "privacy"
+        else ""
+    )
+    if document_type not in {"terms", "privacy"}:
         raise HTTPException(status_code=422, detail="Invalid consent document")
+    existing = db.execute(
+        select(ConsentRecordModel)
+        .where(ConsentRecordModel.user_id == current_user.id)
+        .where(ConsentRecordModel.document_type == document_type)
+        .where(ConsentRecordModel.document_version == document_version)
+        .where(ConsentRecordModel.withdrawn_at.is_(None))
+    ).scalars().first()
+    if existing is not None:
+        return {"consent": _consent_payload(existing)}
     record = ConsentRecordModel(
         id=f"consent_{uuid4().hex[:12]}",
         user_id=current_user.id,

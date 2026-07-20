@@ -28,6 +28,7 @@ cd frontend
 npm ci
 npm run lint
 npm run build
+npm run test:bff
 ```
 
 Compose:
@@ -120,19 +121,19 @@ Present:
 - quota boundary;
 - valid/invalid JWT cases;
 - anonymous report isolation and expiration;
+- strict private visibility with stale organization IDs;
+- public-demo durable mutations blocked for anonymous visitors and allowed for authenticated hybrid users;
 - watchlist resource limit;
+- server-owned consent versions;
 - retention anonymization/deletion;
+- BFF allowlist/cookie-filter contract check;
 - frontend route smoke foundation.
 
 Still required before completion:
 
-- BFF allowlist and cookie-filter tests;
 - browser refresh/logout tests;
-- hybrid anonymous/authenticated mutation tests;
-- strict private-versus-organization tests;
 - PostgreSQL quota concurrency;
-- recovery callback;
-- server-owned consent versions;
+- deployed recovery callback verification;
 - full MFA flow;
 - tenant knowledge isolation;
 - deployed Supabase verification.

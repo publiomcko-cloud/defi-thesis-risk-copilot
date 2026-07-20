@@ -278,30 +278,25 @@ Implemented foundation includes:
 - Supabase JWT/JWKS verification;
 - verified-email checks;
 - local user synchronization and database-owned platform roles;
-- HttpOnly access/refresh session-cookie and Next.js BFF foundation;
+- HttpOnly access/refresh session-cookie and Next.js BFF foundation with explicit route-family allowlisting and anonymous-cookie-only backend forwarding;
 - anonymous session records and expiring anonymous reports;
 - organizations, memberships, pending invitations, and final-owner protection;
-- ownership fields and centralized policy helpers;
+- ownership fields and centralized policy helpers with strict private/organization visibility semantics;
 - saved theses;
-- daily compute quotas and saved-resource quotas;
+- daily compute quotas and saved-resource quotas with controlled first-use retry/resource-lock foundations;
 - account export/deletion and retention cleanup;
-- terms/privacy pages and consent-record foundation;
+- terms/privacy pages and server-owned consent-record foundation;
 - administrator `aal2` enforcement foundation;
 - account/thesis/organization frontend components;
 - expanded Phase 16 tests.
 
 Phase 16 remains in progress because its contract still identifies blockers, including:
 
-- effective BFF path and cookie allowlisting;
-- actor-based public/authenticated coexistence for mutations;
-- strict private versus organization visibility;
-- concurrency-safe quota creation and resource limits;
-- complete recovery callback;
-- server-owned consent versions;
 - usable MFA enrollment/challenge flow;
 - tenant knowledge-base authorization metadata and retrieval boundaries;
 - ownership foreign-key/index review;
 - full browser/PostgreSQL/deployed Supabase validation;
+- deployed recovery callback verification;
 - security audit-event coverage and legal review.
 
 Do not mark Phase 16 complete until every gate in the contract passes.

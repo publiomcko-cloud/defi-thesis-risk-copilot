@@ -14,7 +14,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.auth.service import create_user
+from app.auth.service import create_user, sync_supabase_user
 from app.auth.supabase import verify_supabase_jwt
 from app.core.config import Settings, get_settings
 from app.db.base import Base
@@ -22,10 +22,13 @@ from app.db.session import get_db
 from app.main import app
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.anonymous_session import AnonymousSessionModel
+from app.models.consent_record import ConsentRecordModel
+from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.report import ReportModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.watchlist_item import WatchlistItemModel
 from app.quotas.service import ACTION_ANALYSIS, consume_quota
+from app.auth.supabase import SupabaseClaims
 from scripts.cleanup_expired_data import cleanup_expired_data
 
 
@@ -104,6 +107,59 @@ def test_user_cannot_read_another_users_private_report(phase16_client) -> None:
 
     assert bob_response.status_code == 404
     assert alice_response.status_code == 200
+
+
+def test_private_resource_ignores_stale_organization_id(phase16_client) -> None:
+    client, Session = phase16_client
+    now = datetime.now(UTC)
+    with Session() as db:
+        alice = create_user(db, "private-owner@example.test", token="private-owner-token")
+        bob = create_user(db, "org-member@example.test", token="org-member-token")
+        org = OrganizationModel(
+            id="org_stale_private",
+            name="Stale Org",
+            slug="stale-org",
+            status="active",
+            created_by_user_id=alice.id,
+            created_at=now,
+            updated_at=now,
+        )
+        membership = OrganizationMembershipModel(
+            id="member_stale_private",
+            organization_id=org.id,
+            user_id=bob.id,
+            role="member",
+            status="active",
+            created_at=now,
+            updated_at=now,
+        )
+        analysis = AnalysisRequestModel(
+            id="analysis_stale_org",
+            strategy_description="Private strategy with stale org id",
+            protocols=["morpho"],
+            manual_inputs_json={},
+            analysis_depth="standard",
+            owner_user_id=alice.id,
+            organization_id=org.id,
+            visibility="private",
+        )
+        report = ReportModel(
+            id="report_stale_org",
+            analysis_request_id=analysis.id,
+            title="Private With Stale Org",
+            risk_rating="Moderate",
+            summary="Private summary",
+            report_markdown="# Private",
+            report_json=_report_json("report_stale_org"),
+            owner_user_id=alice.id,
+            organization_id=org.id,
+            visibility="private",
+        )
+        db.add_all([org, membership, analysis, report])
+        db.commit()
+
+    assert client.get("/api/reports/report_stale_org", headers=_auth("org-member-token")).status_code == 404
+    assert client.get("/api/reports/report_stale_org", headers=_auth("private-owner-token")).status_code == 200
 
 
 def test_organization_final_owner_cannot_be_removed(phase16_client) -> None:
@@ -332,6 +388,58 @@ def test_watchlist_resource_count_quota(phase16_client, monkeypatch) -> None:
     second = client.post("/api/watchlist/items", json={**payload, "title": "Borrow watch 2"}, headers=_auth("watch-token"))
     assert first.status_code == 200
     assert second.status_code == 429
+
+
+def test_public_demo_durable_mutations_require_authenticated_user(phase16_client, monkeypatch) -> None:
+    client, Session = phase16_client
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    monkeypatch.setenv("AUTH_ENABLED", "false")
+    get_settings.cache_clear()
+    thesis_payload = {
+        "title": "Public blocked thesis",
+        "strategy_text": "A sufficiently long public demo strategy text.",
+        "protocols": ["pendle"],
+        "assumptions": {},
+        "visibility": "private",
+    }
+    blocked = client.post("/api/theses", json=thesis_payload)
+    assert blocked.status_code == 403
+
+    monkeypatch.setenv("AUTH_ENABLED", "true")
+    get_settings.cache_clear()
+    with Session() as db:
+        create_user(db, "hybrid-user@example.test", token="hybrid-user-token")
+    allowed = client.post("/api/theses", json=thesis_payload, headers=_auth("hybrid-user-token"))
+    assert allowed.status_code == 200
+
+
+def test_signup_consent_versions_are_server_owned(phase16_client, monkeypatch) -> None:
+    monkeypatch.setenv("AUTH_PROVIDER", "supabase")
+    monkeypatch.setenv("CURRENT_TERMS_VERSION", "terms-server-version")
+    monkeypatch.setenv("CURRENT_PRIVACY_VERSION", "privacy-server-version")
+    get_settings.cache_clear()
+    _, Session = phase16_client
+    claims = SupabaseClaims(
+        subject="supabase-consent-user",
+        email="consent@example.test",
+        email_verified=True,
+        issuer="https://project.supabase.co/auth/v1",
+        audience="authenticated",
+        expires_at=int(time.time()) + 300,
+        raw={
+            "user_metadata": {
+                "accepted_terms_version": "client-forged-terms",
+                "accepted_privacy_version": "client-forged-privacy",
+            }
+        },
+    )
+    with Session() as db:
+        user = sync_supabase_user(db, claims)
+        versions = {
+            record.document_type: record.document_version
+            for record in db.query(ConsentRecordModel).filter(ConsentRecordModel.user_id == user.id).all()
+        }
+    assert versions == {"terms": "terms-server-version", "privacy": "privacy-server-version"}
 
 
 def test_cleanup_anonymizes_deleted_user_and_removes_expired_watchlist(phase16_client, monkeypatch) -> None:

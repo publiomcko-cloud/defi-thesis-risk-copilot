@@ -94,9 +94,9 @@ AUTH_PROVIDER=supabase
 
 This is the Phase 16 target. It is not complete until:
 
-- actor-based route policies replace deployment-only mutation blocks;
-- authenticated users can perform authorized personal/organization mutations while anonymous visitors remain restricted;
-- BFF route and cookie allowlists pass security tests;
+- actor-based route policies are validated on deployed domains;
+- authenticated users can perform authorized personal/organization mutations while anonymous visitors remain restricted in deployed Supabase mode;
+- BFF route and cookie allowlists continue to pass local and deployed security tests;
 - browser anonymous and authenticated flows pass on deployed domains.
 
 Do not enable Mode C commercially while the blockers in the Phase 16 contract remain.
@@ -460,8 +460,8 @@ In hybrid mode, anonymous denial must not globally block authenticated user oper
 - [ ] backend tests succeed;
 - [ ] browser tests succeed;
 - [ ] Compose validates;
-- [ ] BFF allowlist is effective;
-- [ ] refresh cookies are not forwarded to Render;
+- [x] BFF allowlist is effective in local contract checks;
+- [x] refresh cookies are not forwarded to Render in local contract checks;
 - [ ] secure cookie settings verified;
 - [ ] public and authenticated users coexist as designed;
 - [ ] private/organization isolation verified;

@@ -16,6 +16,9 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 - Added administrator MFA assurance checking foundation.
 - Added account, thesis, and organization frontend foundations.
 - Expanded JWT, anonymous isolation, quota, organization, and cleanup tests.
+- Hardened the Phase 16 BFF allowlist and cookie forwarding so browser calls use same-origin route handlers without forwarding Supabase refresh/session cookies to FastAPI.
+- Replaced deployment-only public mutation blocking with actor-aware dependencies for durable user mutations and platform-admin routes.
+- Tightened private versus organization resource policy semantics, added server-owned consent versions, and added a recovery callback/code-exchange foundation.
 
 Phase 16 remains **In Progress**. The complete blocker and completion-gate list is maintained in `docs/phase_16_identity_ownership_contract.md`.
 

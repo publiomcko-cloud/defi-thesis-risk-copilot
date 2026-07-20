@@ -4,9 +4,10 @@ import { NextResponse } from "next/server";
 const SESSION_COOKIE = process.env.SESSION_COOKIE_NAME ?? "defi_copilot_session";
 const REFRESH_COOKIE = `${SESSION_COOKIE}_refresh`;
 const EXPIRES_COOKIE = `${SESSION_COOKIE}_expires_at`;
+export const ANONYMOUS_COOKIE = process.env.ANONYMOUS_SESSION_COOKIE_NAME ?? "defi_copilot_anon";
 
 export function backendApiBaseUrl(): string {
-  return process.env.BACKEND_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+  return process.env.BACKEND_API_BASE_URL ?? "http://127.0.0.1:8000";
 }
 
 export function supabaseConfig() {

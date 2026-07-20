@@ -45,6 +45,8 @@ class Settings(BaseSettings):
     admin_mfa_required: bool = False
     anonymous_retention_hours: int = 24
     deleted_account_retention_days: int = 30
+    current_terms_version: str = "2026-07-20"
+    current_privacy_version: str = "2026-07-20"
     default_user_plan: str = "free"
     quota_anonymous_analyses_per_day: int = 5
     quota_free_analyses_per_day: int = 25

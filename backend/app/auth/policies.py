@@ -41,7 +41,7 @@ def can_read_resource(user: UserContext | None, resource: ScopedResource, db: Se
         return True
     if resource.anonymous_session_id and resource.anonymous_session_id == user.anonymous_session_id:
         return True
-    if resource.organization_id:
+    if resource.visibility == "organization" and resource.organization_id:
         return has_org_role(db, user.id, resource.organization_id, READ_ORG_ROLES)
     return user.is_admin and resource.visibility != "private"
 
@@ -53,7 +53,7 @@ def can_update_resource(user: UserContext, resource: ScopedResource, db: Session
         return True
     if resource.anonymous_session_id and resource.anonymous_session_id == user.anonymous_session_id:
         return True
-    if resource.organization_id:
+    if resource.visibility == "organization" and resource.organization_id:
         return has_org_role(db, user.id, resource.organization_id, WRITE_ORG_ROLES)
     return False
 

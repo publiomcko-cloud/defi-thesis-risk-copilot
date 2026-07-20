@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_user
+from app.auth.dependencies import require_authenticated_user
 from app.auth.schemas import UserContext
 from app.db.session import get_db
 from app.organizations.schemas import (
@@ -32,7 +32,7 @@ router = APIRouter(tags=["organizations"])
 @router.get("/organizations", response_model=OrganizationsResponse)
 def get_organizations(
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> OrganizationsResponse:
     return OrganizationsResponse(items=list_organizations(db, actor))
 
@@ -41,7 +41,7 @@ def get_organizations(
 def post_organization(
     request: OrganizationCreateRequest,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> OrganizationResponse:
     return create_organization(db, actor, request)
 
@@ -50,7 +50,7 @@ def post_organization(
 def get_organization_route(
     organization_id: str,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> OrganizationResponse:
     return get_organization(db, actor, organization_id)
 
@@ -60,7 +60,7 @@ def patch_organization(
     organization_id: str,
     request: OrganizationUpdateRequest,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> OrganizationResponse:
     return update_organization(db, actor, organization_id, request)
 
@@ -69,7 +69,7 @@ def patch_organization(
 def delete_organization_route(
     organization_id: str,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> OrganizationResponse:
     return delete_organization(db, actor, organization_id)
 
@@ -78,7 +78,7 @@ def delete_organization_route(
 def get_members(
     organization_id: str,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> MembershipsResponse:
     return MembershipsResponse(items=list_members(db, actor, organization_id))
 
@@ -88,7 +88,7 @@ def post_member(
     organization_id: str,
     request: MembershipCreateRequest,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> MembershipResponse:
     return add_member(db, actor, organization_id, request)
 
@@ -102,7 +102,7 @@ def patch_member(
     membership_id: str,
     request: MembershipUpdateRequest,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> MembershipResponse:
     return update_member(db, actor, organization_id, membership_id, request)
 
@@ -115,6 +115,6 @@ def delete_member(
     organization_id: str,
     membership_id: str,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> MembershipResponse:
     return remove_member(db, actor, organization_id, membership_id)

@@ -1,9 +1,8 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_actor
+from app.auth.dependencies import require_actor, require_authenticated_user
 from app.auth.schemas import UserContext
-from app.core.public_demo import block_public_demo_mutation
 from app.db.session import get_db
 from app.watchlist.schemas import (
     AlertEventsResponse,
@@ -31,12 +30,11 @@ router = APIRouter(tags=["watchlist"])
 @router.post(
     "/watchlist/items",
     response_model=WatchlistCreateResponse,
-    dependencies=[Depends(block_public_demo_mutation)],
 )
 def create_item(
     request: WatchlistItemCreate,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_actor),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> WatchlistCreateResponse:
     return create_watchlist_item(request, db, actor)
 
@@ -60,13 +58,12 @@ def get_watchlist(
 @router.patch(
     "/watchlist/items/{watchlist_item_id}",
     response_model=WatchlistUpdateResponse,
-    dependencies=[Depends(block_public_demo_mutation)],
 )
 def patch_item(
     watchlist_item_id: str,
     request: WatchlistItemUpdate,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_actor),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> WatchlistUpdateResponse:
     return update_watchlist_item(watchlist_item_id, request, db, actor)
 
@@ -74,12 +71,11 @@ def patch_item(
 @router.post(
     "/watchlist/items/{watchlist_item_id}/evaluate",
     response_model=WatchlistEvaluationResponse,
-    dependencies=[Depends(block_public_demo_mutation)],
 )
 def evaluate_item(
     watchlist_item_id: str,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_actor),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> WatchlistEvaluationResponse:
     return evaluate_watchlist_item(watchlist_item_id, db, actor)
 
@@ -96,12 +92,11 @@ def get_alerts(
 @router.patch(
     "/watchlist/alerts/{alert_id}",
     response_model=AlertStatusUpdateResponse,
-    dependencies=[Depends(block_public_demo_mutation)],
 )
 def patch_alert(
     alert_id: str,
     request: AlertStatusUpdateRequest,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_actor),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> AlertStatusUpdateResponse:
     return AlertStatusUpdateResponse(alert=update_alert_status(alert_id, request.status, db, actor))

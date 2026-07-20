@@ -112,7 +112,7 @@ The BFF must:
 - propagate anonymous-session cookies safely;
 - clear auth cookies after refresh failure.
 
-The current Phase 16 branch contains a BFF foundation, but its prefix allowlist and cookie forwarding remain completion blockers documented in the Phase 16 contract.
+The current Phase 16 branch contains the BFF foundation with explicit backend route-family allowlisting and anonymous-cookie-only backend forwarding. Full deployed browser refresh/logout verification remains a completion gate documented in the Phase 16 contract.
 
 ---
 

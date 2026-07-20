@@ -2,7 +2,6 @@ from fastapi import APIRouter, Depends
 
 from app.auth.dependencies import require_admin
 from app.auth.schemas import UserContext
-from app.core.public_demo import block_public_demo_mutation
 from app.rag.ingest import ingest_knowledge_base
 from app.schemas.documents import DocumentIngestRequest, DocumentIngestResponse
 
@@ -12,7 +11,6 @@ router = APIRouter(tags=["documents"])
 @router.post(
     "/documents/ingest",
     response_model=DocumentIngestResponse,
-    dependencies=[Depends(block_public_demo_mutation)],
 )
 def ingest_document(
     request: DocumentIngestRequest,

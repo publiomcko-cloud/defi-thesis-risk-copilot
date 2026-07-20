@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_user
+from app.auth.dependencies import require_authenticated_user
 from app.auth.schemas import UserContext
 from app.db.session import get_db
 from app.theses.schemas import ThesisCreateRequest, ThesisResponse, ThesesResponse, ThesisUpdateRequest
@@ -13,7 +13,7 @@ router = APIRouter(tags=["theses"])
 @router.get("/theses", response_model=ThesesResponse)
 def get_theses(
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> ThesesResponse:
     return ThesesResponse(items=list_theses(db, actor))
 
@@ -22,7 +22,7 @@ def get_theses(
 def post_thesis(
     request: ThesisCreateRequest,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> ThesisResponse:
     return create_thesis(db, actor, request)
 
@@ -31,7 +31,7 @@ def post_thesis(
 def get_thesis_route(
     thesis_id: str,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> ThesisResponse:
     return get_thesis(db, actor, thesis_id)
 
@@ -41,7 +41,7 @@ def patch_thesis(
     thesis_id: str,
     request: ThesisUpdateRequest,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> ThesisResponse:
     return update_thesis(db, actor, thesis_id, request)
 
@@ -50,6 +50,6 @@ def patch_thesis(
 def delete_thesis_route(
     thesis_id: str,
     db: Session = Depends(get_db),
-    actor: UserContext = Depends(require_user),
+    actor: UserContext = Depends(require_authenticated_user),
 ) -> ThesisResponse:
     return delete_thesis(db, actor, thesis_id)

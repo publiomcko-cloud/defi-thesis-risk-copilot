@@ -4,9 +4,11 @@ import { supabaseAuthFetch } from "@/lib/server-auth";
 
 export async function POST(request: Request) {
   const payload = await request.json();
+  const callbackUrl = new URL("/api/auth/recovery-callback", request.url);
+  callbackUrl.searchParams.set("next", "/reset-password");
   await supabaseAuthFetch("/recover", {
     method: "POST",
-    body: JSON.stringify({ email: payload.email })
+    body: JSON.stringify({ email: payload.email, redirect_to: callbackUrl.toString() })
   });
   return NextResponse.json({
     status: "submitted",

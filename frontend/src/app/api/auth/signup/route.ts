@@ -10,8 +10,8 @@ export async function POST(request: Request) {
       email: payload.email,
       password: payload.password,
       data: {
-        accepted_terms_version: payload.terms_version ?? "2026-07-20",
-        accepted_privacy_version: payload.privacy_version ?? "2026-07-20"
+        accepted_terms: true,
+        accepted_privacy: true
       }
     })
   });

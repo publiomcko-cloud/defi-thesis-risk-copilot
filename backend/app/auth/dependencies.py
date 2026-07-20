@@ -118,6 +118,25 @@ def require_admin(current_user: UserContext = Depends(require_user)) -> UserCont
     return current_user
 
 
+def require_authenticated_user(current_user: UserContext = Depends(require_user)) -> UserContext:
+    """Require a real authenticated/local-development user for durable mutations.
+
+    This preserves Phase 15 public-demo behavior when authentication is disabled
+    while allowing authenticated users to coexist with anonymous visitors in the
+    Phase 16 hybrid deployment mode.
+    """
+
+    settings = get_settings()
+    if settings.public_demo_mode and not settings.auth_enabled:
+        raise HTTPException(
+            status_code=403,
+            detail="This mutation is disabled for anonymous public demo visitors.",
+        )
+    if not current_user.auth_enabled and not current_user.is_admin:
+        raise HTTPException(status_code=403, detail="Authentication required")
+    return current_user
+
+
 def anonymous_context(request: Request, response: Response, db: Session) -> UserContext:
     settings = get_settings()
     now = datetime.now(UTC)

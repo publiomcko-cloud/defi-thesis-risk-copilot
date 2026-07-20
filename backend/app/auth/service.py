@@ -214,13 +214,14 @@ def normalize_email(email: str) -> str:
 
 
 def _record_signup_consents(db: Session, record: UserModel, claims: dict) -> None:
+    settings = get_settings()
     metadata = claims.get("user_metadata") if isinstance(claims.get("user_metadata"), dict) else {}
-    for document_type, key in {
-        "terms": "accepted_terms_version",
-        "privacy": "accepted_privacy_version",
+    for document_type, (keys, version) in {
+        "terms": (("accepted_terms", "accepted_terms_version"), settings.current_terms_version),
+        "privacy": (("accepted_privacy", "accepted_privacy_version"), settings.current_privacy_version),
     }.items():
-        version = metadata.get(key)
-        if not isinstance(version, str) or not version:
+        accepted = any(bool(metadata.get(key)) for key in keys)
+        if not accepted or not version:
             continue
         existing = db.execute(
             select(ConsentRecordModel)
@@ -237,7 +238,7 @@ def _record_signup_consents(db: Session, record: UserModel, claims: dict) -> Non
                     document_type=document_type,
                     document_version=version,
                     accepted_at=datetime.now(UTC),
-                    metadata_json={"source": "supabase_signup_metadata"},
+                    metadata_json={"source": "supabase_signup_metadata", "version_source": "server_config"},
                 )
             )
             db.commit()

@@ -814,35 +814,34 @@ Reviewed correction commit: `bf1b9ddc6153e02f2018c4a43ba20bb634e82709`.
 - Supabase RS256/JWKS verification with issuer, audience, expiration, signature, subject, and email checks;
 - production rejection of legacy local authentication;
 - Next.js same-origin backend BFF foundation;
+- BFF explicit route-family allowlist without the former catch-all `/` prefix;
+- BFF forwarding of only the anonymous backend cookie rather than the full frontend cookie header;
 - HttpOnly access/refresh/expiry cookies and refresh rotation foundation;
 - application users, platform roles, organizations, memberships, saved theses, quota, consent, and anonymous-session models;
 - pending-invitation user foundation;
 - email-collision protection for non-pending local accounts;
 - administrator `aal2` enforcement foundation;
 - organization active/deleted checks in membership-role lookup;
+- strict private/organization visibility checks before organization membership is considered;
+- actor-based durable mutation dependencies that preserve public anonymous restrictions while allowing authenticated users/admins in hybrid mode;
 - anonymous report expiration foundation;
 - resource-count quotas for saved theses/watchlists;
+- controlled quota first-use retry and per-user resource-count lock rows for PostgreSQL-safe limit checks;
+- server-owned terms/privacy version recording for signup and consent renewal;
+- controlled Supabase recovery callback/code-exchange foundation in the Next.js auth boundary;
 - account export/deletion and retention cleanup foundations;
 - expanded JWT, anonymous isolation, quota, and cleanup tests;
 - account, thesis, and organization frontend components.
 
 ### Remaining blockers before Phase 16 can be marked complete
 
-1. BFF allowlist includes `/`, making all absolute backend paths pass the prefix test.
-2. BFF forwards the complete browser cookie header to Render, including authentication refresh cookies that Render does not need.
-3. Global `block_public_demo_mutation` still blocks authenticated mutations whenever public-demo mode is enabled; actor-based coexistence is incomplete.
-4. Resource policy checks `organization_id` without first requiring `visibility=organization`; stale organization scope can weaken private visibility.
-5. Quota first-use creation remains vulnerable to concurrent unique-constraint races.
-6. Resource-count quotas use count-then-create and are not concurrency-safe.
-7. Password recovery lacks a complete callback/code-exchange flow.
-8. Signup consent versions can be supplied by the client instead of being exclusively server-owned.
-9. MFA enrollment/challenge/unenrollment UI and provider integration are incomplete even though backend `aal2` enforcement exists.
-10. Organization knowledge-base ownership and retrieval filtering are not fully implemented; current RAG remains global/local.
-11. Ownership foreign keys and compound indexes require a deliberate migration review.
-12. Browser E2E coverage is still a lightweight smoke foundation rather than full authenticated/anonymous workflow coverage.
-13. Deployed Supabase email verification, recovery, MFA, and cross-domain behavior remain unverified.
-14. Legal review of terms/privacy remains external.
-15. Audit coverage for organization lifecycle, administrator assignment, account deletion, and security events needs completion.
+1. MFA enrollment/challenge/unenrollment UI and provider integration are incomplete even though backend `aal2` enforcement exists.
+2. Organization knowledge-base ownership and retrieval filtering are not fully implemented; current RAG remains global/local.
+3. Ownership foreign keys and compound indexes require a deliberate migration review beyond the current index foundation.
+4. Browser E2E coverage is still a lightweight smoke foundation rather than full authenticated/anonymous workflow coverage.
+5. Deployed Supabase email verification, recovery, MFA, and cross-domain behavior remain unverified.
+6. Legal review of terms/privacy remains external.
+7. Audit coverage for organization lifecycle, administrator assignment, account deletion, and security events needs completion.
 
 The documentation and roadmap must retain `Phase 16 — In Progress` until these blockers and the completion gates below are resolved.
 

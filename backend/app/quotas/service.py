@@ -5,6 +5,7 @@ from uuid import uuid4
 
 from fastapi import HTTPException
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import UserContext
@@ -40,32 +41,18 @@ def consume_quota(
         return {"limited": False, "remaining": None, "limit": None, "used": None}
 
     period_start, period_end = _day_window()
-    record = db.execute(
-        select(UsageQuotaModel)
-        .where(UsageQuotaModel.subject_type == subject_type)
-        .where(UsageQuotaModel.subject_id == subject_id)
-        .where(UsageQuotaModel.action == action)
-        .where(UsageQuotaModel.period_start == period_start)
-        .where(UsageQuotaModel.period_end == period_end)
-        .with_for_update()
-    ).scalars().first()
     now = datetime.now(UTC)
-    if record is None:
-        record = UsageQuotaModel(
-            id=f"quota_{uuid4().hex[:12]}",
-            subject_type=subject_type,
-            subject_id=subject_id,
-            plan=plan,
-            action=action,
-            period_start=period_start,
-            period_end=period_end,
-            used=0,
-            limit=limit,
-            created_at=now,
-            updated_at=now,
-        )
-        db.add(record)
-        db.flush()
+    record = _get_or_create_quota_record(
+        db,
+        subject_type=subject_type,
+        subject_id=subject_id,
+        plan=plan,
+        action=action,
+        period_start=period_start,
+        period_end=period_end,
+        limit=limit,
+        now=now,
+    )
     if record.used + amount > record.limit:
         raise HTTPException(
             status_code=429,
@@ -117,24 +104,30 @@ def enforce_resource_count_limit(db: Session, actor: UserContext, resource: str)
         raise HTTPException(status_code=403, detail=f"Anonymous users cannot create {resource}.")
     if resource == RESOURCE_SAVED_THESES:
         limit = settings.quota_free_saved_theses
-        count = len(
-            db.execute(
-                select(SavedThesisModel)
-                .where(SavedThesisModel.owner_user_id == actor.id)
-                .where(SavedThesisModel.deleted_at.is_(None))
-            ).scalars().all()
-        )
+        model = SavedThesisModel
     elif resource == RESOURCE_WATCHLISTS:
         limit = settings.quota_free_watchlists
-        count = len(
-            db.execute(
-                select(WatchlistItemModel)
-                .where(WatchlistItemModel.owner_user_id == actor.id)
-                .where(WatchlistItemModel.deleted_at.is_(None))
-            ).scalars().all()
-        )
+        model = WatchlistItemModel
     else:
         return
+    _get_or_create_quota_record(
+        db,
+        subject_type="user",
+        subject_id=actor.id,
+        plan=actor.plan,
+        action=f"resource_count:{resource}",
+        period_start=datetime(1970, 1, 1, tzinfo=UTC),
+        period_end=datetime(9999, 12, 31, tzinfo=UTC),
+        limit=limit,
+        now=datetime.now(UTC),
+    )
+    count = len(
+        db.execute(
+            select(model)
+            .where(model.owner_user_id == actor.id)
+            .where(model.deleted_at.is_(None))
+        ).scalars().all()
+    )
     if count >= limit:
         raise HTTPException(status_code=429, detail=f"{resource} quota exceeded.")
 
@@ -160,3 +153,60 @@ def _day_window() -> tuple[datetime, datetime]:
     now = datetime.now(UTC)
     start = datetime(now.year, now.month, now.day, tzinfo=UTC)
     return start, start + timedelta(days=1)
+
+
+def _get_or_create_quota_record(
+    db: Session,
+    *,
+    subject_type: str,
+    subject_id: str,
+    plan: str,
+    action: str,
+    period_start: datetime,
+    period_end: datetime,
+    limit: int,
+    now: datetime,
+) -> UsageQuotaModel:
+    for _ in range(2):
+        record = db.execute(
+            select(UsageQuotaModel)
+            .where(UsageQuotaModel.subject_type == subject_type)
+            .where(UsageQuotaModel.subject_id == subject_id)
+            .where(UsageQuotaModel.action == action)
+            .where(UsageQuotaModel.period_start == period_start)
+            .where(UsageQuotaModel.period_end == period_end)
+            .with_for_update()
+        ).scalars().first()
+        if record is not None:
+            return record
+        record = UsageQuotaModel(
+            id=f"quota_{uuid4().hex[:12]}",
+            subject_type=subject_type,
+            subject_id=subject_id,
+            plan=plan,
+            action=action,
+            period_start=period_start,
+            period_end=period_end,
+            used=0,
+            limit=limit,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(record)
+        try:
+            db.flush()
+            return record
+        except IntegrityError:
+            db.rollback()
+    record = db.execute(
+        select(UsageQuotaModel)
+        .where(UsageQuotaModel.subject_type == subject_type)
+        .where(UsageQuotaModel.subject_id == subject_id)
+        .where(UsageQuotaModel.action == action)
+        .where(UsageQuotaModel.period_start == period_start)
+        .where(UsageQuotaModel.period_end == period_end)
+        .with_for_update()
+    ).scalars().first()
+    if record is None:
+        raise HTTPException(status_code=409, detail="Quota record could not be initialized. Retry the request.")
+    return record
