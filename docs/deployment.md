@@ -1,99 +1,289 @@
 # Deployment — DeFi Thesis & Risk Copilot
 
-## 1. Live Deployment
+This document defines deployment modes, environment variables, trust boundaries, startup, verification, and phase handoffs.
+
+Related contracts:
+
+- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md)
+- [`future_phase_contracts.md`](future_phase_contracts.md)
+- [`current_state.md`](current_state.md)
+
+---
+
+## 1. Hosted architecture
 
 ```text
-Vercel Next.js frontend
-  -> same-origin Next.js BFF routes
-  -> Render FastAPI backend
+Browser
+  -> Vercel Next.js
+     -> same-origin auth routes
+     -> same-origin backend BFF
+  -> Render FastAPI
   -> Supabase PostgreSQL
 ```
 
-Live services:
+Live Phase 15 services:
 
-- Frontend: `https://defi-thesis-risk-copilot.vercel.app`
-- Demo: `https://defi-thesis-risk-copilot.vercel.app/demo`
-- Backend: `https://defi-thesis-risk-copilot.onrender.com`
-- Liveness: `https://defi-thesis-risk-copilot.onrender.com/health`
-- Readiness: `https://defi-thesis-risk-copilot.onrender.com/ready`
-- Deployment status: `https://defi-thesis-risk-copilot.onrender.com/api/deployment/status`
-- OpenAPI: `https://defi-thesis-risk-copilot.onrender.com/docs`
+- frontend: `https://defi-thesis-risk-copilot.vercel.app`;
+- demo: `https://defi-thesis-risk-copilot.vercel.app/demo`;
+- backend: `https://defi-thesis-risk-copilot.onrender.com`;
+- health: `/health`;
+- readiness: `/ready`;
+- deployment status: `/api/deployment/status`;
+- OpenAPI: `/docs`.
 
-## 2. Hosted Public-Demo Posture
+The live deployment follows `main`. Phase 16 branch behavior is not considered deployed until merged and verified.
 
-Required backend settings:
+---
+
+## 2. Supported deployment modes
+
+### Mode A — Public portfolio demo
+
+Purpose: anonymous synthetic demonstration with public-safe read and bounded compute.
+
+Backend:
 
 ```env
 APP_ENV=portfolio_demo
-APP_VERSION=1.0.0
 PUBLIC_DEMO_MODE=true
+AUTH_ENABLED=false
+AUTH_PROVIDER=legacy_local
 DATABASE_URL=<Supabase pooled PostgreSQL URL>
 FRONTEND_ORIGIN=https://defi-thesis-risk-copilot.vercel.app
-AUTH_ENABLED=false
 LLM_SYNTHESIS_ENABLED=false
 LLM_PROVIDER=disabled
 RAG_SEMANTIC_ENABLED=false
 VAST_ENABLED=false
 VAST_DRY_RUN=true
-DEPLOYMENT_COMMIT=<Git commit SHA>
 ```
 
-Required frontend settings:
+Frontend:
 
 ```env
 BACKEND_API_BASE_URL=https://defi-thesis-risk-copilot.onrender.com
 NEXT_PUBLIC_API_BASE_URL=/api/backend
 NEXT_PUBLIC_PUBLIC_DEMO_MODE=true
+COOKIE_SECURE=true
 ```
 
-The browser should call the same Vercel origin through `/api/backend/...`. Next.js route handlers forward only approved backend paths and attach the HttpOnly Supabase session when present. `BACKEND_API_BASE_URL` is server-side only; for Docker Compose it is `http://backend:8000`, and for Vercel it should be the Render backend URL.
+`AUTH_ENABLED=false` must not create an administrator for hosted visitors. Public visitors receive anonymous/common public behavior only.
 
-`AUTH_ENABLED=false` does not make hosted visitors administrators. When public-demo mode is enabled, the unauthenticated identity is a common read-only visitor.
+### Mode B — Private authenticated product
 
-## 3. Public Endpoint Policy
+Purpose: authenticated users without anonymous public compute.
 
-### Public read-only
+```env
+APP_ENV=production
+PUBLIC_DEMO_MODE=false
+AUTH_ENABLED=true
+AUTH_PROVIDER=supabase
+```
 
-- `GET /`
-- `GET /health`
-- `GET /ready`
-- `GET /api/deployment/status`
-- `GET /api/demo/status`
-- `GET /api/demo/scenarios`
-- `GET /api/protocols`
-- `GET /api/reports/{id}`
-- `GET /api/discovery/candidates`
-- `GET /api/evaluation/review-items`
-- `GET /api/knowledge-base/discovered`
-- `GET /api/watchlist/items`
-- `GET /api/watchlist/alerts`
+This mode requires the complete Supabase and BFF configuration below.
 
-### Public bounded compute
+### Mode C — Hybrid public demo plus authenticated product
 
-- `POST /api/analyze`
-- `POST /api/market-data/fetch`
-- `POST /api/simulation/run`
-- `POST /api/options/analyze`
+Purpose: anonymous demo visitors and authenticated users coexist in one deployment.
 
-These routes have bounded request schemas and an in-process per-client rate limit in the current single-instance deployment.
+```env
+APP_ENV=production
+PUBLIC_DEMO_MODE=true
+AUTH_ENABLED=true
+AUTH_PROVIDER=supabase
+```
 
-### Blocked in public-demo mode
+This is the Phase 16 target. It is not complete until:
 
-- public demo reseed/reset
-- document ingestion
-- source monitoring runs
-- global discovery runs
-- evaluation creation
-- review mutations
-- RAG ingestion
-- watchlist and alert mutations
-- credential reads/writes
-- audit logs
-- Vast.ai session controls
+- actor-based route policies replace deployment-only mutation blocks;
+- authenticated users can perform authorized personal/organization mutations while anonymous visitors remain restricted;
+- BFF route and cookie allowlists pass security tests;
+- browser anonymous and authenticated flows pass on deployed domains.
 
-## 4. Render Startup
+Do not enable Mode C commercially while the blockers in the Phase 16 contract remain.
 
-The Docker image starts with:
+---
+
+## 3. Next.js BFF configuration
+
+Browser requests use:
+
+```text
+/api/backend/*
+```
+
+Next.js uses the server-only variable:
+
+```env
+BACKEND_API_BASE_URL=https://defi-thesis-risk-copilot.onrender.com
+```
+
+Do not rely on a public browser variable to identify the authenticated backend destination.
+
+The BFF must:
+
+- allow only explicit backend route families;
+- reject arbitrary URL/host/path forwarding;
+- attach the managed access token server-side;
+- forward only the anonymous-session cookie when needed;
+- not forward Supabase access/refresh/expiry cookies as a raw `Cookie` header;
+- forward safe content type and request ID where appropriate;
+- copy only safe response headers;
+- propagate anonymous-session `Set-Cookie` safely;
+- clear auth cookies after failed token refresh.
+
+Security gate:
+
+```text
+ALLOWED_PREFIXES must not contain "/" as a general prefix.
+```
+
+A `/` prefix matches every path and invalidates the allowlist.
+
+---
+
+## 4. Supabase database setup
+
+1. Create the Supabase project.
+2. obtain the pooled PostgreSQL URL;
+3. preserve `sslmode=require` where required;
+4. remove unsupported `schema=public` query parameters if present;
+5. configure Render `DATABASE_URL`;
+6. run Alembic migrations through container startup;
+7. verify `/ready`;
+8. test upgrade from a Phase 15 database before Phase 16 merge.
+
+Typical pooled URL:
+
+```text
+postgresql://postgres.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require
+```
+
+Never commit the connection string.
+
+---
+
+## 5. Supabase Auth setup
+
+Backend variables:
+
+```env
+AUTH_ENABLED=true
+AUTH_PROVIDER=supabase
+REQUIRE_VERIFIED_EMAIL=true
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_JWKS_URL=https://<project>.supabase.co/auth/v1/.well-known/jwks.json
+SUPABASE_JWT_ISSUER=https://<project>.supabase.co/auth/v1
+SUPABASE_JWT_AUDIENCE=authenticated
+SUPABASE_SERVICE_ROLE_KEY=<server-only when explicitly required>
+ADMIN_MFA_REQUIRED=false
+```
+
+Frontend/server variables:
+
+```env
+NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=<public anon key>
+SESSION_COOKIE_NAME=defi_copilot_session
+ANONYMOUS_SESSION_COOKIE_NAME=defi_copilot_anon
+COOKIE_SECURE=true
+COOKIE_SAMESITE=lax
+COOKIE_DOMAIN=
+BACKEND_API_BASE_URL=https://defi-thesis-risk-copilot.onrender.com
+```
+
+Rules:
+
+- `SUPABASE_SERVICE_ROLE_KEY` is never `NEXT_PUBLIC_*`;
+- service-role usage is limited to explicit server-side administrative operations;
+- ordinary requests use user access tokens;
+- production fails closed when issuer/JWKS configuration is missing;
+- production rejects `legacy_local` authentication.
+
+---
+
+## 6. Auth redirect and email configuration
+
+Configure Supabase Site URL and redirect allowlist for:
+
+- production Vercel domain;
+- controlled Vercel preview domains when needed;
+- local development domain;
+- email verification callback;
+- password recovery callback;
+- MFA enrollment/challenge return paths where applicable.
+
+Redirect targets must be validated by the application. Do not accept arbitrary `next`, `redirect`, or callback hosts.
+
+### Email verification
+
+Verify:
+
+- signup email arrives;
+- link returns to the expected application route;
+- verified claim is present;
+- local application user becomes usable;
+- unverified account remains blocked where required.
+
+### Password recovery
+
+The deployed flow must include provider callback/code exchange, temporary recovery session, password update, and invalid/expired-link behavior.
+
+### MFA
+
+When `ADMIN_MFA_REQUIRED=true`:
+
+- admin without `aal2` is denied;
+- admin can enroll and complete challenge;
+- admin with `aal2` is allowed;
+- ordinary users remain governed by normal policy;
+- enrollment/recovery behavior is manually tested.
+
+---
+
+## 7. Cookie policy
+
+Authentication cookies:
+
+```text
+HttpOnly=true
+Secure=true in production
+SameSite=Lax or stricter when compatible
+Path=/
+explicit Max-Age
+```
+
+Separate cookies are used for:
+
+- access token;
+- refresh token;
+- access expiration;
+- anonymous session.
+
+Do not log cookie headers. Do not include tokens in deployment status, error responses, analytics, or audit metadata.
+
+Local HTTP development may require `COOKIE_SECURE=false`. Production must use secure cookies.
+
+---
+
+## 8. CORS and browser access
+
+Recommended production origin:
+
+```env
+FRONTEND_ORIGIN=https://defi-thesis-risk-copilot.vercel.app
+```
+
+Controlled multiple origins may be comma-separated.
+
+Do not use wildcard origin with credentials.
+
+Browser product requests should use the same-origin BFF, reducing direct credentialed cross-origin calls. Direct backend CORS remains restricted for API/docs/controlled integrations.
+
+---
+
+## 9. Render startup
+
+Container startup:
 
 ```bash
 alembic upgrade head \
@@ -101,115 +291,82 @@ alembic upgrade head \
   && uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-`prepare_runtime.py` performs an idempotent synthetic demo seed and builds the curated RAG index when `PUBLIC_DEMO_MODE=true`.
+`prepare_runtime`:
 
-Render configuration:
+- seeds deterministic public demo data when configured;
+- builds the current local RAG index;
+- remains idempotent.
 
-```text
-Environment: Docker
-Dockerfile: ./Dockerfile.backend
-Health check: /ready
-Start command: Dockerfile default
-```
+The public seed endpoint stays blocked in hosted public mode.
 
-The public seed endpoint is intentionally blocked. Hosted data is prepared at startup instead.
+Phase 17 will move heavy work out of this web startup/runtime path. Phase 18 will remove local runtime RAG authority.
 
-## 5. Health Model
+---
 
-- `/health` is liveness: the Python process is responding.
-- `/ready` is readiness: PostgreSQL is reachable and the public RAG index exists.
-- `/api/deployment/status` is safe UI metadata: environment, DB state, demo seed, model/Vast/RAG flags, version, and commit.
+## 10. Health and readiness
 
-No health/status response includes database URLs, passwords, provider keys, bearer tokens, or stored secrets.
+- `/health` — process liveness only;
+- `/ready` — database and required runtime readiness;
+- `/api/deployment/status` — safe operational metadata.
 
-## 6. Vercel Setup
+Responses must not include:
 
-Recommended settings:
+- database URLs;
+- passwords;
+- access/refresh tokens;
+- service-role keys;
+- provider credentials;
+- encryption keys;
+- raw cookies.
 
-```text
-Project root: frontend
-Framework: Next.js
-Install: npm install
-Build: npm run build
-Output: .next
-```
+Render health check uses `/ready`.
 
-Do not configure `public` as the output directory. The included `frontend/vercel.json` uses `.next`.
+---
 
-The frontend:
+## 11. Secret handling
 
-- uses same-origin `/api/backend` browser calls for backend access;
-- uses server-side `BACKEND_API_BASE_URL` from the Next.js BFF to reach Render;
-- hides administrator navigation in public mode;
-- exposes retry and backend-readiness actions for cold starts;
-- labels the hosted environment as shared, synthetic, and read-only for privileged workflows.
+- use platform secret configuration or a production secret manager;
+- never commit `.env` or real keys;
+- database credential storage requires encryption configuration;
+- provider secrets never return to the browser;
+- logs and audit metadata redact sensitive values;
+- public demo has no real provider credentials;
+- Vast live credentials remain disabled publicly;
+- Phase 19 adds formal inventory, rotation, emergency rotation, and KMS/secret-manager procedures.
 
-## 7. Supabase Setup
+---
 
-1. Create a Supabase project.
-2. Copy the pooled PostgreSQL connection URL.
-3. Preserve `sslmode=require` when required.
-4. Remove `schema=public` from the query string if present; the application also strips it defensively.
-5. Set the URL as Render `DATABASE_URL`.
-6. Let container startup run Alembic migrations and runtime preparation.
-7. Verify `/ready` and the main demo report.
+## 12. Quota and retention configuration
 
-Typical URL shape:
-
-```text
-postgresql://postgres.<project-ref>:<password>@<pooler-host>:6543/postgres?sslmode=require
-```
-
-Do not commit the connection string.
-
-## 8. CORS
-
-Set:
+Example Phase 16 variables:
 
 ```env
-FRONTEND_ORIGIN=https://defi-thesis-risk-copilot.vercel.app
+ANONYMOUS_RETENTION_HOURS=24
+DELETED_ACCOUNT_RETENTION_DAYS=30
+DEFAULT_USER_PLAN=free
+QUOTA_ANONYMOUS_ANALYSES_PER_DAY=5
+QUOTA_FREE_ANALYSES_PER_DAY=25
+QUOTA_FREE_SIMULATIONS_PER_DAY=100
+QUOTA_FREE_OPTIONS_PER_DAY=100
+QUOTA_FREE_MARKET_DATA_PER_DAY=100
+QUOTA_FREE_SAVED_THESES=50
+QUOTA_FREE_WATCHLISTS=25
+QUOTA_ADMIN_EXEMPT=true
 ```
 
-The backend also accepts comma-separated origins for controlled preview/local environments:
+Retention cleanup remains manual in Phase 16:
 
-```env
-FRONTEND_ORIGIN=https://defi-thesis-risk-copilot.vercel.app,http://127.0.0.1:3000
+```bash
+cd backend
+python -m scripts.cleanup_expired_data --dry-run
+python -m scripts.cleanup_expired_data
 ```
 
-Do not use a wildcard origin with credentials.
+Phase 17/20 may schedule cleanup through durable jobs. A scheduler must not be added as an unreliable browser or web-process timer.
 
-## 9. Free-Tier Behavior
+---
 
-- Render may sleep and cold-start after inactivity.
-- Supabase free projects may pause or limit resources.
-- Render runtime files are ephemeral.
-- The curated JSON RAG index is rebuilt on each public container start.
-- Persistent reports and demo records live in PostgreSQL.
-- The public environment must not contain real provider credentials.
-
-The JSON RAG index is adequate for the portfolio deployment, but durable pgvector/object storage is planned for the real multi-user product.
-
-## 10. Secret Handling
-
-- secrets remain server-side;
-- raw secrets never return to the frontend;
-- logs and audit metadata redact sensitive fields;
-- database credential storage requires an encryption key;
-- public visitors cannot read credential metadata;
-- real Vast.ai use remains disabled publicly;
-- managed secret storage/KMS remains a production-roadmap item.
-
-Private/local authentication settings:
-
-```env
-AUTH_ENABLED=true
-ADMIN_EMAIL=admin@example.local
-ADMIN_BOOTSTRAP_TOKEN=<strong secret>
-AUTH_SECRET_KEY=<strong secret>
-CREDENTIAL_ENCRYPTION_KEY=<strong encryption material>
-```
-
-## 11. Local Docker
+## 13. Local Docker
 
 ```bash
 cp .env.example .env
@@ -218,102 +375,125 @@ curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/ready
 ```
 
-Local demo seed:
+For local Next.js BFF:
 
-```bash
-backend/.venv/bin/python backend/scripts/seed_demo_data.py
+```env
+BACKEND_API_BASE_URL=http://backend:8000
+NEXT_PUBLIC_API_BASE_URL=/api/backend
+COOKIE_SECURE=false
 ```
 
-Production-like configuration validation:
+When running frontend outside Docker, use the reachable local backend URL.
+
+---
+
+## 14. Phase 16 pre-merge verification
+
+### Backend
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m compileall app scripts
+alembic upgrade head
+alembic downgrade -1
+alembic upgrade head
+python -m pytest -q
+python scripts/run_smoke_checks.py
+python -m scripts.cleanup_expired_data --dry-run
+```
+
+### Frontend
+
+```bash
+cd frontend
+npm ci
+npm run lint
+npm run build
+npm run test:e2e
+```
+
+### Compose
 
 ```bash
 docker compose config
 docker compose -f docker-compose.production.yml config
+docker compose down -v
+docker compose up -d --build
 ```
 
-## 12. Deployment Verification
+### Manual preview verification
 
-After Render deployment:
+Test on Vercel/Render preview deployments:
 
-```bash
-curl https://defi-thesis-risk-copilot.onrender.com/
-curl https://defi-thesis-risk-copilot.onrender.com/health
-curl https://defi-thesis-risk-copilot.onrender.com/ready
-curl https://defi-thesis-risk-copilot.onrender.com/api/deployment/status
-curl https://defi-thesis-risk-copilot.onrender.com/api/demo/status
-curl https://defi-thesis-risk-copilot.onrender.com/api/reports/demo_report_pendle_pt_loop
-```
+- public seeded report;
+- anonymous analysis and same-browser report retrieval;
+- second browser isolation;
+- login;
+- access-token refresh;
+- logout;
+- private thesis/report/watchlist isolation;
+- organization access/removal/deletion;
+- recovery email/callback/reset;
+- consent records;
+- admin MFA denial/allow;
+- public mutation denial;
+- no secrets in browser/network/status/logs.
 
-Public mutation checks should return `403`:
+---
 
-```bash
-curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/demo/seed
-curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/monitoring/run \
-  -H 'Content-Type: application/json' -d '{}'
-curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/discovery/run \
-  -H 'Content-Type: application/json' -d '{}'
-```
+## 15. Public endpoint policy
 
-## 13. Deployment Checklist
+Public read-only and bounded compute are retained from Phase 15.
 
-- [ ] Vercel build succeeds.
-- [ ] Render build succeeds.
-- [ ] Alembic migrations complete.
-- [ ] Runtime preparation seeds the demo and builds RAG.
-- [ ] `/health` returns healthy.
-- [ ] `/ready` returns ready.
-- [ ] Deployment status reports DB and demo readiness.
-- [ ] The main demo report opens from Vercel.
-- [ ] CORS permits only expected frontend origins.
-- [ ] Public administrator identity is not granted.
-- [ ] Public mutations return `403`.
-- [ ] Public compute is bounded and rate-limited.
-- [ ] LLM synthesis is disabled by default.
-- [ ] Vast.ai is disabled/dry-run.
-- [ ] No real secrets are configured in the public environment.
-- [ ] Git commit/version metadata is set.
+Privileged operations always require explicit role/ownership checks, including when `PUBLIC_DEMO_MODE=false`.
 
-## 14. Supabase Auth Setup
+In hybrid mode, anonymous denial must not globally block authenticated user operations. Route policy is determined by actor and capability.
 
-For a private product deployment:
+---
 
-```env
-AUTH_ENABLED=true
-AUTH_PROVIDER=supabase
-SUPABASE_URL=https://<project>.supabase.co
-SUPABASE_JWKS_URL=https://<project>.supabase.co/auth/v1/.well-known/jwks.json
-SUPABASE_JWT_ISSUER=https://<project>.supabase.co/auth/v1
-SUPABASE_JWT_AUDIENCE=authenticated
-NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon key>
-```
+## 16. Deployment checklist
 
-Keep `SUPABASE_SERVICE_ROLE_KEY` server-side only and do not expose it through `NEXT_PUBLIC_*`.
+- [ ] branch based on current `main`;
+- [ ] migrations preserve existing Phase 15 data;
+- [ ] frontend build succeeds;
+- [ ] backend tests succeed;
+- [ ] browser tests succeed;
+- [ ] Compose validates;
+- [ ] BFF allowlist is effective;
+- [ ] refresh cookies are not forwarded to Render;
+- [ ] secure cookie settings verified;
+- [ ] public and authenticated users coexist as designed;
+- [ ] private/organization isolation verified;
+- [ ] quota concurrency verified on PostgreSQL;
+- [ ] recovery and MFA verified with Supabase;
+- [ ] `/health` and `/ready` succeed;
+- [ ] public mutation probes are denied;
+- [ ] no secrets appear in status/logs/network responses;
+- [ ] LLM/Vast defaults remain safe;
+- [ ] documentation matches deployment;
+- [ ] phase status remains `In Progress` until every contract gate passes.
 
-The frontend stores Supabase access and refresh tokens only in HttpOnly cookies created by Next.js auth routes. Password reset and session checks use the same server-side cookie path. Logout and failed refresh attempts clear both access and refresh cookies.
+---
 
-Production fails closed when `AUTH_ENABLED=true`, `AUTH_PROVIDER=supabase`, and required Supabase JWT configuration is missing. `AUTH_PROVIDER=legacy_local` is only for explicit local development and is rejected in production.
+## 17. Later deployment handoffs
 
-MFA:
+### Phase 17
 
-- ordinary users may use MFA when Supabase MFA is configured;
-- `ADMIN_MFA_REQUIRED=true` documents and surfaces the administrator requirement;
-- full TOTP enrollment/challenge verification must be tested against the deployed Supabase project.
+Deploy worker identities, queue schema, local/cloud workers, job observability, and cost controls.
 
-Retention cleanup is manual in Phase 16:
+### Phase 18
 
-```bash
-cd backend
-python -m scripts.cleanup_expired_data --dry-run
-python -m scripts.cleanup_expired_data
-```
+Deploy object storage and tenant-aware vector storage. Stop treating runtime filesystem as authoritative.
 
-## 15. Next Production Steps
+### Phase 19
 
-See [`docs/development_plan.md`](development_plan.md) for:
+Deploy shared rate limiting, WAF, security headers, centralized observability, backups, restore drills, scanning, and incident operations.
 
-- managed identity and tenant ownership
-- distributed rate limits
-- durable jobs and hybrid workers
-- object storage and pgvector
-- production monitoring, security, backups, and browser tests
+### Phase 20
+
+Deploy analytics/notification processors, durable schedules, billing webhook handling, status/support systems, and legal/commercial controls.
+
+### Phase 21
+
+Deploy evaluated model registry/routing and safe worker-based model execution with rollback and cost/privacy controls.
