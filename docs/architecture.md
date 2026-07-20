@@ -1,336 +1,468 @@
 # Architecture — DeFi Thesis & Risk Copilot
 
-## 1. Architecture Goals
+This document defines the system architecture and permanent trust boundaries. Phase-specific requirements live in:
 
-DeFi Thesis & Risk Copilot is designed around:
+- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md)
+- [`future_phase_contracts.md`](future_phase_contracts.md)
+- [`current_state.md`](current_state.md)
 
-- clear domain separation
-- source-grounded research
-- deterministic risk fields
-- optional model synthesis after retrieval and scoring
-- human approval before knowledge trust
-- server-side credentials
-- safe public defaults
-- optional heavy compute
-- an incremental path from portfolio deployment to a multi-user product
+---
 
-## 2. Current Hosted Architecture
+## 1. Architecture goals
+
+The system is designed for:
+
+- deterministic, explainable risk analysis;
+- source-grounded research and citation provenance;
+- visible missing data and uncertainty;
+- optional model assistance after retrieval and scoring;
+- human approval before new knowledge becomes trusted;
+- secure identity, ownership, and tenant isolation;
+- server-side credentials and cookies;
+- safe anonymous public-demo access;
+- durable asynchronous work and storage in later phases;
+- incremental deployment from portfolio demo to commercial product.
+
+---
+
+## 2. Permanent boundaries
+
+The application must not implicitly:
+
+- connect wallets;
+- request private keys or seed phrases;
+- sign transactions;
+- custody assets;
+- execute trades;
+- allocate capital;
+- promise returns;
+- provide personalized financial advice;
+- hide missing data;
+- auto-trust discovered sources;
+- expose credentials or session secrets;
+- let model output replace deterministic risk fields.
+
+---
+
+## 3. Deployed Phase 15 architecture
 
 ```text
 Browser
   -> Vercel Next.js frontend
-  -> same-origin Next.js BFF route handlers
   -> Render FastAPI backend
   -> Supabase PostgreSQL
 
-Render container
+Render startup
   -> Alembic migrations
-  -> deterministic demo seed
-  -> curated RAG index build
-  -> Uvicorn API
+  -> deterministic public demo seed
+  -> local curated RAG index build
+  -> Uvicorn
 ```
+
+The deployed `main` branch currently represents the Phase 15 public-safe baseline unless a later phase is explicitly merged and deployed.
 
 Live endpoints:
 
-- Frontend: `https://defi-thesis-risk-copilot.vercel.app`
-- Backend: `https://defi-thesis-risk-copilot.onrender.com`
-- Liveness: `/health`
-- Readiness: `/ready`
-- Deployment metadata: `/api/deployment/status`
-- OpenAPI: `/docs`
+- frontend: `https://defi-thesis-risk-copilot.vercel.app`;
+- backend: `https://defi-thesis-risk-copilot.onrender.com`;
+- liveness: `/health`;
+- readiness: `/ready`;
+- safe deployment status: `/api/deployment/status`;
+- OpenAPI: `/docs`.
 
-## 3. Product Domains
+---
+
+## 4. Phase 16 target architecture
 
 ```text
-Next.js Frontend
-  -> landing and guided demo
-  -> strategy analysis
-  -> persisted reports and export
-  -> simulator
-  -> options analysis
-  -> watchlist and alerts
-  -> discovery/review workflow
-  -> private admin tools
-
-FastAPI Backend
-  -> request validation and public safety dependencies
-  -> analysis orchestration
-  -> RAG retrieval
-  -> market-data adapters and cache
-  -> deterministic risk scoring
-  -> report generation and persistence
-  -> discovery and evaluation
-  -> review queue and approved RAG ingestion
-  -> simulation
-  -> watchlist and alert rules
-  -> options analysis
-  -> identity and authorization
-  -> provider credentials and audit logs
-  -> Vast.ai lifecycle controls
-  -> deterministic demo and deployment metadata
-
-Storage
-  -> Supabase PostgreSQL for hosted persistence
-  -> SQLite or PostgreSQL locally
-  -> curated Markdown knowledge base
-  -> local JSON RAG index for the current deployment
-  -> committed example reports
+Browser
+  -> Vercel Next.js application
+     -> /api/auth/* server route handlers
+     -> /api/backend/* BFF
+     -> HttpOnly access/refresh/expiry cookies
+     -> HttpOnly anonymous-session cookie
+  -> Render FastAPI API
+     -> Supabase JWKS token verification
+     -> application user synchronization
+     -> actor and authorization policies
+     -> owned/organization/anonymous resources
+     -> durable quota records
+  -> Supabase PostgreSQL
 ```
 
-## 4. Analysis Flow
+### Trust boundary
+
+- Browser JavaScript never receives access or refresh tokens.
+- Next.js owns browser session cookies and server-side token refresh.
+- FastAPI verifies access tokens independently.
+- Supabase claims establish identity only.
+- Application database fields establish platform role, account status, plan, ownership, and organization membership.
+- Resource policies derive tenant scope server-side.
+
+### BFF boundary
+
+The BFF must:
+
+- use explicit route-family allowlisting;
+- reject arbitrary hosts, schemes, ports, paths, and path traversal;
+- forward only safe headers;
+- attach the access token through `Authorization`;
+- forward only backend-required cookies, such as the anonymous session;
+- never forward refresh-token cookies to Render;
+- propagate anonymous-session cookies safely;
+- clear auth cookies after refresh failure.
+
+The current Phase 16 branch contains a BFF foundation, but its prefix allowlist and cookie forwarding remain completion blockers documented in the Phase 16 contract.
+
+---
+
+## 5. Product domains
 
 ```text
-strategy input
-  -> bounded request validation
-  -> protocol detection
-  -> curated/hybrid retrieval
-  -> public/manual market-data adapters
-  -> cache or explicit unavailable state
+Next.js frontend/BFF
+  -> landing and guided demo
+  -> authentication and session management
+  -> account/security
+  -> strategy analysis
+  -> reports/export
+  -> simulator/options
+  -> theses
+  -> organizations/memberships
+  -> watchlists/alerts
+  -> discovery/review/admin tools
+
+FastAPI control plane
+  -> request validation
+  -> identity synchronization
+  -> actor/authorization policies
+  -> analysis orchestration
+  -> deterministic risk scoring
+  -> market data/cache
+  -> report persistence
+  -> simulation/options
+  -> organizations/theses/watchlists/alerts
+  -> quotas/account/consent/retention
+  -> discovery/evaluation/review
+  -> knowledge ingestion
+  -> credentials/audit/Vast controls
+
+Persistence
+  -> Supabase PostgreSQL hosted
+  -> PostgreSQL/SQLite local
+  -> curated Markdown sources
+  -> local JSON RAG index in current phases
+```
+
+---
+
+## 6. Analysis architecture
+
+```text
+bounded strategy input
+  -> strategy parsing
+  -> protocol/entity detection
+  -> approved retrieval
+  -> market-data adapters/cache
+  -> explicit unavailable/missing state
   -> deterministic risk scoring
   -> stress scenarios
-  -> structured report writer
+  -> structured report
   -> optional LLM wording synthesis
-  -> persisted report
-  -> browser rendering and Markdown export
+  -> owned persistence
+  -> authorized rendering/export
 ```
 
-Deterministic risk scoring, source metadata, missing data, market fields, and disclaimers remain authoritative.
+Authoritative fields include:
 
-## 5. Discovery and Knowledge Trust
+- risk rating and score;
+- risk drivers;
+- market values;
+- assumptions;
+- missing data;
+- source metadata;
+- disclaimer.
+
+Model output may not silently override them.
+
+---
+
+## 7. Knowledge trust architecture
 
 ```text
-private/admin discovery trigger
-  -> DefiLlama/manual collectors
-  -> filtering and normalization
+discovery
+  -> filtering/normalization
   -> stable-key deduplication
-  -> discovered item
   -> deterministic evaluation
   -> human review
   -> approved_for_rag
-  -> explicit private/admin ingestion
-  -> curated Markdown
-  -> RAG index refresh
+  -> explicit authorized ingestion
+  -> durable source/version in Phase 18
+  -> retrieval index
 ```
 
-Discovery, approval, and ingestion are separate states. No automatically discovered content becomes trusted without review.
+Current ingestion may generate curated Markdown and refresh the local index. Phase 18 replaces runtime/local authority with object storage, versioned documents/chunks, and tenant-filtered vector retrieval.
 
-RAG ingestion uses:
+No automatically discovered content becomes trusted without explicit approval.
 
-```text
-refresh_pending
-  -> ingested
-```
+---
 
-or:
+## 8. Actor architecture
 
-```text
-refresh_pending
-  -> refresh_failed
-  -> retry
-```
+### Anonymous visitor
 
-## 6. Public Safety Architecture
+- reads public seeded content;
+- runs bounded compute;
+- owns temporary resources through a server-generated anonymous session;
+- cannot run privileged mutations.
 
-`PUBLIC_DEMO_MODE=true` creates three endpoint classes.
+### Authenticated user
 
-### Public read-only
+- owns private resources;
+- uses quotas and account lifecycle;
+- participates in organizations.
 
-- demo status and scenarios
-- protocols
-- reports
-- discovery candidates
-- review records
-- knowledge-base ingestion metadata
-- watchlists and alerts
-- deployment status
-
-### Public bounded compute
-
-- strategy analysis
-- market-data fetch
-- simulation
-- options analysis
-
-These requests use:
-
-- maximum payload sizes
-- numeric bounds
-- maximum list sizes
-- per-client in-process rate limiting
-- safe error responses
-
-The in-process limiter is suitable for the current single-instance demo. A distributed limiter is planned for multi-instance production.
-
-### Private/admin mutations
-
-Blocked in the hosted public environment:
-
-- demo reseeding/reset
-- monitoring runs
-- discovery runs
-- evaluation creation
-- review decisions
-- RAG ingestion
-- document ingestion
-- watchlist/alert mutations
-- provider credentials
-- audit logs
-- Vast.ai lifecycle operations
-
-When authentication is disabled locally, the application can use a local demo administrator. When authentication is disabled in the public deployment, visitors receive a `common` read-only identity instead.
-
-## 7. Identity and Credential Architecture
-
-Current roles:
+### Organization roles
 
 ```text
+owner
 admin
-common
+member
+viewer
 ```
 
-Current private/local authentication is bearer-token based. Production managed identity is planned.
+Organization access requires:
 
-Provider credential model:
+- active, non-deleted organization;
+- active membership;
+- allowed role;
+- resource visibility equal to `organization`.
+
+### Platform administrator
+
+Uses explicit platform-admin routes. Organization role does not grant platform-admin access. Supabase metadata does not grant platform-admin access.
+
+When configured, platform administrators require MFA assurance.
+
+---
+
+## 9. Resource visibility architecture
 
 ```text
-api_credentials
-  id
-  provider
-  name
-  secret_encrypted
-  secret_last4
-  enabled
-  created_by
-  created_at
-  updated_at
-  last_used_at
+private
+organization
+public_demo
 ```
 
-Rules:
+### Private
 
-- secrets never return to the browser
-- secrets are never logged
-- database storage requires encryption configuration
-- audit metadata is redacted
-- public credential reads and writes are denied by the public common identity
-- a production secret manager/KMS remains a future improvement
+Owner-only. A stale `organization_id` does not grant organization access.
 
-## 8. Runtime Reliability
+### Organization
+
+Requires active organization and membership. Client input cannot assign arbitrary organization scope.
+
+### Public demo
+
+Globally readable seeded/safe content. Public mutation remains blocked.
+
+### Anonymous private
+
+Requires matching active anonymous session and unexpired resource.
+
+Every list and detail query must enforce the same policy. Export and mutation routes are not exceptions.
+
+---
+
+## 10. Public and authenticated coexistence
+
+The desired product can support both anonymous and authenticated actors in one deployment.
+
+Authorization is therefore actor-based:
+
+```text
+operation + actor + role + ownership + organization + visibility + state
+```
+
+It must not be reduced to:
+
+```text
+PUBLIC_DEMO_MODE=true -> block every mutation
+```
+
+A deployment-mode flag may enable anonymous demo behavior, but authenticated user and administrator capabilities still require explicit actor policies.
+
+---
+
+## 11. Identity and session architecture
+
+### Managed identity
+
+- Supabase Auth for credential and recovery flows;
+- FastAPI JWKS verification;
+- normalized local application user;
+- database-owned roles and plans;
+- collision-safe identity linking;
+- verified email;
+- optional/required MFA.
+
+### Local development
+
+`legacy_local` may support controlled development only. Production rejects it.
+
+### Credentials
+
+Provider credentials:
+
+- remain server-side;
+- use encrypted storage or environment configuration;
+- never return raw values;
+- are redacted from logs/audit metadata;
+- require explicit platform-admin authorization.
+
+---
+
+## 12. Quota architecture
+
+Two distinct concepts:
+
+### Product quotas
+
+Persistent per-period limits for analysis, simulation, options, market data, and saved-resource counts.
+
+### Network rate limits
+
+Request-frequency protection. Current Phase 15 limiter is in-process; Phase 19 supplies distributed enforcement.
+
+Quota check/increment must be atomic. A row lock cannot protect a missing first-use row; PostgreSQL upsert or retry logic is required.
+
+---
+
+## 13. Account and retention architecture
+
+Account lifecycle:
+
+```text
+active
+  -> inactive/deletion requested
+  -> deleted/disabled immediately
+  -> retention cleanup
+  -> identifiers deleted or anonymized
+```
+
+Required controls:
+
+- exact confirmation;
+- recent authentication where supported;
+- final organization-owner protection;
+- immediate access revocation;
+- session clearing;
+- bounded export;
+- no secret export;
+- deterministic cleanup/dry-run;
+- explicit private-resource disposition;
+- redacted audit retention.
+
+---
+
+## 14. Runtime reliability
 
 Startup:
 
 ```text
 alembic upgrade head
-  -> scripts/prepare_runtime.py
-     -> idempotent synthetic seed
-     -> RAG index generation
+  -> scripts.prepare_runtime
   -> uvicorn
 ```
 
-Health model:
+Health:
 
-- `/health`: process liveness only
-- `/ready`: database plus public RAG readiness
-- `/api/deployment/status`: safe operational metadata for the UI
+- `/health` — process liveness;
+- `/ready` — database and required runtime resources;
+- `/api/deployment/status` — safe UI metadata.
 
-Request middleware adds:
+Request middleware provides request ID, method, path, status, duration, and `X-Request-ID` response header without logging secrets.
 
-- request ID
-- status code
-- request duration
-- response `X-Request-ID`
+---
 
-Unhandled exceptions are logged server-side and return a generic error with request ID.
+## 15. Market-data architecture
 
-## 9. Market-Data Cache
+The cache:
 
-The current cache:
+- keys by adapter/query identity;
+- updates current rows rather than appending indefinitely;
+- removes duplicates;
+- enforces expiration;
+- uses only unexpired fallback data;
+- returns explicit unavailable state when no valid data exists.
 
-- keys by adapter and query identity
-- updates an existing current record instead of appending indefinitely
-- removes duplicate rows for the same key
-- enforces `expires_at`
-- uses only unexpired fallback data
-- reports unavailable data explicitly when no valid cache exists
+Market data may be delayed, partial, cached, simulated, or manually supplied and must be labeled accordingly.
 
-## 10. Vast.ai Provider
+---
+
+## 16. Phase 17 target — jobs and workers
 
 ```text
-admin request
-  -> role and public-mode checks
-  -> cost/runtime/GPU constraints
-  -> offer search
-  -> rental
-  -> startup polling
-  -> OpenAI-compatible health check
-  -> test task
-  -> cleanup/destroy
-  -> audit events
+API/control plane
+  -> PostgreSQL job state
+  -> local/cloud worker outbound claim
+  -> lease/heartbeat/progress
+  -> durable artifact/result
 ```
 
-The provider is disabled and dry-run by default. Automatic rental for normal reports is not enabled.
+Key invariants:
 
-## 11. Frontend Architecture
+- scoped worker auth;
+- atomic claim;
+- idempotency;
+- retry/dead-letter;
+- cancellation;
+- cost/concurrency controls;
+- no inbound local-worker ports.
 
-Public mode:
+See [`future_phase_contracts.md`](future_phase_contracts.md).
 
-- hides administrator navigation
-- provides guided scenario paths
-- renders review/watchlist as read-only
-- shows shared-database privacy guidance
-- handles Render cold starts with retry/readiness actions
-- presents percentages and financial units explicitly
-- supports keyboard focus and reduced motion
+---
 
-Private/local mode retains mutation and administrator controls.
-
-## 12. Planned Production Architecture
+## 17. Phase 18 target — durable RAG/storage
 
 ```text
-Vercel frontend
-  -> API/control plane
-  -> managed auth and tenant authorization
-  -> PostgreSQL control database
-  -> durable job queue
-  -> local/cloud workers pull jobs outbound
+approved source/upload
   -> object storage
-  -> pgvector or dedicated vector store
+  -> versioned document
+  -> ingestion job
+  -> durable chunks/embeddings
+  -> tenant-filtered vector retrieval
+  -> citation lineage
 ```
 
-This permits a local worker without open inbound router ports. Workers authenticate with scoped credentials, lease jobs, publish progress, and store outputs durably.
+Runtime filesystem and global JSON indexes stop being authoritative.
 
-## 12.1 Phase 16 Identity Architecture
+---
 
-```text
-Browser
-  -> Vercel Next.js auth and BFF route handlers
-  -> HttpOnly Supabase access/refresh cookies
-  -> approved same-origin /api/backend/* forwarding
-  -> FastAPI with Authorization bearer token forwarding when authenticated
-  -> Supabase JWKS token validation
-  -> local users, organizations, policies, quotas
-```
+## 18. Phase 19 target — operations/security
 
-Supabase JWT claims only establish identity. Application roles, platform administrator status, account status, organization roles, and quota plan come from the application database.
+Adds:
 
-Browser code does not call authenticated backend endpoints directly. It calls the Next.js BFF on the same origin; the BFF forwards only fixed backend path prefixes, rotates refresh cookies through Supabase when needed, clears cookies on failed refresh, and never accepts arbitrary proxy destinations.
+- distributed rate limiting;
+- WAF/security headers/CSRF/SSRF protections;
+- centralized logs/errors/traces/metrics;
+- request-job correlation;
+- backups/restores;
+- secret rotation;
+- scanning;
+- incident response;
+- load/failure/browser/PostgreSQL testing.
 
-Central authorization policies evaluate owner user, organization membership, resource visibility, anonymous session, deleted state, and expiration state. Report IDs alone do not grant access.
+---
 
-The current RAG index remains local JSON/runtime storage. Phase 16 adds organization ownership metadata and policy boundaries; durable tenant-specific vector storage is deferred to Phase 18.
+## 19. Phase 20 target — commercial product
 
-## 13. Non-Negotiable Boundaries
+Adds privacy-conscious analytics, durable scheduling, notifications, entitlements, billing webhook processing, organization invitations/seats, support/status, and qualified legal review.
 
-The application must not:
+---
 
-- connect wallets implicitly
-- request private keys or seed phrases
-- sign transactions
-- execute trades
-- custody funds
-- promise returns
-- provide personalized financial advice
-- hide missing data
-- auto-trust discovered content
-- expose provider secrets
-- let model output override deterministic risk fields
+## 20. Phase 21 target — model/research expansion
+
+Adds task-level provider routing, model/prompt registry, evaluation-before-promotion, regression datasets, prompt-injection defenses, controlled feedback, thesis/catalyst tracking, and worker-controlled ephemeral GPU tasks.
+
+Deterministic risk and non-execution boundaries remain permanent.
