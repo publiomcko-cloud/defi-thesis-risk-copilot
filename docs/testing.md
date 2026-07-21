@@ -140,6 +140,8 @@ Present:
 - organization/membership lifecycle, final-owner-denial, account export/deletion, consent, and MFA audit-event coverage;
 - audit metadata redaction and bounds, administrator-only audit access, and exclusion of internal audit metadata from account export;
 - BFF MFA route-handler audit dispatch with a server-only shared audit secret;
+- PostgreSQL first-use quota races, exact-limit `429` handling, saved-thesis/watchlist resource-count serialization, and deletion-release coverage when `RUN_POSTGRES_INTEGRATION=true`;
+- migrated Phase 15 public report/watchlist API regression coverage, including anonymous public mutation denial;
 - frontend route smoke foundation;
 
 Still required before completion:

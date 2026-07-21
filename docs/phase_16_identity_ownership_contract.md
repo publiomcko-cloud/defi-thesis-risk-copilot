@@ -844,6 +844,7 @@ Reviewed correction commit: `bf1b9ddc6153e02f2018c4a43ba20bb634e82709`.
 - account export/deletion and retention cleanup foundations;
 - Phase 16C ownership/organization/anonymous-session/saved-thesis/consent foreign keys and compound authorization/quota indexes, with Phase 15 data preservation and PostgreSQL migration-cycle evidence;
 - Phase 16D lifecycle/security audit events with bounded redacted metadata, administrator-only audit access, user-visible export projections, and a server-only BFF MFA audit channel;
+- Phase 16E PostgreSQL first-use quota races, resource-count serialization, exact-limit/deletion-release behavior, and migrated Phase 15 public API regression coverage;
 - expanded JWT, anonymous isolation, quota, and cleanup tests;
 - account, thesis, and organization frontend components.
 

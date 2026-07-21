@@ -41,6 +41,30 @@ def ensure_bootstrap_admin(db: Session) -> UserModel | None:
     return existing
 
 
+def ensure_development_demo_admin(db: Session) -> UserModel:
+    """Materialize the local synthetic admin before it owns durable resources."""
+    record = db.get(UserModel, "demo_admin")
+    if record is None:
+        now = datetime.now(UTC)
+        record = UserModel(
+            id="demo_admin",
+            email="demo-admin@example.local",
+            role="admin",
+            platform_role="admin",
+            account_status="active",
+            plan="admin",
+            auth_provider="legacy_local",
+            email_verified_at=now,
+            is_active=True,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add(record)
+        db.commit()
+        db.refresh(record)
+    return record
+
+
 def create_user(
     db: Session,
     email: str,

@@ -10,6 +10,7 @@ from app.auth.schemas import UserContext
 from app.auth.service import (
     demo_admin_context,
     demo_common_context,
+    ensure_development_demo_admin,
     ensure_bootstrap_admin,
     sync_supabase_user,
     user_context,
@@ -32,6 +33,7 @@ def require_user(
     if not settings.auth_enabled:
         if settings.public_demo_mode:
             return demo_common_context()
+        ensure_development_demo_admin(db)
         return demo_admin_context()
 
     if settings.auth_provider == "legacy_local":

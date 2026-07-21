@@ -23,6 +23,7 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 - Added Phase 16B organization knowledge-source metadata, human-approval provenance, active-membership authorization, and a server-derived public-only RAG retrieval boundary pending Phase 18 tenant storage.
 - Completed Phase 16C local schema hardening with ownership/organization/anonymous-session/saved-thesis/consent foreign keys, compound authorization and quota indexes, Phase 15 data-preservation tests, and a clean PostgreSQL migration-cycle check.
 - Completed Phase 16D local lifecycle/security audit hardening with bounded redaction, organization/account/consent/MFA events, administrator-only audit access, and a server-only BFF MFA audit channel.
+- Completed Phase 16E PostgreSQL quota/resource concurrency validation and Phase 15 migrated public API regression coverage; CI now enables the guarded PostgreSQL integration suite, and development demo ownership now respects the production foreign-key contract.
 
 Phase 16 remains **In Progress**. The complete blocker and completion-gate list is maintained in `docs/phase_16_identity_ownership_contract.md`.
 

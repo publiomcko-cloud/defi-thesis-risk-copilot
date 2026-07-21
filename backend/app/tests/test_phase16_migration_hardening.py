@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 import os
+import json
 import sqlite3
 import subprocess
 import sys
 from pathlib import Path
+
+from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+
+from app.core.config import get_settings
+from app.db.session import get_db
+from app.main import app
 
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
@@ -31,7 +40,10 @@ def _foreign_keys(connection: sqlite3.Connection, table: str) -> dict[str, tuple
     return {row[3]: (row[2], row[6]) for row in connection.execute(f"PRAGMA foreign_key_list({table})")}
 
 
-def test_phase15_seeded_public_resources_survive_identity_hardening(tmp_path: Path) -> None:
+def test_phase15_seeded_public_resources_survive_identity_hardening(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     database_path = tmp_path / "phase15.sqlite"
     _alembic(database_path, "upgrade", "20260714_0007")
 
@@ -54,10 +66,22 @@ def test_phase15_seeded_public_resources_survive_identity_hardening(tmp_path: Pa
             "report_phase15",
             "analysis_phase15",
             "Seeded report",
-            "medium",
+            "Moderate",
             "Seeded summary",
             "# Seeded report",
-            "{}",
+            json.dumps(
+                {
+                    "report_id": "report_phase15",
+                    "risk_rating": "Moderate",
+                    "executive_summary": "Seeded summary",
+                    "strategy_description": "Seeded public analysis",
+                    "protocols": [],
+                    "assumptions": [],
+                    "missing_data": [],
+                    "sections": [],
+                    "sources": [],
+                }
+            ),
             "2026-07-01",
         ),
     )
@@ -116,6 +140,38 @@ def test_phase15_seeded_public_resources_survive_identity_hardening(tmp_path: Pa
         connection, "organization_memberships"
     )
     connection.close()
+
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    monkeypatch.setenv("AUTH_ENABLED", "false")
+    monkeypatch.setenv("COOKIE_SECURE", "false")
+    get_settings.cache_clear()
+    engine = create_engine(f"sqlite:///{database_path}", connect_args={"check_same_thread": False})
+    Session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+    def override_get_db():
+        db = Session()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        with TestClient(app) as client:
+            report = client.get("/api/reports/report_phase15")
+            watchlists = client.get("/api/watchlist/items")
+            mutation = client.post(
+                "/api/watchlist/items",
+                json={"item_type": "market", "title": "Blocked public mutation"},
+            )
+        assert report.status_code == 200
+        assert report.json()["report_id"] == "report_phase15"
+        assert watchlists.status_code == 200
+        assert [item["id"] for item in watchlists.json()["items"]] == ["watch_phase15"]
+        assert mutation.status_code == 403
+    finally:
+        app.dependency_overrides.clear()
+        get_settings.cache_clear()
 
     _alembic(database_path, "downgrade", "20260721_0009")
     _alembic(database_path, "upgrade", "head")

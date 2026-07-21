@@ -295,7 +295,7 @@ Implemented foundation includes:
 
 Phase 16 remains in progress because its contract still identifies blockers, including:
 
-- full browser/PostgreSQL/deployed Supabase validation;
+- full browser/deployed Supabase validation;
 - deployed recovery callback verification;
 - legal review.
 
@@ -308,7 +308,7 @@ Execution sequence:
 16B Organization knowledge metadata and retrieval boundary — complete locally
 16C Migration, foreign-key, and index review — complete locally
 16D Audit coverage and security event logging — complete locally
-16E PostgreSQL concurrency and Phase 15 data validation
+16E PostgreSQL concurrency and Phase 15 data validation — complete locally and in CI configuration
 16F Full browser E2E for Phase 16 workflows
 16G Deployed Supabase verification
 16H Final legal, documentation, and release gate

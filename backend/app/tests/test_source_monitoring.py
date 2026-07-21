@@ -2,8 +2,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 
 from app.db.session import SessionLocal
+from app.models.evaluation_result import EvaluationResultModel
 from app.main import app
 from app.models.discovered_item import DiscoveredItemModel
+from app.models.knowledge_base_ingestion import KnowledgeBaseIngestionModel
+from app.models.review_item import ReviewItemModel
 from app.models.source_watch import SourceWatchModel
 from app.monitoring.discovery_service import run_monitoring
 from app.monitoring.schemas import MonitoringRunRequest, SourceWatch
@@ -97,6 +100,9 @@ def test_monitoring_failures_are_recorded_without_crashing() -> None:
 
 def _reset_monitoring_test_state() -> None:
     with SessionLocal() as db:
+        db.execute(delete(KnowledgeBaseIngestionModel))
+        db.execute(delete(ReviewItemModel))
+        db.execute(delete(EvaluationResultModel))
         db.execute(delete(DiscoveredItemModel))
         db.execute(
             delete(SourceWatchModel).where(SourceWatchModel.id == "watch_test_failure")

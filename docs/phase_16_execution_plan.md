@@ -172,6 +172,8 @@ Local evidence:
 
 ## 16E — PostgreSQL Concurrency and Phase 15 Data Validation
 
+Status: **Complete locally and in CI configuration**
+
 Goal: prove quota and resource-limit behavior under realistic PostgreSQL concurrency.
 
 Scope:
@@ -187,6 +189,15 @@ Acceptance:
 - no unhandled unique-constraint errors;
 - concurrent first-use either succeeds within limits or returns controlled quota responses;
 - Phase 15 seeded reports and public read-only demo behavior remain intact.
+
+Local evidence:
+
+- the PostgreSQL integration suite is enabled in GitHub Actions through `RUN_POSTGRES_INTEGRATION=true` and skips intentionally on ordinary SQLite-only local test runs;
+- a concurrent first-use analysis quota race returns exactly one success and one controlled `429`, with a final durable usage count of one;
+- exact daily limits allow the final permitted action and reject the next action with `429`;
+- concurrent saved-thesis and watchlist creation at a limit of one creates only one resource, returns a controlled `429` to the competing request, and permits a replacement after soft deletion;
+- a Phase 15 migration fixture now checks the public report/watchlist through FastAPI after upgrade, while confirming anonymous public mutation remains denied.
+- a full clean PostgreSQL 16 suite passed with `143 passed`; this also verifies that the non-public local demo admin is materialized before it can own foreign-key-backed data.
 
 ---
 

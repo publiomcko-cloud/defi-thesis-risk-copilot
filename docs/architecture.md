@@ -104,6 +104,8 @@ Browser
 
 Phase 16C adds database foreign keys for resource owner, organization, and anonymous-session links, plus saved-thesis owner and consent-user records. Nullable resource links use `SET NULL`; required saved-thesis/consent links use `RESTRICT`. Compound indexes support owner/deleted, organization/visibility/deleted, anonymous/expires, membership, and quota-period access paths. Polymorphic quota subjects and immutable audit actors intentionally remain application-managed references; the Phase 16 contract records why.
 
+When authentication is disabled outside the public demo, the local `demo_admin` context is materialized as a database user before it can create owned resources. This prevents development-only convenience identities from bypassing the same foreign-key integrity expected in PostgreSQL production-like validation.
+
 ### Lifecycle audit boundary
 
 The application records bounded audit events for privileged and lifecycle operations. Metadata is recursively redacted and size-limited before persistence; emails, tokens, cookies, credentials, verification codes, and raw request bodies are never retained. Only administrators can query the full operational log. Account export exposes a user-visible projection without internal metadata. Successful Next.js MFA route handlers may report fixed event types to FastAPI only through a server-only BFF shared secret and authenticated user token; the secret is not browser-visible.
@@ -343,6 +345,8 @@ Persistent per-period limits for analysis, simulation, options, market data, and
 Request-frequency protection. Current Phase 15 limiter is in-process; Phase 19 supplies distributed enforcement.
 
 Quota check/increment must be atomic. A row lock cannot protect a missing first-use row; PostgreSQL upsert or retry logic is required.
+
+Phase 16E validates the controlled retry plus quota-row-lock design against PostgreSQL: concurrent first use yields a permitted request and a controlled `429` at the configured limit, while the same durable lock serializes saved-thesis and watchlist count checks. The test suite also verifies that soft deletion releases user resource capacity.
 
 ---
 
