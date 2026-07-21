@@ -8,7 +8,9 @@
     "start": "next start",
     "lint": "tsc --noEmit --incremental false",
     "test:e2e": "node scripts/e2e-smoke.mjs",
-    "test:bff": "node scripts/bff-contract-check.mjs"
+    "test:bff": "node scripts/bff-contract-check.mjs",
+    "test:mfa": "node --experimental-strip-types scripts/mfa-provider-check.ts",
+    "test:mfa:routes": "node scripts/mfa-route-check.mjs"
   },
   "dependencies": {
     "next": "^15.5.20",

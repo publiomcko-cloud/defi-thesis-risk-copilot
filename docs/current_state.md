@@ -6,6 +6,7 @@ Authoritative references:
 
 - [`development_plan.md`](development_plan.md) — phase history and roadmap;
 - [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md) — Phase 16 requirements and blockers;
+- [`phase_16_execution_plan.md`](phase_16_execution_plan.md) — ordered Phase 16 sub-phases;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–21;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -136,6 +137,8 @@ The active branch currently contains the following foundations.
 - protection against linking an existing non-invitation account only by matching email;
 - pending-invitation account linking foundation;
 - platform-admin `aal2` enforcement when configured.
+- usable Supabase TOTP enrollment, challenge/verification, factor listing, and unenrollment through same-origin Next.js handlers;
+- HttpOnly session-cookie rotation after successful MFA verification without exposing access or refresh tokens in response bodies or browser storage.
 
 ### Frontend session/BFF
 
@@ -185,7 +188,7 @@ The active branch currently contains the following foundations.
 
 - login/signup/verification/recovery/reset pages;
 - server-side recovery callback/code-exchange foundation for Supabase recovery links;
-- account and account-security pages;
+- account and functional account-security/MFA pages;
 - thesis management component;
 - organization management component;
 - terms/privacy pages;
@@ -200,15 +203,27 @@ Phase 16 is not complete. The authoritative blocker list is maintained in [`phas
 
 Current known blockers include:
 
-1. MFA enrollment/challenge/unenrollment is not a complete usable workflow;
-2. organization knowledge-base ownership and tenant retrieval are not fully implemented; current RAG remains global/local;
-3. migration foreign keys and compound ownership indexes need review beyond the Phase 16 index foundation;
-4. organization/security lifecycle audit coverage is incomplete;
-5. browser E2E and PostgreSQL concurrency coverage are incomplete beyond local smoke and unit coverage;
-6. deployed Supabase email/recovery/MFA/session behavior is unverified;
-7. terms/privacy require qualified legal review.
+1. organization knowledge-base ownership and tenant retrieval are not fully implemented; current RAG remains global/local;
+2. migration foreign keys and compound ownership indexes need review beyond the Phase 16 index foundation;
+3. organization/security lifecycle audit coverage is incomplete;
+4. browser E2E and PostgreSQL concurrency coverage are incomplete beyond local smoke and unit coverage;
+5. deployed Supabase email/recovery/MFA/session behavior is unverified;
+6. terms/privacy require qualified legal review.
 
 The branch must not be described as commercially production-ready.
+
+Planned execution order:
+
+```text
+16A Admin MFA usable workflow — complete locally
+16B Organization knowledge metadata and retrieval boundary
+16C Migration, foreign-key, and index review
+16D Audit coverage and security event logging
+16E PostgreSQL concurrency and Phase 15 data validation
+16F Full browser E2E for Phase 16 workflows
+16G Deployed Supabase verification
+16H Final legal, documentation, and release gate
+```
 
 ---
 

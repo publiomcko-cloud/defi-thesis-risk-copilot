@@ -181,6 +181,8 @@ ADMIN_MFA_REQUIRED=false
 Frontend/server variables:
 
 ```env
+SUPABASE_URL=https://<project>.supabase.co
+SUPABASE_ANON_KEY=<public anon key>
 NEXT_PUBLIC_SUPABASE_URL=https://<project>.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<public anon key>
 SESSION_COOKIE_NAME=defi_copilot_session
@@ -194,10 +196,13 @@ BACKEND_API_BASE_URL=https://defi-thesis-risk-copilot.onrender.com
 Rules:
 
 - `SUPABASE_SERVICE_ROLE_KEY` is never `NEXT_PUBLIC_*`;
+- the Next.js auth route handlers prefer server-runtime `SUPABASE_URL` and `SUPABASE_ANON_KEY`; the `NEXT_PUBLIC_*` values remain public client configuration and compatibility fallbacks;
 - service-role usage is limited to explicit server-side administrative operations;
 - ordinary requests use user access tokens;
 - production fails closed when issuer/JWKS configuration is missing;
 - production rejects `legacy_local` authentication.
+
+TOTP MFA uses `/account/security` and same-origin `/api/auth/mfa/*` handlers. Enable TOTP in the Supabase Auth MFA settings, enroll a test administrator, verify that challenge completion rotates the HttpOnly session cookies to an `aal2` token, and only then set `ADMIN_MFA_REQUIRED=true`. Keep at least one tested administrator recovery path before enforcing MFA.
 
 ---
 

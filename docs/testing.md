@@ -29,6 +29,8 @@ npm ci
 npm run lint
 npm run build
 npm run test:bff
+npm run test:mfa
+npm run test:mfa:routes
 ```
 
 Compose:
@@ -127,7 +129,10 @@ Present:
 - server-owned consent versions;
 - retention anonymization/deletion;
 - BFF allowlist/cookie-filter contract check;
-- frontend route smoke foundation.
+- Supabase MFA provider adapter success/failure contract checks;
+- same-origin MFA route-handler success/failure, cookie-rotation, cookie-isolation, and origin checks;
+- administrator `aal1` denial, `aal2` allow, and ordinary-user `aal1` access;
+- frontend route smoke foundation;
 
 Still required before completion:
 

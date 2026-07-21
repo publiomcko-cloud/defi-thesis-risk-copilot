@@ -5,6 +5,7 @@ This document is the authoritative roadmap, phase-status index, and dependency m
 Detailed implementation requirements live in:
 
 - [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md) — complete Phase 16 contract and current blockers;
+- [`phase_16_execution_plan.md`](phase_16_execution_plan.md) — ordered Phase 16 sub-phases for finishing the active branch;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — complete Phase 17–21 contracts;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
 - [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
@@ -260,6 +261,7 @@ Goal: support anonymous visitors and authenticated multi-user/organization workf
 Authoritative requirements and current audit:
 
 - [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md)
+- [`phase_16_execution_plan.md`](phase_16_execution_plan.md)
 
 Current branch:
 
@@ -286,13 +288,12 @@ Implemented foundation includes:
 - daily compute quotas and saved-resource quotas with controlled first-use retry/resource-lock foundations;
 - account export/deletion and retention cleanup;
 - terms/privacy pages and server-owned consent-record foundation;
-- administrator `aal2` enforcement foundation;
+- administrator `aal2` enforcement plus a locally tested TOTP enrollment, challenge/verification, and factor-management workflow;
 - account/thesis/organization frontend components;
 - expanded Phase 16 tests.
 
 Phase 16 remains in progress because its contract still identifies blockers, including:
 
-- usable MFA enrollment/challenge flow;
 - tenant knowledge-base authorization metadata and retrieval boundaries;
 - ownership foreign-key/index review;
 - full browser/PostgreSQL/deployed Supabase validation;
@@ -300,6 +301,19 @@ Phase 16 remains in progress because its contract still identifies blockers, inc
 - security audit-event coverage and legal review.
 
 Do not mark Phase 16 complete until every gate in the contract passes.
+
+Execution sequence:
+
+```text
+16A Admin MFA usable workflow — complete locally
+16B Organization knowledge metadata and retrieval boundary
+16C Migration, foreign-key, and index review
+16D Audit coverage and security event logging
+16E PostgreSQL concurrency and Phase 15 data validation
+16F Full browser E2E for Phase 16 workflows
+16G Deployed Supabase verification
+16H Final legal, documentation, and release gate
+```
 
 ---
 

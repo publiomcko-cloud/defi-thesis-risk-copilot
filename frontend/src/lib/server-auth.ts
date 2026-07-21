@@ -12,8 +12,8 @@ export function backendApiBaseUrl(): string {
 
 export function supabaseConfig() {
   return {
-    url: process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
-    anonKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
+    url: process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? "",
+    anonKey: process.env.SUPABASE_ANON_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? ""
   };
 }
 
@@ -70,6 +70,18 @@ export async function clearSessionCookie(response: NextResponse) {
   response.cookies.delete(EXPIRES_COOKIE);
 }
 
+export function jsonWithSessionCookies(
+  sessionResponse: NextResponse,
+  body: unknown,
+  status = 200,
+): NextResponse {
+  const response = NextResponse.json(body, { status });
+  for (const cookie of sessionResponse.headers.getSetCookie?.() ?? []) {
+    response.headers.append("set-cookie", cookie);
+  }
+  return response;
+}
+
 export async function readSessionToken(): Promise<string> {
   const store = await cookies();
   return store.get(SESSION_COOKIE)?.value ?? "";
@@ -87,17 +99,24 @@ export async function getValidAccessToken(response: NextResponse): Promise<strin
     await clearSessionCookie(response);
     return "";
   }
-  const refreshResponse = await supabaseAuthFetch("/token?grant_type=refresh_token", {
-    method: "POST",
-    body: JSON.stringify({ refresh_token: refreshToken })
-  });
-  const body = await refreshResponse.json();
+  let refreshResponse: Response;
+  let body: Record<string, unknown>;
+  try {
+    refreshResponse = await supabaseAuthFetch("/token?grant_type=refresh_token", {
+      method: "POST",
+      body: JSON.stringify({ refresh_token: refreshToken })
+    });
+    body = await refreshResponse.json();
+  } catch {
+    await clearSessionCookie(response);
+    return "";
+  }
   if (!refreshResponse.ok) {
     await clearSessionCookie(response);
     return "";
   }
   await setSupabaseSessionCookies(response, body);
-  return body.access_token ?? "";
+  return typeof body.access_token === "string" ? body.access_token : "";
 }
 
 function cookieOptions(maxAge: number) {

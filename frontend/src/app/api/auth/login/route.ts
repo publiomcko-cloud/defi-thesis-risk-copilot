@@ -15,7 +15,16 @@ export async function POST(request: Request) {
   if (!response.ok) {
     return NextResponse.json({ detail: "Login failed." }, { status: response.status });
   }
-  const result = NextResponse.json({ status: "authenticated" });
+  const hasVerifiedFactor = Array.isArray(body?.user?.factors)
+    && body.user.factors.some((factor: unknown) => (
+      factor !== null
+      && typeof factor === "object"
+      && (factor as Record<string, unknown>).status === "verified"
+    ));
+  const nextPath = hasVerifiedFactor || process.env.ADMIN_MFA_REQUIRED === "true"
+    ? "/account/security"
+    : "/account";
+  const result = NextResponse.json({ status: "authenticated", next: nextPath });
   await setSupabaseSessionCookies(result, body);
   return result;
 }

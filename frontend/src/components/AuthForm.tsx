@@ -50,6 +50,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password })
     });
+    const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       setStatus("error");
       setMessage("The request could not be completed. Check the fields and try again.");
@@ -57,6 +58,9 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
     setStatus("success");
     setMessage(copy[mode].success);
+    if (mode === "login") {
+      window.location.assign(typeof body.next === "string" ? body.next : "/account");
+    }
   }
 
   return (

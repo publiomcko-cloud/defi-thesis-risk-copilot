@@ -311,6 +311,51 @@ def test_supabase_jwt_rejects_invalid_claims_and_signature(monkeypatch) -> None:
             verify_supabase_jwt(token, settings)
 
 
+def test_admin_mfa_requires_aal2_without_blocking_ordinary_users(
+    phase16_client,
+    monkeypatch,
+) -> None:
+    client, Session = phase16_client
+    monkeypatch.setenv("AUTH_PROVIDER", "supabase")
+    monkeypatch.setenv("ADMIN_MFA_REQUIRED", "true")
+    get_settings.cache_clear()
+
+    with Session() as db:
+        admin = create_user(db, "mfa-admin@example.test")
+        admin.auth_provider = "supabase"
+        admin.auth_subject = "mfa-admin-subject"
+        admin.platform_role = "admin"
+        admin.role = "admin"
+        user = create_user(db, "mfa-user@example.test")
+        user.auth_provider = "supabase"
+        user.auth_subject = "mfa-user-subject"
+        db.commit()
+
+    def claims_for_token(token: str, _settings: Settings) -> SupabaseClaims:
+        is_admin = token.startswith("admin-")
+        return SupabaseClaims(
+            subject="mfa-admin-subject" if is_admin else "mfa-user-subject",
+            email="mfa-admin@example.test" if is_admin else "mfa-user@example.test",
+            email_verified=True,
+            issuer="https://project.supabase.co/auth/v1",
+            audience="authenticated",
+            expires_at=int(time.time()) + 300,
+            raw={"aal": "aal2" if token == "admin-aal2" else "aal1"},
+        )
+
+    monkeypatch.setattr("app.auth.dependencies.verify_supabase_jwt", claims_for_token)
+
+    denied = client.get("/api/admin/audit-events", headers=_auth("admin-aal1"))
+    allowed = client.get("/api/admin/audit-events", headers=_auth("admin-aal2"))
+    ordinary = client.get("/api/auth/me", headers=_auth("user-aal1"))
+
+    assert denied.status_code == 403
+    assert denied.json()["detail"] == "Administrator MFA required"
+    assert allowed.status_code == 200
+    assert ordinary.status_code == 200
+    assert ordinary.json()["platform_role"] == "user"
+
+
 def test_anonymous_report_isolation_and_expiration(phase16_client, monkeypatch) -> None:
     monkeypatch.setenv("AUTH_ENABLED", "true")
     monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
