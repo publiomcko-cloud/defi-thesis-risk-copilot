@@ -178,6 +178,7 @@ SUPABASE_JWT_ISSUER=https://<project>.supabase.co/auth/v1
 SUPABASE_JWT_AUDIENCE=authenticated
 SUPABASE_SERVICE_ROLE_KEY=<server-only when explicitly required>
 ADMIN_MFA_REQUIRED=false
+BFF_AUDIT_SECRET=<long-random-server-only-shared-value>
 ```
 
 Frontend/server variables:
@@ -193,6 +194,7 @@ COOKIE_SECURE=true
 COOKIE_SAMESITE=lax
 COOKIE_DOMAIN=
 BACKEND_API_BASE_URL=https://defi-thesis-risk-copilot.onrender.com
+BFF_AUDIT_SECRET=<same-long-random-server-only-shared-value>
 ```
 
 Rules:
@@ -200,8 +202,9 @@ Rules:
 - `SUPABASE_SERVICE_ROLE_KEY` is never `NEXT_PUBLIC_*`;
 - the Next.js auth route handlers prefer server-runtime `SUPABASE_URL` and `SUPABASE_ANON_KEY`; the `NEXT_PUBLIC_*` values remain public client configuration and compatibility fallbacks;
 - service-role usage is limited to explicit server-side administrative operations;
+- `BFF_AUDIT_SECRET` is configured identically for the backend and the Next.js server runtime only, never as `NEXT_PUBLIC_*`; it authorizes fixed MFA audit events after successful provider operations;
 - ordinary requests use user access tokens;
-- production fails closed when issuer/JWKS configuration is missing;
+- production fails closed when issuer/JWKS configuration or `BFF_AUDIT_SECRET` is missing while authentication is enabled;
 - production rejects `legacy_local` authentication.
 
 TOTP MFA uses `/account/security` and same-origin `/api/auth/mfa/*` handlers. Enable TOTP in the Supabase Auth MFA settings, enroll a test administrator, verify that challenge completion rotates the HttpOnly session cookies to an `aal2` token, and only then set `ADMIN_MFA_REQUIRED=true`. Keep at least one tested administrator recovery path before enforcing MFA.
@@ -244,6 +247,7 @@ When `ADMIN_MFA_REQUIRED=true`:
 - admin with `aal2` is allowed;
 - ordinary users remain governed by normal policy;
 - enrollment/recovery behavior is manually tested.
+- MFA audit records appear in the administrator audit view after enrollment, verification, and factor removal when `BFF_AUDIT_SECRET` is configured.
 
 ---
 

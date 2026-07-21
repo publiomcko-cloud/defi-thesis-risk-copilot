@@ -297,7 +297,7 @@ Phase 16 remains in progress because its contract still identifies blockers, inc
 
 - full browser/PostgreSQL/deployed Supabase validation;
 - deployed recovery callback verification;
-- security audit-event coverage and legal review.
+- legal review.
 
 Do not mark Phase 16 complete until every gate in the contract passes.
 
@@ -307,7 +307,7 @@ Execution sequence:
 16A Admin MFA usable workflow — complete locally
 16B Organization knowledge metadata and retrieval boundary — complete locally
 16C Migration, foreign-key, and index review — complete locally
-16D Audit coverage and security event logging
+16D Audit coverage and security event logging — complete locally
 16E PostgreSQL concurrency and Phase 15 data validation
 16F Full browser E2E for Phase 16 workflows
 16G Deployed Supabase verification

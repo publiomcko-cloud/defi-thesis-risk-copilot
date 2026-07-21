@@ -14,13 +14,14 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.auth.service import create_user, sync_supabase_user
+from app.auth.service import create_user, record_audit_event, sync_supabase_user
 from app.auth.supabase import verify_supabase_jwt
 from app.core.config import Settings, get_settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.analysis_request import AnalysisRequestModel
+from app.models.access_audit_event import AccessAuditEventModel
 from app.models.anonymous_session import AnonymousSessionModel
 from app.models.consent_record import ConsentRecordModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
@@ -37,6 +38,7 @@ def phase16_client(monkeypatch):
     monkeypatch.setenv("AUTH_ENABLED", "true")
     monkeypatch.setenv("AUTH_PROVIDER", "legacy_local")
     monkeypatch.setenv("AUTH_SECRET_KEY", "phase16-secret")
+    monkeypatch.setenv("BFF_AUDIT_SECRET", "phase16-bff-audit")
     monkeypatch.setenv("APP_ENV", "development")
     get_settings.cache_clear()
     engine = create_engine(
@@ -179,6 +181,131 @@ def test_organization_final_owner_cannot_be_removed(phase16_client) -> None:
     assert response.status_code == 409
 
 
+def test_organization_lifecycle_events_are_recorded(phase16_client) -> None:
+    client, Session = phase16_client
+    with Session() as db:
+        create_user(db, "audit-owner@example.test", token="audit-owner-token")
+
+    org = client.post("/api/organizations", json={"name": "Audit Lab"}, headers=_auth("audit-owner-token"))
+    org_id = org.json()["id"]
+    added = client.post(
+        f"/api/organizations/{org_id}/members",
+        json={"email": "audit-member@example.test", "role": "member"},
+        headers=_auth("audit-owner-token"),
+    )
+    membership_id = added.json()["id"]
+    assert client.patch(
+        f"/api/organizations/{org_id}/members/{membership_id}",
+        json={"role": "viewer"},
+        headers=_auth("audit-owner-token"),
+    ).status_code == 200
+    assert client.delete(
+        f"/api/organizations/{org_id}/members/{membership_id}",
+        headers=_auth("audit-owner-token"),
+    ).status_code == 200
+    owner_membership_id = client.get(
+        f"/api/organizations/{org_id}/members", headers=_auth("audit-owner-token")
+    ).json()["items"][0]["id"]
+    assert client.delete(
+        f"/api/organizations/{org_id}/members/{owner_membership_id}",
+        headers=_auth("audit-owner-token"),
+    ).status_code == 409
+    assert client.patch(
+        f"/api/organizations/{org_id}",
+        json={"name": "Audit Lab Updated"},
+        headers=_auth("audit-owner-token"),
+    ).status_code == 200
+    assert client.delete(
+        f"/api/organizations/{org_id}", headers=_auth("audit-owner-token")
+    ).status_code == 200
+
+    with Session() as db:
+        events = db.query(AccessAuditEventModel).all()
+        actions = {event.action for event in events}
+        assert {
+            "organization.created",
+            "organization.member_added",
+            "organization.member_updated",
+            "organization.member_removed",
+            "organization.member_removal_blocked",
+            "organization.updated",
+            "organization.deleted",
+        }.issubset(actions)
+        assert "audit-member@example.test" not in str([event.metadata_json for event in events])
+
+
+def test_audit_redaction_export_boundaries_and_mfa_audit_authorization(phase16_client) -> None:
+    client, Session = phase16_client
+    with Session() as db:
+        user = create_user(db, "audit-account@example.test", token="audit-account-token")
+        user_id = user.id
+        record_audit_event(
+            db,
+            user_id,
+            "test.sensitive_event",
+            "test",
+            metadata={
+                "email": "audit-account@example.test",
+                "access_token": "token-value-that-must-not-persist",
+                "session_cookie": "cookie-value-that-must-not-persist",
+                "raw_request_body": {"password": "must-not-persist"},
+                "note": "safe",
+            },
+        )
+
+    export = client.get("/api/account/export", headers=_auth("audit-account-token"))
+    assert export.status_code == 200
+    assert "metadata_json" not in str(export.json()["audit_events"])
+    assert client.post(
+        "/api/consents",
+        json={"document_type": "terms"},
+        headers=_auth("audit-account-token"),
+    ).status_code == 200
+    assert client.post(
+        "/api/auth/mfa/audit",
+        json={"action": "mfa.challenge_verified", "factor_id": "factor_test"},
+        headers=_auth("audit-account-token"),
+    ).status_code == 403
+    assert client.post(
+        "/api/auth/mfa/audit",
+        json={"action": "mfa.challenge_verified", "factor_id": "factor_test"},
+        headers={**_auth("audit-account-token"), "X-BFF-Audit-Key": "phase16-bff-audit"},
+    ).status_code == 200
+    assert client.get("/api/admin/audit-events", headers=_auth("audit-account-token")).status_code == 403
+
+    with Session() as db:
+        events = db.query(AccessAuditEventModel).filter_by(actor_user_id=user_id).all()
+        sensitive = next(event for event in events if event.action == "test.sensitive_event")
+        assert sensitive.metadata_json == {
+            "email": "[REDACTED]",
+            "access_token": "[REDACTED]",
+            "session_cookie": "[REDACTED]",
+            "raw_request_body": "[REDACTED]",
+            "note": "safe",
+        }
+        assert {"account.exported", "consent.accepted", "mfa.challenge_verified"}.issubset(
+            {event.action for event in events}
+        )
+
+
+def test_account_deletion_is_audited(phase16_client) -> None:
+    client, Session = phase16_client
+    with Session() as db:
+        user = create_user(db, "deletion-audit@example.test", token="deletion-audit-token")
+        user_id = user.id
+
+    response = client.request(
+        "DELETE",
+        "/api/account",
+        json={"confirmation": "DELETE"},
+        headers=_auth("deletion-audit-token"),
+    )
+    assert response.status_code == 200
+    with Session() as db:
+        event = db.query(AccessAuditEventModel).filter_by(action="account.deletion_requested").one()
+        assert event.actor_user_id == user_id
+
+
 def test_quota_boundary_and_exceeded(phase16_client, monkeypatch) -> None:
     monkeypatch.setenv("QUOTA_FREE_ANALYSES_PER_DAY", "1")
     get_settings.cache_clear()
@@ -261,6 +388,21 @@ def test_supabase_jwt_validation_with_jwks(monkeypatch) -> None:
     assert claims.subject == "supabase-user-1"
     assert claims.email == "user@example.test"
     assert claims.email_verified is True
+
+
+def test_production_auth_requires_bff_audit_secret() -> None:
+    configuration = {
+        "app_env": "production",
+        "auth_enabled": True,
+        "auth_provider": "supabase",
+        "supabase_url": "https://example.test",
+        "supabase_jwks_url": "https://example.test/.well-known/jwks.json",
+        "supabase_jwt_issuer": "https://example.test/auth/v1",
+    }
+    with pytest.raises(ValueError, match="BFF_AUDIT_SECRET"):
+        Settings(**configuration)
+
+    assert Settings(**configuration, bff_audit_secret="server-only-audit-secret").bff_audit_secret
 
 
 def test_supabase_jwt_rejects_invalid_claims_and_signature(monkeypatch) -> None:

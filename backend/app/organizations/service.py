@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.policies import can_manage_members, can_manage_organization
 from app.auth.schemas import UserContext
-from app.auth.service import normalize_email
+from app.auth.service import normalize_email, record_audit_event
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 from app.organizations.schemas import (
@@ -53,6 +53,22 @@ def create_organization(
     db.add_all([org, membership])
     db.commit()
     db.refresh(org)
+    record_audit_event(
+        db,
+        actor.id,
+        "organization.created",
+        "organization",
+        org.id,
+        {"slug": org.slug},
+    )
+    record_audit_event(
+        db,
+        actor.id,
+        "organization.member_added",
+        "organization_membership",
+        membership.id,
+        {"organization_id": org.id, "user_id": actor.id, "role": "owner", "status": "active"},
+    )
     return organization_response(org)
 
 
@@ -96,6 +112,14 @@ def update_organization(
     org.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(org)
+    record_audit_event(
+        db,
+        actor.id,
+        "organization.updated",
+        "organization",
+        org.id,
+        {"status": org.status},
+    )
     return organization_response(org)
 
 
@@ -107,6 +131,7 @@ def delete_organization(db: Session, actor: UserContext, organization_id: str) -
     org.status = "disabled"
     db.commit()
     db.refresh(org)
+    record_audit_event(db, actor.id, "organization.deleted", "organization", org.id)
     return organization_response(org)
 
 
@@ -169,6 +194,19 @@ def add_member(
         existing.updated_at = now
     db.commit()
     db.refresh(existing)
+    record_audit_event(
+        db,
+        actor.id,
+        "organization.member_added",
+        "organization_membership",
+        existing.id,
+        {
+            "organization_id": org.id,
+            "user_id": existing.user_id,
+            "role": existing.role,
+            "status": existing.status,
+        },
+    )
     return membership_response(db, existing)
 
 
@@ -184,6 +222,14 @@ def update_member(
         raise HTTPException(status_code=403, detail="Organization owner/admin role required")
     membership = _get_membership(db, org.id, membership_id)
     if _would_remove_final_owner(db, membership, request.role, request.status):
+        record_audit_event(
+            db,
+            actor.id,
+            "organization.member_removal_blocked",
+            "organization_membership",
+            membership.id,
+            {"organization_id": org.id, "reason": "final_active_owner"},
+        )
         raise HTTPException(status_code=409, detail="Cannot remove the final active organization owner")
     if request.role is not None:
         membership.role = request.role
@@ -192,6 +238,24 @@ def update_member(
     membership.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(membership)
+    action = (
+        "organization.member_removed"
+        if membership.status == "removed"
+        else "organization.member_updated"
+    )
+    record_audit_event(
+        db,
+        actor.id,
+        action,
+        "organization_membership",
+        membership.id,
+        {
+            "organization_id": org.id,
+            "user_id": membership.user_id,
+            "role": membership.role,
+            "status": membership.status,
+        },
+    )
     return membership_response(db, membership)
 
 

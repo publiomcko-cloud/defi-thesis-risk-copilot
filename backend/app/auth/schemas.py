@@ -88,3 +88,10 @@ class AccountDeleteRequest(BaseModel):
 class AccountDeleteResponse(BaseModel):
     status: Literal["deleted", "pending_provider_deletion"]
     message: str
+
+
+class MfaAuditEventRequest(BaseModel):
+    action: Literal["mfa.enrollment_started", "mfa.challenge_verified", "mfa.factor_unenrolled"]
+    factor_id: str | None = Field(default=None, max_length=128)
+
+    model_config = ConfigDict(extra="forbid")

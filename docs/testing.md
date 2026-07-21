@@ -137,6 +137,9 @@ Present:
 - shared-index rejection of organization-tagged chunks under server-derived Phase 16 retrieval scope;
 - migration evidence that seeded Phase 15 public reports/watchlists survive the Phase 16 upgrade, ownership/consent foreign keys and compound indexes exist, and downgrade/upgrade preserves the seed;
 - PostgreSQL 16 upgrade/downgrade/upgrade validation from a seeded Phase 15 database for the Phase 16C migration;
+- organization/membership lifecycle, final-owner-denial, account export/deletion, consent, and MFA audit-event coverage;
+- audit metadata redaction and bounds, administrator-only audit access, and exclusion of internal audit metadata from account export;
+- BFF MFA route-handler audit dispatch with a server-only shared audit secret;
 - frontend route smoke foundation;
 
 Still required before completion:

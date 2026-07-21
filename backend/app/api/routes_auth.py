@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Header, HTTPException, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -12,9 +12,11 @@ from app.auth.schemas import (
     AccountExportResponse,
     AccountResponse,
     AuthLogoutResponse,
+    MfaAuditEventRequest,
     UserContext,
 )
-from app.auth.service import user_response
+from app.auth.security import constant_time_equal
+from app.auth.service import record_audit_event, user_response
 from app.db.session import get_db
 from app.models.access_audit_event import AccessAuditEventModel
 from app.models.alert_event import AlertEventModel
@@ -99,7 +101,7 @@ def export_account(
     memberships = db.execute(
         select(OrganizationMembershipModel).where(OrganizationMembershipModel.user_id == current_user.id)
     ).scalars().all()
-    return AccountExportResponse(
+    response = AccountExportResponse(
         exported_at=datetime.now(UTC),
         profile=user_response(user).model_dump(mode="json"),
         memberships=[
@@ -147,6 +149,8 @@ def export_account(
             for item in audits
         ],
     )
+    record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)
+    return response
 
 
 @router.delete("/account", response_model=AccountDeleteResponse)
@@ -170,6 +174,14 @@ def delete_account(
             .where(OrganizationMembershipModel.status == "active")
         ).scalars().all()
         if len(owner_count) <= 1:
+            record_audit_event(
+                db,
+                current_user.id,
+                "account.deletion_blocked",
+                "organization",
+                membership.organization_id,
+                {"reason": "final_active_owner"},
+            )
             raise HTTPException(
                 status_code=409,
                 detail="Transfer or remove final organization ownership before deleting the account.",
@@ -181,6 +193,7 @@ def delete_account(
     user.email = f"deleted-{user.id}@deleted.local"
     user.updated_at = now
     db.commit()
+    record_audit_event(db, current_user.id, "account.deletion_requested", "user", current_user.id)
     return AccountDeleteResponse(
         status="pending_provider_deletion",
         message="Application account disabled. External Supabase identity deletion requires a configured server-side provider deletion job.",
@@ -243,7 +256,35 @@ def post_consent(
     db.add(record)
     db.commit()
     db.refresh(record)
+    record_audit_event(
+        db,
+        current_user.id,
+        "consent.accepted",
+        "consent_record",
+        record.id,
+        {"document_type": record.document_type, "document_version": record.document_version},
+    )
     return {"consent": _consent_payload(record)}
+
+
+@router.post("/auth/mfa/audit")
+def record_mfa_audit_event(
+    payload: MfaAuditEventRequest,
+    x_bff_audit_key: str | None = Header(default=None),
+    db: Session = Depends(get_db),
+    current_user: UserContext = Depends(require_authenticated_user),
+) -> dict:
+    secret = get_settings().bff_audit_secret
+    if not secret or not x_bff_audit_key or not constant_time_equal(x_bff_audit_key, secret):
+        raise HTTPException(status_code=403, detail="BFF audit authorization required")
+    event = record_audit_event(
+        db,
+        current_user.id,
+        payload.action,
+        "mfa_factor",
+        payload.factor_id,
+    )
+    return {"id": event.id, "status": "recorded"}
 
 
 def _current_user_record(db: Session, current_user: UserContext) -> UserModel:

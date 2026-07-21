@@ -104,6 +104,10 @@ Browser
 
 Phase 16C adds database foreign keys for resource owner, organization, and anonymous-session links, plus saved-thesis owner and consent-user records. Nullable resource links use `SET NULL`; required saved-thesis/consent links use `RESTRICT`. Compound indexes support owner/deleted, organization/visibility/deleted, anonymous/expires, membership, and quota-period access paths. Polymorphic quota subjects and immutable audit actors intentionally remain application-managed references; the Phase 16 contract records why.
 
+### Lifecycle audit boundary
+
+The application records bounded audit events for privileged and lifecycle operations. Metadata is recursively redacted and size-limited before persistence; emails, tokens, cookies, credentials, verification codes, and raw request bodies are never retained. Only administrators can query the full operational log. Account export exposes a user-visible projection without internal metadata. Successful Next.js MFA route handlers may report fixed event types to FastAPI only through a server-only BFF shared secret and authenticated user token; the secret is not browser-visible.
+
 ### BFF boundary
 
 The BFF must:

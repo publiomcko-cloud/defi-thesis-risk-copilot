@@ -5,6 +5,7 @@ import { hasTrustedOrigin } from "@/lib/request-security";
 import {
   getValidAccessToken,
   jsonWithSessionCookies,
+  recordMfaAuditEvent,
   supabaseAuthFetch
 } from "@/lib/server-auth";
 
@@ -31,5 +32,6 @@ export async function DELETE(
         : "The MFA factor could not be removed.";
     return jsonWithSessionCookies(sessionResponse, { detail }, result.status);
   }
+  await recordMfaAuditEvent(token, "mfa.factor_unenrolled", factorId);
   return jsonWithSessionCookies(sessionResponse, { status: "unenrolled" });
 }

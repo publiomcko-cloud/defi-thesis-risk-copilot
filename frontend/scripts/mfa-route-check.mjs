@@ -10,6 +10,9 @@ const mockServer = createServer(async (request, response) => {
   mockRequests.push({ method: request.method, url: request.url, headers: request.headers, body });
   response.setHeader("Content-Type", "application/json");
 
+  if (request.method === "POST" && request.url === "/api/auth/mfa/audit") {
+    return send(response, 200, { id: "audit_test", status: "recorded" });
+  }
   if (request.method === "GET" && request.url === "/auth/v1/user") {
     return send(response, 200, {
       factors: [{ id: factorId, status: "verified", friendly_name: "Primary app", factor_type: "totp" }],
@@ -66,6 +69,8 @@ const app = spawn("./node_modules/.bin/next", ["start", "--hostname", "127.0.0.1
     SESSION_COOKIE_NAME: "phase16_test_session",
     COOKIE_SECURE: "false",
     ADMIN_MFA_REQUIRED: "true",
+    BACKEND_API_BASE_URL: `http://127.0.0.1:${mockAddress.port}`,
+    BFF_AUDIT_SECRET: "phase16-bff-audit",
   },
   stdio: ["ignore", "pipe", "pipe"],
 });
@@ -145,6 +150,12 @@ try {
   assert.equal(crossOrigin.status, 403);
 
   for (const request of mockRequests) {
+    if (request.url === "/api/auth/mfa/audit") {
+      assert.equal(request.headers["x-bff-audit-key"], "phase16-bff-audit");
+      assert.match(request.headers.authorization ?? "", /^Bearer /);
+      assert(["mfa.enrollment_started", "mfa.challenge_verified", "mfa.factor_unenrolled"].includes(JSON.parse(request.body).action));
+      continue;
+    }
     assert.equal(request.headers.cookie, undefined, "browser cookies must not reach Supabase Auth");
     assert.equal(request.headers.apikey, "phase16-test-anon-key");
     if (request.url === "/auth/v1/token?grant_type=password") {
@@ -153,6 +164,7 @@ try {
       assert.match(request.headers.authorization ?? "", /^Bearer /);
     }
   }
+  assert.equal(mockRequests.filter((request) => request.url === "/api/auth/mfa/audit").length, 3);
   console.log("MFA route-handler checks passed.");
 } catch (error) {
   if (appOutput) {

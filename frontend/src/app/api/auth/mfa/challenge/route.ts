@@ -5,6 +5,7 @@ import { hasTrustedOrigin } from "@/lib/request-security";
 import {
   getValidAccessToken,
   jsonWithSessionCookies,
+  recordMfaAuditEvent,
   setSupabaseSessionCookies,
   supabaseAuthFetch
 } from "@/lib/server-auth";
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
   }
 
   await setSupabaseSessionCookies(sessionResponse, result.data);
+  await recordMfaAuditEvent(token, "mfa.challenge_verified", typeof payload.factor_id === "string" ? payload.factor_id : undefined);
   return jsonWithSessionCookies(sessionResponse, { status: "verified", assurance_level: "aal2" });
 }
 

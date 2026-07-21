@@ -119,6 +119,32 @@ export async function getValidAccessToken(response: NextResponse): Promise<strin
   return typeof body.access_token === "string" ? body.access_token : "";
 }
 
+export async function recordMfaAuditEvent(
+  accessToken: string,
+  action: "mfa.enrollment_started" | "mfa.challenge_verified" | "mfa.factor_unenrolled",
+  factorId?: string,
+): Promise<boolean> {
+  const auditSecret = process.env.BFF_AUDIT_SECRET;
+  if (!auditSecret) {
+    return false;
+  }
+  try {
+    const response = await fetch(`${backendApiBaseUrl()}/api/auth/mfa/audit`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        "X-BFF-Audit-Key": auditSecret,
+      },
+      body: JSON.stringify({ action, factor_id: factorId }),
+      cache: "no-store",
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 function cookieOptions(maxAge: number) {
   return {
     httpOnly: true,

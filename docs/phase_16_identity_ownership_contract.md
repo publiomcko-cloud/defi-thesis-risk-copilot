@@ -843,6 +843,7 @@ Reviewed correction commit: `bf1b9ddc6153e02f2018c4a43ba20bb634e82709`.
 - controlled Supabase recovery callback/code-exchange foundation in the Next.js auth boundary;
 - account export/deletion and retention cleanup foundations;
 - Phase 16C ownership/organization/anonymous-session/saved-thesis/consent foreign keys and compound authorization/quota indexes, with Phase 15 data preservation and PostgreSQL migration-cycle evidence;
+- Phase 16D lifecycle/security audit events with bounded redacted metadata, administrator-only audit access, user-visible export projections, and a server-only BFF MFA audit channel;
 - expanded JWT, anonymous isolation, quota, and cleanup tests;
 - account, thesis, and organization frontend components.
 
@@ -851,7 +852,6 @@ Reviewed correction commit: `bf1b9ddc6153e02f2018c4a43ba20bb634e82709`.
 1. Browser E2E coverage is still a lightweight smoke foundation rather than full authenticated/anonymous workflow coverage.
 2. Deployed Supabase email verification, recovery, MFA, and cross-domain behavior remain unverified; 16A is locally complete, while live-provider verification remains a 16G gate.
 3. Legal review of terms/privacy remains external.
-4. Audit coverage for organization lifecycle, administrator assignment, account deletion, and security events needs completion.
 
 The documentation and roadmap must retain `Phase 16 — In Progress` until these blockers and the completion gates below are resolved.
 

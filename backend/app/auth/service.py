@@ -5,7 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import AuditEventResponse, UserContext, UserResponse, UserRole
-from app.auth.security import hash_token, redact_sensitive
+from app.auth.security import hash_token, sanitize_audit_metadata
 from app.auth.supabase import SupabaseClaims
 from app.core.config import get_settings
 from app.models.access_audit_event import AccessAuditEventModel
@@ -189,7 +189,7 @@ def record_audit_event(
         action=action,
         resource_type=resource_type,
         resource_id=resource_id,
-        metadata_json=redact_sensitive(metadata or {}),
+        metadata_json=sanitize_audit_metadata(metadata or {}),
     )
     db.add(event)
     db.commit()
@@ -231,14 +231,21 @@ def _record_signup_consents(db: Session, record: UserModel, claims: dict) -> Non
             .where(ConsentRecordModel.withdrawn_at.is_(None))
         ).scalars().first()
         if existing is None:
-            db.add(
-                ConsentRecordModel(
-                    id=f"consent_{uuid4().hex[:12]}",
-                    user_id=record.id,
-                    document_type=document_type,
-                    document_version=version,
-                    accepted_at=datetime.now(UTC),
-                    metadata_json={"source": "supabase_signup_metadata", "version_source": "server_config"},
-                )
+            consent = ConsentRecordModel(
+                id=f"consent_{uuid4().hex[:12]}",
+                user_id=record.id,
+                document_type=document_type,
+                document_version=version,
+                accepted_at=datetime.now(UTC),
+                metadata_json={"source": "supabase_signup_metadata", "version_source": "server_config"},
             )
+            db.add(consent)
             db.commit()
+            record_audit_event(
+                db,
+                record.id,
+                "consent.accepted",
+                "consent_record",
+                consent.id,
+                {"document_type": document_type, "document_version": version, "source": "signup"},
+            )

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.policies import MANAGE_ORG_ROLES, READ_ORG_ROLES, has_org_role
 from app.auth.schemas import UserContext
+from app.auth.service import record_audit_event
 from app.knowledge_base.organization_schemas import (
     OrganizationKnowledgeSourceCreateRequest,
     OrganizationKnowledgeSourceResponse,
@@ -59,6 +60,14 @@ def create_organization_knowledge_source(
             detail="This source URL is already registered for the organization",
         ) from None
     db.refresh(record)
+    record_audit_event(
+        db,
+        actor.id,
+        "organization.knowledge_source_added",
+        "organization_knowledge_source",
+        record.id,
+        {"organization_id": organization_id, "protocol": record.protocol, "source_type": record.source_type},
+    )
     return organization_knowledge_source_response(record)
 
 
@@ -97,6 +106,14 @@ def delete_organization_knowledge_source(
     record.updated_at = record.deleted_at
     db.commit()
     db.refresh(record)
+    record_audit_event(
+        db,
+        actor.id,
+        "organization.knowledge_source_removed",
+        "organization_knowledge_source",
+        record.id,
+        {"organization_id": organization_id},
+    )
     return organization_knowledge_source_response(record)
 
 

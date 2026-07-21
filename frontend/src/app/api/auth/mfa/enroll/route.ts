@@ -5,6 +5,7 @@ import { hasTrustedOrigin } from "@/lib/request-security";
 import {
   getValidAccessToken,
   jsonWithSessionCookies,
+  recordMfaAuditEvent,
   supabaseAuthFetch
 } from "@/lib/server-auth";
 
@@ -31,6 +32,7 @@ export async function POST(request: NextRequest) {
       result.status,
     );
   }
+  await recordMfaAuditEvent(token, "mfa.enrollment_started", result.data.factor_id);
   return jsonWithSessionCookies(sessionResponse, result.data);
 }
 

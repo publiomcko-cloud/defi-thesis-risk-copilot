@@ -141,6 +141,8 @@ Intentional omissions are recorded in the Phase 16 database contract: polymorphi
 
 ## 16D — Audit Coverage and Security Event Logging
 
+Status: **Complete locally**
+
 Goal: record meaningful security and lifecycle events without leaking secrets.
 
 Scope:
@@ -157,6 +159,14 @@ Acceptance:
 - exported account data excludes sensitive internal audit metadata;
 - public/anonymous users cannot read audit data;
 - tests prove redaction and authorization behavior.
+
+Local evidence:
+
+- organization creation, update, deletion, membership add/update/remove, organization knowledge-source changes, and final-owner denials create bounded audit records;
+- account export/deletion, consent acceptance, provider-credential operations, global administrative operations, and MFA actions are audited;
+- successful same-origin MFA handlers use a server-only `BFF_AUDIT_SECRET` channel to authenticate their event to FastAPI without exposing the shared secret to the browser;
+- audit metadata redacts emails, tokens, cookies, credentials, verification codes, and raw request bodies, while bounding depth, list size, key count, and string length;
+- account exports include only user-visible audit fields, and the audit reader remains administrator-only.
 
 ---
 

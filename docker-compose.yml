@@ -16,6 +16,7 @@ services:
       SUPABASE_JWT_ISSUER: ${SUPABASE_JWT_ISSUER:-}
       SUPABASE_JWT_AUDIENCE: ${SUPABASE_JWT_AUDIENCE:-authenticated}
       ADMIN_MFA_REQUIRED: ${ADMIN_MFA_REQUIRED:-false}
+      BFF_AUDIT_SECRET: ${BFF_AUDIT_SECRET:-}
       LLM_SYNTHESIS_ENABLED: ${LLM_SYNTHESIS_ENABLED:-false}
       LLM_PROVIDER: ${LLM_PROVIDER:-disabled}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
@@ -56,6 +57,7 @@ services:
       SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
       NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      BFF_AUDIT_SECRET: ${BFF_AUDIT_SECRET:-}
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules

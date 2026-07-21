@@ -165,6 +165,8 @@ The active branch currently contains the following foundations.
 - saved theses;
 - centralized resource policy helpers.
 - strict private-vs-organization visibility checks so stale `organization_id` values do not grant organization access.
+- bounded lifecycle/security audit records for organization, membership, account, consent, credential, and platform-sensitive operations;
+- redaction of audit emails, secrets, tokens, cookies, verification codes, and raw request bodies, plus a server-only BFF MFA audit channel when configured.
 
 ### Organization knowledge boundary
 
@@ -214,10 +216,9 @@ Phase 16 is not complete. The authoritative blocker list is maintained in [`phas
 
 Current known blockers include:
 
-1. organization/security lifecycle audit coverage is incomplete;
-2. browser E2E and PostgreSQL concurrency coverage are incomplete beyond local smoke and unit coverage;
-3. deployed Supabase email/recovery/MFA/session behavior is unverified;
-4. terms/privacy require qualified legal review.
+1. browser E2E and PostgreSQL concurrency coverage are incomplete beyond local smoke and unit coverage;
+2. deployed Supabase email/recovery/MFA/session behavior is unverified;
+3. terms/privacy require qualified legal review.
 
 The branch must not be described as commercially production-ready.
 
@@ -227,7 +228,7 @@ Planned execution order:
 16A Admin MFA usable workflow — complete locally
 16B Organization knowledge metadata and retrieval boundary — complete locally
 16C Migration, foreign-key, and index review — complete locally
-16D Audit coverage and security event logging
+16D Audit coverage and security event logging — complete locally
 16E PostgreSQL concurrency and Phase 15 data validation
 16F Full browser E2E for Phase 16 workflows
 16G Deployed Supabase verification

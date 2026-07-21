@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     admin_bootstrap_token: str = ""
     admin_password: str = ""
     auth_secret_key: str = ""
+    bff_audit_secret: str = ""
     credential_encryption_key: str = ""
     vast_enabled: bool = False
     vast_api_base_url: str = "https://console.vast.ai/api/v0"
@@ -105,6 +106,8 @@ class Settings(BaseSettings):
                     "Supabase authentication is enabled but required variables are missing: "
                     + ", ".join(missing)
                 )
+        if self.auth_enabled and self.app_env == "production" and not self.bff_audit_secret:
+            raise ValueError("BFF_AUDIT_SECRET is required when production authentication is enabled")
         return self
 
 
