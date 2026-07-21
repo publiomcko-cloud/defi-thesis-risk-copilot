@@ -692,6 +692,14 @@ anonymous_session_id + expires_at
 subject_id + action + period_start
 ```
 
+The implemented Phase 16C migration is `20260721_0010`. It uses `SET NULL` for nullable resource owner, organization, and anonymous-session links so a hard cleanup cannot leave a dangling identifier; resource visibility is unchanged when an invalid legacy nullable link is detached. It uses `RESTRICT` for saved-thesis owner and consent user links because silently detaching either would alter the record's ownership or legal meaning. The migration fails with a clear diagnostic when either required legacy reference is invalid.
+
+The following references intentionally remain without a direct foreign key:
+
+- `usage_quotas.subject_id`, because it is a polymorphic user-or-anonymous-session subject; the `(subject_type, subject_id, action, period_end)` index supports its access path instead;
+- `access_audit_events.actor_user_id`, because audit history must remain available after a user is soft-deleted or later purged by a controlled retention process;
+- resource `visibility`, because its valid transitions and organization membership checks are enforced by centralized application policy rather than a static database check constraint.
+
 ---
 
 ## 18. Frontend completion contract
@@ -834,16 +842,16 @@ Reviewed correction commit: `bf1b9ddc6153e02f2018c4a43ba20bb634e82709`.
 - server-owned terms/privacy version recording for signup and consent renewal;
 - controlled Supabase recovery callback/code-exchange foundation in the Next.js auth boundary;
 - account export/deletion and retention cleanup foundations;
+- Phase 16C ownership/organization/anonymous-session/saved-thesis/consent foreign keys and compound authorization/quota indexes, with Phase 15 data preservation and PostgreSQL migration-cycle evidence;
 - expanded JWT, anonymous isolation, quota, and cleanup tests;
 - account, thesis, and organization frontend components.
 
 ### Remaining blockers before Phase 16 can be marked complete
 
-1. Ownership foreign keys and compound indexes require a deliberate migration review beyond the current index foundation.
-2. Browser E2E coverage is still a lightweight smoke foundation rather than full authenticated/anonymous workflow coverage.
-3. Deployed Supabase email verification, recovery, MFA, and cross-domain behavior remain unverified; 16A is locally complete, while live-provider verification remains a 16G gate.
-4. Legal review of terms/privacy remains external.
-5. Audit coverage for organization lifecycle, administrator assignment, account deletion, and security events needs completion.
+1. Browser E2E coverage is still a lightweight smoke foundation rather than full authenticated/anonymous workflow coverage.
+2. Deployed Supabase email verification, recovery, MFA, and cross-domain behavior remain unverified; 16A is locally complete, while live-provider verification remains a 16G gate.
+3. Legal review of terms/privacy remains external.
+4. Audit coverage for organization lifecycle, administrator assignment, account deletion, and security events needs completion.
 
 The documentation and roadmap must retain `Phase 16 — In Progress` until these blockers and the completion gates below are resolved.
 

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Integer, String, UniqueConstraint
+from sqlalchemy import DateTime, Index, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -16,6 +16,13 @@ class UsageQuotaModel(Base):
             "period_start",
             "period_end",
             name="uq_usage_quota_period",
+        ),
+        Index(
+            "ix_usage_quotas_subject_action_period_end",
+            "subject_type",
+            "subject_id",
+            "action",
+            "period_end",
         ),
     )
 

@@ -108,6 +108,8 @@ Local evidence:
 
 ## 16C — Migration, Foreign-Key, and Index Review
 
+Status: **Complete locally**
+
 Goal: make the Phase 16 schema deliberately safe for ownership, organization, anonymous, and quota queries.
 
 Scope:
@@ -125,6 +127,15 @@ Acceptance:
 - PostgreSQL migration path passes;
 - common list/detail authorization queries are supported by indexes;
 - no destructive reset is required.
+
+Local evidence:
+
+- revision `20260721_0010` adds named ownership, organization, anonymous-session, saved-thesis, and consent foreign keys with deliberate `SET NULL` or `RESTRICT` deletion behavior;
+- compound owner/deleted, organization/visibility/deleted, anonymous/expires, membership, and quota-period indexes match the authorization and quota query shapes;
+- a migration test seeds a Phase 15 database, proves seeded public reports/watchlists survive, verifies constraints/indexes, and verifies downgrade/upgrade;
+- a temporary PostgreSQL 16 database seeded at the Phase 15 revision completed upgrade/downgrade/upgrade while retaining the public report and watchlist without a database reset.
+
+Intentional omissions are recorded in the Phase 16 database contract: polymorphic quota subjects and immutable audit actors do not have direct foreign keys, and resource visibility remains application-policy controlled.
 
 ---
 

@@ -135,6 +135,8 @@ Present:
 - organization knowledge metadata owner/admin mutation and active-member read authorization;
 - outsider, removed-member, disabled-organization, and non-member platform-admin knowledge denial;
 - shared-index rejection of organization-tagged chunks under server-derived Phase 16 retrieval scope;
+- migration evidence that seeded Phase 15 public reports/watchlists survive the Phase 16 upgrade, ownership/consent foreign keys and compound indexes exist, and downgrade/upgrade preserves the seed;
+- PostgreSQL 16 upgrade/downgrade/upgrade validation from a seeded Phase 15 database for the Phase 16C migration;
 - frontend route smoke foundation;
 
 Still required before completion:

@@ -100,6 +100,10 @@ Browser
 - Resource policies derive tenant scope server-side.
 - Organization knowledge metadata is database-owned and membership-scoped, but tenant documents and vectors are not stored in Phase 16.
 
+### Ownership persistence integrity
+
+Phase 16C adds database foreign keys for resource owner, organization, and anonymous-session links, plus saved-thesis owner and consent-user records. Nullable resource links use `SET NULL`; required saved-thesis/consent links use `RESTRICT`. Compound indexes support owner/deleted, organization/visibility/deleted, anonymous/expires, membership, and quota-period access paths. Polymorphic quota subjects and immutable audit actors intentionally remain application-managed references; the Phase 16 contract records why.
+
 ### BFF boundary
 
 The BFF must:

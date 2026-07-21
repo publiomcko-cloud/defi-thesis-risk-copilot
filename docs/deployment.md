@@ -152,6 +152,8 @@ A `/` prefix matches every path and invalidates the allowlist.
 7. verify `/ready`;
 8. test upgrade from a Phase 15 database before Phase 16 merge.
 
+Phase 16C adds `20260721_0010`, which validates required saved-thesis and consent ownership before adding foreign keys. It safely detaches only invalid nullable resource links without changing visibility, but it deliberately stops deployment for invalid required links. Take a database backup and resolve such integrity errors before retrying production startup; do not reset production data to bypass the migration.
+
 Typical pooled URL:
 
 ```text

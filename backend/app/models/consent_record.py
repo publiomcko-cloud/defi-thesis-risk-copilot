@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -11,7 +11,9 @@ class ConsentRecordModel(Base):
     __tablename__ = "consent_records"
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
-    user_id: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="RESTRICT"), nullable=False, index=True
+    )
     document_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     document_version: Mapped[str] = mapped_column(String(32), nullable=False)
     accepted_at: Mapped[datetime] = mapped_column(

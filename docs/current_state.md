@@ -160,6 +160,8 @@ The active branch currently contains the following foundations.
 - final active-owner protection;
 - active/deleted organization check in membership-role lookup;
 - ownership/scope fields on analysis requests, reports, and watchlists;
+- named ownership, organization, anonymous-session, saved-thesis, and consent foreign keys with deliberate `SET NULL`/`RESTRICT` behavior;
+- compound authorization and quota indexes, verified through Phase 15 seeded-data migration and local PostgreSQL seeded migration-cycle checks;
 - saved theses;
 - centralized resource policy helpers.
 - strict private-vs-organization visibility checks so stale `organization_id` values do not grant organization access.
@@ -212,11 +214,10 @@ Phase 16 is not complete. The authoritative blocker list is maintained in [`phas
 
 Current known blockers include:
 
-1. migration foreign keys and compound ownership indexes need review beyond the Phase 16 index foundation;
-2. organization/security lifecycle audit coverage is incomplete;
-3. browser E2E and PostgreSQL concurrency coverage are incomplete beyond local smoke and unit coverage;
-4. deployed Supabase email/recovery/MFA/session behavior is unverified;
-5. terms/privacy require qualified legal review.
+1. organization/security lifecycle audit coverage is incomplete;
+2. browser E2E and PostgreSQL concurrency coverage are incomplete beyond local smoke and unit coverage;
+3. deployed Supabase email/recovery/MFA/session behavior is unverified;
+4. terms/privacy require qualified legal review.
 
 The branch must not be described as commercially production-ready.
 
@@ -225,7 +226,7 @@ Planned execution order:
 ```text
 16A Admin MFA usable workflow — complete locally
 16B Organization knowledge metadata and retrieval boundary — complete locally
-16C Migration, foreign-key, and index review
+16C Migration, foreign-key, and index review — complete locally
 16D Audit coverage and security event logging
 16E PostgreSQL concurrency and Phase 15 data validation
 16F Full browser E2E for Phase 16 workflows
