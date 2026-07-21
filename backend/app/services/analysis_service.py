@@ -22,7 +22,7 @@ def analyze_strategy(
         consume_quota(db, actor, ACTION_ANALYSIS)
     analysis_request_id = f"analysis_{uuid4().hex[:12]}"
     report_id = f"report_{uuid4().hex[:12]}"
-    workflow_result = run_analysis_workflow(request, report_id, db)
+    workflow_result = run_analysis_workflow(request, report_id, db, actor=actor)
     visibility = "public_demo" if actor is None else "private"
     expires_at = (
         datetime.now(UTC) + timedelta(hours=get_settings().anonymous_retention_hours)

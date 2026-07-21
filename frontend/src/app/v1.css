@@ -277,6 +277,30 @@ summary:focus-visible {
   overflow-wrap: anywhere;
 }
 
+.knowledge-source-list {
+  display: grid;
+  gap: 12px;
+  list-style: none;
+  margin: 16px 0 0;
+  padding: 0;
+}
+
+.knowledge-source-list li {
+  align-items: center;
+  border-top: 1px solid var(--line);
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding-top: 12px;
+}
+
+.knowledge-source-list span,
+.knowledge-source-list a {
+  display: block;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
 @keyframes loading-pulse {
   0%,
   100% {

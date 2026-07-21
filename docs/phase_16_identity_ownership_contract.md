@@ -825,6 +825,8 @@ Reviewed correction commit: `bf1b9ddc6153e02f2018c4a43ba20bb634e82709`.
 - HttpOnly access/refresh cookie rotation after MFA verification with sanitized provider responses;
 - organization active/deleted checks in membership-role lookup;
 - strict private/organization visibility checks before organization membership is considered;
+- organization-owned, human-approved source metadata with `metadata_only` storage status and active-membership authorization;
+- server-derived retrieval scope that keeps the shared local JSON index public-curated only and rejects organization-tagged chunks;
 - actor-based durable mutation dependencies that preserve public anonymous restrictions while allowing authenticated users/admins in hybrid mode;
 - anonymous report expiration foundation;
 - resource-count quotas for saved theses/watchlists;
@@ -837,12 +839,11 @@ Reviewed correction commit: `bf1b9ddc6153e02f2018c4a43ba20bb634e82709`.
 
 ### Remaining blockers before Phase 16 can be marked complete
 
-1. Organization knowledge-base ownership and retrieval filtering are not fully implemented; current RAG remains global/local.
-2. Ownership foreign keys and compound indexes require a deliberate migration review beyond the current index foundation.
-3. Browser E2E coverage is still a lightweight smoke foundation rather than full authenticated/anonymous workflow coverage.
-4. Deployed Supabase email verification, recovery, MFA, and cross-domain behavior remain unverified; 16A is locally complete, while live-provider verification remains a 16G gate.
-5. Legal review of terms/privacy remains external.
-6. Audit coverage for organization lifecycle, administrator assignment, account deletion, and security events needs completion.
+1. Ownership foreign keys and compound indexes require a deliberate migration review beyond the current index foundation.
+2. Browser E2E coverage is still a lightweight smoke foundation rather than full authenticated/anonymous workflow coverage.
+3. Deployed Supabase email verification, recovery, MFA, and cross-domain behavior remain unverified; 16A is locally complete, while live-provider verification remains a 16G gate.
+4. Legal review of terms/privacy remains external.
+5. Audit coverage for organization lifecycle, administrator assignment, account deletion, and security events needs completion.
 
 The documentation and roadmap must retain `Phase 16 — In Progress` until these blockers and the completion gates below are resolved.
 

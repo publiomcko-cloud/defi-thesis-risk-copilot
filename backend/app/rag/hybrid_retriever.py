@@ -6,6 +6,7 @@ from app.rag.embeddings import LocalHashEmbeddingProvider, TOKEN_PATTERN, cosine
 from app.rag.reranker import freshness_score, rerank_results, source_quality_score
 from app.rag.retriever import RetrievalResult
 from app.rag.semantic_embeddings import LocalSemanticEmbeddingProvider, get_semantic_embedding_provider
+from app.rag.scope import RetrievalScope
 from app.rag.vector_store import JsonVectorStore
 
 
@@ -43,15 +44,19 @@ class HybridRetriever:
         top_k: int = 4,
         protocols: list[str] | None = None,
         metadata_filters: dict[str, Any] | None = None,
+        scope: RetrievalScope | None = None,
     ) -> list[RetrievalResult]:
         keyword_query = self.keyword_provider.embed(query)
         semantic_query = self.semantic_provider.embed(query) if self.semantic_enabled else {}
         protocol_filter = {protocol.lower() for protocol in protocols or []}
         filters = metadata_filters or {}
         results: list[RetrievalResult] = []
+        retrieval_scope = scope or RetrievalScope()
 
         for record in self.store.load():
             metadata = record["metadata"]
+            if not retrieval_scope.allows(metadata):
+                continue
             if protocol_filter and str(metadata.get("protocol", "")).lower() not in protocol_filter:
                 continue
             if not _matches_filters(metadata, filters):

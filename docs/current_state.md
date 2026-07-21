@@ -164,6 +164,15 @@ The active branch currently contains the following foundations.
 - centralized resource policy helpers.
 - strict private-vs-organization visibility checks so stale `organization_id` values do not grant organization access.
 
+### Organization knowledge boundary
+
+- organization-owned source metadata with source URL, provenance hash, human approval, status, and `metadata_only` storage state;
+- active-member read access and owner/admin registration/removal authorization without a platform-admin private-data bypass;
+- immediate denial for removed members and disabled/deleted organizations;
+- server-derived retrieval scope passed through local and hybrid retrieval;
+- organization-tagged chunks rejected from the shared JSON index while durable tenant storage is disabled;
+- global discovery, review, and ingestion mutations remain platform-admin controlled.
+
 ### Anonymous isolation
 
 - cryptographically random server-created anonymous sessions;
@@ -190,7 +199,7 @@ The active branch currently contains the following foundations.
 - server-side recovery callback/code-exchange foundation for Supabase recovery links;
 - account and functional account-security/MFA pages;
 - thesis management component;
-- organization management component;
+- organization and organization knowledge-metadata management components;
 - terms/privacy pages;
 - auth-aware session panel;
 - basic E2E smoke command.
@@ -203,12 +212,11 @@ Phase 16 is not complete. The authoritative blocker list is maintained in [`phas
 
 Current known blockers include:
 
-1. organization knowledge-base ownership and tenant retrieval are not fully implemented; current RAG remains global/local;
-2. migration foreign keys and compound ownership indexes need review beyond the Phase 16 index foundation;
-3. organization/security lifecycle audit coverage is incomplete;
-4. browser E2E and PostgreSQL concurrency coverage are incomplete beyond local smoke and unit coverage;
-5. deployed Supabase email/recovery/MFA/session behavior is unverified;
-6. terms/privacy require qualified legal review.
+1. migration foreign keys and compound ownership indexes need review beyond the Phase 16 index foundation;
+2. organization/security lifecycle audit coverage is incomplete;
+3. browser E2E and PostgreSQL concurrency coverage are incomplete beyond local smoke and unit coverage;
+4. deployed Supabase email/recovery/MFA/session behavior is unverified;
+5. terms/privacy require qualified legal review.
 
 The branch must not be described as commercially production-ready.
 
@@ -216,7 +224,7 @@ Planned execution order:
 
 ```text
 16A Admin MFA usable workflow — complete locally
-16B Organization knowledge metadata and retrieval boundary
+16B Organization knowledge metadata and retrieval boundary — complete locally
 16C Migration, foreign-key, and index review
 16D Audit coverage and security event logging
 16E PostgreSQL concurrency and Phase 15 data validation
@@ -245,7 +253,7 @@ Endpoints:
 - `/ready` — database and public RAG readiness;
 - `/api/deployment/status` — safe environment and demo metadata.
 
-Runtime files are not authoritative for persisted reports, but the current RAG index is still local/runtime JSON and not tenant-aware.
+Runtime files are not authoritative for persisted reports. The current RAG index is still local/runtime JSON and has no tenant storage; its retrieval boundary intentionally permits public-curated chunks only.
 
 ---
 
@@ -324,7 +332,7 @@ Additional required evidence:
 ## 10. Known platform limitations
 
 - public rate limiting is still in-process, not distributed;
-- current RAG index is local JSON and not tenant-aware;
+- current RAG index is local JSON and intentionally public-curated only; organization metadata is not document/vector storage;
 - heavy work lacks durable queue/workers;
 - Render may cold-start;
 - several market adapters remain partial/manual fallbacks;

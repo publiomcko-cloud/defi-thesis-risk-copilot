@@ -98,6 +98,7 @@ Browser
 - Supabase claims establish identity only.
 - Application database fields establish platform role, account status, plan, ownership, and organization membership.
 - Resource policies derive tenant scope server-side.
+- Organization knowledge metadata is database-owned and membership-scoped, but tenant documents and vectors are not stored in Phase 16.
 
 ### BFF boundary
 
@@ -200,7 +201,7 @@ discovery
   -> retrieval index
 ```
 
-Current ingestion may generate curated Markdown and refresh the local index. Phase 18 replaces runtime/local authority with object storage, versioned documents/chunks, and tenant-filtered vector retrieval.
+Current global ingestion may generate curated Markdown and refresh the public-curated local index. Phase 16 organization sources persist provenance and approval metadata only. The analysis service derives retrieval scope from authenticated membership, but organization-tagged chunks remain blocked because tenant storage is disabled. Phase 18 replaces runtime/local authority with object storage, versioned documents/chunks, and tenant-filtered vector retrieval.
 
 No automatically discovered content becomes trusted without explicit approval.
 

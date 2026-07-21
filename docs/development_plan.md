@@ -289,12 +289,12 @@ Implemented foundation includes:
 - account export/deletion and retention cleanup;
 - terms/privacy pages and server-owned consent-record foundation;
 - administrator `aal2` enforcement plus a locally tested TOTP enrollment, challenge/verification, and factor-management workflow;
+- organization knowledge-source metadata with active-membership authorization and a server-derived public-only retrieval boundary;
 - account/thesis/organization frontend components;
 - expanded Phase 16 tests.
 
 Phase 16 remains in progress because its contract still identifies blockers, including:
 
-- tenant knowledge-base authorization metadata and retrieval boundaries;
 - ownership foreign-key/index review;
 - full browser/PostgreSQL/deployed Supabase validation;
 - deployed recovery callback verification;
@@ -306,7 +306,7 @@ Execution sequence:
 
 ```text
 16A Admin MFA usable workflow — complete locally
-16B Organization knowledge metadata and retrieval boundary
+16B Organization knowledge metadata and retrieval boundary — complete locally
 16C Migration, foreign-key, and index review
 16D Audit coverage and security event logging
 16E PostgreSQL concurrency and Phase 15 data validation

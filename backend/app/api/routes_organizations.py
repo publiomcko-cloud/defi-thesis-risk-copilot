@@ -4,6 +4,16 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import require_authenticated_user
 from app.auth.schemas import UserContext
 from app.db.session import get_db
+from app.knowledge_base.organization_schemas import (
+    OrganizationKnowledgeSourceCreateRequest,
+    OrganizationKnowledgeSourceResponse,
+    OrganizationKnowledgeSourcesResponse,
+)
+from app.knowledge_base.organization_service import (
+    create_organization_knowledge_source,
+    delete_organization_knowledge_source,
+    list_organization_knowledge_sources,
+)
 from app.organizations.schemas import (
     MembershipCreateRequest,
     MembershipResponse,
@@ -27,6 +37,46 @@ from app.organizations.service import (
 )
 
 router = APIRouter(tags=["organizations"])
+
+
+@router.get(
+    "/organizations/{organization_id}/knowledge-sources",
+    response_model=OrganizationKnowledgeSourcesResponse,
+)
+def get_organization_knowledge_sources(
+    organization_id: str,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> OrganizationKnowledgeSourcesResponse:
+    return OrganizationKnowledgeSourcesResponse(
+        items=list_organization_knowledge_sources(db, actor, organization_id)
+    )
+
+
+@router.post(
+    "/organizations/{organization_id}/knowledge-sources",
+    response_model=OrganizationKnowledgeSourceResponse,
+)
+def post_organization_knowledge_source(
+    organization_id: str,
+    request: OrganizationKnowledgeSourceCreateRequest,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> OrganizationKnowledgeSourceResponse:
+    return create_organization_knowledge_source(db, actor, organization_id, request)
+
+
+@router.delete(
+    "/organizations/{organization_id}/knowledge-sources/{source_id}",
+    response_model=OrganizationKnowledgeSourceResponse,
+)
+def delete_organization_knowledge_source_route(
+    organization_id: str,
+    source_id: str,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> OrganizationKnowledgeSourceResponse:
+    return delete_organization_knowledge_source(db, actor, organization_id, source_id)
 
 
 @router.get("/organizations", response_model=OrganizationsResponse)

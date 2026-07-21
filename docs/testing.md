@@ -132,6 +132,9 @@ Present:
 - Supabase MFA provider adapter success/failure contract checks;
 - same-origin MFA route-handler success/failure, cookie-rotation, cookie-isolation, and origin checks;
 - administrator `aal1` denial, `aal2` allow, and ordinary-user `aal1` access;
+- organization knowledge metadata owner/admin mutation and active-member read authorization;
+- outsider, removed-member, disabled-organization, and non-member platform-admin knowledge denial;
+- shared-index rejection of organization-tagged chunks under server-derived Phase 16 retrieval scope;
 - frontend route smoke foundation;
 
 Still required before completion:
@@ -139,8 +142,8 @@ Still required before completion:
 - browser refresh/logout tests;
 - PostgreSQL quota concurrency;
 - deployed recovery callback verification;
-- full MFA flow;
-- tenant knowledge isolation;
+- deployed end-to-end Supabase MFA flow;
+- full browser coverage for organization knowledge metadata controls;
 - deployed Supabase verification.
 
 Phase 16 remains `In Progress` until the full contract passes.

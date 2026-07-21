@@ -74,6 +74,8 @@ Local evidence:
 
 ## 16B — Organization Knowledge Metadata and Retrieval Boundary
 
+Status: **Complete locally — durable tenant document/vector storage remains Phase 18**
+
 Goal: define Phase 16 organization knowledge ownership without pretending Phase 18 tenant vector storage exists.
 
 Scope:
@@ -92,6 +94,15 @@ Acceptance:
 - disabled/deleted organizations lose knowledge access;
 - retrieval cannot be tenant-switched by user input;
 - docs clearly state that durable tenant-specific vector storage remains Phase 18.
+
+Local evidence:
+
+- organization source metadata is persisted separately with organization ownership, provenance hash, explicit human approval, and `metadata_only` storage status;
+- active members can list metadata, while only active organization owners/admins can register or remove it;
+- outsiders, removed members, platform admins without membership, and members of disabled/deleted organizations receive no metadata access;
+- global discovery/review/document ingestion mutations remain platform-admin controlled;
+- analysis input rejects client-provided organization scope, and both retrievers apply a server-derived retrieval scope;
+- the shared JSON index accepts only `public_curated` chunks while tenant storage remains disabled.
 
 ---
 
