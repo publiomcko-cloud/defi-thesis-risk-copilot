@@ -7,6 +7,7 @@ Authoritative references:
 - [`development_plan.md`](development_plan.md) — phase history and roadmap;
 - [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md) — Phase 16 requirements and blockers;
 - [`phase_16_execution_plan.md`](phase_16_execution_plan.md) — ordered Phase 16 sub-phases;
+- [`phase_16_deployed_verification.md`](phase_16_deployed_verification.md) — dated Phase 16G deployment evidence and external verification matrix;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–21;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -222,6 +223,8 @@ Current known blockers include:
 1. deployed Supabase email/recovery/MFA/session behavior is unverified;
 2. terms/privacy require qualified legal review.
 
+Phase 16G is externally blocked until a credentialed Phase 16 Vercel/Render preview and Supabase Auth configuration are available. The live domains were checked on 2026-07-21 and correctly remain the Phase 15 public-demo baseline: Vercel has no `/login` or `/api/auth/session` route, while Render reports `portfolio_demo` and `auth_enabled=false`. See [`phase_16_deployed_verification.md`](phase_16_deployed_verification.md).
+
 The branch must not be described as commercially production-ready.
 
 Planned execution order:
@@ -233,7 +236,7 @@ Planned execution order:
 16D Audit coverage and security event logging — complete locally
 16E PostgreSQL concurrency and Phase 15 data validation — complete locally and in CI configuration
 16F Full browser E2E for Phase 16 workflows — complete locally and in CI configuration
-16G Deployed Supabase verification
+16G Deployed Supabase verification — blocked pending credentialed preview deployment and Supabase Auth access
 16H Final legal, documentation, and release gate
 ```
 

@@ -485,6 +485,10 @@ In hybrid mode, anonymous denial must not globally block authenticated user oper
 - [ ] documentation matches deployment;
 - [ ] phase status remains `In Progress` until every contract gate passes.
 
+### Phase 16G Record
+
+The current live domains remain the Phase 15 public-demo deployment. On 2026-07-21, Vercel returned `404` for `/login` and `/api/auth/session`, and Render reported `portfolio_demo` with `auth_enabled=false`; public privileged-mutation probes returned controlled `403` responses. This confirms the baseline remains safe but cannot satisfy managed-identity verification. The exact preview configuration and manual verification matrix are in [`phase_16_deployed_verification.md`](phase_16_deployed_verification.md).
+
 ---
 
 ## 17. Later deployment handoffs
