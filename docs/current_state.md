@@ -208,7 +208,8 @@ The active branch currently contains the following foundations.
 - organization and organization knowledge-metadata management components;
 - terms/privacy pages;
 - auth-aware session panel;
-- basic E2E smoke command.
+- production-like Chromium E2E command with local mocked Supabase/FastAPI upstreams, anonymous isolation/expiry, BFF login/refresh/logout, recovery/reset, account consent/export/deletion confirmation, thesis CRUD/analyze, organization owner protection/member removal, MFA, no-private-content flash, and mobile keyboard/layout smoke;
+- failure screenshot/trace capture and CI browser-artifact upload configuration.
 
 ---
 
@@ -218,9 +219,8 @@ Phase 16 is not complete. The authoritative blocker list is maintained in [`phas
 
 Current known blockers include:
 
-1. browser E2E coverage is incomplete beyond local smoke and unit coverage;
-2. deployed Supabase email/recovery/MFA/session behavior is unverified;
-3. terms/privacy require qualified legal review.
+1. deployed Supabase email/recovery/MFA/session behavior is unverified;
+2. terms/privacy require qualified legal review.
 
 The branch must not be described as commercially production-ready.
 
@@ -232,7 +232,7 @@ Planned execution order:
 16C Migration, foreign-key, and index review — complete locally
 16D Audit coverage and security event logging — complete locally
 16E PostgreSQL concurrency and Phase 15 data validation — complete locally and in CI configuration
-16F Full browser E2E for Phase 16 workflows
+16F Full browser E2E for Phase 16 workflows — complete locally and in CI configuration
 16G Deployed Supabase verification
 16H Final legal, documentation, and release gate
 ```
@@ -320,14 +320,13 @@ docker compose up -d --build
 
 Additional required evidence:
 
-- PostgreSQL concurrent quota tests;
-- browser anonymous create/read/isolation flow;
-- browser login/BFF/refresh/logout flow;
+- completed PostgreSQL concurrent quota tests;
+- local browser anonymous create/read/isolation/expiry flow;
+- local browser login/BFF/refresh/logout flow;
 - organization membership/removal/deletion isolation;
 - strict private/organization visibility tests;
-- recovery callback/reset flow;
-- consent-version enforcement;
-- admin MFA denial/allow flow;
+- local mocked recovery callback/reset flow;
+- local consent and MFA workflow coverage;
 - deployed Supabase manual verification;
 - Vercel preview and Render preview validation.
 

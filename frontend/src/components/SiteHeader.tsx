@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
 const publicLinks = [
   { href: "/demo", label: "Demo" },
@@ -10,9 +11,7 @@ const publicLinks = [
   { href: "/options", label: "Options" },
   { href: "/watchlist", label: "Watchlist" },
   { href: "/protocols", label: "Protocols" },
-  { href: "/about", label: "About" },
-  { href: "/login", label: "Login" },
-  { href: "/signup", label: "Signup" }
+  { href: "/about", label: "About" }
 ];
 
 const protectedLinks = [
@@ -26,7 +25,29 @@ const protectedLinks = [
 export function SiteHeader() {
   const pathname = usePathname();
   const publicDemoMode = process.env.NEXT_PUBLIC_PUBLIC_DEMO_MODE === "true";
-  const links = publicDemoMode ? publicLinks : [...publicLinks, ...protectedLinks];
+  const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const refreshSession = useCallback(() => {
+    if (publicDemoMode) {
+      setAuthenticated(false);
+      return;
+    }
+    fetch("/api/auth/session", { cache: "no-store" })
+      .then((response) => response.json())
+      .then((payload) => setAuthenticated(payload.authenticated === true))
+      .catch(() => setAuthenticated(false));
+  }, [publicDemoMode]);
+
+  useEffect(() => {
+    refreshSession();
+    window.addEventListener("defi-session-changed", refreshSession);
+    return () => window.removeEventListener("defi-session-changed", refreshSession);
+  }, [refreshSession]);
+
+  const links = publicDemoMode
+    ? publicLinks
+    : authenticated
+      ? [...publicLinks, ...protectedLinks]
+      : [...publicLinks, { href: "/login", label: "Login" }, { href: "/signup", label: "Signup" }];
 
   return (
     <header className="site-header">

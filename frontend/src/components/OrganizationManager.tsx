@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
 type Organization = { id: string; name: string; slug: string; status: string };
@@ -15,13 +16,14 @@ type KnowledgeSource = {
   status: string;
 };
 
-export function OrganizationManager() {
+export function OrganizationManager({ initialOrganizationId }: { initialOrganizationId?: string }) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selected, setSelected] = useState("");
   const [members, setMembers] = useState<Member[]>([]);
   const [knowledgeSources, setKnowledgeSources] = useState<KnowledgeSource[]>([]);
   const [currentUserEmail, setCurrentUserEmail] = useState("");
   const [name, setName] = useState("");
+  const [organizationName, setOrganizationName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
   const [sourceTitle, setSourceTitle] = useState("");
@@ -53,7 +55,7 @@ export function OrganizationManager() {
     if (response.ok) {
       const payload = await response.json();
       setOrganizations(payload.items);
-      setSelected((current) => current || payload.items[0]?.id || "");
+      setSelected((current) => current || payload.items.find((item: Organization) => item.id === initialOrganizationId)?.id || payload.items[0]?.id || "");
     }
   }
 
@@ -98,6 +100,52 @@ export function OrganizationManager() {
     setMessage(response.ok ? "Member invitation saved." : "Unable to add member.");
     setEmail("");
     await refreshMembers(selected);
+  }
+
+  async function updateOrganization(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!selected) {
+      return;
+    }
+    const response = await fetch(`/api/backend/api/organizations/${selected}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: organizationName })
+    });
+    const body = await response.json().catch(() => ({}));
+    setMessage(response.ok ? "Organization updated." : body.detail ?? "Unable to update organization.");
+    if (response.ok) {
+      setOrganizationName("");
+      await refreshOrganizations();
+    }
+  }
+
+  async function updateMember(member: Member, nextRole: string) {
+    if (!selected) {
+      return;
+    }
+    const response = await fetch(`/api/backend/api/organizations/${selected}/members/${member.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ role: nextRole })
+    });
+    const body = await response.json().catch(() => ({}));
+    setMessage(response.ok ? "Member role updated." : body.detail ?? "Unable to update member.");
+    if (response.ok) {
+      await refreshMembers(selected);
+    }
+  }
+
+  async function removeMember(member: Member) {
+    if (!selected || !window.confirm(`Remove ${member.email} from this organization?`)) {
+      return;
+    }
+    const response = await fetch(`/api/backend/api/organizations/${selected}/members/${member.id}`, { method: "DELETE" });
+    const body = await response.json().catch(() => ({}));
+    setMessage(response.ok ? "Member removed." : body.detail ?? "Unable to remove member.");
+    if (response.ok) {
+      await refreshMembers(selected);
+    }
   }
 
   async function createKnowledgeSource(event: FormEvent<HTMLFormElement>) {
@@ -150,6 +198,8 @@ export function OrganizationManager() {
       && member.status === "active"
       && (member.role === "owner" || member.role === "admin")
   );
+  const canManageMembers = canManageKnowledge;
+  const selectedOrganization = organizations.find((organization) => organization.id === selected);
 
   return (
     <section className="stack">
@@ -168,15 +218,39 @@ export function OrganizationManager() {
             <option key={org.id} value={org.id}>{org.name} ({org.status})</option>
           ))}
         </select>
+        {selected ? <Link className="secondary-link" href={`/organizations/${selected}`}>Open organization</Link> : null}
         {!organizations.length ? <p>No organizations available for this account.</p> : null}
       </section>
       {selected ? (
         <>
+          {canManageMembers ? (
+            <form className="form-panel auth-form" onSubmit={updateOrganization}>
+              <h2>Organization settings</h2>
+              <label>
+                Name
+                <input onChange={(event) => setOrganizationName(event.target.value)} placeholder={selectedOrganization?.name} required value={organizationName} />
+              </label>
+              <button className="secondary-action" type="submit">Update name</button>
+            </form>
+          ) : null}
           <form className="form-panel auth-form" onSubmit={inviteMember}>
             <h2>Members</h2>
             <ul className="compact-list">
               {members.map((member) => (
-                <li key={member.id}>{member.email} · {member.role} · {member.status}</li>
+                <li key={member.id}>
+                  <span>{member.email} · {member.role} · {member.status}</span>
+                  {canManageMembers && member.status !== "removed" ? (
+                    <span className="action-row compact-actions">
+                      <select aria-label={`Role for ${member.email}`} defaultValue={member.role} onChange={(event) => void updateMember(member, event.target.value)}>
+                        <option value="viewer">Viewer</option>
+                        <option value="member">Member</option>
+                        <option value="admin">Admin</option>
+                        <option value="owner">Owner</option>
+                      </select>
+                      <button className="secondary-action" onClick={() => void removeMember(member)} type="button">Remove</button>
+                    </span>
+                  ) : null}
+                </li>
               ))}
             </ul>
             <label>

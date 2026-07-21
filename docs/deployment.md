@@ -469,7 +469,7 @@ In hybrid mode, anonymous denial must not globally block authenticated user oper
 - [ ] migrations preserve existing Phase 15 data;
 - [ ] frontend build succeeds;
 - [ ] backend tests succeed;
-- [ ] browser tests succeed;
+- [x] local production-like browser E2E succeeds with mocked identity/backend providers; deployed-domain verification remains required;
 - [ ] Compose validates;
 - [x] BFF allowlist is effective in local contract checks;
 - [x] refresh cookies are not forwarded to Render in local contract checks;

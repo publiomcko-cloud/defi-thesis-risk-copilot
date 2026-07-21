@@ -203,6 +203,8 @@ Local evidence:
 
 ## 16F — Full Browser E2E for Phase 16 Workflows
 
+Status: **Complete locally and in CI configuration — deployed Supabase verification remains in 16G**
+
 Goal: replace route-smoke confidence with real browser workflow coverage.
 
 Scope:
@@ -221,6 +223,13 @@ Acceptance:
 - screenshots/traces are available on failure;
 - tests do not require real paid services or live capital execution;
 - deployed Supabase/browser behavior still remains a manual external gate until verified.
+
+Local evidence:
+
+- `npm run test:e2e` starts a production Next.js server with local mocked Supabase Auth and FastAPI upstreams, then drives Chromium through the same-origin BFF;
+- the suite proves anonymous report create/read, second-browser and expired-session denial, login, refresh-cookie rotation, logout, recovery callback/reset, account export/deletion confirmation, consent, thesis create/edit/analyze/delete, organization owner protection/member removal, mocked MFA enrollment/challenge/removal, no private-content flash, and mobile keyboard/layout smoke;
+- browser cookies do not reach the mock Supabase service, browser storage contains no access token, and failure screenshots plus Playwright traces are retained as CI artifacts;
+- CI installs Chromium, runs the browser suite after the production build, and uploads artifacts on failure.
 
 ---
 

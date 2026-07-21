@@ -846,13 +846,13 @@ Reviewed correction commit: `bf1b9ddc6153e02f2018c4a43ba20bb634e82709`.
 - Phase 16D lifecycle/security audit events with bounded redacted metadata, administrator-only audit access, user-visible export projections, and a server-only BFF MFA audit channel;
 - Phase 16E PostgreSQL first-use quota races, resource-count serialization, exact-limit/deletion-release behavior, and migrated Phase 15 public API regression coverage;
 - expanded JWT, anonymous isolation, quota, and cleanup tests;
-- account, thesis, and organization frontend components.
+- account, thesis, organization, dynamic organization-detail/member routes, and authentication-aware header frontend components;
+- production-like Chromium browser E2E with local mocked Supabase/FastAPI upstreams, including anonymous isolation/expiry, BFF login/refresh/logout and cookie rotation, recovery/reset, account consent/export/deletion confirmation, thesis CRUD/analyze, organization owner protection/member removal, MFA, no-private-content flash, and mobile keyboard/layout smoke. Failure screenshots/traces are available locally and uploaded by CI.
 
 ### Remaining blockers before Phase 16 can be marked complete
 
-1. Browser E2E coverage is still a lightweight smoke foundation rather than full authenticated/anonymous workflow coverage.
-2. Deployed Supabase email verification, recovery, MFA, and cross-domain behavior remain unverified; 16A is locally complete, while live-provider verification remains a 16G gate.
-3. Legal review of terms/privacy remains external.
+1. Deployed Supabase email verification, recovery, MFA, and cross-domain behavior remain unverified; 16A is locally complete, while live-provider verification remains a 16G gate.
+2. Legal review of terms/privacy remains external.
 
 The documentation and roadmap must retain `Phase 16 — In Progress` until these blockers and the completion gates below are resolved.
 

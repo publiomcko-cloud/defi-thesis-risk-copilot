@@ -15,6 +15,7 @@ export function ThesisManager() {
   const [title, setTitle] = useState("");
   const [strategyText, setStrategyText] = useState("");
   const [protocols, setProtocols] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -30,8 +31,9 @@ export function ThesisManager() {
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const response = await fetch("/api/backend/api/theses", {
-      method: "POST",
+    const isEditing = editingId !== null;
+    const response = await fetch(isEditing ? `/api/backend/api/theses/${editingId}` : "/api/backend/api/theses", {
+      method: isEditing ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         title,
@@ -41,13 +43,29 @@ export function ThesisManager() {
         visibility: "private"
       })
     });
-    setMessage(response.ok ? "Thesis saved." : "Sign in to save theses.");
+    setMessage(response.ok ? (isEditing ? "Thesis updated." : "Thesis saved.") : "Unable to save thesis.");
     if (response.ok) {
       setTitle("");
       setStrategyText("");
       setProtocols("");
+      setEditingId(null);
       await refresh();
     }
+  }
+
+  function edit(item: Thesis) {
+    setEditingId(item.id);
+    setTitle(item.title);
+    setStrategyText(item.strategy_text);
+    setProtocols(item.protocols.join(", "));
+    setMessage("");
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setTitle("");
+    setStrategyText("");
+    setProtocols("");
   }
 
   async function remove(id: string) {
@@ -59,7 +77,7 @@ export function ThesisManager() {
   return (
     <section className="stack">
       <form className="form-panel auth-form" onSubmit={create}>
-        <h2>Save Thesis</h2>
+        <h2>{editingId ? "Edit Thesis" : "Save Thesis"}</h2>
         <label>
           Title
           <input onChange={(event) => setTitle(event.target.value)} required value={title} />
@@ -72,7 +90,10 @@ export function ThesisManager() {
           Protocols
           <input onChange={(event) => setProtocols(event.target.value)} placeholder="pendle, morpho" value={protocols} />
         </label>
-        <button className="primary-action" type="submit">Save</button>
+        <div className="action-row compact-actions">
+          <button className="primary-action" type="submit">{editingId ? "Update" : "Save"}</button>
+          {editingId ? <button className="secondary-action" onClick={cancelEdit} type="button">Cancel</button> : null}
+        </div>
         {message ? <p className="form-success">{message}</p> : null}
       </form>
       <section className="content-grid">
@@ -83,6 +104,7 @@ export function ThesisManager() {
             <p className="muted-small">{item.protocols.join(", ") || "No protocol tags"} · {item.visibility}</p>
             <div className="action-row compact-actions">
               <a className="secondary-link" href={`/analyze?thesis=${encodeURIComponent(item.strategy_text)}`}>Analyze</a>
+              <button className="secondary-action" onClick={() => edit(item)} type="button">Edit</button>
               <button className="secondary-action" onClick={() => remove(item.id)} type="button">Delete</button>
             </div>
           </article>

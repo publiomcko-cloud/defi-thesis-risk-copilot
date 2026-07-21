@@ -31,6 +31,7 @@ npm run build
 npm run test:bff
 npm run test:mfa
 npm run test:mfa:routes
+npm run test:e2e
 ```
 
 Compose:
@@ -142,12 +143,11 @@ Present:
 - BFF MFA route-handler audit dispatch with a server-only shared audit secret;
 - PostgreSQL first-use quota races, exact-limit `429` handling, saved-thesis/watchlist resource-count serialization, and deletion-release coverage when `RUN_POSTGRES_INTEGRATION=true`;
 - migrated Phase 15 public report/watchlist API regression coverage, including anonymous public mutation denial;
-- frontend route smoke foundation;
+- production-like Chromium browser E2E with local mocked Supabase/FastAPI upstreams: anonymous report isolation/expiry, BFF login/refresh/logout, recovery/reset, account export/deletion confirmation/consent, thesis CRUD/analyze, organization owner protection/member removal, MFA, no-private-content flash, and mobile keyboard/layout smoke;
+- failure screenshots/traces and CI upload configuration for the browser suite.
 
 Still required before completion:
 
-- browser refresh/logout tests;
-- PostgreSQL quota concurrency;
 - deployed recovery callback verification;
 - deployed end-to-end Supabase MFA flow;
 - full browser coverage for organization knowledge metadata controls;

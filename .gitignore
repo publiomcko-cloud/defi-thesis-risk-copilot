@@ -1,5 +1,6 @@
 # Archives and downloaded source bundles
 *.zip
+frontend/test-results/
 
 # Python
 __pycache__/
