@@ -11,7 +11,7 @@ This record distinguishes the intentionally deployed Phase 15 public demo from t
 | Target | Result | Interpretation |
 | --- | --- | --- |
 | `https://defi-thesis-risk-copilot.vercel.app/` | Phase 15 public production remains unchanged | Safe public baseline. |
-| `https://defi-thesis-risk-copilot-dn7w7mtvq-publio1.vercel.app/` | Phase 16 branch preview, Vercel protected | Phase 16 identity frontend and same-origin BFF are deployed. |
+| `https://defi-thesis-risk-copilot-git-agent-v1-phase-16-i-524b7f-publio1.vercel.app/` | Phase 16 branch preview, Vercel protected | Stable branch preview alias for the Phase 16 identity frontend and same-origin BFF. |
 | `https://defi-thesis-risk-copilot-api-phase16.onrender.com/ready` | `200` | Phase 16 backend database and runtime are ready. |
 | `https://defi-thesis-risk-copilot-api-phase16.onrender.com/api/deployment/status` | `production`, `public_demo_mode=true`, `auth_enabled=true` | Phase 16 hybrid public-demo plus Supabase-auth configuration is live. |
 
@@ -22,7 +22,7 @@ The Vercel preview uses standard Vercel Authentication protection. Automated che
 The isolated preview is configured with:
 
 - Render `APP_ENV=production`, `PUBLIC_DEMO_MODE=true`, `AUTH_ENABLED=true`, `AUTH_PROVIDER=supabase`, verified-email enforcement, Supabase URL/JWKS/issuer/audience, strict preview `FRONTEND_ORIGIN`, and a server-only BFF audit secret;
-- Vercel branch-scoped preview variables for the Render preview, Supabase public browser key, HttpOnly-cookie policy, and the same server-only BFF audit secret;
+- Vercel branch-scoped preview variables for the Render preview, Supabase public browser key, HttpOnly-cookie policy, and the same server-only BFF audit secret; `NEXT_PUBLIC_PUBLIC_DEMO_MODE=false` so hybrid-mode navigation exposes Login/Signup before authentication and private navigation after authentication;
 - Supabase email confirmation, no unverified sign-in, TOTP enrollment and verification, the production site URL, and exact production/preview/local redirect allowlist entries.
 
 The original working Render database configuration was retained. A Supabase Management API pooler response must not be copied as a replacement database credential without independently verifying its password.
