@@ -235,7 +235,7 @@ Local evidence:
 
 ## 16G — Deployed Supabase Verification
 
-Status: **Blocked externally — Phase 16 preview deployment and Supabase Auth access are required**
+Status: **In Progress — Phase 16 preview and Supabase Auth are configured; interactive provider verification remains**
 
 Goal: verify the managed-identity system on real deployed domains.
 
@@ -255,7 +255,7 @@ Acceptance:
 - no tokens appear in browser storage, URLs after callback completion, logs, deployment status, or frontend payloads;
 - known external limitations are documented.
 
-Current preflight evidence and the exact external setup/manual matrix are recorded in [`phase_16_deployed_verification.md`](phase_16_deployed_verification.md). On 2026-07-21, the live domains were confirmed to be the intentional Phase 15 public-demo deployment: Vercel returned `404` for `/login` and `/api/auth/session`, while Render reported `portfolio_demo` with `auth_enabled=false`. This is a safe baseline, not a failed Phase 16 deployment.
+Current hosted evidence and the remaining manual matrix are recorded in [`phase_16_deployed_verification.md`](phase_16_deployed_verification.md). On 2026-07-22, the isolated Phase 16 Vercel/Render preview was configured with Supabase Auth and passed automated BFF, anonymous-isolation, CORS, readiness, and safe-status checks. The `main` public demo remains unchanged. Signup email, recovery, authenticated-browser, and administrator-MFA verification remain required before 16G can pass.
 
 ---
 

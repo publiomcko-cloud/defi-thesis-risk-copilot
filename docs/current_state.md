@@ -220,10 +220,10 @@ Phase 16 is not complete. The authoritative blocker list is maintained in [`phas
 
 Current known blockers include:
 
-1. deployed Supabase email/recovery/MFA/session behavior is unverified;
+1. deployed Supabase email/recovery/MFA and authenticated-browser session behavior remains partially unverified;
 2. terms/privacy require qualified legal review.
 
-Phase 16G is externally blocked until a credentialed Phase 16 Vercel/Render preview and Supabase Auth configuration are available. The live domains were checked on 2026-07-21 and correctly remain the Phase 15 public-demo baseline: Vercel has no `/login` or `/api/auth/session` route, while Render reports `portfolio_demo` and `auth_enabled=false`. See [`phase_16_deployed_verification.md`](phase_16_deployed_verification.md).
+Phase 16G is in progress. A credentialed Phase 16 Vercel/Render preview and Supabase Auth configuration are now active, while the public `main` deployment remains the Phase 15 baseline. Automated hosted checks passed for readiness, BFF routing, anonymous isolation, private-route denial, CORS, and safe status metadata. Interactive email, recovery, authenticated-browser, and administrator-MFA checks remain. See [`phase_16_deployed_verification.md`](phase_16_deployed_verification.md).
 
 The branch must not be described as commercially production-ready.
 
@@ -236,7 +236,7 @@ Planned execution order:
 16D Audit coverage and security event logging — complete locally
 16E PostgreSQL concurrency and Phase 15 data validation — complete locally and in CI configuration
 16F Full browser E2E for Phase 16 workflows — complete locally and in CI configuration
-16G Deployed Supabase verification — blocked pending credentialed preview deployment and Supabase Auth access
+16G Deployed Supabase verification — in progress; interactive provider verification remains
 16H Final legal, documentation, and release gate
 ```
 

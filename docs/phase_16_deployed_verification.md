@@ -1,77 +1,43 @@
 # Phase 16G Deployed Verification Record
 
-Status: **Blocked externally**
+Status: **In Progress -- hosted configuration and automated checks complete; interactive identity checks remain**
 
-Date recorded: 2026-07-21
+Date updated: 2026-07-22
 
-This record distinguishes the intentionally deployed Phase 15 public demo from the not-yet-deployed Phase 16 managed-identity target. It contains no credentials, tokens, account identifiers, or mailbox contents.
+This record distinguishes the intentionally deployed Phase 15 public demo from the configured Phase 16 preview. It contains no credentials, tokens, account identifiers, database URLs, or mailbox contents.
 
-## Current Live Evidence
+## Deployment Targets
 
 | Target | Result | Interpretation |
 | --- | --- | --- |
-| `https://defi-thesis-risk-copilot.vercel.app/` | `200` | Current public Phase 15 frontend is live. |
-| `https://defi-thesis-risk-copilot.vercel.app/login` | `404` | The Phase 16 identity frontend has not been deployed to this domain. |
-| `https://defi-thesis-risk-copilot.vercel.app/api/auth/session` | `404` | The deployed frontend has no Phase 16 BFF session handler. |
-| `https://defi-thesis-risk-copilot.onrender.com/health` | `200` | Backend is live and healthy. |
-| `https://defi-thesis-risk-copilot.onrender.com/ready` | `200` with database and RAG ready | The Phase 15 backend startup path is healthy. |
-| `https://defi-thesis-risk-copilot.onrender.com/api/deployment/status` | `portfolio_demo`, `public_demo_mode=true`, `auth_enabled=false` | Render is intentionally serving the Phase 15 public-safe configuration, not Phase 16 hybrid authentication. |
-| Public POST probes for document ingestion, credentials, and watchlists | controlled `403` responses | Existing Phase 15 privileged-mutation protections remain active. |
+| `https://defi-thesis-risk-copilot.vercel.app/` | Phase 15 public production remains unchanged | Safe public baseline. |
+| `https://defi-thesis-risk-copilot-dn7w7mtvq-publio1.vercel.app/` | Phase 16 branch preview, Vercel protected | Phase 16 identity frontend and same-origin BFF are deployed. |
+| `https://defi-thesis-risk-copilot-api-phase16.onrender.com/ready` | `200` | Phase 16 backend database and runtime are ready. |
+| `https://defi-thesis-risk-copilot-api-phase16.onrender.com/api/deployment/status` | `production`, `public_demo_mode=true`, `auth_enabled=true` | Phase 16 hybrid public-demo plus Supabase-auth configuration is live. |
 
-The live status payload exposed no provider key, access token, refresh token, or session material. The current Vercel response also rendered the public-demo badge, consistent with the Phase 15 baseline.
+The Vercel preview uses standard Vercel Authentication protection. Automated checks used Vercel's protected-preview bypass rather than weakening preview protection. The backend status payload exposed no credential, token, password, database URL, or secret key.
 
-## Blocker
+## Hosted Configuration Applied
 
-No local deployment credential or configured provider access is available for the required external systems. At the time of this record, `VERCEL_TOKEN`, `RENDER_API_KEY`, `SUPABASE_ACCESS_TOKEN`, Supabase Auth configuration values, and `BFF_AUDIT_SECRET` were unavailable in the local environment.
+The isolated preview is configured with:
 
-The committed Render manifest intentionally retains `AUTH_ENABLED=false` for the public portfolio deployment. Enabling authentication without the required Supabase/JWKS configuration and server-only audit secret would fail closed in production and would not create valid evidence. Do not replace the current public demo deployment with a partially configured Phase 16 deployment.
+- Render `APP_ENV=production`, `PUBLIC_DEMO_MODE=true`, `AUTH_ENABLED=true`, `AUTH_PROVIDER=supabase`, verified-email enforcement, Supabase URL/JWKS/issuer/audience, strict preview `FRONTEND_ORIGIN`, and a server-only BFF audit secret;
+- Vercel branch-scoped preview variables for the Render preview, Supabase public browser key, HttpOnly-cookie policy, and the same server-only BFF audit secret;
+- Supabase email confirmation, no unverified sign-in, TOTP enrollment and verification, the production site URL, and exact production/preview/local redirect allowlist entries.
 
-## Required External Setup
+The original working Render database configuration was retained. A Supabase Management API pooler response must not be copied as a replacement database credential without independently verifying its password.
 
-Create a controlled Phase 16 preview or staged deployment from `agent/v1-phase-16-identity-ownership` before testing. Keep the existing `main` public demo unchanged until the contract gates pass.
+## Automated Hosted Evidence
 
-Configure Render with:
+The following checks passed against the paired Phase 16 Vercel and Render previews:
 
-```text
-APP_ENV=production
-PUBLIC_DEMO_MODE=true
-AUTH_ENABLED=true
-AUTH_PROVIDER=supabase
-REQUIRE_VERIFIED_EMAIL=true
-FRONTEND_ORIGIN=<exact Vercel preview origin>
-SUPABASE_URL=<project URL>
-SUPABASE_JWKS_URL=<project JWKS URL>
-SUPABASE_JWT_ISSUER=<project Auth issuer>
-SUPABASE_JWT_AUDIENCE=authenticated
-BFF_AUDIT_SECRET=<new long random server-only value>
-DATABASE_URL=<Supabase PostgreSQL URL with sslmode=require>
-```
-
-Configure the Vercel preview server runtime with:
-
-```text
-BACKEND_API_BASE_URL=<exact Render preview origin>
-SUPABASE_URL=<project URL>
-SUPABASE_ANON_KEY=<public anon key>
-NEXT_PUBLIC_SUPABASE_URL=<project URL>
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<public anon key>
-SESSION_COOKIE_NAME=defi_copilot_session
-ANONYMOUS_SESSION_COOKIE_NAME=defi_copilot_anon
-COOKIE_SECURE=true
-COOKIE_SAMESITE=lax
-COOKIE_DOMAIN=
-BFF_AUDIT_SECRET=<same server-only value>
-```
-
-Configure Supabase Auth with the exact Vercel preview origin as Site URL and redirect allowlist entries for:
-
-```text
-<preview-origin>/verify-email
-<preview-origin>/api/auth/recovery-callback
-<preview-origin>/reset-password
-```
-
-Enable TOTP only after a test administrator and recovery path are available. Platform-admin authorization remains database-owned; Supabase user metadata alone must not assign administrator authority.
+- Render `/health`, `/ready`, and deployment status returned `200`; the status reports `auth_enabled=true` and database connectivity;
+- unauthenticated BFF session request returned `authenticated:false`;
+- public protocol data was retrieved through `/api/backend/*`;
+- an unauthenticated private thesis request returned controlled `401`;
+- a real anonymous analysis created a report that was readable with its originating anonymous cookie (`200`) and denied to a distinct anonymous cookie (`404`);
+- direct backend preflight returned the exact Vercel preview origin and credentialed CORS policy;
+- deployment-status field names contained no token, secret, password, or key material.
 
 ## Manual Verification Matrix
 
@@ -79,15 +45,15 @@ Run each case in a clean browser profile against the paired Vercel and Render pr
 
 | Case | Required result | Status |
 | --- | --- | --- |
-| Signup and email verification | Email arrives; verified user can sign in; unverified user is denied | Pending external setup |
-| Login and BFF session | HttpOnly cookies created; no token in browser storage; BFF reaches Render | Pending external setup |
-| Refresh and logout | Expired access token rotates; logout clears session; private routes deny afterward | Pending external setup |
-| Anonymous/public coexistence | Public analysis remains session-isolated; authenticated user can mutate only owned resources | Pending external setup |
-| Private and organization access | Cross-user denial, member removal, organization disable/delete, and final-owner protection match the contract | Pending external setup |
-| Recovery | Email, callback exchange, reset, and expired/reused-link behavior work without URL or storage token leakage | Pending external setup |
-| Consent/export/deletion | Server-owned consent versions persist; export remains bounded; typed deletion confirmation and final-owner block work | Pending external setup |
-| Admin MFA | `aal1` admin denial; enrollment/challenge reach `aal2`; audited allow state; ordinary user remains usable | Pending external setup |
-| CORS and secrets | Vercel-to-Render requests use the BFF; no token/secret appears in browser, status, or logs | Pending external setup |
+| Signup and email verification | Email arrives; verified user can sign in; unverified user is denied | Pending interactive inbox test |
+| Login and BFF session | HttpOnly cookies created; no token in browser storage; BFF reaches Render | BFF routing verified; pending authenticated-browser test |
+| Refresh and logout | Expired access token rotates; logout clears session; private routes deny afterward | Pending authenticated-browser test |
+| Anonymous/public coexistence | Public analysis remains session-isolated; authenticated user can mutate only owned resources | Anonymous isolation verified; pending authenticated-user mutation test |
+| Private and organization access | Cross-user denial, member removal, organization disable/delete, and final-owner protection match the contract | Pending authenticated-browser test |
+| Recovery | Email, callback exchange, reset, and expired/reused-link behavior work without URL or storage token leakage | Pending interactive inbox test |
+| Consent/export/deletion | Server-owned consent versions persist; export remains bounded; typed deletion confirmation and final-owner block work | Pending authenticated-browser test |
+| Admin MFA | `aal1` admin denial; enrollment/challenge reach `aal2`; audited allow state; ordinary user remains usable | Pending test administrator, recovery path, and authenticator test |
+| CORS and secrets | Vercel-to-Render requests use the BFF; no token/secret appears in browser, status, or logs | Automated server checks passed; pending authenticated-browser storage/network inspection |
 
 ## Local Evidence
 
