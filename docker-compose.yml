@@ -27,6 +27,8 @@ services:
       LLM_TIMEOUT_SECONDS: ${LLM_TIMEOUT_SECONDS:-8}
       VAST_ENABLED: ${VAST_ENABLED:-false}
       VAST_DRY_RUN: ${VAST_DRY_RUN:-true}
+      JOBS_ENABLED: ${JOBS_ENABLED:-false}
+      WORKER_API_ENABLED: ${WORKER_API_ENABLED:-false}
       RAG_SEMANTIC_ENABLED: ${RAG_SEMANTIC_ENABLED:-false}
       RAG_EMBEDDING_PROVIDER: ${RAG_EMBEDDING_PROVIDER:-local_semantic}
       RAG_HYBRID_KEYWORD_WEIGHT: ${RAG_HYBRID_KEYWORD_WEIGHT:-0.45}
@@ -66,6 +68,24 @@ services:
       - "3000:3000"
     depends_on:
       - backend
+
+  worker:
+    profiles: ["worker"]
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: python -m app.jobs.worker_runner
+    environment:
+      WORKER_CONTROL_PLANE_URL: http://backend:8000
+      WORKER_CREDENTIAL: ${WORKER_CREDENTIAL:-}
+      WORKER_PROTOCOL_VERSION: ${WORKER_PROTOCOL_VERSION:-v1}
+      WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-2}
+    depends_on:
+      backend:
+        condition: service_started
+    volumes:
+      - ./backend:/workspace/backend:ro
+    restart: unless-stopped
 
   postgres:
     image: postgres:16-alpine

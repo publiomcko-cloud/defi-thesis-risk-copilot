@@ -192,13 +192,15 @@ def verify_worker_credential(
         db.flush()
         return None
     worker = db.get(WorkerModel, credential.worker_id)
-    if worker is None or worker.status != "active":
+    if worker is None or worker.status not in {"active", "stale"}:
         return None
     if required_job_type is not None and (
         required_job_type not in SUPPORTED_JOB_TYPES or required_job_type not in credential.allowed_job_types
     ):
         return None
     credential.last_used_at = now
+    if worker.status == "stale":
+        worker.status = "active"
     worker.last_seen_at = now
     worker.updated_at = now
     db.flush()

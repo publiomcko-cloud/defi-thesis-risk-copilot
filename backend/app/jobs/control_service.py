@@ -399,6 +399,57 @@ def _release_capacity(db: Session, job: JobModel) -> None:
             record.updated_at = datetime.now(UTC)
 
 
+def move_pending_capacity_to_running(db: Session, job: JobModel) -> None:
+    """Move an accepted job into a worker slot under the same scope locks."""
+
+    records = _capacity_records(db, job)
+    for record, _, running_limit, label in records:
+        if running_limit == 0 or record.running_count >= running_limit:
+            raise HTTPException(status_code=429, detail=f"Job {label} running capacity exceeded.")
+    now = datetime.now(UTC)
+    for record, _, _, _ in records:
+        if record.pending_count <= 0:
+            raise HTTPException(status_code=409, detail="Job capacity reservation is inconsistent.")
+        record.pending_count -= 1
+        record.running_count += 1
+        record.updated_at = now
+
+
+def move_running_capacity_to_pending(db: Session, job: JobModel) -> None:
+    records = _capacity_records(db, job)
+    now = datetime.now(UTC)
+    for record, pending_limit, _, label in records:
+        if record.running_count <= 0:
+            raise HTTPException(status_code=409, detail="Job running reservation is inconsistent.")
+        if record.pending_count >= pending_limit:
+            raise HTTPException(status_code=429, detail=f"Job {label} pending capacity exceeded.")
+    for record, _, _, _ in records:
+        record.running_count -= 1
+        record.pending_count += 1
+        record.updated_at = now
+
+
+def release_running_capacity(db: Session, job: JobModel) -> None:
+    now = datetime.now(UTC)
+    for record, _, _, _ in _capacity_records(db, job):
+        if record.running_count > 0:
+            record.running_count -= 1
+            record.updated_at = now
+
+
+def _capacity_records(
+    db: Session,
+    job: JobModel,
+) -> list[tuple[JobCapacityReservationModel, int, int, str]]:
+    records: list[tuple[JobCapacityReservationModel, int, int, str]] = []
+    for scope_type, scope_id, pending_limit, running_limit, label in _capacity_scopes(
+        job.owner_user_id or "deleted", job.organization_id, job.job_type
+    ):
+        record = _get_capacity_record(db, scope_type, scope_id)
+        records.append((record, pending_limit, running_limit, label))
+    return records
+
+
 def _capacity_scopes(
     owner_user_id: str,
     organization_id: str | None,

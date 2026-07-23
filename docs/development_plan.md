@@ -335,14 +335,16 @@ Core outcomes:
 
 Phase 17 must preserve Phase 16 ownership, quotas, actor boundaries, and auditability.
 
-Phase 17A–17B are implemented on `agent/v1-phase-17-durable-jobs`: durable job, attempt, event,
+Phase 17A–17C are implemented on `agent/v1-phase-17-durable-jobs`: durable job, attempt, event,
 worker, credential, artifact, and capacity-reservation schemas; a closed transition service; an
 audited admin worker registry; hashed, scoped worker credential issuance/rotation/revocation;
 retention and account/organization-deletion integration; and migration coverage. Phase 17B adds
 authenticated tenant-scoped submission/list/detail/event/cancel APIs, canonical scoped
 idempotency, queue expiry, preallocated report IDs, quota/capacity reservation, and admin linked
-replay. Worker claim/execution, asynchronous analysis, and the jobs UI remain future Phase 17
-slices.
+replay. Phase 17C adds internal worker credential authentication, PostgreSQL-safe leasing and
+lease recovery, heartbeats/progress/cancellation acknowledgement, retry/dead-letter handling,
+and an optional outbound-only local worker with a fake deterministic executor. Asynchronous
+analysis and the jobs UI remain future Phase 17 slices.
 
 ## V1 Phase 18 — Production RAG and knowledge storage — Planned
 

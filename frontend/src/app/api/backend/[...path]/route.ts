@@ -91,5 +91,8 @@ function isAllowedBackendPath(path: string): boolean {
   if (!path.startsWith("/") || path.includes("..") || path.includes("//")) {
     return false;
   }
+  if (path.startsWith("/internal/")) {
+    return false;
+  }
   return ALLOWED_EXACT_PATHS.includes(path) || ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
 }

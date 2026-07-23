@@ -1,6 +1,6 @@
 # V1 Phase 17 Execution Plan — Durable Jobs and Hybrid Workers
 
-Status: **In Progress — 17A–17B implemented; 17C–17F planned**
+Status: **In Progress — 17A–17C implemented; 17D–17F planned**
 
 Branch: `agent/v1-phase-17-durable-jobs`
 
@@ -723,6 +723,13 @@ Checkpoint:
 - revoked/wrongly scoped worker receives no payload or mutation access;
 - SIGTERM stops claiming and safely finishes/releases work;
 - public demo works with worker disabled.
+
+Implementation note: 17C adds the internal-only `/internal/workers/v1/*` protocol, worker
+credential authentication, PostgreSQL `SKIP LOCKED` leasing, attempt generations/tokens,
+heartbeats, progress, cancellation acknowledgement, retry/dead-letter recovery, and an optional
+outbound-only local worker. The only allowlisted executor is a deterministic fake lifecycle
+executor; it creates no report, analysis, provider request, or trade. Browser BFF routing rejects
+all `/internal/*` paths.
 
 ### 17D — Asynchronous authenticated analysis and safe rollout
 

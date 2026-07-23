@@ -51,6 +51,8 @@ Phase 17A establishes the durable data/state/credential foundation. Phase 17B ad
 tenant-scoped job submission, observation, cancellation, idempotency, bounded queue admission,
 and operator replay. It does not yet expose worker claim/execution or asynchronous analysis
 behavior.
+Phase 17C adds the internal authenticated worker protocol and fake queue executor, while keeping
+real analysis execution and provider side effects disabled until later slices.
 
 ## 17.2 Target architecture
 

@@ -70,6 +70,65 @@ class JobResultEnvelope(BaseModel):
         return self
 
 
+class WorkerClaimRequest(BaseModel):
+    protocol_version: str = Field(min_length=1, max_length=32)
+    max_jobs: int = Field(default=1, ge=1, le=1)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class WorkerLeaseRequest(BaseModel):
+    lease_generation: int = Field(gt=0)
+    lease_token: str = Field(min_length=24, max_length=256)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class WorkerHeartbeatRequest(WorkerLeaseRequest):
+    progress_percent: int | None = Field(default=None, ge=0, le=100)
+
+
+class WorkerProgressRequest(WorkerLeaseRequest):
+    progress_percent: int = Field(ge=0, le=100)
+    progress_message: str = Field(min_length=1, max_length=512)
+
+
+class WorkerFailureRequest(WorkerLeaseRequest):
+    error_code: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9_]+$")
+    error_summary: str = Field(min_length=1, max_length=512)
+    retryable: bool = False
+
+
+class WorkerCompletionRequest(WorkerLeaseRequest):
+    result: JobResultEnvelope
+
+
+class WorkerClaimedJob(BaseModel):
+    id: str
+    job_type: str
+    input_schema_version: str
+    input_json: dict
+    lease_generation: int = Field(gt=0)
+    lease_token: str = Field(min_length=24)
+    lease_expires_at: datetime
+    deadline_at: datetime | None
+
+
+class WorkerClaimResponse(BaseModel):
+    job: WorkerClaimedJob | None = None
+
+
+class WorkerCancellationResponse(BaseModel):
+    cancellation_requested: bool
+    terminal: bool
+
+
+class WorkerMutationResponse(BaseModel):
+    job_id: str
+    status: JobStatus
+    lease_expires_at: datetime | None = None
+
+
 class WorkerRegistrationRequest(BaseModel):
     name: str = Field(min_length=3, max_length=128, pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
     protocol_version: str = Field(min_length=1, max_length=32)

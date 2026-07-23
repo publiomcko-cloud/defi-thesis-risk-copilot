@@ -104,6 +104,11 @@ class Settings(BaseSettings):
     job_provider_pending_limit: int = 25
     job_provider_running_limit: int = 4
     job_daily_cost_budget_microusd: int = 0
+    job_claim_scan_limit: int = 25
+    job_retry_base_seconds: int = 5
+    job_retry_max_seconds: int = 300
+    worker_stale_seconds: int = 120
+    worker_poll_seconds: float = 2.0
     worker_protocol_version: str = "v1"
     worker_token_pepper: str = ""
 
@@ -163,8 +168,16 @@ class Settings(BaseSettings):
             self.job_provider_pending_limit,
             self.job_provider_running_limit,
             self.job_daily_cost_budget_microusd,
+            self.job_claim_scan_limit,
+            self.job_retry_base_seconds,
+            self.job_retry_max_seconds,
+            self.worker_stale_seconds,
         ) < 0:
             raise ValueError("Phase 17 job limits cannot be negative")
+        if self.job_claim_scan_limit < 1 or self.job_retry_base_seconds < 1 or self.job_retry_max_seconds < self.job_retry_base_seconds:
+            raise ValueError("Phase 17 worker retry and claim settings are invalid")
+        if self.worker_stale_seconds < self.job_heartbeat_seconds or self.worker_poll_seconds <= 0:
+            raise ValueError("Phase 17 worker freshness settings are invalid")
         return self
 
 

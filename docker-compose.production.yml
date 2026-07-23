@@ -23,6 +23,8 @@ services:
       RAG_SEMANTIC_ENABLED: ${RAG_SEMANTIC_ENABLED:-false}
       VAST_ENABLED: ${VAST_ENABLED:-false}
       VAST_DRY_RUN: ${VAST_DRY_RUN:-true}
+      JOBS_ENABLED: ${JOBS_ENABLED:-false}
+      WORKER_API_ENABLED: ${WORKER_API_ENABLED:-false}
     ports:
       - "8000:8000"
 

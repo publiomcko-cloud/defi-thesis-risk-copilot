@@ -47,7 +47,7 @@ Current status:
 
 ```text
 V1 Phase 16 — Complete and merge-ready
-V1 Phase 17 — In progress; 17A–17B are implemented on `agent/v1-phase-17-durable-jobs`
+V1 Phase 17 — In progress; 17A–17C are implemented on `agent/v1-phase-17-durable-jobs`
 V1 Phases 18–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -325,8 +325,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 - public rate limiting is still in-process, not distributed;
 - current RAG index is local JSON and intentionally public-curated only; organization metadata is not document/vector storage;
-- authenticated durable job submission/control-plane APIs exist on the Phase 17 branch, but no
-  worker claim/execution path or asynchronous analysis rollout exists yet;
+- authenticated durable job control-plane APIs and internal fake-worker queue mechanics exist on
+  the Phase 17 branch, but no asynchronous analysis or real provider execution rollout exists yet;
 - Render may cold-start;
 - several market adapters remain partial/manual fallbacks;
 - monitoring/discovery are manually initiated;
@@ -342,8 +342,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 - Phase 17 — In Progress. Phase 17A provides durable job/attempt/event/worker/credential/artifact
   schemas, lifecycle/retention hooks, and admin worker-credential management. Phase 17B adds
   authenticated tenant-scoped job submission, list/detail/event/cancel APIs, idempotency,
-  capacity reservation, queue expiry, and linked operator replay. Worker execution and
-  asynchronous analysis are not implemented yet;
+  capacity reservation, queue expiry, and linked operator replay. Phase 17C adds an internal
+  credential-authenticated worker protocol and fake executor, but asynchronous analysis and real
+  provider execution are not implemented yet;
 - Phase 18 — durable tenant RAG and object/vector storage;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;

@@ -21,10 +21,10 @@ SUPPORTED_JOB_TYPES: Final[frozenset[str]] = frozenset(
     {"analysis.generate", "vast.session.start"}
 )
 JOB_TRANSITIONS: Final[dict[str, frozenset[str]]] = {
-    "queued": frozenset({"leased", "cancel_requested", "failed"}),
-    "leased": frozenset({"running", "retry_wait", "cancel_requested", "failed"}),
-    "running": frozenset({"completed", "retry_wait", "failed", "cancel_requested"}),
-    "retry_wait": frozenset({"leased", "cancel_requested", "dead_letter"}),
+    "queued": frozenset({"leased", "cancel_requested", "failed", "dead_letter"}),
+    "leased": frozenset({"running", "retry_wait", "cancel_requested", "failed", "dead_letter"}),
+    "running": frozenset({"completed", "retry_wait", "failed", "dead_letter", "cancel_requested"}),
+    "retry_wait": frozenset({"leased", "cancel_requested", "failed", "dead_letter"}),
     "cancel_requested": frozenset({"cancelled"}),
     "completed": frozenset(),
     "failed": frozenset(),

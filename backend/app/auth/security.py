@@ -42,6 +42,17 @@ def hash_worker_token(token: str) -> str:
     ).hexdigest()
 
 
+def hash_job_lease_token(token: str) -> str:
+    """Hash an ephemeral lease secret in a domain distinct from worker credentials."""
+    settings = get_settings()
+    pepper = settings.worker_token_pepper or settings.auth_secret_key or "local-dev-worker"
+    return hmac.new(
+        pepper.encode("utf-8"),
+        f"job-lease:{token}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
 def constant_time_equal(left: str, right: str) -> bool:
     return hmac.compare_digest(left, right)
 

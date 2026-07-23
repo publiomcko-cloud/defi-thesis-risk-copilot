@@ -434,7 +434,7 @@ Key invariants:
 
 See [`future_phase_contracts.md`](future_phase_contracts.md).
 
-### Phase 17A–17B implemented foundation
+### Phase 17A–17C implemented foundation
 
 PostgreSQL now persists job, attempt, event, worker, worker-credential, and artifact metadata.
 Job transitions are restricted to a closed service, events are append-only and sequenced, and
@@ -442,8 +442,11 @@ worker tokens use a separate hashed credential domain rather than a browser or u
 control plane now exposes authenticated, tenant-filtered job submission, list/detail, events,
 cancellation, and admin linked replay. A unique scoped idempotency boundary and lockable capacity
 reservation rows keep quota, user/organization/global/provider capacity, preallocated report IDs,
-and the initial event transactional. Jobs are still queued only: worker claim/execution and
-asynchronous analysis arrive in later Phase 17 slices. Account/organization deletion disposes of
+and the initial event transactional. The internal worker protocol now leases jobs with PostgreSQL
+`SKIP LOCKED`, a monotonic lease generation, a hashed per-attempt token, durable attempt rows, and
+bounded heartbeat/retry/cancellation recovery. It is excluded from the browser BFF. The optional
+local worker is outbound-only and runs a fake deterministic executor; asynchronous analysis and
+provider execution arrive in later Phase 17 slices. Account/organization deletion disposes of
 affected jobs and artifacts, while retention expires credentials and terminal job material
 according to configured policy.
 
