@@ -2,7 +2,7 @@
 
 This file is the validation index. Detailed acceptance tests are defined in:
 
-- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`agent_execution_guide.md`](agent_execution_guide.md)
 
@@ -146,14 +146,14 @@ Present:
 - production-like Chromium browser E2E with local mocked Supabase/FastAPI upstreams: anonymous report isolation/expiry, BFF login/refresh/logout, recovery/reset, account export/deletion confirmation/consent, thesis CRUD/analyze, organization owner protection/member removal, MFA, no-private-content flash, and mobile keyboard/layout smoke;
 - failure screenshots/traces and CI upload configuration for the browser suite.
 
-Still required before completion:
+Deferred to V1 Phase 22 final release validation:
 
 - deployed recovery callback verification;
 - deployed end-to-end Supabase MFA flow;
 - full browser coverage for organization knowledge metadata controls;
 - deployed Supabase verification.
 
-Phase 16 remains `In Progress` until the full contract passes.
+Phase 16 implementation coverage is complete. Final deployed-provider and qualified legal validation is tracked in V1 Phase 22.
 
 ## 6. Phase 17 validation
 

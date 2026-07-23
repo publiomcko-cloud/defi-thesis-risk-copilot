@@ -9,7 +9,7 @@ Before implementation, read documents in this order:
 1. [`current_state.md`](current_state.md) — what is actually implemented and deployed;
 2. [`development_plan.md`](development_plan.md) — phase ordering and status;
 3. the selected phase contract:
-   - [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md), or
+   - the [archived Phase 16 contract](archive/v1_phase_16/phase_16_identity_ownership_contract.md) when maintaining its implementation, or
    - [`future_phase_contracts.md`](future_phase_contracts.md);
 4. [`architecture.md`](architecture.md) — trust boundaries and system design;
 5. [`deployment.md`](deployment.md) — environment and production behavior;

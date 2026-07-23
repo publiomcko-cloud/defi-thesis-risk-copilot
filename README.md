@@ -21,18 +21,17 @@ The Render free-tier backend may cold-start after inactivity.
 ## Current Phase Status
 
 ```text
-Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phase 15
-Active:    V1 Phase 16 — In Progress
-Planned:   V1 Phases 17–21
+Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–16
+Planned:   V1 Phases 17–22
 ```
 
-The active Phase 16 branch is:
+The Phase 16 merge branch is:
 
 ```text
 agent/v1-phase-16-identity-ownership
 ```
 
-Phase 16 contains substantial managed-identity, BFF, ownership, organization, quota, account, consent, retention, and frontend foundations, but it is not complete. The authoritative implementation audit and blocker list are in [`docs/phase_16_identity_ownership_contract.md`](docs/phase_16_identity_ownership_contract.md).
+Phase 16 delivers managed identity, BFF, ownership, organization, quota, account, consent, retention, and frontend foundations. Its detailed implementation record is archived in [`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/). The remaining live-provider and qualified legal release checks are tracked as final V1 Phase 22 work.
 
 ## Product Capabilities
 
@@ -51,7 +50,7 @@ Phase 16 contains substantial managed-identity, BFF, ownership, organization, qu
 - optional local/OpenAI-compatible synthesis;
 - admin-controlled Vast.ai dry-run/manual warm-up;
 - retrieval, ML, and HPC groundwork;
-- Phase 16 user, organization, thesis, quota, anonymous-session, and account foundations on the active branch.
+- Phase 16 user, organization, thesis, quota, anonymous-session, and account foundations on the merge branch.
 
 ## Public Deployment Safety
 
@@ -241,8 +240,8 @@ Controlled research/admin routes remain explicitly protected.
 
 - [Current state](docs/current_state.md) — deployed versus branch reality
 - [Development plan](docs/development_plan.md) — roadmap and phase status
-- [Phase 16 contract](docs/phase_16_identity_ownership_contract.md) — full Phase 16 requirements and blockers
-- [Future phase contracts](docs/future_phase_contracts.md) — full Phases 17–21 requirements
+- [Archived Phase 16 records](docs/archive/v1_phase_16/) — implementation contract, execution plan, and deployment evidence
+- [Future phase contracts](docs/future_phase_contracts.md) — full Phases 17–22 requirements
 - [Agent execution guide](docs/agent_execution_guide.md) — short-prompt workflow
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)

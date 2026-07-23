@@ -4,7 +4,7 @@ This document defines deployment modes, environment variables, trust boundaries,
 
 Related contracts:
 
-- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -31,7 +31,7 @@ Live Phase 15 services:
 - deployment status: `/api/deployment/status`;
 - OpenAPI: `/docs`.
 
-The live deployment follows `main`. Phase 16 branch behavior is not considered deployed until merged and verified.
+The live deployment follows `main`. Phase 16 is merge-ready; the final deployed-provider and legal launch checks are now V1 Phase 22 work.
 
 ---
 
@@ -92,14 +92,14 @@ AUTH_ENABLED=true
 AUTH_PROVIDER=supabase
 ```
 
-This is the Phase 16 target. It is not complete until:
+This is the completed Phase 16 implementation target. Commercial enablement and the final deployed validation are V1 Phase 22 requirements:
 
 - actor-based route policies are validated on deployed domains;
 - authenticated users can perform authorized personal/organization mutations while anonymous visitors remain restricted in deployed Supabase mode;
 - BFF route and cookie allowlists continue to pass local and deployed security tests;
 - browser anonymous and authenticated flows pass on deployed domains.
 
-Do not enable Mode C commercially while the blockers in the Phase 16 contract remain.
+Do not enable Mode C commercially until Phase 22 completes.
 
 ---
 
@@ -398,7 +398,7 @@ When running frontend outside Docker, use the reachable local backend URL.
 
 ---
 
-## 14. Phase 16 pre-merge verification
+## 14. Phase 16 merge validation
 
 ### Backend
 
@@ -433,7 +433,7 @@ docker compose down -v
 docker compose up -d --build
 ```
 
-### Manual preview verification
+### V1 Phase 22 manual release verification
 
 Test on Vercel/Render preview deployments:
 
@@ -483,11 +483,11 @@ In hybrid mode, anonymous denial must not globally block authenticated user oper
 - [ ] no secrets appear in status/logs/network responses;
 - [ ] LLM/Vast defaults remain safe;
 - [ ] documentation matches deployment;
-- [ ] phase status remains `In Progress` until every contract gate passes.
+- [ ] V1 Phase 22 final provider/legal release validation is complete before commercial launch.
 
-### Phase 16G Record
+### Archived Phase 16G Record
 
-The current live domains remain the Phase 15 public-demo deployment. On 2026-07-21, Vercel returned `404` for `/login` and `/api/auth/session`, and Render reported `portfolio_demo` with `auth_enabled=false`; public privileged-mutation probes returned controlled `403` responses. This confirms the baseline remains safe but cannot satisfy managed-identity verification. The exact preview configuration and manual verification matrix are in [`phase_16_deployed_verification.md`](phase_16_deployed_verification.md).
+The current live domains remain the Phase 15 public-demo deployment. On 2026-07-21, Vercel returned `404` for `/login` and `/api/auth/session`, and Render reported `portfolio_demo` with `auth_enabled=false`; public privileged-mutation probes returned controlled `403` responses. This confirms the baseline remains safe but cannot satisfy managed-identity verification. The exact preview configuration and manual verification matrix are archived in [`archive/v1_phase_16/phase_16_deployed_verification.md`](archive/v1_phase_16/phase_16_deployed_verification.md); final provider validation is V1 Phase 22 work.
 
 ---
 
@@ -512,3 +512,7 @@ Deploy analytics/notification processors, durable schedules, billing webhook han
 ### Phase 21
 
 Deploy evaluated model registry/routing and safe worker-based model execution with rollback and cost/privacy controls.
+
+### Phase 22
+
+Validate custom SMTP, deployed identity/recovery/MFA/browser flows, final isolation checks, and qualified legal/privacy approval before commercial launch.

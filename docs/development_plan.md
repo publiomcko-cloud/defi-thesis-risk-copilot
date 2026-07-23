@@ -4,9 +4,9 @@ This document is the authoritative roadmap, phase-status index, and dependency m
 
 Detailed implementation requirements live in:
 
-- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md) — complete Phase 16 contract and current blockers;
-- [`phase_16_execution_plan.md`](phase_16_execution_plan.md) — ordered Phase 16 sub-phases for finishing the active branch;
-- [`future_phase_contracts.md`](future_phase_contracts.md) — complete Phase 17–21 contracts;
+- [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md) — archived Phase 16 implementation contract and evidence;
+- [`archive/v1_phase_16/phase_16_execution_plan.md`](archive/v1_phase_16/phase_16_execution_plan.md) — archived Phase 16 execution record;
+- [`future_phase_contracts.md`](future_phase_contracts.md) — complete Phase 17–22 contracts;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
 - [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
 
@@ -252,18 +252,19 @@ Phase 15 is the permanent public-safety baseline for all later phases.
 
 ---
 
-# Active phase
+# Completed V1 implementation
 
-## V1 Phase 16 — Production identity, ownership, and quotas — In Progress
+## V1 Phase 16 — Production identity, ownership, and quotas — Complete and merge-ready
 
 Goal: support anonymous visitors and authenticated multi-user/organization workflows securely in the same product architecture.
 
-Authoritative requirements and current audit:
+The detailed implementation contract, sub-phase record, and deployed-preview evidence are archived for traceability:
 
-- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md)
-- [`phase_16_execution_plan.md`](phase_16_execution_plan.md)
+- [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_16/phase_16_execution_plan.md`](archive/v1_phase_16/phase_16_execution_plan.md)
+- [`archive/v1_phase_16/phase_16_deployed_verification.md`](archive/v1_phase_16/phase_16_deployed_verification.md)
 
-Current branch:
+Merge branch:
 
 ```text
 agent/v1-phase-16-identity-ownership
@@ -293,13 +294,7 @@ Implemented foundation includes:
 - account/thesis/organization frontend components;
 - expanded Phase 16 tests.
 
-Phase 16 remains in progress because its contract still identifies blockers, including:
-
-- deployed Supabase validation; local browser E2E is complete, while 16G is blocked pending a credentialed Phase 16 preview deployment and Supabase Auth access;
-- deployed recovery callback verification;
-- legal review.
-
-Do not mark Phase 16 complete until every gate in the contract passes.
+The implementation, migration, automated browser, PostgreSQL, Compose, CI, and hosted anonymous-isolation work is complete. The remaining external provider and legal release validation is deliberately deferred to the final V1 Phase 22. This preserves the implementation boundary while preventing an unsupported production-launch claim.
 
 Execution sequence:
 
@@ -310,8 +305,8 @@ Execution sequence:
 16D Audit coverage and security event logging — complete locally
 16E PostgreSQL concurrency and Phase 15 data validation — complete locally and in CI configuration
 16F Full browser E2E for Phase 16 workflows — complete locally and in CI configuration
-16G Deployed Supabase verification — blocked externally; see `phase_16_deployed_verification.md`
-16H Final legal, documentation, and release gate
+16G Hosted configuration and automated validation — complete; archived evidence records the remaining manual provider checks
+16H Documentation and merge preparation — complete; final provider/legal launch approval moved to Phase 22
 ```
 
 ---
@@ -407,6 +402,21 @@ Core outcomes:
 - safe worker-based ephemeral GPU execution;
 - fine-tuning dataset/model governance.
 
+## V1 Phase 22 — Final release validation and launch approval — Planned
+
+Goal: close the external validation and legal gates deferred from Phase 16 after the V1 implementation phases are complete. This phase adds no new end-user product capability.
+
+Required outcomes:
+
+- configure and validate reliable Supabase custom SMTP delivery;
+- run deployed signup verification, recovery callback/password reset, authenticated-browser refresh/logout, and administrator MFA flows with disposable real accounts;
+- confirm the deployed two-user ownership, organization membership-removal, and organization knowledge-metadata boundaries;
+- record dated deployment evidence without credentials, tokens, mailbox contents, or personal data;
+- obtain qualified review of the terms, privacy notice, retention language, and launch claims;
+- rerun the full release regression, migration, browser, Compose, deployment, and documentation checks against the intended production configuration.
+
+Phase 22 is complete only when every deferred provider and legal gate is evidenced, all release documentation is current, and the product can accurately be described as production-ready within its stated safety boundaries.
+
 ---
 
 # Release gates
@@ -415,7 +425,7 @@ Core outcomes:
 
 The product may be labeled production v1 only when:
 
-- Phase 16 identity/ownership contract is complete;
+- Phase 16 identity/ownership implementation is merged and Phase 22 final release validation is complete;
 - public and authenticated users coexist safely;
 - private and organization data isolation is verified;
 - anonymous data is isolated and cleaned;

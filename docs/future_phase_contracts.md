@@ -1,12 +1,12 @@
-# V1 Future Phase Contracts — Phases 17–21
+# V1 Future Phase Contracts — Phases 17–22
 
-This document is the authoritative implementation contract for the product phases after V1 Phase 16.
+This document is the authoritative implementation contract for the product phases after the completed V1 Phase 16 implementation.
 
 Future implementation prompts should reference this file, [`development_plan.md`](development_plan.md), [`current_state.md`](current_state.md), and the selected phase section instead of restating the entire scope.
 
 Related documents:
 
-- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`agent_execution_guide.md`](agent_execution_guide.md)
 - [`architecture.md`](architecture.md)
 - [`deployment.md`](deployment.md)
@@ -23,6 +23,7 @@ Phase 16 — identity, ownership, quotas
         -> Phase 19 — operations and security hardening
            -> Phase 20 — analytics, notifications, commercial readiness
               -> Phase 21 — model and research intelligence expansion
+                 -> Phase 22 — final release validation and launch approval
 ```
 
 Some work may overlap, but completion labels must respect dependencies.
@@ -34,6 +35,7 @@ Some work may overlap, but completion labels must respect dependencies.
 - Phase 19 production claims require Phase 17 and Phase 18 operational paths to exist.
 - Phase 20 billing and notifications depend on durable usage, jobs, observability, and identity.
 - Phase 21 model automation depends on evaluation, provenance, worker controls, cost controls, and auditability from Phases 17–20.
+- Phase 22 adds no product capability and closes the deferred deployed-provider and legal release gates after Phases 17–21.
 
 ---
 
@@ -1138,6 +1140,34 @@ Fine-tuned outputs remain advisory unless deterministic validation independently
 - ephemeral compute uses workers and cost controls;
 - new intelligence features preserve non-execution boundaries;
 - rollback works.
+
+---
+
+# V1 Phase 22 — Final Release Validation and Launch Approval
+
+Status: **Planned**
+
+## 22.1 Goal
+
+Close the external release gates deferred from Phase 16 after all V1 implementation phases are complete. Phase 22 is a validation, evidence, and approval phase, not a feature-development phase.
+
+## 22.2 Required validation
+
+- configure reliable Supabase custom SMTP and retain verified-email enforcement;
+- test deployed signup confirmation, password recovery callback/reset, authenticated-browser refresh/logout, and administrator MFA with disposable real accounts;
+- test deployed two-user private-resource isolation, organization membership removal, and organization knowledge-metadata access boundaries;
+- verify production environment variables, cookie attributes, allowed origins, deployment status, migrations, readiness, and rollback/backup procedures;
+- run the final backend, frontend, browser, PostgreSQL, Compose, and deployment regression suite;
+- obtain qualified review of terms, privacy, retention, consent, and public product claims;
+- record dated evidence without storing credentials, tokens, mailbox contents, or personal data in the repository.
+
+## 22.3 Completion gates
+
+- every deferred provider flow succeeds in the intended deployed configuration;
+- legal/privacy review is complete and reflected in product copy;
+- no prior-phase security, tenant-isolation, quota, deterministic-risk, or non-execution boundary regresses;
+- documentation truthfully describes the deployed product and residual limitations;
+- CI is green and release owners explicitly approve the launch.
 
 ---
 

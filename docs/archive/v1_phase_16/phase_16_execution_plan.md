@@ -1,10 +1,12 @@
 # Phase 16 Execution Plan
 
+> **Archived execution record.** All implementation sub-phases are complete and Phase 16 is merge-ready. The remaining deployed-provider and qualified legal launch gates are tracked in [V1 Phase 22](../../development_plan.md#v1-phase-22--final-release-validation-and-launch-approval). Status and merge instructions below are historical and superseded by the current roadmap.
+
 This document breaks V1 Phase 16 into execution sub-phases. It does not replace the authoritative contract in [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md); it turns the remaining blockers into ordered, testable work packages.
 
-Status: **In Progress**
+Historical status: **In Progress**
 
-Branch:
+Historical branch:
 
 ```text
 agent/v1-phase-16-identity-ownership
@@ -31,7 +33,7 @@ Each sub-phase must end with:
 - implementation or explicit external blocker;
 - focused tests for the changed behavior;
 - documentation updates;
-- validation commands from [`testing.md`](testing.md) scaled to the change;
+- validation commands from [`testing.md`](../../testing.md) scaled to the change;
 - a commit on the same Phase 16 branch when requested.
 
 ---

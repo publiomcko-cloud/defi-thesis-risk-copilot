@@ -2,7 +2,7 @@
 
 This document defines the system architecture and permanent trust boundaries. Phase-specific requirements live in:
 
-- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 

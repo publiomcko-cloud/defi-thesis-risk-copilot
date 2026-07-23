@@ -1,20 +1,22 @@
 # V1 Phase 16 — Production Identity, Ownership, and Quotas
 
-Status: **In progress**
+> **Archived implementation record.** Phase 16 is complete and merge-ready. This document preserves its original implementation contract and evidence; the former deployed-provider and qualified legal launch gates now belong to [V1 Phase 22](../../development_plan.md#v1-phase-22--final-release-validation-and-launch-approval). Status, branch, and merge instructions below describe the historical implementation period and are superseded by the current roadmap.
 
-Branch under active development: `agent/v1-phase-16-identity-ownership`
+Historical status: **In progress**
+
+Historical implementation branch: `agent/v1-phase-16-identity-ownership`
 
 This document is the authoritative implementation contract for V1 Phase 16. It defines the required behavior, security invariants, test evidence, completion gates, and known gaps. Future implementation prompts should reference this document instead of restating the full phase.
 
 Related documents:
 
-- [`development_plan.md`](development_plan.md) — roadmap and phase ordering
-- [`current_state.md`](current_state.md) — what is actually implemented now
-- [`architecture.md`](architecture.md) — system-wide architecture
-- [`deployment.md`](deployment.md) — environment and deployment rules
-- [`testing.md`](testing.md) — validation commands and test matrix
-- [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–21
-- [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow
+- [`development_plan.md`](../../development_plan.md) — current roadmap and phase ordering
+- [`current_state.md`](../../current_state.md) — current implementation/deployment state
+- [`architecture.md`](../../architecture.md) — system-wide architecture
+- [`deployment.md`](../../deployment.md) — environment and deployment rules
+- [`testing.md`](../../testing.md) — validation commands and test matrix
+- [`future_phase_contracts.md`](../../future_phase_contracts.md) — Phases 17–22
+- [`agent_execution_guide.md`](../../agent_execution_guide.md) — short-prompt workflow
 
 ---
 

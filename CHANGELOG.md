@@ -25,7 +25,7 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 - Completed Phase 16D local lifecycle/security audit hardening with bounded redaction, organization/account/consent/MFA events, administrator-only audit access, and a server-only BFF MFA audit channel.
 - Completed Phase 16E PostgreSQL quota/resource concurrency validation and Phase 15 migrated public API regression coverage; CI now enables the guarded PostgreSQL integration suite, and development demo ownership now respects the production foreign-key contract.
 
-Phase 16 remains **In Progress**. The complete blocker and completion-gate list is maintained in `docs/phase_16_identity_ownership_contract.md`.
+Phase 16 is **Complete and merge-ready**. Its implementation record is archived in `docs/archive/v1_phase_16/`; deferred deployed-provider and qualified legal release validation is tracked as final V1 Phase 22 work.
 
 ### Security
 
@@ -57,13 +57,13 @@ Phase 16 remains **In Progress**. The complete blocker and completion-gate list 
 
 ### Documentation
 
-- Added `docs/phase_16_identity_ownership_contract.md` as the complete Phase 16 implementation and security contract.
-- Added `docs/future_phase_contracts.md` with detailed contracts for Phases 17–21.
+- Archived the Phase 16 contract, execution plan, and deployment evidence under `docs/archive/v1_phase_16/` after implementation completion.
+- Updated `docs/future_phase_contracts.md` with detailed contracts for Phases 17–22, including final V1 release validation.
 - Added `docs/agent_execution_guide.md` so future work can use short prompts safely.
 - Rebuilt the authoritative development plan around phase contracts and dependency gates.
 - Updated current state to separate deployed `main` from branch-only Phase 16 work.
 - Revised architecture, deployment, testing, and README to match the contracts and current implementation audit.
-- Recorded the remaining Phase 16 blockers instead of presenting foundations as completed production behavior.
+- Moved remaining live-provider and qualified legal launch gates to final V1 Phase 22 instead of presenting them as completed production behavior.
 
 ## 0.1.0 — Technical MVP and Portfolio Expansion
 

@@ -1,14 +1,12 @@
 # Current State — DeFi Thesis & Risk Copilot
 
-This document describes what is currently deployed on `main`, what exists only on the active Phase 16 branch, and what remains incomplete.
+This document describes what is deployed on `main`, the Phase 16 merge candidate, and the remaining V1 roadmap.
 
 Authoritative references:
 
 - [`development_plan.md`](development_plan.md) — phase history and roadmap;
-- [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md) — Phase 16 requirements and blockers;
-- [`phase_16_execution_plan.md`](phase_16_execution_plan.md) — ordered Phase 16 sub-phases;
-- [`phase_16_deployed_verification.md`](phase_16_deployed_verification.md) — dated Phase 16G deployment evidence and external verification matrix;
-- [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–21;
+- [`archive/v1_phase_16/`](archive/v1_phase_16/) — archived Phase 16 contract, execution plan, and deployment evidence;
+- [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
 ---
@@ -39,16 +37,18 @@ Completed on `main`:
 - Final Phase 14 public deployment;
 - V1 Phase 15 product hardening and public-safe UX.
 
-Active branch:
+Phase 16 merge branch:
 
 ```text
 agent/v1-phase-16-identity-ownership
 ```
 
-Current phase status:
+Current status:
 
 ```text
-V1 Phase 16 — In Progress
+V1 Phase 16 — Complete and merge-ready
+V1 Phases 17–21 — Planned implementation work
+V1 Phase 22 — Planned final release validation and launch approval
 ```
 
 Reviewed Phase 16 correction commit:
@@ -123,7 +123,7 @@ This behavior is the regression baseline for every later phase.
 
 ---
 
-## 5. Phase 16 branch — verified implementation foundation
+## 5. Phase 16 merge branch — verified implementation foundation
 
 The active branch currently contains the following foundations.
 
@@ -214,31 +214,14 @@ The active branch currently contains the following foundations.
 
 ---
 
-## 6. Phase 16 branch — remaining blockers
+## 6. Deferred final release validation — V1 Phase 22
 
-Phase 16 is not complete. The authoritative blocker list is maintained in [`phase_16_identity_ownership_contract.md`](phase_16_identity_ownership_contract.md).
+Phase 16's implementation is merge-ready. Its remaining external launch gates are intentionally tracked in V1 Phase 22, not silently treated as complete:
 
-Current known blockers include:
+1. deployed Supabase custom SMTP, signup verification, recovery/reset, authenticated-browser refresh/logout, and administrator MFA validation with disposable real accounts;
+2. qualified legal review of terms, privacy, retention, consent, and public launch claims.
 
-1. deployed Supabase email/recovery/MFA and authenticated-browser session behavior remains partially unverified;
-2. terms/privacy require qualified legal review.
-
-Phase 16G is in progress. A credentialed Phase 16 Vercel/Render preview and Supabase Auth configuration are now active, while the public `main` deployment remains the Phase 15 baseline. Automated hosted checks passed for readiness, BFF routing, anonymous isolation, private-route denial, CORS, and safe status metadata. Interactive email, recovery, authenticated-browser, and administrator-MFA checks remain. See [`phase_16_deployed_verification.md`](phase_16_deployed_verification.md).
-
-The branch must not be described as commercially production-ready.
-
-Planned execution order:
-
-```text
-16A Admin MFA usable workflow — complete locally
-16B Organization knowledge metadata and retrieval boundary — complete locally
-16C Migration, foreign-key, and index review — complete locally
-16D Audit coverage and security event logging — complete locally
-16E PostgreSQL concurrency and Phase 15 data validation — complete locally and in CI configuration
-16F Full browser E2E for Phase 16 workflows — complete locally and in CI configuration
-16G Deployed Supabase verification — in progress; interactive provider verification remains
-16H Final legal, documentation, and release gate
-```
+The credentialed Phase 16 Vercel/Render preview passed automated BFF, anonymous-isolation, CORS, readiness, and safe-status checks. Its historical evidence is preserved in [`archive/v1_phase_16/phase_16_deployed_verification.md`](archive/v1_phase_16/phase_16_deployed_verification.md). The merged branch must not be described as commercially production-ready until Phase 22 completes.
 
 ---
 
@@ -286,7 +269,7 @@ The project can:
 
 ---
 
-## 9. Required validation before Phase 16 merge
+## 9. Phase 16 merge validation
 
 Backend:
 
@@ -330,8 +313,10 @@ Additional required evidence:
 - strict private/organization visibility tests;
 - local mocked recovery callback/reset flow;
 - local consent and MFA workflow coverage;
-- deployed Supabase manual verification;
-- Vercel preview and Render preview validation.
+- hosted anonymous isolation and preview readiness validation;
+- CI validation on the merge commit.
+
+The deferred deployed provider and legal checks are Phase 22 requirements.
 
 ---
 
@@ -352,11 +337,11 @@ Additional required evidence:
 
 ## 11. Next phases
 
-- Phase 16 — finish identity, ownership, quotas, recovery, MFA, and browser/deployment validation;
 - Phase 17 — durable jobs and hybrid workers;
 - Phase 18 — durable tenant RAG and object/vector storage;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.
+- Phase 22 — final provider, legal, and launch validation.
 
 See [`future_phase_contracts.md`](future_phase_contracts.md) for complete requirements.

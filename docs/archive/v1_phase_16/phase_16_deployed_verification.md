@@ -1,6 +1,8 @@
 # Phase 16G Deployed Verification Record
 
-Status: **In Progress -- hosted configuration and automated checks complete; interactive identity checks remain**
+> **Archived deployment evidence.** This record preserves the Phase 16 preview findings. The remaining manual provider verification is now a [V1 Phase 22](../../development_plan.md#v1-phase-22--final-release-validation-and-launch-approval) release-validation requirement. Status entries below are historical evidence, not current phase status.
+
+Historical status: **In Progress -- hosted configuration and automated checks complete; interactive identity checks remain**
 
 Date updated: 2026-07-22
 
