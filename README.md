@@ -4,211 +4,142 @@
 
 A full-stack DeFi research and risk-analysis product that turns a strategy thesis into a structured, source-grounded report with deterministic risk scoring, visible assumptions, missing data, stress scenarios, and monitoring requirements.
 
-The application demonstrates applied AI engineering without connecting wallets, signing transactions, holding funds, executing trades, or presenting personalized financial advice.
+The application demonstrates applied AI engineering without connecting wallets, signing transactions, holding funds, executing trades, allocating capital, or presenting personalized financial advice.
 
-## Live Product
+## Live Phase 15 Product
 
 - Frontend: https://defi-thesis-risk-copilot.vercel.app
 - Guided demo: https://defi-thesis-risk-copilot.vercel.app/demo
-- Main example report: https://defi-thesis-risk-copilot.vercel.app/reports/demo_report_pendle_pt_loop
+- Example report: https://defi-thesis-risk-copilot.vercel.app/reports/demo_report_pendle_pt_loop
 - Backend: https://defi-thesis-risk-copilot.onrender.com
-- Backend readiness: https://defi-thesis-risk-copilot.onrender.com/ready
+- Readiness: https://defi-thesis-risk-copilot.onrender.com/ready
 - Deployment status: https://defi-thesis-risk-copilot.onrender.com/api/deployment/status
-- API documentation: https://defi-thesis-risk-copilot.onrender.com/docs
-- Source repository: https://github.com/publiomcko-cloud/defi-thesis-risk-copilot
+- API docs: https://defi-thesis-risk-copilot.onrender.com/docs
 
-The Render free-tier service may require a short cold start. The frontend includes readiness links and retry states for this condition.
+The Render free-tier backend may cold-start after inactivity.
+
+## Current Phase Status
+
+```text
+Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–16
+Planned:   V1 Phases 17–22
+```
+
+The Phase 16 merge branch is:
+
+```text
+agent/v1-phase-16-identity-ownership
+```
+
+Phase 16 delivers managed identity, BFF, ownership, organization, quota, account, consent, retention, and frontend foundations. Its detailed implementation record is archived in [`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/). The remaining live-provider and qualified legal release checks are tracked as final V1 Phase 22 work.
 
 ## Product Capabilities
 
-- structured DeFi strategy reports
-- curated retrieval over protocol documentation and internal risk notes
-- public and manual market-data adapters
-- deterministic rule-based risk scoring
-- visible assumptions, missing data, confidence, and source provenance
-- lending-loop and fixed-yield stress simulation
-- crypto options and volatility analysis
-- source discovery and evaluation
-- human review before knowledge-base trust
-- explicit, human-approved discovery-to-RAG ingestion
-- watchlists and rule-based in-app alerts
-- Markdown report export with copy and download actions
-- optional local or OpenAI-compatible model synthesis
-- optional, admin-only Vast.ai dry-run/manual warm-up infrastructure
-- ML, retrieval-evaluation, and HPC groundwork
+- structured DeFi strategy reports;
+- curated protocol retrieval;
+- public and manual market-data adapters;
+- deterministic risk scoring;
+- visible assumptions, missing data, confidence, and provenance;
+- lending-loop and fixed-yield stress simulation;
+- long call/put payoff analysis;
+- discovery and deterministic evaluation;
+- human review before knowledge trust;
+- explicit approved-source ingestion;
+- watchlists and in-app alerts;
+- Markdown export;
+- optional local/OpenAI-compatible synthesis;
+- admin-controlled Vast.ai dry-run/manual warm-up;
+- retrieval, ML, and HPC groundwork;
+- Phase 16 user, organization, thesis, quota, anonymous-session, and account foundations on the merge branch.
 
 ## Public Deployment Safety
 
-The hosted portfolio environment is intentionally constrained.
+The deployed public portfolio environment is intentionally constrained.
 
-### Public read-only workflows
-
-Visitors may inspect:
-
-- demo status and scenarios
-- supported protocols
-- seeded reports
-- discovery candidates
-- review outcomes
-- ingested-source metadata
-- seeded watchlist and alert data
-- safe deployment metadata
-
-### Public bounded compute
-
-Visitors may run bounded and rate-limited:
-
-- strategy analysis
-- deterministic simulation
-- options analysis
-- market-data lookup
-
-Do not submit wallet information, private positions, credentials, confidential research, or personally identifying information. The current hosted demo uses a shared demonstration database.
-
-### Blocked in public mode
+Visitors may inspect public demo records and run bounded analysis, simulation, options, and market-data flows.
 
 Public visitors cannot:
 
-- run discovery or monitoring jobs
-- create evaluations
-- change review status
-- ingest content into RAG
-- create or modify watchlists and alerts
-- ingest documents
-- view audit events
-- view or change provider credentials
-- control Vast.ai sessions
-- receive an administrator identity
+- run monitoring or global discovery;
+- create evaluations;
+- change review state;
+- ingest documents or RAG content;
+- mutate watchlists or alerts;
+- access credentials or audit records;
+- control Vast.ai sessions;
+- receive administrator identity.
+
+Do not submit sensitive personal, wallet, credential, private-position, or confidential research data to the public demo.
 
 ## Architecture
 
+Phase 15 deployment:
+
 ```text
 Browser
-  -> Vercel Next.js frontend
-  -> Render FastAPI API
+  -> Vercel Next.js
+  -> Render FastAPI
   -> Supabase PostgreSQL
-
-Render startup
-  -> Alembic migrations
-  -> deterministic demo seed
-  -> curated RAG index build
-  -> Uvicorn
 ```
 
-Core analysis workflow:
+Phase 16 target:
 
 ```text
-strategy input
-  -> strategy parser
-  -> curated retrieval
-  -> public/manual market-data adapters
-  -> deterministic risk scoring
-  -> stress scenarios
-  -> structured report
-  -> persistence
-  -> Markdown export
+Browser
+  -> Vercel Next.js auth routes and BFF
+  -> HttpOnly managed/anonymous cookies
+  -> Render FastAPI token verification and authorization
+  -> Supabase PostgreSQL ownership and quota data
 ```
 
-Controlled knowledge workflow:
+Later phases add durable jobs/workers, object/vector storage, operations/security, commercial workflows, and evaluated model intelligence.
 
-```text
-public/manual discovery
-  -> normalization and deduplication
-  -> deterministic evaluation
-  -> human review
-  -> approved_for_rag
-  -> explicit private/admin ingestion
-  -> curated knowledge record
-  -> RAG refresh
-```
+See [`docs/architecture.md`](docs/architecture.md).
 
-## Key Engineering Decisions
+## Permanent Engineering Decisions
 
-### Deterministic fields remain authoritative
+### Deterministic values remain authoritative
 
-Optional LLM providers can improve explanatory wording, but cannot overwrite:
+Model wording cannot silently replace:
 
-- risk rating or score
-- market values
-- missing-data fields
-- protocol identities
-- source references
-- disclaimers
+- risk rating or score;
+- market values;
+- assumptions or missing data;
+- protocol identity;
+- source references;
+- disclaimers.
 
 ### Discovery does not imply trust
 
-Automatically discovered sources remain candidates until evaluated and human-approved. Approval and ingestion are separate actions.
+```text
+discovery
+  -> evaluation
+  -> human review
+  -> approved_for_rag
+  -> explicit ingestion
+```
 
-### Heavy infrastructure is optional
+### Identity does not imply authorization
 
-The normal product works without an LLM, GPU rental, wallet, private key, or paid API. Vast.ai support is disabled and dry-run by default.
+Managed identity establishes who the user is. The application database establishes:
 
-### Public and private product boundaries are separate
+- platform role;
+- account status;
+- plan;
+- resource owner;
+- organization membership;
+- visibility;
+- quota.
 
-The public environment exposes safe read-only workflows and bounded compute. Privileged mutations require a private authenticated deployment.
+### Heavy infrastructure remains optional and controlled
 
-## Guided Review Path
-
-For a quick technical review:
-
-1. Open the [guided demo](https://defi-thesis-risk-copilot.vercel.app/demo).
-2. Open the seeded Pendle and Morpho risk report.
-3. Inspect assumptions, missing data, deterministic rating, sources, and export.
-4. Try the simulator and options workflow.
-5. Open the read-only review and watchlist demonstrations.
-6. Inspect the [API documentation](https://defi-thesis-risk-copilot.onrender.com/docs).
-7. Read the [architecture](docs/architecture.md) and [consolidated development plan](docs/development_plan.md).
-
-## Technology Stack
-
-### Backend
-
-- Python 3.12
-- FastAPI
-- Pydantic
-- SQLAlchemy
-- Alembic
-- PostgreSQL / Supabase
-- httpx
-- cryptography
-- pytest
-
-### Frontend
-
-- Next.js App Router
-- React
-- TypeScript
-- responsive global CSS
-- Vercel
-
-### Infrastructure and research tooling
-
-- Docker and Docker Compose
-- Render
-- Supabase
-- GitHub Actions
-- local Markdown RAG index
-- optional Ollama and OpenAI-compatible providers
-- optional Vast.ai lifecycle foundation
-- optional SLURM and Apptainer templates
+Normal deterministic analysis does not require an LLM, GPU rental, wallet, private key, or paid provider.
 
 ## Local Quick Start
 
-Copy the environment template:
-
 ```bash
 cp .env.example .env
-```
-
-Start the complete stack:
-
-```bash
 docker compose up -d --build
-```
-
-Verify:
-
-```bash
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:8000/ready
 ```
@@ -217,26 +148,12 @@ Open:
 
 ```text
 Frontend: http://127.0.0.1:3000
-Demo: http://127.0.0.1:3000/demo
-Backend: http://127.0.0.1:8000
+Demo:     http://127.0.0.1:3000/demo
+Backend:  http://127.0.0.1:8000
 API docs: http://127.0.0.1:8000/docs
 ```
 
-In local mode, deterministic demo data can be seeded manually:
-
-```bash
-backend/.venv/bin/python backend/scripts/seed_demo_data.py
-```
-
-or:
-
-```bash
-curl -X POST http://127.0.0.1:8000/api/demo/seed
-```
-
-The hosted public deployment seeds automatically during backend startup and blocks the public seed endpoint.
-
-## Manual Development Setup
+## Manual Development
 
 Backend:
 
@@ -264,6 +181,7 @@ Backend:
 ```bash
 cd backend
 source .venv/bin/activate
+python -m compileall app scripts
 alembic upgrade head
 python -m pytest -q
 python scripts/run_smoke_checks.py
@@ -273,27 +191,23 @@ Frontend:
 
 ```bash
 cd frontend
+npm ci
 npm run lint
 npm run build
 ```
 
-Docker:
+Compose:
 
 ```bash
 docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
-Retrieval evaluation:
+Phase-specific migration, browser, concurrency, worker, retrieval, security, and deployment checks are defined in [`docs/testing.md`](docs/testing.md) and the phase contracts.
 
-```bash
-cd backend
-python scripts/evaluate_retrieval.py --retriever hybrid
-```
+## Important Routes
 
-## Important API Routes
-
-### Service and demo
+Service/demo:
 
 - `GET /`
 - `GET /health`
@@ -301,41 +215,34 @@ python scripts/evaluate_retrieval.py --retriever hybrid
 - `GET /api/deployment/status`
 - `GET /api/demo/status`
 - `GET /api/demo/scenarios`
-- `POST /api/demo/seed` — private/local only
 
-### Analysis and reports
+Analysis:
 
 - `POST /api/analyze`
 - `GET /api/reports/{report_id}`
 - `POST /api/reports/{report_id}/export`
-- `GET /api/protocols`
 - `POST /api/market-data/fetch`
 - `POST /api/simulation/run`
 - `POST /api/options/analyze`
 
-### Controlled research workflows
+Phase 16 foundations:
 
-- `GET /api/discovery/candidates`
-- `POST /api/discovery/run` — blocked publicly
-- `GET /api/evaluation/review-items`
-- `POST /api/evaluation/discovered-items/{id}/evaluate` — blocked publicly
-- `PATCH /api/evaluation/review-items/{id}` — blocked publicly
-- `POST /api/evaluation/review-items/{id}/ingest-to-rag` — blocked publicly
-- `GET /api/knowledge-base/discovered`
+- `/api/auth/*`
+- `/api/account*`
+- `/api/organizations*`
+- `/api/theses*`
+- `/api/usage`
+- `/api/consents`
 
-### Watchlists and administration
+Controlled research/admin routes remain explicitly protected.
 
-- `GET /api/watchlist/items`
-- `GET /api/watchlist/alerts`
-- watchlist mutations — blocked publicly
-- provider credential routes — private/admin only
-- audit-event routes — private/admin only
-- Vast.ai routes — private/admin only
+## Authoritative Documentation
 
-## Documentation
-
-- [Consolidated development plan](docs/development_plan.md) — authoritative roadmap and phase history
-- [Current state](docs/current_state.md)
+- [Current state](docs/current_state.md) — deployed versus branch reality
+- [Development plan](docs/development_plan.md) — roadmap and phase status
+- [Archived Phase 16 records](docs/archive/v1_phase_16/) — implementation contract, execution plan, and deployment evidence
+- [Future phase contracts](docs/future_phase_contracts.md) — full Phases 17–22 requirements
+- [Agent execution guide](docs/agent_execution_guide.md) — short-prompt workflow
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)
 - [Testing](docs/testing.md)
@@ -346,33 +253,30 @@ python scripts/evaluate_retrieval.py --retriever hybrid
 - [Data sources](docs/data_sources.md)
 - [Changelog](CHANGELOG.md)
 
-The former Post-MVP and Phase 10-12 plan files now redirect to the consolidated plan. Their full historical content remains available in Git history.
+## Short Agent Prompt
 
-## Current Roadmap
+Future phase work can use:
 
-Completed work is documented through Final Phase 14. The active v1 hardening iteration is V1 Phase 15.
-
-Future real-product phases cover:
-
-- managed authentication, ownership, and quotas
-- durable jobs and hybrid local/cloud workers
-- durable object and vector storage
-- production observability and security
-- analytics, notifications, organizations, and commercial readiness
-- expanded model and research intelligence
-
-See [docs/development_plan.md](docs/development_plan.md) for the complete plan and release gates.
+```text
+Implement V1 Phase <N> on a new branch from current main.
+Read docs/current_state.md, docs/development_plan.md,
+the relevant phase contract, docs/architecture.md, docs/deployment.md,
+docs/testing.md, and docs/agent_execution_guide.md.
+Follow the contract exactly, preserve completed behavior, run all required
+checks, update the docs, commit logically, push the branch, open a draft PR,
+and do not merge.
+```
 
 ## Safety Boundary
 
-- no wallet connection
-- no transaction signing
-- no custody
-- no automated trade execution
-- no private-key or seed-phrase handling
-- no guaranteed-return language
-- no model override of deterministic risk fields
-- no automatic trust of discovered content
-- no live Vast.ai rental in automated tests
+- no wallet connection;
+- no transaction signing;
+- no custody;
+- no automated trade execution;
+- no secret-key handling;
+- no guaranteed-return language;
+- no model override of deterministic risk fields;
+- no automatic trust of discovered content;
+- no live Vast rental in automated tests.
 
 All output is research-oriented and educational. Market data may be delayed, incomplete, cached, simulated, or manually entered.

@@ -15,6 +15,7 @@ def test_initial_persistence_tables_exist() -> None:
         "reports",
         "document_sources",
         "market_data_cache",
+        "organization_knowledge_sources",
     }.issubset(table_names)
 
 

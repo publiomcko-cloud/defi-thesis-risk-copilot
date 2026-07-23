@@ -1,323 +1,193 @@
 # Testing — DeFi Thesis & Risk Copilot
 
-## 1. Testing Goals
+This file is the validation index. Detailed acceptance tests are defined in:
 
-Validation covers:
+- [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
+- [`future_phase_contracts.md`](future_phase_contracts.md)
+- [`agent_execution_guide.md`](agent_execution_guide.md)
 
-- API contracts and authorization
-- deterministic risk-scoring behavior
-- RAG retrieval and citation metadata
-- report generation and persistence
-- market-data fallbacks and cache expiration
-- discovery, evaluation, review, and ingestion safety
-- simulation and options calculations
-- watchlist and alert rules
-- credential isolation
-- Vast.ai lifecycle guardrails
-- public-demo mutation boundaries
-- startup preparation and readiness
-- frontend type/build quality
-- Docker and deployment configuration
+No check may require production customer data, real paid infrastructure, or live capital execution.
 
-No automated test may require a wallet, private key, trade execution, paid model API, or real Vast.ai rental.
+## 1. Baseline commands
 
-## 2. Baseline Validation
+Backend:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m compileall app scripts
+alembic upgrade head
+python -m pytest -q
+python scripts/run_smoke_checks.py
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm ci
+npm run lint
+npm run build
+npm run test:bff
+npm run test:mfa
+npm run test:mfa:routes
+npm run test:e2e
+```
+
+Compose:
+
+```bash
+docker compose config
+docker compose -f docker-compose.production.yml config
+```
+
+Report a command as passed only when it was executed successfully.
+
+## 2. Migration validation
+
+For schema-changing phases:
 
 ```bash
 cd backend
 source .venv/bin/activate
 alembic upgrade head
-python -m compileall app
-python -m pytest -q
-python scripts/run_smoke_checks.py
-
-cd ../frontend
-npm run lint
-npm run build
-
-cd ..
-docker compose config
-docker compose -f docker-compose.production.yml config
+alembic downgrade -1
+alembic upgrade head
 ```
 
-## 3. Public-Demo Security Tests
+Also validate PostgreSQL with existing prior-phase data, ownership backfills, constraints, indexes, and intentional deletion behavior.
 
-`backend/app/tests/test_public_demo_security.py` validates:
+## 3. Permanent Phase 15 regression suite
 
-- unauthenticated public visitors receive a `common` identity
-- public visitors do not receive an administrator identity
-- credential metadata is not public
-- public demo seeding is blocked
-- monitoring runs are blocked
-- document/RAG refresh mutations are blocked
-- discovery runs are blocked
-- evaluation creation is blocked
-- watchlist mutations are blocked
-- bounded compute remains available
-- public compute rate limits return `429` and `Retry-After`
+Every later phase preserves:
 
-Additional existing deployment tests validate:
+- public visitors never receive administrator access;
+- public privileged mutations remain denied;
+- bounded analysis, simulation, options, and market-data flows work;
+- request limits and rate limits work;
+- seeded reports and Markdown export work;
+- deterministic risk fields and sources remain authoritative;
+- cache expiration and unavailable states work;
+- startup seed/RAG preparation remains idempotent;
+- `/health`, `/ready`, and safe deployment status work;
+- public review/watchlist UX remains read-only;
+- no credentials or session material appear in responses or logs.
 
-- provider credential mutations return `403`
-- real Vast.ai startup returns `403`
-- deployment metadata contains no URLs, passwords, keys, or secrets
-- public runtime seed skips example-report filesystem writes
+## 4. Phase 16 required suites
 
-## 4. Input Validation Tests
+### Authentication and identity
 
-Public request schemas enforce:
+Test valid and invalid JWTs, issuer/audience/expiration/signature, verified email, inactive/deleted accounts, identity collisions, pending invitations, refresh rotation, logout, and administrator MFA assurance.
 
-- strategy-description maximum length
-- protocol-count maximum
-- URL and text limits
-- percentage/range limits
-- scenario-count limits
-- maximum document-content size
-- unknown-field rejection where contracts should be strict
+### BFF and cookies
 
-Tests should include both valid boundary values and rejected oversized payloads.
+Test explicit route allowlisting, rejection of arbitrary targets, safe header forwarding, access-token attachment, refresh-cookie isolation, anonymous-cookie propagation, refresh success/failure, and browser storage absence.
 
-## 5. Runtime and Health Tests
-
-The application exposes:
-
-- `/health` for liveness
-- `/ready` for database and RAG readiness
-- `/api/deployment/status` for safe operational metadata
-
-Tests should validate:
-
-- root endpoint returns service links without secrets
-- health works independently of database state
-- readiness returns `503` when PostgreSQL is unavailable
-- readiness returns `503` in public mode when the RAG index is absent
-- readiness succeeds after runtime preparation
-- public runtime preparation is idempotent
-- local non-public runtime preparation does not unexpectedly seed data
-
-## 6. PostgreSQL Integration
-
-CI should run Alembic against PostgreSQL, not only SQLite.
-
-Required path:
+### Anonymous isolation
 
 ```text
-PostgreSQL service
-  -> alembic upgrade head
-  -> runtime preparation in public-demo mode
-  -> pytest
+browser A creates and reads report
+browser B receives 404
+expired session receives 404
+cleanup removes expired data
+seeded public report remains
 ```
 
-This catches:
+### Ownership
 
-- dialect differences
-- migration-order failures
-- timezone behavior
-- JSON-column behavior
-- pooler-compatible URL handling
+Test User A versus User B, strict private visibility, organization roles, removed members, disabled/deleted organizations, final-owner protection, and safe `404` behavior.
 
-## 7. RAG Validation
+### Route authorization
 
-```bash
-cd backend
-python scripts/build_retrieval_eval_dataset.py
-python scripts/evaluate_retrieval.py --retriever hybrid
-python scripts/evaluate_retrieval.py --retriever hybrid_semantic
-```
+Test monitoring, discovery, evaluation, review, document/RAG ingestion, credentials, audit, and Vast routes for anonymous, ordinary user, organization role, and platform administrator actors.
 
-The retriever should:
+### Quotas
 
-- return protocol-relevant chunks
-- preserve source metadata
-- respect protocol filters
-- keep citation fields intact
-- retrieve approved ingested knowledge after a successful refresh
+Test exact limit, exceeded limit, period reset, plan differences, saved-resource limits, deletion releasing capacity, and concurrent first-use behavior on PostgreSQL.
 
-RAG ingestion tests cover:
+### Account lifecycle
 
-- eligibility only for `approved_for_rag`
-- explicit action requirement
-- duplicate prevention
-- Markdown provenance and disclaimer
-- `refresh_pending`
-- `refresh_failed`
-- retry after refresh failure
-- `ingested` only after successful refresh
+Test bounded export, exclusion of foreign/sensitive data, deletion confirmation, final-owner blocking, immediate access revocation, dry-run cleanup, retention, consent versioning, and password recovery callback.
 
-## 8. Access Control and Credentials
+### Frontend E2E
 
-Authentication tests cover:
+Test anonymous demo, login/BFF/refresh/logout, account, thesis CRUD, organizations/memberships, recovery, consent, MFA, mobile layout, keyboard focus, and no private-content flash.
 
-```text
-admin
-common
-public demo common identity
-local auth-disabled demo admin
-```
+A route-status smoke script is useful but is not full browser E2E coverage.
 
-Credential tests verify:
+## 5. Current Phase 16 branch coverage
 
-- full secrets never return from the API
-- full secrets never enter frontend payloads
-- database secrets are encrypted
-- missing encryption configuration fails closed
-- audit metadata is redacted
-- common users cannot manage credentials
-- public users cannot read credential metadata
-- disabled/rotated credentials are not reused
+Present:
 
-The bearer-token path is an MVP foundation. Managed-identity tests are planned for V1 Phase 16.
+- private report isolation;
+- final owner protection;
+- quota boundary;
+- valid/invalid JWT cases;
+- anonymous report isolation and expiration;
+- strict private visibility with stale organization IDs;
+- public-demo durable mutations blocked for anonymous visitors and allowed for authenticated hybrid users;
+- watchlist resource limit;
+- server-owned consent versions;
+- retention anonymization/deletion;
+- BFF allowlist/cookie-filter contract check;
+- Supabase MFA provider adapter success/failure contract checks;
+- same-origin MFA route-handler success/failure, cookie-rotation, cookie-isolation, and origin checks;
+- administrator `aal1` denial, `aal2` allow, and ordinary-user `aal1` access;
+- organization knowledge metadata owner/admin mutation and active-member read authorization;
+- outsider, removed-member, disabled-organization, and non-member platform-admin knowledge denial;
+- shared-index rejection of organization-tagged chunks under server-derived Phase 16 retrieval scope;
+- migration evidence that seeded Phase 15 public reports/watchlists survive the Phase 16 upgrade, ownership/consent foreign keys and compound indexes exist, and downgrade/upgrade preserves the seed;
+- PostgreSQL 16 upgrade/downgrade/upgrade validation from a seeded Phase 15 database for the Phase 16C migration;
+- organization/membership lifecycle, final-owner-denial, account export/deletion, consent, and MFA audit-event coverage;
+- audit metadata redaction and bounds, administrator-only audit access, and exclusion of internal audit metadata from account export;
+- BFF MFA route-handler audit dispatch with a server-only shared audit secret;
+- PostgreSQL first-use quota races, exact-limit `429` handling, saved-thesis/watchlist resource-count serialization, and deletion-release coverage when `RUN_POSTGRES_INTEGRATION=true`;
+- migrated Phase 15 public report/watchlist API regression coverage, including anonymous public mutation denial;
+- production-like Chromium browser E2E with local mocked Supabase/FastAPI upstreams: anonymous report isolation/expiry, BFF login/refresh/logout, recovery/reset, account export/deletion confirmation/consent, thesis CRUD/analyze, organization owner protection/member removal, MFA, no-private-content flash, and mobile keyboard/layout smoke;
+- failure screenshots/traces and CI upload configuration for the browser suite.
 
-## 9. Discovery, Review, and RAG
+Deferred to V1 Phase 22 final release validation:
 
-Tests cover:
+- deployed recovery callback verification;
+- deployed end-to-end Supabase MFA flow;
+- full browser coverage for organization knowledge metadata controls;
+- deployed Supabase verification.
 
-- collector normalization
-- quality/TVL filters
-- duplicate discovery prevention
-- initial `needs_review` state
-- optional automatic evaluation
-- review-item creation
-- allowed review states
-- private/admin review mutations
-- public read-only listing
-- human approval before ingestion
-- audit events for privileged actions
+Phase 16 implementation coverage is complete. Final deployed-provider and qualified legal validation is tracked in V1 Phase 22.
 
-## 10. Market-Data Cache
+## 6. Phase 17 validation
 
-Tests should verify:
+Test atomic job claims, leases, heartbeat, abandoned recovery, retry/dead-letter, idempotency, cancellation, worker authentication, tenant isolation, graceful shutdown, and cost/concurrency limits.
 
-- live data is normalized and cached
-- repeated source/key writes update rather than append indefinitely
-- duplicate historical rows are cleaned
-- expired rows are not used
-- unexpired cache is used after live failure
-- unavailable state and missing fields are explicit without valid cache
+## 7. Phase 18 validation
 
-## 11. Simulation and Options
+Test durable objects, document versions, worker ingestion, tenant-filtered retrieval, citation lineage, deletion/tombstones, re-embedding migration, rollback, and retrieval evaluation.
 
-Simulation tests cover:
+## 8. Phase 19 validation
 
-- net spread
-- borrow-rate shock
-- liquidity/slippage shock
-- collateral drawdown
-- early exit
-- incentive removal
-- combined adverse scenario
-- bounded numeric inputs
+Test distributed limits, security headers, proxy/SSRF/CSRF protections, centralized redaction, trace correlation, backup restore, migration rollback, scans, load, accessibility, browser, PostgreSQL, and failure recovery.
 
-Options tests cover:
+## 9. Phase 20 validation
 
-- call and put breakeven
-- maximum loss
-- payoff scenarios
-- contracts
-- spread calculation
-- expiration calculation
-- scenario-count bounds
-- no buy/sell recommendation language
+Test analytics consent, notification preferences, signed webhooks, delivery retry, schedules/timezones, entitlements, billing event idempotency, organization seats, and data export/deletion integration.
 
-## 12. Vast.ai
+## 10. Phase 21 validation
 
-Automated tests use fakes/dry-run only.
+Test provider routing, model/prompt versioning, evaluation promotion/rollback, deterministic-field preservation, citation support, source-instruction defenses, tenant privacy, cost budgets, feedback controls, and compute cleanup.
 
-Coverage includes:
+## 11. CI expectations
 
-- disabled-provider error
-- offer filters
-- cost/runtime limits
-- active-instance limit
-- startup polling and timeout
-- unsafe remote states
-- test prompt through mocked OpenAI-compatible endpoint
-- cleanup after failure
-- idempotent destroy
-- raw API-key isolation
-- audit events
-- common/public denial
+CI should progressively include:
 
-## 13. ML and HPC Groundwork
+- PostgreSQL 16;
+- migrations;
+- compile and pytest;
+- runtime preparation;
+- frontend type/build;
+- auth/BFF tests;
+- browser tests;
+- Compose validation;
+- failure artifacts;
+- later worker, retrieval, security, accessibility, and load checks.
 
-ML validation:
-
-```bash
-cd backend
-python scripts/export_training_dataset.py
-```
-
-Exported labels must be identified as deterministic-rule labels rather than human ground truth. Model output remains advisory.
-
-HPC syntax validation:
-
-```bash
-bash -n hpc/slurm_generate_embeddings.sbatch
-bash -n hpc/slurm_evaluate_retrieval.sbatch
-bash -n hpc/slurm_train_risk_classifier.sbatch
-test -f hpc/apptainer.def
-```
-
-## 14. Smoke Testing Modes
-
-### Local/private smoke path
-
-The existing smoke script can exercise mutations when:
-
-```env
-PUBLIC_DEMO_MODE=false
-```
-
-It may seed, run monitoring/discovery, update review state, create/evaluate watchlists, and run compute flows.
-
-### Hosted public smoke path
-
-A deployed smoke check should verify:
-
-- root, health, readiness, and deployment status
-- demo status/scenarios
-- seeded report retrieval
-- protocols
-- simulation and options compute
-- expected `403` for public mutations
-- no secret-bearing fields
-
-Do not run the local mutation smoke script unchanged against the public deployment.
-
-## 15. Frontend Quality
-
-Current frontend validation:
-
-```bash
-cd frontend
-npm run lint
-npm run build
-```
-
-The current `lint` script performs strict TypeScript compilation. Planned production additions:
-
-- ESLint
-- Playwright end-to-end tests
-- axe accessibility checks
-- visual regression checks
-- mobile viewport tests
-- cold-start retry tests
-- public/private navigation tests
-
-## 16. Phase 15 Completion Gate
-
-Before merging V1 Phase 15:
-
-- [ ] Alembic succeeds on PostgreSQL.
-- [ ] Backend tests pass.
-- [ ] Public-security tests pass.
-- [ ] Frontend TypeScript check passes.
-- [ ] Next.js build passes.
-- [ ] Compose files validate.
-- [ ] Vercel preview succeeds.
-- [ ] Render deployment succeeds.
-- [ ] `/ready` succeeds after startup.
-- [ ] Public mutation probes return `403`.
-- [ ] Main report, simulation, options, review, and watchlist pages render.
-- [ ] No secret is exposed.
-- [ ] Known limitations remain documented.
+Real production credentials and paid provider actions are never required in CI.

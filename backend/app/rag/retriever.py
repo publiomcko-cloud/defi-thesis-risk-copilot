@@ -2,6 +2,7 @@ from dataclasses import dataclass
 
 from app.rag.embeddings import LocalHashEmbeddingProvider, TOKEN_PATTERN, cosine_similarity
 from app.rag.vector_store import JsonVectorStore
+from app.rag.scope import RetrievalScope
 
 
 @dataclass(frozen=True)
@@ -22,13 +23,17 @@ class Retriever:
         query: str,
         top_k: int = 4,
         protocols: list[str] | None = None,
+        scope: RetrievalScope | None = None,
     ) -> list[RetrievalResult]:
         query_embedding = self.embedding_provider.embed(query)
         protocol_filter = {protocol.lower() for protocol in protocols or []}
         results: list[RetrievalResult] = []
+        retrieval_scope = scope or RetrievalScope()
 
         for record in self.store.load():
             metadata = record["metadata"]
+            if not retrieval_scope.allows(metadata):
+                continue
             if protocol_filter and metadata["protocol"].lower() not in protocol_filter:
                 continue
             score = cosine_similarity(query_embedding, record["embedding"])

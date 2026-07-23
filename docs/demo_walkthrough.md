@@ -195,3 +195,16 @@ curl -i -X POST https://defi-thesis-risk-copilot.onrender.com/api/discovery/run 
 - Optional model wording cannot override deterministic fields.
 - Public privileged workflows are read-only.
 - No wallet, custody, transaction signing, trade execution, or personalized financial advice is implemented.
+
+## 7. Phase 16 Private Product Preview
+
+Private deployments can enable:
+
+- Supabase Auth login/signup/recovery
+- private reports and watchlists
+- saved theses
+- organizations and memberships
+- account export/deletion
+- daily usage quotas
+
+The public portfolio demo keeps privileged mutations blocked. Anonymous generated reports are isolated by server-generated HttpOnly anonymous-session cookies, while seeded demo reports remain globally readable.

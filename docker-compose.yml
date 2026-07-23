@@ -10,6 +10,13 @@ services:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/defi_copilot
       PUBLIC_DEMO_MODE: ${PUBLIC_DEMO_MODE:-false}
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
+      AUTH_PROVIDER: ${AUTH_PROVIDER:-legacy_local}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:-}
+      SUPABASE_JWT_ISSUER: ${SUPABASE_JWT_ISSUER:-}
+      SUPABASE_JWT_AUDIENCE: ${SUPABASE_JWT_AUDIENCE:-authenticated}
+      ADMIN_MFA_REQUIRED: ${ADMIN_MFA_REQUIRED:-false}
+      BFF_AUDIT_SECRET: ${BFF_AUDIT_SECRET:-}
       LLM_SYNTHESIS_ENABLED: ${LLM_SYNTHESIS_ENABLED:-false}
       LLM_PROVIDER: ${LLM_PROVIDER:-disabled}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
@@ -43,8 +50,14 @@ services:
     working_dir: /app
     command: npm run dev -- --hostname 0.0.0.0
     environment:
+      BACKEND_API_BASE_URL: http://backend:8000
       NEXT_PUBLIC_API_BASE_URL: http://127.0.0.1:8000
       NEXT_PUBLIC_PUBLIC_DEMO_MODE: ${NEXT_PUBLIC_PUBLIC_DEMO_MODE:-false}
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_ANON_KEY: ${SUPABASE_ANON_KEY:-}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL:-}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
+      BFF_AUDIT_SECRET: ${BFF_AUDIT_SECRET:-}
     volumes:
       - ./frontend:/app
       - frontend_node_modules:/app/node_modules

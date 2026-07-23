@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.auth.dependencies import require_actor
+from app.auth.schemas import UserContext
 from app.db.session import get_db
 from app.schemas.reports import MarkdownExportResponse, ReportResponse
 from app.services.report_service import get_report, get_report_markdown
@@ -12,8 +14,9 @@ router = APIRouter(tags=["reports"])
 def read_report(
     report_id: str,
     db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_actor),
 ) -> ReportResponse:
-    report = get_report(report_id, db)
+    report = get_report(report_id, db, actor)
     if report is None:
         raise HTTPException(status_code=404, detail="Report not found")
     return report
@@ -23,8 +26,9 @@ def read_report(
 def export_report_markdown(
     report_id: str,
     db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_actor),
 ) -> MarkdownExportResponse:
-    markdown = get_report_markdown(report_id, db)
+    markdown = get_report_markdown(report_id, db, actor)
     if markdown is None:
         raise HTTPException(status_code=404, detail="Report not found")
     return MarkdownExportResponse(

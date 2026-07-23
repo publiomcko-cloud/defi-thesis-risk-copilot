@@ -4,23 +4,19 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { DisclaimerBox } from "@/components/DisclaimerBox";
-import { fetchCurrentUser, getAuthToken, setAuthToken } from "@/lib/api";
+import { fetchCurrentUser } from "@/lib/api";
 import type { UserContext } from "@/lib/types";
 
 const publicDemoMode = process.env.NEXT_PUBLIC_PUBLIC_DEMO_MODE === "true";
 
 export default function AdminPage() {
-  const [token, setToken] = useState("");
   const [currentUser, setCurrentUser] = useState<UserContext | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (publicDemoMode) {
       return;
     }
-    const savedToken = getAuthToken();
-    setToken(savedToken);
     void refreshUser();
   }, []);
 
@@ -33,12 +29,6 @@ export default function AdminPage() {
       setCurrentUser(null);
       setError(caught instanceof Error ? caught.message : "Unable to load auth state.");
     }
-  }
-
-  async function handleSaveToken() {
-    setAuthToken(token);
-    setMessage(token.trim() ? "Admin token saved for this browser." : "Admin token cleared.");
-    await refreshUser();
   }
 
   if (publicDemoMode) {
@@ -81,27 +71,12 @@ export default function AdminPage() {
       <div className="stack">
         <section className="panel">
           <h2>Session</h2>
-          <div className="manual-grid">
-            <label>
-              Admin bearer token
-              <input
-                autoComplete="off"
-                onChange={(event) => setToken(event.target.value)}
-                placeholder="Required when AUTH_ENABLED=true"
-                type="password"
-                value={token}
-              />
-            </label>
-          </div>
           <div className="action-row">
-            <button className="primary-action" onClick={handleSaveToken} type="button">
-              Save Token
-            </button>
             <button className="secondary-action" onClick={refreshUser} type="button">
               Check Role
             </button>
+            <Link className="primary-link" href="/login">Log in</Link>
           </div>
-          {message ? <p className="success">{message}</p> : null}
           {error ? <p className="error">{error}</p> : null}
           {currentUser ? (
             <div className="meta-grid">

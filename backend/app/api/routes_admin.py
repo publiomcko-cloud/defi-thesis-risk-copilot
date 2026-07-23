@@ -82,7 +82,8 @@ def get_audit_events(
 
 
 def _block_public_demo_mutation() -> None:
-    if get_settings().public_demo_mode:
+    settings = get_settings()
+    if settings.public_demo_mode and not settings.auth_enabled:
         raise HTTPException(
             status_code=403,
             detail="Provider credential changes are disabled in public demo mode.",

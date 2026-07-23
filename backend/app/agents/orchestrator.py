@@ -8,6 +8,8 @@ from app.agents.report_writer_agent import write_research_report
 from app.agents.risk_scoring_agent import score_parsed_strategy
 from app.agents.strategy_parser import ParsedStrategy, parse_strategy
 from app.rag.retriever import RetrievalResult
+from app.rag.scope import derive_retrieval_scope
+from app.auth.schemas import UserContext
 from app.risk.framework import RiskScore
 from app.schemas.analysis import AnalysisRequest
 from app.schemas.market_data import MarketDataResponse
@@ -28,11 +30,13 @@ def run_analysis_workflow(
     request: AnalysisRequest,
     report_id: str,
     db: Session,
+    actor: UserContext | None = None,
 ) -> AnalysisWorkflowResult:
     parsed_strategy = parse_strategy(request)
     retrieved_context = retrieve_protocol_context(
         parsed_strategy.description,
         parsed_strategy.protocols,
+        scope=derive_retrieval_scope(db, actor),
     )
     market_data = fetch_strategy_market_data(parsed_strategy, db)
     missing_data = _build_missing_data(retrieved_context, market_data.missing_fields)

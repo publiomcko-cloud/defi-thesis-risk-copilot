@@ -32,6 +32,8 @@ Current behavior:
 - optional deterministic local semantic embedding provider for offline evaluation
 - citation metadata validation for retrieved chunks
 - controlled human-approved ingestion under `knowledge_base/discovered/`
+- explicit `public_curated` chunk scope in the shared JSON index
+- server-derived retrieval scope that rejects organization-tagged chunks until isolated tenant storage exists
 
 ## 3. Ingestion Flow
 
@@ -164,3 +166,9 @@ RAG improvements must preserve:
 - human approval before trusting monitored sources
 - no autonomous financial advice
 - no wallet or transaction execution
+
+## 10. Phase 16 Organization Boundary
+
+Phase 16 stores organization source metadata only. Records include organization ownership, source URL, a provenance hash, explicit human approval, and `storage_status=metadata_only`. Active organization members can read this metadata; registration and removal require an active owner/admin membership. Removed members and disabled/deleted organizations lose access immediately.
+
+The current `knowledge_base/` Markdown tree and `.rag_index.json` remain global public-curated resources. Organization metadata is not written to those files and does not claim document ingestion or vector indexing. Analysis requests cannot provide an organization identifier. The backend derives visible organization IDs from active memberships and passes that scope to retrieval, while `tenant_storage_enabled=false` causes organization-tagged chunks to be rejected. Durable tenant documents, versions, objects, embeddings, and tenant-filtered vectors remain Phase 18 work.

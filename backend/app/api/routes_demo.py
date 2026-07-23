@@ -3,7 +3,6 @@ from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_admin
 from app.auth.schemas import UserContext
-from app.core.public_demo import block_public_demo_mutation
 from app.db.session import get_db
 from app.demo.scenarios import DEMO_SCENARIOS, DemoScenario
 from app.demo.seed_data import DemoSeedResult, DemoStatus, get_demo_status, seed_demo_data
@@ -24,7 +23,6 @@ def read_demo_scenarios() -> list[DemoScenario]:
 @router.post(
     "/demo/seed",
     response_model=DemoSeedResult,
-    dependencies=[Depends(block_public_demo_mutation)],
 )
 def seed_demo(
     db: Session = Depends(get_db),

@@ -205,6 +205,10 @@ textarea {
   margin-bottom: 16px;
 }
 
+.stack > * {
+  min-width: 0;
+}
+
 .panel,
 .form-panel,
 .notice {

@@ -44,34 +44,30 @@ import type {
   VastTestPromptResponse
 } from "./types";
 
-const AUTH_TOKEN_KEY = "defi-risk-copilot-admin-token";
-
 export function getApiBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
+  if (typeof window !== "undefined") {
+    return "/api/backend";
+  }
+  return process.env.BACKEND_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://127.0.0.1:8000";
 }
 
 export function getAuthToken(): string {
-  if (typeof window === "undefined") {
-    return "";
-  }
-  return window.localStorage.getItem(AUTH_TOKEN_KEY) ?? "";
+  return "";
 }
 
 export function setAuthToken(token: string): void {
-  if (typeof window === "undefined") {
-    return;
-  }
-  const trimmed = token.trim();
-  if (trimmed) {
-    window.localStorage.setItem(AUTH_TOKEN_KEY, trimmed);
-  } else {
-    window.localStorage.removeItem(AUTH_TOKEN_KEY);
-  }
+  void token;
 }
 
 function authHeaders(): Record<string, string> {
-  const token = getAuthToken();
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return {};
+}
+
+function requestInit(init: RequestInit = {}): RequestInit {
+  return {
+    ...init,
+    credentials: "include"
+  };
 }
 
 async function errorDetail(response: Response, fallback: string): Promise<string> {
@@ -86,7 +82,7 @@ async function errorDetail(response: Response, fallback: string): Promise<string
 export async function fetchCurrentUser(): Promise<UserContext> {
   const response = await fetch(`${getApiBaseUrl()}/api/auth/me`, {
     cache: "no-store",
-    headers: authHeaders()
+    ...requestInit({ headers: authHeaders() })
   });
 
   if (!response.ok) {
