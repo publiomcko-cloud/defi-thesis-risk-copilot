@@ -1,6 +1,6 @@
 # V1 Phase 17 Execution Plan — Durable Jobs and Hybrid Workers
 
-Status: **In Progress — 17A implemented; 17B–17F planned**
+Status: **In Progress — 17A–17B implemented; 17C–17F planned**
 
 Branch: `agent/v1-phase-17-durable-jobs`
 
@@ -691,6 +691,13 @@ Checkpoint:
 - same idempotency key with different payload returns `409`;
 - public-demo submission is denied;
 - old synchronous analysis remains available until 17D rollout.
+
+Implementation note: 17B adds the authenticated, tenant-scoped control plane on this branch.
+`analysis.generate` jobs receive a server-preallocated report ID, a bounded queue expiry, and a
+durable initial event. They are intentionally not claimed or executed yet; existing `/api/analyze`
+remains the synchronous path until 17D. Capacity reservation rows serialize user, organization,
+global, and controlled-provider limits, and the current server-owned cost estimate is zero because
+no paid provider job type is enabled.
 
 ### 17C — Versioned worker protocol, atomic leasing, and fake executor
 

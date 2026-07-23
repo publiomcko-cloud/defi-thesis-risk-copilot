@@ -43,6 +43,10 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   if (contentType) {
     headers.set("content-type", contentType);
   }
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (idempotencyKey) {
+    headers.set("idempotency-key", idempotencyKey);
+  }
   const anonymousCookie = request.cookies.get(ANONYMOUS_COOKIE)?.value;
   if (anonymousCookie) {
     headers.set("cookie", `${ANONYMOUS_COOKIE}=${encodeURIComponent(anonymousCookie)}`);

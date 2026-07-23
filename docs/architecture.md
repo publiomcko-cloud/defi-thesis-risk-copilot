@@ -434,14 +434,18 @@ Key invariants:
 
 See [`future_phase_contracts.md`](future_phase_contracts.md).
 
-### Phase 17A implemented foundation
+### Phase 17A–17B implemented foundation
 
 PostgreSQL now persists job, attempt, event, worker, worker-credential, and artifact metadata.
 Job transitions are restricted to a closed service, events are append-only and sequenced, and
 worker tokens use a separate hashed credential domain rather than a browser or user token. The
-current foundation has no queue-submission or worker-execution endpoint: those arrive in later
-Phase 17 slices. Account/organization deletion disposes of affected jobs and artifacts, while
-retention expires credentials and terminal job material according to configured policy.
+control plane now exposes authenticated, tenant-filtered job submission, list/detail, events,
+cancellation, and admin linked replay. A unique scoped idempotency boundary and lockable capacity
+reservation rows keep quota, user/organization/global/provider capacity, preallocated report IDs,
+and the initial event transactional. Jobs are still queued only: worker claim/execution and
+asynchronous analysis arrive in later Phase 17 slices. Account/organization deletion disposes of
+affected jobs and artifacts, while retention expires credentials and terminal job material
+according to configured policy.
 
 ---
 

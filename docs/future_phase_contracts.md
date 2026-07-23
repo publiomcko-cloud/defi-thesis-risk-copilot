@@ -47,8 +47,10 @@ Status: **In Progress**
 
 Move heavy, slow, retryable, and provider-dependent work out of the public web process into a durable, observable, tenant-aware job system.
 
-Phase 17A establishes the durable data/state/credential foundation only. It does not yet expose
-job submission, worker claim/execution, or asynchronous analysis behavior.
+Phase 17A establishes the durable data/state/credential foundation. Phase 17B adds authenticated,
+tenant-scoped job submission, observation, cancellation, idempotency, bounded queue admission,
+and operator replay. It does not yet expose worker claim/execution or asynchronous analysis
+behavior.
 
 ## 17.2 Target architecture
 

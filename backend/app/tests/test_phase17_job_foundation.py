@@ -19,6 +19,7 @@ from app.jobs.lifecycle import (
     dispose_jobs_for_account_deletion,
     dispose_jobs_for_organization_deletion,
 )
+from app.jobs.control_service import _release_capacity
 from app.jobs.schemas import WorkerCredentialCreateRequest, WorkerRegistrationRequest
 from app.jobs.state import JobTransitionError, append_job_event, transition_job
 from app.jobs.worker_service import (
@@ -31,7 +32,8 @@ from app.jobs.worker_service import (
 from app.models.artifact import ArtifactModel
 from app.models.access_audit_event import AccessAuditEventModel
 from app.models.job import JobEventModel, JobModel
-from app.models.organization import OrganizationModel
+from app.models.organization import OrganizationMembershipModel, OrganizationModel
+from app.models.usage_quota import UsageQuotaModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
 from app.main import app
 from scripts.cleanup_expired_data import cleanup_expired_data
@@ -368,6 +370,194 @@ def test_phase17_configuration_fails_closed_for_production_worker_routes() -> No
         worker_token_pepper="worker-pepper",
         auth_enabled=False,
     ).worker_api_enabled
+
+
+def test_job_control_plane_is_idempotent_scoped_and_isolated(phase17_client, monkeypatch) -> None:
+    monkeypatch.setenv("JOBS_ENABLED", "true")
+    get_settings.cache_clear()
+    client, Session = phase17_client
+    with Session() as db:
+        alice = create_user(db, "jobs-alice@example.test", token="jobs-alice-token")
+        alice_id = alice.id
+        bob = create_user(db, "jobs-bob@example.test", token="jobs-bob-token")
+        now = datetime.now(UTC)
+        org_a = OrganizationModel(
+            id="org_jobs_a",
+            name="Jobs A",
+            slug="jobs-a",
+            status="active",
+            created_by_user_id=alice.id,
+            created_at=now,
+            updated_at=now,
+        )
+        org_b = OrganizationModel(
+            id="org_jobs_b",
+            name="Jobs B",
+            slug="jobs-b",
+            status="active",
+            created_by_user_id=bob.id,
+            created_at=now,
+            updated_at=now,
+        )
+        db.add_all(
+            [
+                org_a,
+                org_b,
+                OrganizationMembershipModel(
+                    id="member_jobs_a",
+                    organization_id=org_a.id,
+                    user_id=alice.id,
+                    role="owner",
+                    status="active",
+                    created_at=now,
+                    updated_at=now,
+                ),
+                OrganizationMembershipModel(
+                    id="member_jobs_b",
+                    organization_id=org_b.id,
+                    user_id=bob.id,
+                    role="owner",
+                    status="active",
+                    created_at=now,
+                    updated_at=now,
+                ),
+            ]
+        )
+        db.commit()
+
+    payload = {
+        "job_type": "analysis.generate",
+        "input_schema_version": "v1",
+        "input_json": {"strategy": "Supply USDC to a lending market."},
+        "organization_id": "org_jobs_a",
+    }
+    headers = {"Authorization": "Bearer jobs-alice-token", "Idempotency-Key": "jobs-idempotency-a"}
+    created = client.post("/api/jobs", json=payload, headers=headers)
+    assert created.status_code == 202
+    created_body = created.json()
+    job_id = created_body["job"]["id"]
+    assert created_body["idempotent_replay"] is False
+    assert created_body["job"]["status"] == "queued"
+    assert created_body["job"]["visibility"] == "organization"
+    assert created_body["job"]["result_resource_id"].startswith("report_")
+
+    duplicate = client.post("/api/jobs", json=payload, headers=headers)
+    assert duplicate.status_code == 202
+    assert duplicate.json()["idempotent_replay"] is True
+    assert duplicate.json()["job"]["id"] == job_id
+
+    changed = client.post(
+        "/api/jobs",
+        json={**payload, "input_json": {"strategy": "Different strategy."}},
+        headers=headers,
+    )
+    assert changed.status_code == 409
+    rejected_secret = client.post(
+        "/api/jobs",
+        json={**payload, "input_json": {"api_key": "must-not-persist"}},
+        headers={"Authorization": "Bearer jobs-alice-token", "Idempotency-Key": "jobs-secret-key"},
+    )
+    assert rejected_secret.status_code == 422
+
+    assert client.get("/api/jobs", headers={"Authorization": "Bearer jobs-bob-token"}).json()["items"] == []
+    for path in (f"/api/jobs/{job_id}", f"/api/jobs/{job_id}/events", f"/api/jobs/{job_id}/cancel"):
+        response = client.post(path, headers={"Authorization": "Bearer jobs-bob-token"}) if path.endswith("/cancel") else client.get(path, headers={"Authorization": "Bearer jobs-bob-token"})
+        assert response.status_code == 404
+
+    cancelled = client.post(f"/api/jobs/{job_id}/cancel", headers={"Authorization": "Bearer jobs-alice-token"})
+    assert cancelled.status_code == 200
+    assert cancelled.json()["status"] == "cancelled"
+    repeated_cancel = client.post(f"/api/jobs/{job_id}/cancel", headers={"Authorization": "Bearer jobs-alice-token"})
+    assert repeated_cancel.status_code == 200
+    assert repeated_cancel.json()["status"] == "cancelled"
+    events = client.get(f"/api/jobs/{job_id}/events?limit=2", headers={"Authorization": "Bearer jobs-alice-token"})
+    assert events.status_code == 200
+    assert [event["sequence_number"] for event in events.json()["items"]] == [1, 2]
+    assert events.json()["next_after_sequence"] == 2
+    remaining = client.get(
+        f"/api/jobs/{job_id}/events?after_sequence=2",
+        headers={"Authorization": "Bearer jobs-alice-token"},
+    )
+    assert [event["event_type"] for event in remaining.json()["items"]] == ["job.cancelled"]
+
+    with Session() as db:
+        quotas = db.execute(
+            select(UsageQuotaModel)
+            .where(UsageQuotaModel.subject_id == alice_id)
+            .where(UsageQuotaModel.action == "analysis")
+        ).scalars().all()
+        assert len(quotas) == 1
+        assert quotas[0].used == 1
+
+
+def test_job_submission_is_feature_gated_until_enabled(phase17_client) -> None:
+    client, Session = phase17_client
+    with Session() as db:
+        create_user(db, "jobs-disabled@example.test", token="jobs-disabled-token")
+    response = client.post(
+        "/api/jobs",
+        json={
+            "job_type": "analysis.generate",
+            "input_schema_version": "v1",
+            "input_json": {"strategy": "Feature-flagged job."},
+        },
+        headers={"Authorization": "Bearer jobs-disabled-token", "Idempotency-Key": "jobs-disabled-key"},
+    )
+    assert response.status_code == 503
+
+
+def test_job_pending_limit_replay_and_public_demo_denial(phase17_client, monkeypatch) -> None:
+    monkeypatch.setenv("JOBS_ENABLED", "true")
+    monkeypatch.setenv("JOB_USER_PENDING_LIMIT", "1")
+    get_settings.cache_clear()
+    client, Session = phase17_client
+    with Session() as db:
+        owner = create_user(db, "jobs-owner@example.test", token="jobs-owner-token")
+        create_user(db, "jobs-admin@example.test", role="admin", token="jobs-admin-token")
+
+    payload = {
+        "job_type": "analysis.generate",
+        "input_schema_version": "v1",
+        "input_json": {"strategy": "Conservative lending strategy."},
+    }
+    first = client.post(
+        "/api/jobs",
+        json=payload,
+        headers={"Authorization": "Bearer jobs-owner-token", "Idempotency-Key": "jobs-limit-first"},
+    )
+    assert first.status_code == 202
+    assert client.post(
+        "/api/jobs",
+        json=payload,
+        headers={"Authorization": "Bearer jobs-owner-token", "Idempotency-Key": "jobs-limit-second"},
+    ).status_code == 429
+
+    with Session() as db:
+        job = db.get(JobModel, first.json()["job"]["id"])
+        assert job is not None
+        job.status = "failed"
+        job.failed_at = datetime.now(UTC)
+        _release_capacity(db, job)
+        db.commit()
+
+    replay = client.post(
+        f"/api/jobs/{first.json()['job']['id']}/replay",
+        headers={"Authorization": "Bearer jobs-admin-token"},
+    )
+    # The original failed job no longer consumes pending capacity, so the linked replay can queue.
+    assert replay.status_code == 202
+    assert replay.json()["status"] == "queued"
+    assert replay.json()["replay_of_job_id"] == first.json()["job"]["id"]
+
+    monkeypatch.setenv("AUTH_ENABLED", "false")
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    get_settings.cache_clear()
+    denied = client.post(
+        "/api/jobs",
+        json=payload,
+        headers={"Idempotency-Key": "jobs-public-demo"},
+    )
+    assert denied.status_code == 403
 
 
 def _create_actor(db, label: str, role: str = "common") -> UserContext:

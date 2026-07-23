@@ -31,7 +31,15 @@ def test_phase17a_upgrade_downgrade_upgrade_has_durable_job_contract(tmp_path: P
 
     connection = sqlite3.connect(database_path)
     tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
-    assert {"jobs", "job_attempts", "job_events", "workers", "worker_credentials", "artifacts"}.issubset(
+    assert {
+        "jobs",
+        "job_attempts",
+        "job_events",
+        "job_capacity_reservations",
+        "workers",
+        "worker_credentials",
+        "artifacts",
+    }.issubset(
         tables
     )
     assert _indexes(connection, "jobs") >= {
@@ -45,6 +53,11 @@ def test_phase17a_upgrade_downgrade_upgrade_has_durable_job_contract(tmp_path: P
         _unique_column_sets(connection, "worker_credentials")
     )
     assert "ix_job_events_job_created" in _indexes(connection, "job_events")
+    assert _indexes(connection, "job_capacity_reservations") >= {
+        "ix_job_capacity_reservations_scope_type",
+        "ix_job_capacity_reservations_scope_id",
+    }
+    assert frozenset({"scope_type", "scope_id"}) in _unique_column_sets(connection, "job_capacity_reservations")
     assert frozenset({"job_id", "sequence_number"}) in _unique_column_sets(connection, "job_events")
     assert _indexes(connection, "artifacts") >= {
         "ix_artifacts_owner_deleted",

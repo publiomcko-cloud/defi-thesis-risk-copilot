@@ -8,7 +8,7 @@ from app.models.consent_record import ConsentRecordModel
 from app.models.discovered_item import DiscoveredItemModel
 from app.models.document_source import DocumentSourceModel
 from app.models.evaluation_result import EvaluationResultModel
-from app.models.job import JobAttemptModel, JobEventModel, JobModel
+from app.models.job import JobAttemptModel, JobCapacityReservationModel, JobEventModel, JobModel
 from app.models.market_data_cache import MarketDataCacheModel
 from app.models.knowledge_base_ingestion import KnowledgeBaseIngestionModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
@@ -35,6 +35,7 @@ __all__ = [
     "DocumentSourceModel",
     "EvaluationResultModel",
     "JobAttemptModel",
+    "JobCapacityReservationModel",
     "JobEventModel",
     "JobModel",
     "MarketDataCacheModel",

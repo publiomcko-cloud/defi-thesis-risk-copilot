@@ -95,11 +95,14 @@ class Settings(BaseSettings):
     job_max_input_bytes: int = 65_536
     job_max_result_bytes: int = 262_144
     job_max_progress_message_length: int = 512
+    job_global_pending_limit: int = 100
     job_global_running_limit: int = 4
     job_user_pending_limit: int = 10
     job_user_running_limit: int = 2
     job_org_pending_limit: int = 50
     job_org_running_limit: int = 8
+    job_provider_pending_limit: int = 25
+    job_provider_running_limit: int = 4
     job_daily_cost_budget_microusd: int = 0
     worker_protocol_version: str = "v1"
     worker_token_pepper: str = ""
@@ -151,11 +154,14 @@ class Settings(BaseSettings):
             self.job_max_input_bytes,
             self.job_max_result_bytes,
             self.job_max_progress_message_length,
+            self.job_global_pending_limit,
             self.job_global_running_limit,
             self.job_user_pending_limit,
             self.job_user_running_limit,
             self.job_org_pending_limit,
             self.job_org_running_limit,
+            self.job_provider_pending_limit,
+            self.job_provider_running_limit,
             self.job_daily_cost_budget_microusd,
         ) < 0:
             raise ValueError("Phase 17 job limits cannot be negative")

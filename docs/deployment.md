@@ -375,17 +375,26 @@ python -m scripts.cleanup_expired_data
 
 Phase 17/20 may schedule cleanup through durable jobs. A scheduler must not be added as an unreliable browser or web-process timer.
 
-### Phase 17A job foundation configuration
+### Phase 17A–17B job control-plane configuration
 
 The job foundation is disabled by default and does not start a worker or change existing analysis
-requests. Keep these values disabled until the later Phase 17 control-plane and worker slices are
-validated:
+requests. With `JOBS_ENABLED=true`, authenticated users may submit bounded jobs, but they remain
+queued until Phase 17C supplies a worker protocol. Keep it disabled in public deployment unless
+that queued-only behavior is explicitly being tested:
 
 ```env
 JOBS_ENABLED=false
 WORKER_API_ENABLED=false
 ASYNC_ANALYSIS_ENABLED=false
 VAST_JOB_ENABLED=false
+JOB_GLOBAL_PENDING_LIMIT=100
+JOB_GLOBAL_RUNNING_LIMIT=4
+JOB_USER_PENDING_LIMIT=10
+JOB_USER_RUNNING_LIMIT=2
+JOB_ORG_PENDING_LIMIT=50
+JOB_ORG_RUNNING_LIMIT=8
+JOB_PROVIDER_PENDING_LIMIT=25
+JOB_PROVIDER_RUNNING_LIMIT=4
 WORKER_TOKEN_PEPPER=<server-only secret when WORKER_API_ENABLED=true in production>
 ```
 
@@ -393,7 +402,8 @@ WORKER_TOKEN_PEPPER=<server-only secret when WORKER_API_ENABLED=true in producti
 job payload field, log value, or public environment variable. Production configuration fails
 closed if worker APIs are enabled without it. Administrative worker registration and credential
 issuance reuse the existing platform-admin/MFA boundary when MFA is configured; the internal
-worker protocol itself is not available until Phase 17C.
+worker protocol itself is not available until Phase 17C. `ASYNC_ANALYSIS_ENABLED` remains false:
+existing `/api/analyze` stays synchronous through Phase 17B.
 
 ---
 

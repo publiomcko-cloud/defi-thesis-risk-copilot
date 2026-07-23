@@ -1,6 +1,6 @@
 # Current State — DeFi Thesis & Risk Copilot
 
-This document describes what is deployed on `main`, the Phase 16 merge candidate, and the remaining V1 roadmap.
+This document describes what is deployed on `main`, active V1 implementation branches, and the remaining roadmap.
 
 Authoritative references:
 
@@ -47,7 +47,8 @@ Current status:
 
 ```text
 V1 Phase 16 — Complete and merge-ready
-V1 Phases 17–21 — Planned implementation work
+V1 Phase 17 — In progress; 17A–17B are implemented on `agent/v1-phase-17-durable-jobs`
+V1 Phases 18–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -324,7 +325,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 - public rate limiting is still in-process, not distributed;
 - current RAG index is local JSON and intentionally public-curated only; organization metadata is not document/vector storage;
-- heavy work lacks durable queue/workers;
+- authenticated durable job submission/control-plane APIs exist on the Phase 17 branch, but no
+  worker claim/execution path or asynchronous analysis rollout exists yet;
 - Render may cold-start;
 - several market adapters remain partial/manual fallbacks;
 - monitoring/discovery are manually initiated;
@@ -338,8 +340,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 ## 11. Next phases
 
 - Phase 17 — In Progress. Phase 17A provides durable job/attempt/event/worker/credential/artifact
-  schemas, lifecycle/retention hooks, and admin worker-credential management. Job submission,
-  worker execution, and asynchronous analysis are not implemented yet;
+  schemas, lifecycle/retention hooks, and admin worker-credential management. Phase 17B adds
+  authenticated tenant-scoped job submission, list/detail/event/cancel APIs, idempotency,
+  capacity reservation, queue expiry, and linked operator replay. Worker execution and
+  asynchronous analysis are not implemented yet;
 - Phase 18 — durable tenant RAG and object/vector storage;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;

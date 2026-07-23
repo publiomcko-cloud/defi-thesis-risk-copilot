@@ -162,8 +162,11 @@ Test atomic job claims, leases, heartbeat, abandoned recovery, retry/dead-letter
 Phase 17A additionally requires migration upgrade/downgrade/upgrade evidence, schema/index and
 constraint tests, closed-transition/event-sequence tests, worker credential issuance/rotation/
 revocation tests, cross-tenant job-visibility denial, lifecycle disposal, retention cleanup, and
-production worker-configuration failure tests. Claiming, execution, browser jobs UI, and graceful
-worker shutdown remain Phase 17B–17F validation work.
+production worker-configuration failure tests. Phase 17B additionally requires authenticated
+submission/list/detail/event/cancel isolation, scoped same-key idempotency and conflict coverage,
+public-demo denial, queue-capacity reservation, linked admin replay, and a PostgreSQL concurrent
+duplicate-submission test. Claiming, execution, browser jobs UI, and graceful worker shutdown
+remain Phase 17C–17F validation work.
 
 ## 7. Phase 18 validation
 

@@ -152,3 +152,31 @@ class JobEventModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class JobCapacityReservationModel(Base):
+    """Lockable counters used to reserve job capacity within submission transactions."""
+
+    __tablename__ = "job_capacity_reservations"
+    __table_args__ = (
+        CheckConstraint("scope_type IN ('global', 'user', 'organization', 'provider')", name="ck_job_capacity_scope"),
+        CheckConstraint("pending_count >= 0", name="ck_job_capacity_pending"),
+        CheckConstraint("running_count >= 0", name="ck_job_capacity_running"),
+        CheckConstraint("reserved_cost_microusd >= 0", name="ck_job_capacity_reserved_cost"),
+        UniqueConstraint("scope_type", "scope_id", name="uq_job_capacity_scope"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    scope_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
+    scope_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    pending_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    running_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    reserved_cost_microusd: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    budget_period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    budget_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )

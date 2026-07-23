@@ -38,6 +38,26 @@ class JobInputEnvelope(BaseModel):
         return self
 
 
+class JobSubmissionRequest(JobInputEnvelope):
+    """Authenticated control-plane submission with server-derived ownership."""
+
+    organization_id: str | None = Field(default=None, min_length=1, max_length=64)
+
+
+class JobSubmissionResponse(BaseModel):
+    job: "JobResponse"
+    idempotent_replay: bool = False
+
+
+class JobsResponse(BaseModel):
+    items: list["JobResponse"]
+
+
+class JobEventsResponse(BaseModel):
+    items: list["JobEventResponse"]
+    next_after_sequence: int | None = Field(default=None, ge=0)
+
+
 class JobResultEnvelope(BaseModel):
     result_schema_version: str = Field(min_length=1, max_length=32)
     result_json: dict = Field(default_factory=dict)
@@ -146,6 +166,11 @@ class JobResponse(BaseModel):
     progress_message: str | None
     attempt_count: int = Field(ge=0)
     max_attempts: int = Field(gt=0)
+    result_resource_type: str | None
+    result_resource_id: str | None
+    queue_expires_at: datetime | None
+    deadline_at: datetime | None
+    replay_of_job_id: str | None
     created_at: datetime
     updated_at: datetime
 

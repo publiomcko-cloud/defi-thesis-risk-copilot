@@ -22,7 +22,8 @@ The Render free-tier backend may cold-start after inactivity.
 
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–16
-Planned:   V1 Phases 17–22
+In progress: V1 Phase 17 (17A–17B implemented on its branch)
+Planned:   V1 Phases 18–22
 ```
 
 The Phase 16 merge branch is:
@@ -31,7 +32,7 @@ The Phase 16 merge branch is:
 agent/v1-phase-16-identity-ownership
 ```
 
-Phase 16 delivers managed identity, BFF, ownership, organization, quota, account, consent, retention, and frontend foundations. Its detailed implementation record is archived in [`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/). The remaining live-provider and qualified legal release checks are tracked as final V1 Phase 22 work.
+Phase 16 delivers managed identity, BFF, ownership, organization, quota, account, consent, retention, and frontend foundations. Its detailed implementation record is archived in [`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/). Phase 17A–17B adds the durable job foundation and authenticated queue control plane on `agent/v1-phase-17-durable-jobs`; worker execution remains intentionally unimplemented. The remaining live-provider and qualified legal release checks are tracked as final V1 Phase 22 work.
 
 ## Product Capabilities
 
