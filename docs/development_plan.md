@@ -7,6 +7,7 @@ Detailed implementation requirements live in:
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md) — archived Phase 16 implementation contract and evidence;
 - [`archive/v1_phase_16/phase_16_execution_plan.md`](archive/v1_phase_16/phase_16_execution_plan.md) — archived Phase 16 execution record;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — complete Phase 17–22 contracts;
+- [`phase_17_execution_plan.md`](phase_17_execution_plan.md) — implementation slices and checkpoints for the next planned phase;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
 - [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
 
