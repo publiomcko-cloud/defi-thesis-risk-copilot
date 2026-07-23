@@ -434,6 +434,15 @@ Key invariants:
 
 See [`future_phase_contracts.md`](future_phase_contracts.md).
 
+### Phase 17A implemented foundation
+
+PostgreSQL now persists job, attempt, event, worker, worker-credential, and artifact metadata.
+Job transitions are restricted to a closed service, events are append-only and sequenced, and
+worker tokens use a separate hashed credential domain rather than a browser or user token. The
+current foundation has no queue-submission or worker-execution endpoint: those arrive in later
+Phase 17 slices. Account/organization deletion disposes of affected jobs and artifacts, while
+retention expires credentials and terminal job material according to configured policy.
+
 ---
 
 ## 17. Phase 18 target — durable RAG/storage

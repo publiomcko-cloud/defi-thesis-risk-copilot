@@ -159,6 +159,12 @@ Phase 16 implementation coverage is complete. Final deployed-provider and qualif
 
 Test atomic job claims, leases, heartbeat, abandoned recovery, retry/dead-letter, idempotency, cancellation, worker authentication, tenant isolation, graceful shutdown, and cost/concurrency limits.
 
+Phase 17A additionally requires migration upgrade/downgrade/upgrade evidence, schema/index and
+constraint tests, closed-transition/event-sequence tests, worker credential issuance/rotation/
+revocation tests, cross-tenant job-visibility denial, lifecycle disposal, retention cleanup, and
+production worker-configuration failure tests. Claiming, execution, browser jobs UI, and graceful
+worker shutdown remain Phase 17B–17F validation work.
+
 ## 7. Phase 18 validation
 
 Test durable objects, document versions, worker ingestion, tenant-filtered retrieval, citation lineage, deletion/tombstones, re-embedding migration, rollback, and retrieval evaluation.

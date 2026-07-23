@@ -1,6 +1,6 @@
 # V1 Phase 17 Execution Plan — Durable Jobs and Hybrid Workers
 
-Status: **Planned — design reviewed and hardened**
+Status: **In Progress — 17A implemented; 17B–17F planned**
 
 Branch: `agent/v1-phase-17-durable-jobs`
 
@@ -15,6 +15,11 @@ public-demo boundaries.
 
 Where this plan is more restrictive or more specific than the broad Phase 17 contract, follow
 this plan for implementation and update the broad contract during the final documentation pass.
+
+Phase 17A implementation evidence now exists for durable schemas, migration, closed transitions,
+sequenced events, a platform-admin worker registry, separately hashed/scoped worker credentials,
+deletion disposal, retention cleanup, and focused tests. It does not add job submission, internal
+worker protocol endpoints, worker execution, asynchronous analysis, or a browser jobs workspace.
 
 ---
 

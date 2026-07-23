@@ -316,7 +316,7 @@ Execution sequence:
 
 The complete contracts are in [`future_phase_contracts.md`](future_phase_contracts.md).
 
-## V1 Phase 17 — Durable job queue and hybrid workers — Planned
+## V1 Phase 17 — Durable job queue and hybrid workers — In Progress
 
 Goal: execute heavy/retryable/provider work outside the public web process.
 
@@ -334,6 +334,12 @@ Core outcomes:
 - concurrency and cost controls.
 
 Phase 17 must preserve Phase 16 ownership, quotas, actor boundaries, and auditability.
+
+Phase 17A is implemented on `agent/v1-phase-17-durable-jobs`: durable job, attempt, event,
+worker, credential, and artifact schemas; a closed transition service; an audited admin worker
+registry; hashed, scoped worker credential issuance/rotation/revocation; retention and
+account/organization-deletion integration; and migration coverage. Queue submission, worker
+claim/execution, asynchronous analysis, and the jobs UI remain future Phase 17 slices.
 
 ## V1 Phase 18 — Production RAG and knowledge storage — Planned
 

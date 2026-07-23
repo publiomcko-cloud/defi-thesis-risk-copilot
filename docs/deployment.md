@@ -375,6 +375,26 @@ python -m scripts.cleanup_expired_data
 
 Phase 17/20 may schedule cleanup through durable jobs. A scheduler must not be added as an unreliable browser or web-process timer.
 
+### Phase 17A job foundation configuration
+
+The job foundation is disabled by default and does not start a worker or change existing analysis
+requests. Keep these values disabled until the later Phase 17 control-plane and worker slices are
+validated:
+
+```env
+JOBS_ENABLED=false
+WORKER_API_ENABLED=false
+ASYNC_ANALYSIS_ENABLED=false
+VAST_JOB_ENABLED=false
+WORKER_TOKEN_PEPPER=<server-only secret when WORKER_API_ENABLED=true in production>
+```
+
+`WORKER_TOKEN_PEPPER` hashes worker-only credentials and must never be a browser/session token,
+job payload field, log value, or public environment variable. Production configuration fails
+closed if worker APIs are enabled without it. Administrative worker registration and credential
+issuance reuse the existing platform-admin/MFA boundary when MFA is configured; the internal
+worker protocol itself is not available until Phase 17C.
+
 ---
 
 ## 13. Local Docker

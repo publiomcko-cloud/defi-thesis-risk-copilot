@@ -4,6 +4,14 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 
 ## Unreleased — V1 Product Hardening
 
+### Phase 17A Durable Job Foundation
+
+- Added durable PostgreSQL-backed job, attempt, event, worker, worker-credential, and artifact schemas with Phase 16 ownership, tenant, idempotency, cost, and retention constraints.
+- Added the closed job-transition service and ordered, redacted append-only job events.
+- Added audited platform-admin worker registry and one-time worker credential issuance, rotation, revocation, scoped verification, and production fail-closed configuration.
+- Added job/artifact disposal for account and organization deletion plus retention cleanup for terminal jobs, old events, incomplete artifacts, and expired worker credentials.
+- Added SQLite migration evidence, PostgreSQL migration-cycle validation, lifecycle, credential, tenancy, retention, and configuration tests. Queue submission, worker claiming/execution, and async analysis remain later Phase 17 slices.
+
 ### Phase 16 Identity, Ownership, and Quotas
 
 - Added Supabase Auth JWT validation through JWKS with issuer, audience, expiration, subject, email, and signature checks.

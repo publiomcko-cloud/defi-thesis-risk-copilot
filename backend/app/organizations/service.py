@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth.policies import can_manage_members, can_manage_organization
 from app.auth.schemas import UserContext
 from app.auth.service import normalize_email, record_audit_event
+from app.jobs.lifecycle import dispose_jobs_for_organization_deletion
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 from app.organizations.schemas import (
@@ -129,6 +130,7 @@ def delete_organization(db: Session, actor: UserContext, organization_id: str) -
         raise HTTPException(status_code=403, detail="Organization admin role required")
     org.deleted_at = datetime.now(UTC)
     org.status = "disabled"
+    dispose_jobs_for_organization_deletion(db, org.id, now=org.deleted_at)
     db.commit()
     db.refresh(org)
     record_audit_event(db, actor.id, "organization.deleted", "organization", org.id)

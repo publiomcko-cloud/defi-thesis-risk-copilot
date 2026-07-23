@@ -41,11 +41,14 @@ Some work may overlap, but completion labels must respect dependencies.
 
 # V1 Phase 17 — Durable Job Queue and Hybrid Workers
 
-Status: **Planned**
+Status: **In Progress**
 
 ## 17.1 Goal
 
 Move heavy, slow, retryable, and provider-dependent work out of the public web process into a durable, observable, tenant-aware job system.
+
+Phase 17A establishes the durable data/state/credential foundation only. It does not yet expose
+job submission, worker claim/execution, or asynchronous analysis behavior.
 
 ## 17.2 Target architecture
 

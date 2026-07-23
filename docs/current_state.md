@@ -337,7 +337,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 ## 11. Next phases
 
-- Phase 17 — durable jobs and hybrid workers;
+- Phase 17 — In Progress. Phase 17A provides durable job/attempt/event/worker/credential/artifact
+  schemas, lifecycle/retention hooks, and admin worker-credential management. Job submission,
+  worker execution, and asynchronous analysis are not implemented yet;
 - Phase 18 — durable tenant RAG and object/vector storage;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;

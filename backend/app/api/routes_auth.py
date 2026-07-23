@@ -18,6 +18,7 @@ from app.auth.schemas import (
 from app.auth.security import constant_time_equal
 from app.auth.service import record_audit_event, user_response
 from app.db.session import get_db
+from app.jobs.lifecycle import dispose_jobs_for_account_deletion
 from app.models.access_audit_event import AccessAuditEventModel
 from app.models.alert_event import AlertEventModel
 from app.models.consent_record import ConsentRecordModel
@@ -192,6 +193,7 @@ def delete_account(
     user.deleted_at = now
     user.email = f"deleted-{user.id}@deleted.local"
     user.updated_at = now
+    dispose_jobs_for_account_deletion(db, current_user.id, now=now)
     db.commit()
     record_audit_event(db, current_user.id, "account.deletion_requested", "user", current_user.id)
     return AccountDeleteResponse(

@@ -31,6 +31,17 @@ def hash_token(token: str) -> str:
     return hmac.new(salt.encode("utf-8"), token.encode("utf-8"), hashlib.sha256).hexdigest()
 
 
+def hash_worker_token(token: str) -> str:
+    """Hash worker-only credentials in a domain separate from user tokens."""
+    settings = get_settings()
+    pepper = settings.worker_token_pepper or settings.auth_secret_key or "local-dev-worker"
+    return hmac.new(
+        pepper.encode("utf-8"),
+        f"worker:{token}".encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
 def constant_time_equal(left: str, right: str) -> bool:
     return hmac.compare_digest(left, right)
 
