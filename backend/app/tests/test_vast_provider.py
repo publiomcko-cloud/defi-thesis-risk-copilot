@@ -321,7 +321,7 @@ class NoOfferClient:
     def search_offers(self):
         return []
 
-    def rent_instance(self, offer, image, model, disk_gb):
+    def rent_instance(self, offer, image, model, disk_gb, *, request_id):
         raise AssertionError("rent_instance should not be called")
 
     def get_instance_status(self, instance_id):
@@ -344,7 +344,7 @@ class RentFailClient:
             )
         ]
 
-    def rent_instance(self, offer, image, model, disk_gb):
+    def rent_instance(self, offer, image, model, disk_gb, *, request_id):
         raise VastClientError("rent failed")
 
     def get_instance_status(self, instance_id):
@@ -370,7 +370,7 @@ class StatusTransitionClient:
             )
         ]
 
-    def rent_instance(self, offer, image, model, disk_gb):
+    def rent_instance(self, offer, image, model, disk_gb, *, request_id):
         return {
             "instance_id": "instance_status_transition",
             "contract_id": "contract_status_transition",

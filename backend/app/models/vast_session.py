@@ -11,6 +11,7 @@ class VastSessionModel(Base):
     __tablename__ = "vast_sessions"
     __table_args__ = (
         UniqueConstraint("source_job_id", name="uq_vast_sessions_source_job"),
+        UniqueConstraint("provider_request_id", name="uq_vast_sessions_provider_request_id"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -19,6 +20,8 @@ class VastSessionModel(Base):
     source_job_id: Mapped[str | None] = mapped_column(
         ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True, index=True
     )
+    provider_request_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    provider_request_state: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     vast_instance_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     vast_contract_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     offer_id: Mapped[str | None] = mapped_column(String(128), nullable=True)

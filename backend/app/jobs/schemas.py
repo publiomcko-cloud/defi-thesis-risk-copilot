@@ -97,6 +97,13 @@ class WorkerFailureRequest(WorkerLeaseRequest):
     error_code: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9_]+$")
     error_summary: str = Field(min_length=1, max_length=512)
     retryable: bool = False
+    error_category: Literal[
+        "permanent_input",
+        "permanent_authorization",
+        "retryable_infrastructure",
+        "retryable_provider",
+        "uncertain_external_side_effect",
+    ] = "permanent_input"
 
 
 class WorkerCompletionRequest(WorkerLeaseRequest):

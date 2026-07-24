@@ -19,6 +19,7 @@ from app.jobs.control_service import (
     release_running_capacity,
 )
 from app.jobs.lifecycle import mark_job_artifacts_incomplete
+from app.jobs.registry import validate_result_schema
 from app.jobs.schemas import (
     JobResultEnvelope,
     WorkerCancellationResponse,
@@ -32,7 +33,7 @@ from app.jobs.schemas import (
 )
 from app.jobs.state import append_job_event, transition_job
 from app.jobs.worker_service import verify_worker_credential
-from app.models.job import JobAttemptModel, JobModel
+from app.models.job import JobAttemptModel, JobCapacityReservationModel, JobModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 from app.models.vast_session import VastSessionModel
@@ -79,6 +80,9 @@ def claim_next_job(db: Session, identity: WorkerIdentity) -> WorkerClaimResponse
     for job in candidates:
         if not _worker_can_execute(identity, job):
             continue
+        if not _job_schema_is_supported(job):
+            _fail_unsupported_schema_job(db, job)
+            continue
         if not _job_is_executable(db, job):
             _fail_revoked_job(db, job)
             continue
@@ -96,7 +100,8 @@ def claim_next_job(db: Session, identity: WorkerIdentity) -> WorkerClaimResponse
         return WorkerClaimResponse()
 
     lease_token = f"lease_{token_urlsafe(32)}"
-    lease_expires_at = _lease_deadline(job, now)
+    max_lease_expires_at = _attempt_max_lease_horizon(job, now)
+    lease_expires_at = _lease_deadline(job, now, max_lease_expires_at)
     if lease_expires_at <= now:
         _expire_queued_job(db, job)
         db.commit()
@@ -126,6 +131,7 @@ def claim_next_job(db: Session, identity: WorkerIdentity) -> WorkerClaimResponse
             lease_generation=generation,
             started_at=None,
             heartbeat_at=now,
+            max_lease_expires_at=max_lease_expires_at,
             outcome="leased",
             created_at=now,
         )
@@ -166,7 +172,7 @@ def heartbeat_job(
     if job.status not in {"leased", "running"}:
         raise HTTPException(status_code=409, detail="Job cannot accept a heartbeat in its current state.")
     now = datetime.now(UTC)
-    expires_at = _lease_deadline(job, now)
+    expires_at = _lease_deadline(job, now, attempt.max_lease_expires_at)
     if expires_at <= now:
         raise HTTPException(status_code=409, detail="Job deadline has elapsed.")
     job.lease_expires_at = expires_at
@@ -226,17 +232,14 @@ def complete_job(
     job, attempt = _validate_lease(db, identity, job_id, request)
     if job.status != "running":
         raise HTTPException(status_code=409, detail="Job cannot be completed from its current state.")
-    if job.job_type == "analysis.generate" and job.input_schema_version == "analysis.generate.v1":
-        if result.result_schema_version != "analysis.generate.v1":
-            raise HTTPException(status_code=422, detail="Analysis jobs require the analysis.generate.v1 result schema.")
+    validate_result_schema(job.job_type, job.input_schema_version, result)
+    if job.job_type == "analysis.generate":
         persist_async_analysis_completion(db, job, result.result_json)
         job.result_json = {
             "analysis_request_id": job.input_json["_server_context"]["analysis_request_id"],
             "report_id": job.result_resource_id,
         }
-    elif job.job_type == "vast.session.start" and job.input_schema_version == "vast.session.start.v1":
-        if result.result_schema_version != "vast.session.start.v1":
-            raise HTTPException(status_code=422, detail="Vast jobs require the vast.session.start.v1 result schema.")
+    elif job.job_type == "vast.session.start":
         session = _persist_vast_completion(db, job, result.result_json)
         job.result_json = {
             "vast_session_id": job.result_resource_id,
@@ -248,8 +251,6 @@ def complete_job(
             * get_settings().vast_max_session_minutes
             // 60,
         )
-    else:
-        job.result_json = result.result_json
     job.result_schema_version = result.result_schema_version
     job.progress_percent = 100
     job.progress_message = "Worker completed the job."
@@ -278,14 +279,15 @@ def fail_job(
     attempt.error_code = job.error_code
     attempt.error_summary = job.error_summary
     attempt.ended_at = datetime.now(UTC)
-    if request.retryable and job.attempt_count < job.max_attempts and _deadline_allows_retry(job):
+    should_reconcile = request.error_category == "uncertain_external_side_effect"
+    if (request.retryable or should_reconcile) and job.attempt_count < job.max_attempts and _deadline_allows_retry(job):
         transition_job(
             db,
             job,
             "retry_wait",
             worker_id=identity.worker.id,
-            message="Worker reported a retryable failure.",
-            metadata={"error_code": job.error_code},
+            message=("Worker reported an uncertain provider outcome; reconciliation is required." if should_reconcile else "Worker reported a retryable failure."),
+            metadata={"error_code": job.error_code, "error_category": request.error_category},
         )
         attempt.outcome = "retry_wait"
         move_running_capacity_to_pending(db, job)
@@ -377,6 +379,58 @@ def recover_expired_jobs(db: Session, *, now: datetime | None = None) -> int:
     return recovered
 
 
+def recover_durable_jobs(db: Session, *, now: datetime | None = None, dry_run: bool = False) -> dict[str, int]:
+    """Recover queue state without requiring another worker to claim a job.
+
+    This command is deliberately safe to schedule from an operations runtime rather
+    than a browser or web request. Repeated calls converge on the same state.
+    """
+
+    timestamp = now or datetime.now(UTC)
+    stale_workers = _mark_stale_workers(db, timestamp)
+    expired = recover_expired_jobs(db, now=timestamp)
+    authorization_revoked = 0
+    cancellation_finalized = 0
+    jobs = db.execute(
+        select(JobModel)
+        .where(JobModel.deleted_at.is_(None))
+        .where(JobModel.status.in_({"queued", "retry_wait", "leased", "running", "cancel_requested"}))
+        .with_for_update(skip_locked=_is_postgres(db))
+    ).scalars().all()
+    for job in jobs:
+        reason = _job_authorization_reason(db, job)
+        if reason is not None and job.status in {"queued", "retry_wait"}:
+            _fail_revoked_job(db, job)
+            authorization_revoked += 1
+        elif reason is not None and job.status in {"leased", "running"}:
+            transition_job(
+                db,
+                job,
+                "cancel_requested",
+                message="Job execution cancellation requested after authorization revalidation.",
+                metadata={"reason": reason},
+            )
+            job.error_code = "authorization_revoked"
+            job.error_summary = "Job authorization was revoked during controlled execution."
+            authorization_revoked += 1
+        elif job.status == "cancel_requested" and job.leased_by_worker_id is None:
+            _cancel_leased_job(db, job, None, None, commit=False)
+            cancellation_finalized += 1
+    capacity_adjustments = _reconcile_capacity(db, timestamp)
+    counts = {
+        "expired_jobs": expired,
+        "stale_workers": stale_workers,
+        "authorization_revoked": authorization_revoked,
+        "cancellation_finalized": cancellation_finalized,
+        "capacity_adjustments": capacity_adjustments,
+    }
+    if dry_run:
+        db.rollback()
+    else:
+        db.commit()
+    return counts
+
+
 def _claim_statement(db: Session, now: datetime):
     priority = case((JobModel.priority_class == "admin", 0), (JobModel.priority_class == "elevated", 1), else_=2)
     return (
@@ -414,6 +468,20 @@ def _validate_lease(
     attempt = _attempt_for_lease(db, job)
     if attempt is None:
         raise HTTPException(status_code=409, detail="Worker lease attempt is unavailable.")
+    authorization_reason = _job_authorization_reason(db, job)
+    if authorization_reason is not None:
+        if job.status in {"leased", "running"}:
+            transition_job(
+                db,
+                job,
+                "cancel_requested",
+                message="Job authorization was revoked while a worker held the lease.",
+                metadata={"reason": authorization_reason},
+            )
+            job.error_code = "authorization_revoked"
+            job.error_summary = "Job authorization was revoked during controlled execution."
+            db.commit()
+        raise HTTPException(status_code=409, detail="Job authorization is no longer valid.")
     return job, attempt
 
 
@@ -426,13 +494,17 @@ def _worker_can_execute(identity: WorkerIdentity, job: JobModel) -> bool:
 
 
 def _job_is_executable(db: Session, job: JobModel) -> bool:
+    return _job_authorization_reason(db, job) is None
+
+
+def _job_authorization_reason(db: Session, job: JobModel) -> str | None:
     if not job.owner_user_id:
-        return False
+        return "owner_missing"
     owner = db.get(UserModel, job.owner_user_id)
     if owner is None or not owner.is_active or owner.account_status != "active" or owner.deleted_at is not None:
-        return False
+        return "owner_inactive"
     if not job.organization_id:
-        return True
+        return None
     membership = db.execute(
         select(OrganizationMembershipModel)
         .join(OrganizationModel, OrganizationModel.id == OrganizationMembershipModel.organization_id)
@@ -442,19 +514,50 @@ def _job_is_executable(db: Session, job: JobModel) -> bool:
         .where(OrganizationModel.status == "active")
         .where(OrganizationModel.deleted_at.is_(None))
     ).scalars().one_or_none()
-    return membership is not None
+    if membership is None:
+        return "organization_membership_removed"
+    if membership.role not in {"owner", "admin", "member"}:
+        return "organization_role_insufficient"
+    return None
 
 
 def _fail_revoked_job(db: Session, job: JobModel) -> None:
+    reason = _job_authorization_reason(db, job) or "authorization_revoked"
     transition_job(
         db,
         job,
         "failed",
         message="Job authorization was revoked before worker execution.",
-        metadata={"reason": "authorization_revoked"},
+        metadata={"reason": reason},
     )
     job.error_code = "authorization_revoked"
     job.error_summary = "Job authorization was revoked before worker execution."
+    _release_capacity(db, job)
+
+
+def _job_schema_is_supported(job: JobModel) -> bool:
+    try:
+        request = job.input_json.get("request") if isinstance(job.input_json, dict) else None
+        if not isinstance(request, dict):
+            return False
+        from app.jobs.registry import validate_submission_schema
+
+        validate_submission_schema(job.job_type, job.input_schema_version, request)
+        return True
+    except HTTPException:
+        return False
+
+
+def _fail_unsupported_schema_job(db: Session, job: JobModel) -> None:
+    transition_job(
+        db,
+        job,
+        "failed",
+        message="Job input schema is unsupported and cannot be leased.",
+        metadata={"reason": "unsupported_schema"},
+    )
+    job.error_code = "unsupported_schema"
+    job.error_summary = "Job input schema is unsupported and was not executed."
     _release_capacity(db, job)
 
 
@@ -503,11 +606,21 @@ def _clear_lease(job: JobModel) -> None:
     job.updated_at = datetime.now(UTC)
 
 
-def _lease_deadline(job: JobModel, now: datetime) -> datetime:
+def _attempt_max_lease_horizon(job: JobModel, now: datetime) -> datetime:
+    horizon = now + timedelta(seconds=get_settings().job_max_lease_extension_seconds)
+    if job.deadline_at is not None:
+        horizon = min(horizon, _utc(job.deadline_at))
+    return horizon
+
+
+def _lease_deadline(job: JobModel, now: datetime, max_horizon: datetime | None) -> datetime:
     proposed = now + timedelta(seconds=get_settings().job_lease_seconds)
-    if job.deadline_at is None:
-        return proposed
-    return min(proposed, _utc(job.deadline_at))
+    caps = [proposed]
+    if max_horizon is not None:
+        caps.append(_utc(max_horizon))
+    if job.deadline_at is not None:
+        caps.append(_utc(job.deadline_at))
+    return min(caps)
 
 
 def _deadline_allows_retry(job: JobModel, now: datetime | None = None) -> bool:
@@ -552,8 +665,9 @@ def _tenant_running_score(db: Session, job: JobModel) -> tuple[int, int]:
     return user_running, org_running
 
 
-def _mark_stale_workers(db: Session, now: datetime) -> None:
+def _mark_stale_workers(db: Session, now: datetime) -> int:
     threshold = now - timedelta(seconds=get_settings().worker_stale_seconds)
+    stale = 0
     for worker in db.execute(
         select(WorkerModel)
         .where(WorkerModel.status == "active")
@@ -562,6 +676,39 @@ def _mark_stale_workers(db: Session, now: datetime) -> None:
     ).scalars().all():
         worker.status = "stale"
         worker.updated_at = now
+        stale += 1
+    return stale
+
+
+def _reconcile_capacity(db: Session, now: datetime) -> int:
+    """Make durable counters match non-terminal job state after crashes."""
+
+    desired: dict[tuple[str, str], list[int]] = {}
+    active = db.execute(
+        select(JobModel)
+        .where(JobModel.deleted_at.is_(None))
+        .where(JobModel.status.in_({"queued", "retry_wait", "leased", "running", "cancel_requested"}))
+    ).scalars().all()
+    for job in active:
+        for scope_type, scope_id, _, _, _ in _capacity_scopes(job.owner_user_id or "deleted", job.organization_id, job.job_type):
+            current = desired.setdefault((scope_type, scope_id), [0, 0, 0])
+            if job.status in {"queued", "retry_wait"} or (job.status == "cancel_requested" and job.leased_by_worker_id is None):
+                current[0] += 1
+            else:
+                current[1] += 1
+            if scope_type == "global":
+                current[2] += job.reserved_cost_microusd
+    adjusted = 0
+    for record in db.execute(select(JobCapacityReservationModel).with_for_update()).scalars().all():
+        pending, running, cost = desired.get((record.scope_type, record.scope_id), [0, 0, 0])
+        if (record.pending_count, record.running_count, record.reserved_cost_microusd) != (pending, running, cost):
+            record.pending_count = pending
+            record.running_count = running
+            if record.scope_type == "global":
+                record.reserved_cost_microusd = cost
+            record.updated_at = now
+            adjusted += 1
+    return adjusted
 
 
 def _looks_sensitive_progress(message: str) -> bool:

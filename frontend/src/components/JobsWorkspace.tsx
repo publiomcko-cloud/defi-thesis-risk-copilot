@@ -113,7 +113,7 @@ export function JobsWorkspace() {
           {job.error_summary ? <p className="error-text">{job.error_summary}</p> : null}
           {job.status === "dead_letter" || job.status === "failed" ? <p className="notice-text">This job needs an administrator review before it can be replayed.</p> : null}
           <div className="action-row compact-actions">
-            {job.result_resource_type === "report" && job.result_resource_id ? (
+            {job.status === "completed" && job.result_resource_type === "report" && job.result_resource_id ? (
               <Link className="primary-link" href={`/reports/${job.result_resource_id}`}>Open report</Link>
             ) : null}
             {job.result_resource_type && job.result_resource_id && job.result_resource_type !== "report" ? (
@@ -150,6 +150,12 @@ function jobMessage(job: JobResponse): string {
   if (job.progress_message) return job.progress_message;
   if (job.status === "queued" || job.status === "retry_wait") return "Waiting for an eligible worker.";
   if (job.status === "cancel_requested") return "Cancellation has been requested and is waiting for the worker.";
+  if (job.status === "leased") return "A worker holds the lease and is preparing controlled execution.";
+  if (job.status === "running") return "A worker is executing under an active lease.";
+  if (job.status === "failed" && job.error_code === "authorization_revoked") return "Authorization changed before this job could complete.";
+  if (job.status === "failed" && job.error_code === "queue_expired") return "The queue deadline elapsed before a worker accepted this job.";
+  if (job.status === "dead_letter") return "The job reached its final attempt and needs administrator review.";
+  if (job.status === "retry_wait") return "The worker recorded a retryable issue; the next controlled attempt will wait for its backoff window.";
   if (job.status === "completed") return "Completed.";
   if (job.status === "cancelled") return "Cancelled.";
   return "Worker state is being recorded.";

@@ -7,12 +7,11 @@ import os
 import signal
 import time
 from dataclasses import dataclass
-from threading import Event
+from threading import Event, Thread
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
-from app.jobs.analysis_executor import AnalysisExecutionError
-from app.jobs.vast_executor import VastExecutionError
+from app.jobs.errors import JobErrorCategory, JobExecutionError, classify_exception
 from app.jobs.executors import get_executor
 from app.jobs.schemas import WorkerClaimedJob
 
@@ -25,6 +24,16 @@ class ActiveLease:
     job_id: str
     lease_generation: int
     lease_token: str
+
+
+class WorkerControlPlaneError(RuntimeError):
+    def __init__(self, status_code: int, message: str) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+
+
+class LeaseLostError(RuntimeError):
+    """The control plane no longer accepts mutations for this lease."""
 
 
 class WorkerClient:
@@ -48,7 +57,7 @@ class WorkerClient:
                 return json.loads(response.read().decode("utf-8"))
         except HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace")[:256]
-            raise RuntimeError(f"Worker control plane returned HTTP {exc.code}: {detail}") from None
+            raise WorkerControlPlaneError(exc.code, f"Worker control plane returned HTTP {exc.code}: {detail}") from None
         except URLError as exc:
             raise RuntimeError("Worker control plane is unavailable") from exc
 
@@ -96,46 +105,50 @@ def run_worker(*, once: bool = False) -> int:
             if cancelled.get("cancellation_requested"):
                 client.request("POST", f"/internal/workers/v1/jobs/{job.id}/release", lease_payload)
             else:
+                executor = get_executor(job.job_type)
                 try:
-                    executor = get_executor(job.job_type)
-                    result = executor.execute(job)
-                    cancelled = client.request("GET", f"/internal/workers/v1/jobs/{job.id}/cancellation")
-                    if cancelled.get("cancellation_requested"):
-                        _cancel_executor(executor, job)
+                    result = _execute_with_supervision(client, executor, job, lease_payload, stop_event)
+                    client.request(
+                        "POST",
+                        f"/internal/workers/v1/jobs/{job.id}/progress",
+                        {**lease_payload, "progress_percent": 90, "progress_message": _progress_message(job.job_type, "persisting")},
+                    )
+                    client.request(
+                        "POST",
+                        f"/internal/workers/v1/jobs/{job.id}/complete",
+                        {**lease_payload, "result": result.model_dump(mode="json")},
+                    )
+                except LeaseLostError:
+                    _cancel_executor(executor, job)
+                    logger.info("Worker lease ended while executing job %s.", job.id)
+                except JobExecutionError as exc:
+                    _cancel_executor(executor, job)
+                    if exc.category == JobErrorCategory.CANCELLATION:
                         client.request("POST", f"/internal/workers/v1/jobs/{job.id}/release", lease_payload)
                     else:
                         client.request(
                             "POST",
-                            f"/internal/workers/v1/jobs/{job.id}/progress",
-                            {**lease_payload, "progress_percent": 90, "progress_message": _progress_message(job.job_type, "persisting")},
+                            f"/internal/workers/v1/jobs/{job.id}/fail",
+                            {
+                                **lease_payload,
+                                "error_code": exc.code,
+                                "error_summary": exc.safe_summary,
+                                "retryable": exc.retryable,
+                                "error_category": exc.category.value,
+                            },
                         )
-                        client.request(
-                            "POST",
-                            f"/internal/workers/v1/jobs/{job.id}/complete",
-                            {**lease_payload, "result": result.model_dump(mode="json")},
-                        )
-                except (AnalysisExecutionError, VastExecutionError) as exc:
-                    _cancel_executor(get_executor(job.job_type), job)
+                except Exception as exc:
+                    classified = classify_exception(exc)
+                    _cancel_executor(executor, job)
                     client.request(
                         "POST",
                         f"/internal/workers/v1/jobs/{job.id}/fail",
                         {
                             **lease_payload,
-                            "error_code": "execution_input_invalid",
-                            "error_summary": str(exc),
-                            "retryable": False,
-                        },
-                    )
-                except Exception:
-                    _cancel_executor(get_executor(job.job_type), job)
-                    client.request(
-                        "POST",
-                        f"/internal/workers/v1/jobs/{job.id}/fail",
-                        {
-                            **lease_payload,
-                            "error_code": "execution_failed",
-                            "error_summary": "The worker could not complete the controlled job.",
-                            "retryable": False,
+                            "error_code": classified.code,
+                            "error_summary": classified.safe_summary,
+                            "retryable": classified.retryable,
+                            "error_category": classified.category.value,
                         },
                     )
             active = None
@@ -173,6 +186,53 @@ def _cancel_executor(executor: object, job: WorkerClaimedJob) -> None:
             cancel(job)
         except Exception:
             logger.warning("Worker cleanup failed for job %s.", job.id)
+
+
+def _execute_with_supervision(
+    client: WorkerClient,
+    executor: object,
+    job: WorkerClaimedJob,
+    lease_payload: dict,
+    stop_event: Event,
+):
+    """Run work while a control-plane lease remains owned by this worker."""
+
+    done = Event()
+    outcome: dict[str, object] = {}
+
+    def run() -> None:
+        try:
+            outcome["result"] = executor.execute(job)  # type: ignore[attr-defined]
+        except Exception as exc:  # The worker maps errors after supervision finishes.
+            outcome["error"] = exc
+        finally:
+            done.set()
+
+    thread = Thread(target=run, name=f"job-{job.id}", daemon=True)
+    thread.start()
+    interval = max(float(os.getenv("JOB_HEARTBEAT_SECONDS", "20")), 0.1)
+    while not done.wait(interval):
+        if stop_event.is_set():
+            _cancel_executor(executor, job)
+            raise JobExecutionError(JobErrorCategory.CANCELLATION, "worker_shutdown", "Worker shutdown requested cancellation.")
+        try:
+            heartbeat = client.request("POST", f"/internal/workers/v1/jobs/{job.id}/heartbeat", lease_payload)
+            if heartbeat.get("status") not in {"leased", "running"}:
+                raise LeaseLostError()
+            cancelled = client.request("GET", f"/internal/workers/v1/jobs/{job.id}/cancellation")
+        except WorkerControlPlaneError as exc:
+            if exc.status_code == 409:
+                raise LeaseLostError() from exc
+            raise
+        if cancelled.get("cancellation_requested") or cancelled.get("terminal"):
+            _cancel_executor(executor, job)
+            raise JobExecutionError(JobErrorCategory.CANCELLATION, "job_cancelled", "Job cancellation was requested.")
+    if "error" in outcome:
+        raise classify_exception(outcome["error"])  # type: ignore[arg-type]
+    if stop_event.is_set():
+        _cancel_executor(executor, job)
+        raise JobExecutionError(JobErrorCategory.CANCELLATION, "worker_shutdown", "Worker shutdown requested cancellation.")
+    return outcome["result"]
 
 
 def _progress_message(job_type: str, stage: str) -> str:

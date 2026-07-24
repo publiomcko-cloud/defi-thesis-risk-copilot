@@ -21,6 +21,7 @@ from app.jobs.worker_service import issue_worker_credential, register_worker
 from app.main import app
 from app.models.job import JobModel
 from app.models.user import UserModel
+from app.reports.templates import REQUIRED_REPORT_SECTIONS
 
 
 @pytest.fixture
@@ -77,15 +78,15 @@ def test_worker_protocol_leases_progresses_completes_and_rejects_stale_mutations
         json={
             **payload,
             "result": {
-                "result_schema_version": "fake_executor.v1",
-                "result_json": {"execution_mode": "fake_deterministic"},
+                "result_schema_version": "analysis.generate.v1",
+                "result_json": _worker_result(lease),
             },
         },
         headers=_worker_auth(worker_token),
     )
     assert complete.status_code == 200
     assert complete.json()["status"] == "completed"
-    stale = client.post(f"/internal/workers/v1/jobs/{job['id']}/complete", json={**payload, "result": {"result_schema_version": "fake_executor.v1", "result_json": {}}}, headers=_worker_auth(worker_token))
+    stale = client.post(f"/internal/workers/v1/jobs/{job['id']}/complete", json={**payload, "result": {"result_schema_version": "analysis.generate.v1", "result_json": _worker_result(lease)}}, headers=_worker_auth(worker_token))
     assert stale.status_code == 409
 
 
@@ -209,8 +210,15 @@ def _submit_job(client: TestClient, token: str, key: str) -> dict:
         "/api/jobs",
         json={
             "job_type": "analysis.generate",
-            "input_schema_version": "v1",
-            "input_json": {"strategy": f"Queue protocol test {key}."},
+            "input_schema_version": "analysis.generate.v1",
+            "input_json": {
+                "analysis_request": {
+                    "strategy_description": f"Queue protocol test {key}.",
+                    "protocols": ["pendle"],
+                    "manual_inputs": {},
+                    "analysis_depth": "standard",
+                }
+            },
         },
         headers={**_user_auth(token), "Idempotency-Key": key},
     )
@@ -235,3 +243,29 @@ def _user_auth(token: str) -> dict[str, str]:
 
 def _worker_auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _worker_result(lease: dict) -> dict:
+    request = lease["input_json"]["request"]["analysis_request"]
+    return {
+        "analysis_request": {
+            "strategy_description": request["strategy_description"],
+            "protocols": request["protocols"],
+            "market_url": request.get("market_url"),
+            "manual_inputs": request["manual_inputs"],
+            "analysis_depth": request["analysis_depth"],
+        },
+        "report": {
+            "report_id": lease["input_json"]["_server_context"]["report_id"],
+            "status": "completed",
+            "risk_rating": "Very Risky",
+            "executive_summary": "Deterministic test report.",
+            "strategy_description": request["strategy_description"],
+            "protocols": request["protocols"],
+            "assumptions": ["Deterministic scoring used."],
+            "missing_data": [],
+            "sections": [{"title": title, "content": "Test report."} for title in REQUIRED_REPORT_SECTIONS],
+            "sources": [],
+            "disclaimer": "This report is for research and educational purposes only. It is not financial advice.",
+        },
+    }

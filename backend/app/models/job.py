@@ -118,6 +118,9 @@ class JobAttemptModel(Base):
     lease_generation: Mapped[int] = mapped_column(Integer, nullable=False)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Fixed at claim time. Heartbeats may renew the current lease, but never move
+    # this attempt-wide execution horizon forward.
+    max_lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     outcome: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)

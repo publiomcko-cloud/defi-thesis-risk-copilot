@@ -16,6 +16,7 @@ from app.auth.schemas import UserContext
 from app.auth.service import record_audit_event, user_context
 from app.core.config import get_settings
 from app.jobs.access import get_visible_job
+from app.jobs.registry import validate_submission_schema
 from app.jobs.schemas import (
     JobEventResponse,
     JobEventsResponse,
@@ -80,6 +81,7 @@ def submit_job(
     if len(idempotency_key.strip()) < 8 or len(idempotency_key) > 128:
         raise HTTPException(status_code=422, detail="Idempotency-Key must be between 8 and 128 characters.")
     _validate_submission_input(request.input_json)
+    validate_submission_schema(request.job_type, request.input_schema_version, request.input_json)
     scope = _resolve_scope(db, actor, request.organization_id)
     fingerprint = _request_fingerprint(request, scope["organization_id"])
 
@@ -246,7 +248,7 @@ def replay_job(db: Session, operator: UserContext, job_id: str) -> JobModel:
     owner = db.get(UserModel, original.owner_user_id)
     if owner is None or not owner.is_active or owner.account_status != "active" or owner.deleted_at is not None:
         raise HTTPException(status_code=409, detail="Replay target is no longer active.")
-    if original.organization_id and not has_org_role(db, owner.id, original.organization_id, READ_ORG_ROLES):
+    if original.organization_id and not has_org_role(db, owner.id, original.organization_id, WRITE_ORG_ROLES):
         raise HTTPException(status_code=409, detail="Replay organization scope is no longer active.")
     request_input = original.input_json.get("request") if isinstance(original.input_json, dict) else None
     if not isinstance(request_input, dict):

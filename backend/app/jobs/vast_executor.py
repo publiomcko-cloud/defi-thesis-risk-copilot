@@ -7,13 +7,14 @@ from sqlalchemy.orm import Session
 
 from app.auth.service import user_context
 from app.db.session import SessionLocal
+from app.jobs.errors import JobErrorCategory, JobExecutionError
 from app.jobs.schemas import JobResultEnvelope, WorkerClaimedJob
 from app.llm.vast.lifecycle import destroy_session, start_session
 from app.models.user import UserModel
 from app.models.vast_session import VastSessionModel
 
 
-class VastExecutionError(RuntimeError):
+class VastExecutionError(JobExecutionError):
     """A Vast job cannot safely start or reconcile a provider session."""
 
 
@@ -33,7 +34,7 @@ class VastJobExecutor:
         with self._session_factory() as db:
             owner = db.get(UserModel, owner_id)
             if owner is None:
-                raise VastExecutionError("Vast job owner is unavailable.")
+                raise VastExecutionError(JobErrorCategory.PERMANENT_AUTHORIZATION, "vast_owner_unavailable", "Vast job owner is unavailable.")
             try:
                 session = self._starter(
                     db,
@@ -44,9 +45,14 @@ class VastJobExecutor:
                     source_job_id=job.id,
                 )
             except HTTPException as exc:
-                raise VastExecutionError(str(exc.detail)) from exc
+                raise VastExecutionError(JobErrorCategory.PERMANENT_INPUT, "vast_request_rejected", str(exc.detail)) from exc
             if session.status != "ready":
-                raise VastExecutionError(session.last_error or f"Vast session ended in {session.status} state.")
+                category = (
+                    JobErrorCategory.UNCERTAIN_EXTERNAL_SIDE_EFFECT
+                    if session.provider_request_state in {"submitted_unknown", "reconciliation_failed"}
+                    else JobErrorCategory.RETRYABLE_PROVIDER
+                )
+                raise VastExecutionError(category, "vast_session_not_ready", session.last_error or "Vast session did not reach ready state.")
             return JobResultEnvelope(
                 result_schema_version="vast.session.start.v1",
                 result_json={
@@ -77,7 +83,7 @@ def _vast_input(job: WorkerClaimedJob) -> tuple[bool, bool, str, str]:
         session_id = context["vast_session_id"]
         owner_id = context["owner_user_id"]
     except (KeyError, TypeError) as exc:
-        raise VastExecutionError("Vast job input is invalid.") from exc
+        raise VastExecutionError(JobErrorCategory.PERMANENT_INPUT, "vast_input_invalid", "Vast job input is invalid.") from exc
     if not (
         isinstance(allow_remote_gpu, bool)
         and isinstance(warm_instance, bool)
@@ -86,7 +92,7 @@ def _vast_input(job: WorkerClaimedJob) -> tuple[bool, bool, str, str]:
         and isinstance(owner_id, str)
         and owner_id
     ):
-        raise VastExecutionError("Vast job input is invalid.")
+        raise VastExecutionError(JobErrorCategory.PERMANENT_INPUT, "vast_input_invalid", "Vast job input is invalid.")
     return allow_remote_gpu, warm_instance, session_id, owner_id
 
 

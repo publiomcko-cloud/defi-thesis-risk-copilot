@@ -10,6 +10,7 @@ from app.core.config import get_settings
 from app.jobs.control_service import submit_job
 from app.jobs.schemas import JobSubmissionRequest
 from app.models.analysis_request import AnalysisRequestModel
+from app.models.artifact import ArtifactModel
 from app.models.job import JobModel
 from app.models.report import ReportModel
 from app.quotas.service import ACTION_ANALYSIS, consume_quota
@@ -184,6 +185,24 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
         visibility=job.visibility,
         source_job_id=job.id,
     )
+    artifact = db.get(ArtifactModel, f"artifact_{job.id}")
+    if artifact is None:
+        db.add(
+            ArtifactModel(
+                id=f"artifact_{job.id}",
+                job_id=job.id,
+                artifact_type="report_reference",
+                status="available",
+                owner_user_id=job.owner_user_id,
+                organization_id=job.organization_id,
+                visibility=job.visibility,
+                resource_type="report",
+                resource_id=context["report_id"],
+                storage_backend="database",
+                content_type="application/json",
+                retention_until=datetime.now(UTC) + timedelta(days=get_settings().job_terminal_retention_days),
+            )
+        )
     db.flush()
 
 
