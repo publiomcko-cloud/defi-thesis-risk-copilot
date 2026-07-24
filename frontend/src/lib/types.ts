@@ -225,9 +225,33 @@ export type AnalysisRequest = {
 
 export type AnalysisResponse = {
   report_id: string;
-  status: "completed";
-  risk_rating: RiskRating;
-  summary: string;
+  status: JobStatus;
+  risk_rating?: RiskRating | null;
+  summary?: string | null;
+  job_id?: string | null;
+};
+
+export type JobStatus =
+  | "queued"
+  | "leased"
+  | "running"
+  | "retry_wait"
+  | "completed"
+  | "failed"
+  | "cancel_requested"
+  | "cancelled"
+  | "dead_letter";
+
+export type JobResponse = {
+  id: string;
+  job_type: string;
+  status: JobStatus;
+  progress_percent: number;
+  progress_message?: string | null;
+  result_resource_type?: string | null;
+  result_resource_id?: string | null;
+  error_code?: string | null;
+  error_summary?: string | null;
 };
 
 export type Protocol = {

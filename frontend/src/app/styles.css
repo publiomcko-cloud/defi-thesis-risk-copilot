@@ -293,6 +293,35 @@ textarea {
   gap: 18px;
 }
 
+.analysis-job-status {
+  align-items: start;
+  border-bottom: 1px solid var(--line);
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 16px 0;
+}
+
+.analysis-job-status h3,
+.analysis-job-status p {
+  margin: 0;
+}
+
+.analysis-job-status p:not(.eyebrow) {
+  color: var(--muted);
+  font-weight: 500;
+  line-height: 1.5;
+  margin-top: 6px;
+}
+
+.analysis-job-actions {
+  align-items: end;
+  display: grid;
+  gap: 8px;
+  justify-items: end;
+}
+
 label,
 fieldset {
   border: 0;

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import JSON
 
@@ -18,6 +18,7 @@ class AnalysisRequestModel(Base):
             "deleted_at",
         ),
         Index("ix_analysis_requests_anonymous_expires", "anonymous_session_id", "expires_at"),
+        UniqueConstraint("source_job_id", name="uq_analysis_requests_source_job"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -26,6 +27,9 @@ class AnalysisRequestModel(Base):
     market_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     manual_inputs_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     analysis_depth: Mapped[str] = mapped_column(String(32), nullable=False)
+    source_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     owner_user_id: Mapped[str | None] = mapped_column(
         ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
     )

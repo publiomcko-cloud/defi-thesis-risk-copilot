@@ -15,7 +15,6 @@ from app.auth.service import create_user, user_context
 from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
-from app.jobs.executors import get_executor
 from app.jobs import worker_runner
 from app.jobs.schemas import WorkerClaimedJob, WorkerCredentialCreateRequest, WorkerRegistrationRequest
 from app.jobs.worker_service import issue_worker_credential, register_worker
@@ -136,23 +135,9 @@ def test_worker_protocol_scope_cancellation_and_lease_recovery(worker_client) ->
     assert stale_start.status_code == 409
 
 
-def test_worker_protocol_feature_gate_and_fake_executor_are_safe(worker_client, monkeypatch) -> None:
+def test_worker_protocol_feature_gate_is_safe(worker_client, monkeypatch) -> None:
     client, Session = worker_client
     _, worker_token = _seed_owner_and_worker(Session)
-    job = WorkerClaimedJob(
-        id="job_fake",
-        job_type="analysis.generate",
-        input_schema_version="v1",
-        input_json={"request": {"strategy": "No provider call."}},
-        lease_generation=1,
-        lease_token="lease_abcdefghijklmnopqrstuvwxyz",
-        lease_expires_at=datetime.now(UTC) + timedelta(seconds=30),
-        deadline_at=None,
-    )
-    result = get_executor("analysis.generate").execute(job)
-    assert result["execution_mode"] == "fake_deterministic"
-    assert "strategy" not in str(result)
-
     monkeypatch.setenv("WORKER_API_ENABLED", "false")
     get_settings.cache_clear()
     response = client.post("/internal/workers/v1/claim", json={"protocol_version": "v1"}, headers=_worker_auth(worker_token))

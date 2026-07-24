@@ -1,6 +1,6 @@
 # V1 Phase 17 Execution Plan — Durable Jobs and Hybrid Workers
 
-Status: **In Progress — 17A–17C implemented; 17D–17F planned**
+Status: **In Progress — 17A–17D implemented; 17E–17F planned**
 
 Branch: `agent/v1-phase-17-durable-jobs`
 
@@ -16,10 +16,12 @@ public-demo boundaries.
 Where this plan is more restrictive or more specific than the broad Phase 17 contract, follow
 this plan for implementation and update the broad contract during the final documentation pass.
 
-Phase 17A implementation evidence now exists for durable schemas, migration, closed transitions,
-sequenced events, a platform-admin worker registry, separately hashed/scoped worker credentials,
-deletion disposal, retention cleanup, and focused tests. It does not add job submission, internal
-worker protocol endpoints, worker execution, asynchronous analysis, or a browser jobs workspace.
+Phase 17A–17D implementation evidence now exists for durable schemas and migrations, closed
+transitions, queue admission, worker credential lifecycle, internal leasing, and authenticated
+asynchronous analysis. `analysis.generate` uses preallocated report and analysis IDs, an immutable
+server-owned snapshot, source-job uniqueness, and transactional report completion. The anonymous
+public-demo route remains synchronous. Vast provider execution and the broader jobs workspace are
+still planned.
 
 ---
 
@@ -755,6 +757,15 @@ Checkpoint:
 - membership/account revocation before execution prevents work;
 - browser flow passes with tokens still confined to HttpOnly cookies;
 - disabling the feature flag restores the documented synchronous fallback without data loss.
+
+Implementation note: 17D is implemented. `ASYNC_ANALYSIS_ENABLED=false` keeps every analysis
+synchronous. When it is enabled with jobs and the worker protocol enabled, real authenticated
+users submit an idempotent `analysis.generate.v1` job; anonymous/public-demo requests remain on
+the existing synchronous path. The local trusted worker runs the same controlled deterministic
+workflow, returns a schema-bounded result to the control plane, and never persists the report
+directly. The control plane creates the linked analysis request/report and completes the job in
+one transaction. The frontend polls the authenticated job endpoint and presents waiting,
+leased/running, retry, failure, cancellation, and completed states.
 
 ### 17E — Vast adapter and operational hardening
 

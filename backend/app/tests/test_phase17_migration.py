@@ -64,6 +64,10 @@ def test_phase17a_upgrade_downgrade_upgrade_has_durable_job_contract(tmp_path: P
         "ix_artifacts_org_visibility_deleted",
         "ix_artifacts_retention",
     }
+    assert "source_job_id" in _columns(connection, "analysis_requests")
+    assert "source_job_id" in _columns(connection, "reports")
+    assert frozenset({"source_job_id"}) in _unique_column_sets(connection, "analysis_requests")
+    assert frozenset({"source_job_id"}) in _unique_column_sets(connection, "reports")
     connection.close()
 
     _alembic(database_path, "downgrade", PHASE16_HEAD)
@@ -75,6 +79,10 @@ def test_phase17a_upgrade_downgrade_upgrade_has_durable_job_contract(tmp_path: P
 
 def _indexes(connection: sqlite3.Connection, table: str) -> set[str]:
     return {row[1] for row in connection.execute(f"PRAGMA index_list({table})")}
+
+
+def _columns(connection: sqlite3.Connection, table: str) -> set[str]:
+    return {row[1] for row in connection.execute(f"PRAGMA table_info({table})")}
 
 
 def _unique_column_sets(connection: sqlite3.Connection, table: str) -> set[frozenset[str]]:

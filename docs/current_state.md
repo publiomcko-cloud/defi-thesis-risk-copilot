@@ -47,7 +47,7 @@ Current status:
 
 ```text
 V1 Phase 16 — Complete and merge-ready
-V1 Phase 17 — In progress; 17A–17C are implemented on `agent/v1-phase-17-durable-jobs`
+V1 Phase 17 — In progress; 17A–17D are implemented on `agent/v1-phase-17-durable-jobs`
 V1 Phases 18–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -325,8 +325,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 - public rate limiting is still in-process, not distributed;
 - current RAG index is local JSON and intentionally public-curated only; organization metadata is not document/vector storage;
-- authenticated durable job control-plane APIs and internal fake-worker queue mechanics exist on
-  the Phase 17 branch, but no asynchronous analysis or real provider execution rollout exists yet;
+- authenticated durable job control-plane APIs and asynchronous `analysis.generate` execution
+  exist on the Phase 17 branch behind disabled-by-default worker and async-analysis flags; Vast
+  provider execution and the broader jobs workspace are not implemented;
 - Render may cold-start;
 - several market adapters remain partial/manual fallbacks;
 - monitoring/discovery are manually initiated;
@@ -343,8 +344,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   schemas, lifecycle/retention hooks, and admin worker-credential management. Phase 17B adds
   authenticated tenant-scoped job submission, list/detail/event/cancel APIs, idempotency,
   capacity reservation, queue expiry, and linked operator replay. Phase 17C adds an internal
-  credential-authenticated worker protocol and fake executor, but asynchronous analysis and real
-  provider execution are not implemented yet;
+  credential-authenticated worker protocol. Phase 17D migrates authenticated analysis behind
+  `ASYNC_ANALYSIS_ENABLED`, with immutable inputs, preallocated report IDs, transactional
+  completion, source-job uniqueness, progress/cancellation UX, and synchronous anonymous fallback.
+  Vast provider execution is not implemented yet;
 - Phase 18 — durable tenant RAG and object/vector storage;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;

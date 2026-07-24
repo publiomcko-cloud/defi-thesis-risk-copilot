@@ -434,7 +434,7 @@ Key invariants:
 
 See [`future_phase_contracts.md`](future_phase_contracts.md).
 
-### Phase 17A–17C implemented foundation
+### Phase 17A–17D implemented foundation
 
 PostgreSQL now persists job, attempt, event, worker, worker-credential, and artifact metadata.
 Job transitions are restricted to a closed service, events are append-only and sequenced, and
@@ -445,10 +445,15 @@ reservation rows keep quota, user/organization/global/provider capacity, preallo
 and the initial event transactional. The internal worker protocol now leases jobs with PostgreSQL
 `SKIP LOCKED`, a monotonic lease generation, a hashed per-attempt token, durable attempt rows, and
 bounded heartbeat/retry/cancellation recovery. It is excluded from the browser BFF. The optional
-local worker is outbound-only and runs a fake deterministic executor; asynchronous analysis and
-provider execution arrive in later Phase 17 slices. Account/organization deletion disposes of
-affected jobs and artifacts, while retention expires credentials and terminal job material
-according to configured policy.
+local worker is outbound-only. For `analysis.generate.v1`, it runs the existing deterministic
+analysis workflow with the preallocated report ID and returns a bounded completion payload; the
+control plane transactionally persists the linked report and analysis request. This trusted
+co-located Compose profile receives the configured database and public-curated knowledge-base
+mount; a remote worker must not receive general production database credentials without an explicit
+least-privilege deployment design. `ASYNC_ANALYSIS_ENABLED` gates authenticated queue use, while
+anonymous public analysis remains synchronous. Provider execution arrives in later Phase 17 slices.
+Account/organization deletion disposes of affected jobs and artifacts, while retention expires
+credentials and terminal job material according to configured policy.
 
 ---
 

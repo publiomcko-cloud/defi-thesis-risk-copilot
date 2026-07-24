@@ -227,6 +227,8 @@ class JobResponse(BaseModel):
     max_attempts: int = Field(gt=0)
     result_resource_type: str | None
     result_resource_id: str | None
+    error_code: str | None
+    error_summary: str | None
     queue_expires_at: datetime | None
     deadline_at: datetime | None
     replay_of_job_id: str | None

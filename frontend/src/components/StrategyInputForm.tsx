@@ -1,10 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
-import { analyzeStrategy } from "@/lib/api";
-import type { ManualInputs } from "@/lib/types";
+import { analyzeStrategy, cancelJob, fetchJob } from "@/lib/api";
+import type { AnalysisResponse, JobResponse, ManualInputs } from "@/lib/types";
 
 const demoPrompt =
   "Analyze a hypothetical Pendle PT strategy using Morpho borrow. Evaluate fixed yield, borrow cost, liquidity, oracle risk, liquidation risk, exit before maturity, and monitoring checklist.";
@@ -60,7 +60,38 @@ export function StrategyInputForm() {
   const [marketUrl, setMarketUrl] = useState("");
   const [manualInputs, setManualInputs] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [analysisJob, setAnalysisJob] = useState<AnalysisResponse | null>(null);
+  const [jobDetail, setJobDetail] = useState<JobResponse | null>(null);
+  const [isCancelling, setIsCancelling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!analysisJob?.job_id || isTerminalJob(analysisJob.status)) {
+      return;
+    }
+    let active = true;
+    const poll = async () => {
+      try {
+        const job = await fetchJob(analysisJob.job_id!);
+        if (!active) return;
+        setJobDetail(job);
+        setAnalysisJob((current) => current ? { ...current, status: job.status } : current);
+        if (job.status === "completed" && job.result_resource_id) {
+          router.push(`/reports/${job.result_resource_id}`);
+        }
+      } catch (caught) {
+        if (active) {
+          setError(caught instanceof Error ? caught.message : "The queued analysis could not be checked.");
+        }
+      }
+    };
+    void poll();
+    const interval = window.setInterval(() => void poll(), 2000);
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [analysisJob?.job_id, analysisJob?.status, router]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -71,6 +102,8 @@ export function StrategyInputForm() {
     }
 
     setIsSubmitting(true);
+    setAnalysisJob(null);
+    setJobDetail(null);
     try {
       const response = await analyzeStrategy({
         strategy_description: strategyDescription,
@@ -78,8 +111,12 @@ export function StrategyInputForm() {
         market_url: marketUrl || null,
         manual_inputs: normalizeManualInputs(manualInputs),
         analysis_depth: "standard"
-      });
-      router.push(`/reports/${response.report_id}`);
+      }, createIdempotencyKey());
+      if (response.status === "completed") {
+        router.push(`/reports/${response.report_id}`);
+      } else {
+        setAnalysisJob(response);
+      }
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -112,6 +149,23 @@ export function StrategyInputForm() {
     setMarketUrl("");
     setManualInputs({});
     setError(null);
+    setAnalysisJob(null);
+    setJobDetail(null);
+  }
+
+  async function requestCancellation() {
+    if (!analysisJob?.job_id) return;
+    setIsCancelling(true);
+    setError(null);
+    try {
+      const job = await cancelJob(analysisJob.job_id);
+      setJobDetail(job);
+      setAnalysisJob((current) => current ? { ...current, status: job.status } : current);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "The queued analysis could not be cancelled.");
+    } finally {
+      setIsCancelling(false);
+    }
   }
 
   return (
@@ -198,11 +252,68 @@ export function StrategyInputForm() {
 
       {error ? <p className="error" role="alert">{error}</p> : null}
 
+      {analysisJob ? (
+        <section aria-live="polite" className="analysis-job-status">
+          <div>
+            <p className="eyebrow">Analysis job</p>
+            <h3>{jobStatusMessage(analysisJob.status, jobDetail?.error_code)}</h3>
+            <p>{jobDetail?.progress_message ?? "Your report will appear when the controlled worker completes it."}</p>
+          </div>
+          <div className="analysis-job-actions">
+            <span className="status-badge">{analysisJob.status.replaceAll("_", " ")}</span>
+            {canCancelJob(analysisJob.status) ? (
+              <button className="secondary-action" disabled={isCancelling} onClick={() => void requestCancellation()} type="button">
+                {isCancelling ? "Cancelling..." : "Cancel analysis"}
+              </button>
+            ) : null}
+          </div>
+          {isFailureStatus(analysisJob.status) ? (
+            <p className="error" role="alert">{jobDetail?.error_summary ?? "The analysis did not complete. You can submit it again."}</p>
+          ) : null}
+        </section>
+      ) : null}
+
       <button className="primary-action" disabled={isSubmitting} type="submit">
         {isSubmitting ? "Analyzing and building report..." : "Analyze Strategy"}
       </button>
     </form>
   );
+}
+
+function createIdempotencyKey(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : `analysis-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function isTerminalJob(status: AnalysisResponse["status"]): boolean {
+  return ["completed", "failed", "cancelled", "dead_letter"].includes(status);
+}
+
+function canCancelJob(status: AnalysisResponse["status"]): boolean {
+  return ["queued", "leased", "running", "retry_wait", "cancel_requested"].includes(status);
+}
+
+function isFailureStatus(status: AnalysisResponse["status"]): boolean {
+  return ["failed", "cancelled", "dead_letter"].includes(status);
+}
+
+function jobStatusMessage(status: AnalysisResponse["status"], errorCode?: string | null): string {
+  if (status === "failed" && errorCode === "queue_expired") {
+    return "Queue expired before a worker accepted the analysis";
+  }
+  const messages: Record<AnalysisResponse["status"], string> = {
+    queued: "Waiting for an available worker",
+    leased: "A worker accepted the analysis",
+    running: "Generating the deterministic report",
+    retry_wait: "Waiting to retry the analysis",
+    completed: "Report completed",
+    failed: "Analysis failed",
+    cancel_requested: "Cancellation requested",
+    cancelled: "Analysis cancelled",
+    dead_letter: "Analysis could not be completed"
+  };
+  return messages[status];
 }
 
 function normalizeManualInputs(inputs: Record<string, string>): ManualInputs {

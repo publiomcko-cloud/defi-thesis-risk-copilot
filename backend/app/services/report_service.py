@@ -18,6 +18,7 @@ def save_report(
     visibility: str = "private",
     anonymous_session_id: str | None = None,
     expires_at: datetime | None = None,
+    source_job_id: str | None = None,
 ) -> ReportResponse:
     db.add(
         ReportModel(
@@ -33,6 +34,7 @@ def save_report(
             visibility=visibility,
             anonymous_session_id=anonymous_session_id,
             expires_at=expires_at,
+            source_job_id=source_job_id,
         )
     )
     return report

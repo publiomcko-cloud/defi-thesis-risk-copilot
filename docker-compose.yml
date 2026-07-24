@@ -76,15 +76,23 @@ services:
       dockerfile: Dockerfile.backend
     command: python -m app.jobs.worker_runner
     environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/defi_copilot
       WORKER_CONTROL_PLANE_URL: http://backend:8000
       WORKER_CREDENTIAL: ${WORKER_CREDENTIAL:-}
       WORKER_PROTOCOL_VERSION: ${WORKER_PROTOCOL_VERSION:-v1}
       WORKER_POLL_SECONDS: ${WORKER_POLL_SECONDS:-2}
+      LLM_SYNTHESIS_ENABLED: ${LLM_SYNTHESIS_ENABLED:-false}
+      LLM_PROVIDER: ${LLM_PROVIDER:-disabled}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+      RAG_SEMANTIC_ENABLED: ${RAG_SEMANTIC_ENABLED:-false}
+      RAG_EMBEDDING_PROVIDER: ${RAG_EMBEDDING_PROVIDER:-local_semantic}
     depends_on:
       backend:
         condition: service_started
     volumes:
       - ./backend:/workspace/backend:ro
+      - ./knowledge_base:/workspace/knowledge_base:ro
     restart: unless-stopped
 
   postgres:

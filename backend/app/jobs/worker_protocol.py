@@ -34,6 +34,7 @@ from app.models.job import JobAttemptModel, JobModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
+from app.services.analysis_service import persist_async_analysis_completion
 
 
 @dataclass(frozen=True)
@@ -222,8 +223,17 @@ def complete_job(
     job, attempt = _validate_lease(db, identity, job_id, request)
     if job.status != "running":
         raise HTTPException(status_code=409, detail="Job cannot be completed from its current state.")
+    if job.job_type == "analysis.generate" and job.input_schema_version == "analysis.generate.v1":
+        if result.result_schema_version != "analysis.generate.v1":
+            raise HTTPException(status_code=422, detail="Analysis jobs require the analysis.generate.v1 result schema.")
+        persist_async_analysis_completion(db, job, result.result_json)
+        job.result_json = {
+            "analysis_request_id": job.input_json["_server_context"]["analysis_request_id"],
+            "report_id": job.result_resource_id,
+        }
+    else:
+        job.result_json = result.result_json
     job.result_schema_version = result.result_schema_version
-    job.result_json = result.result_json
     job.progress_percent = 100
     job.progress_message = "Worker completed the job."
     transition_job(db, job, "completed", worker_id=identity.worker.id, message="Worker completed the job.")

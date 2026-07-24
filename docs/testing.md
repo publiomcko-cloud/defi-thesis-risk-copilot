@@ -165,14 +165,17 @@ revocation tests, cross-tenant job-visibility denial, lifecycle disposal, retent
 production worker-configuration failure tests. Phase 17B additionally requires authenticated
 submission/list/detail/event/cancel isolation, scoped same-key idempotency and conflict coverage,
 public-demo denial, queue-capacity reservation, linked admin replay, and a PostgreSQL concurrent
-duplicate-submission test. Browser jobs UI and asynchronous analysis remain Phase 17D–17F
-validation work.
+duplicate-submission test. Phase 17D adds authenticated asynchronous analysis submission,
+idempotent replay, transactional source-job report linkage, cancellation-without-report, and the
+feature-flag synchronous fallback. The browser form polls only the authenticated job endpoint;
+the BFF continues to keep user tokens in HttpOnly cookies.
 
 Phase 17C adds internal-worker credential/scope/protocol denial, BFF internal-path denial,
 PostgreSQL `SKIP LOCKED` one-winner claims, lease-generation stale-mutation denial, heartbeat and
 progress bounds, cancellation acknowledgement, expiry recovery, retry/dead-letter, and fake
-executor tests. The local worker remains optional and has no public port. Real analysis execution,
-Vast.ai jobs, and browser job UX remain later work.
+executor tests. The local worker remains optional and has no public port. Phase 17D replaces the
+fake executor for `analysis.generate.v1` with deterministic report generation; generic lifecycle
+fixtures remain schema-versioned queue tests. Vast.ai jobs remain later work.
 
 ## 7. Phase 18 validation
 

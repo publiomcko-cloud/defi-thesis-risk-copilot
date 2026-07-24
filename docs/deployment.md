@@ -405,18 +405,18 @@ issuance reuse the existing platform-admin/MFA boundary when MFA is configured; 
 worker protocol itself is not available until Phase 17C. `ASYNC_ANALYSIS_ENABLED` remains false:
 existing `/api/analyze` stays synchronous through Phase 17B.
 
-### Phase 17C local fake worker
+### Phase 17D local analysis worker
 
-Phase 17C provides an optional queue-mechanics worker, not real analysis execution. Keep it off in
-the public demo. For an authenticated local test only, register a worker and issue its scoped
-credential through the admin API, then configure the backend and start the profile:
+Phase 17D provides an optional trusted co-located analysis worker. Keep it off in the public demo.
+For an authenticated local test only, register a worker and issue its scoped credential through
+the admin API, then configure the backend and start the profile:
 
 ```env
 JOBS_ENABLED=true
 WORKER_API_ENABLED=true
 WORKER_TOKEN_PEPPER=<server-only random value>
 WORKER_CREDENTIAL=<issued wrk_ credential, worker container only>
-ASYNC_ANALYSIS_ENABLED=false
+ASYNC_ANALYSIS_ENABLED=true
 VAST_JOB_ENABLED=false
 ```
 
@@ -425,10 +425,13 @@ docker compose --profile worker up -d worker
 ```
 
 The worker has no published port and calls only `http://backend:8000/internal/workers/v1/*` using
-its own credential. It can claim only allowlisted job types and runs the fake deterministic
-executor for `analysis.generate`; it never invokes analysis, an LLM provider, Vast.ai, wallets, or
-trading functionality. Stop it with `docker compose --profile worker stop worker`; SIGTERM stops
-new claims and releases its active lease for retry.
+its own credential. It can claim only allowlisted job types. The Compose profile shares the local
+PostgreSQL database and public-curated knowledge base so it can run the deterministic analysis
+workflow, but it sends only a bounded completion result to the control plane; the control plane
+persists the report. Do not use this Compose profile as a remote-worker blueprint: hosted workers
+need a separately designed least-privilege data-access path. It never connects wallets, signs,
+trades, or starts Vast.ai. Stop it with `docker compose --profile worker stop worker`; SIGTERM
+stops new claims and releases its active lease for retry.
 
 ---
 

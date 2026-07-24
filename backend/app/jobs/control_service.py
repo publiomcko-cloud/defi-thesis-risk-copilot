@@ -244,6 +244,8 @@ def job_response(job: JobModel) -> JobResponse:
         max_attempts=job.max_attempts,
         result_resource_type=job.result_resource_type,
         result_resource_id=job.result_resource_id,
+        error_code=job.error_code,
+        error_summary=job.error_summary,
         queue_expires_at=job.queue_expires_at,
         deadline_at=job.deadline_at,
         replay_of_job_id=job.replay_of_job_id,
@@ -289,6 +291,9 @@ def _create_reserved_job(
         "_server_context": {
             "analysis_request_id": analysis_request_id,
             "report_id": report_id,
+            "owner_user_id": actor.id,
+            "organization_id": scope["organization_id"],
+            "visibility": "organization" if scope["organization_id"] else "private",
             "submitted_by_user_id": created_by_user_id,
         },
     }
