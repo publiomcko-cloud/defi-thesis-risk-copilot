@@ -316,7 +316,7 @@ Execution sequence:
 
 The complete contracts are in [`future_phase_contracts.md`](future_phase_contracts.md).
 
-## V1 Phase 17 — Durable job queue and hybrid workers — Complete
+## V1 Phase 17 — Durable job queue and hybrid workers — Implementation complete locally
 
 Goal: execute heavy/retryable/provider work outside the public web process.
 
@@ -335,14 +335,14 @@ Core outcomes:
 
 Phase 17 must preserve Phase 16 ownership, quotas, actor boundaries, and auditability.
 
-Phase 17 is complete on `agent/v1-phase-17-durable-jobs`. It provides durable job, attempt, event,
+Phase 17 implementation is complete locally on `agent/v1-phase-17-durable-jobs`. It provides durable job, attempt, event,
 worker, credential, artifact, and capacity-reservation schemas; closed transitions; tenant-scoped
 submission, idempotency, queue expiry, cancellation, and operator replay; PostgreSQL-safe worker
 leasing/recovery; asynchronous authenticated analysis; a private jobs workspace; retention and
 account export/deletion handling; and an outbound-only trusted worker. The administrator-only Vast
 job uses server-owned settings, cost reservation, idempotent session linkage, and dry-run defaults.
 CI and local validation use fake/dry-run providers only. Hosted workers and real provider rentals
-remain intentionally unverified and are not production claims.
+remain intentionally unverified, are deferred to Phase 22, and are not production claims.
 
 ## V1 Phase 18 — Production RAG and knowledge storage — Planned
 

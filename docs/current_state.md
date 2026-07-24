@@ -47,7 +47,7 @@ Current status:
 
 ```text
 V1 Phase 16 — Complete and merge-ready
-V1 Phase 17 — Complete on `agent/v1-phase-17-durable-jobs`; hosted workers and real rentals remain externally unverified
+V1 Phase 17 — Implementation complete locally on `agent/v1-phase-17-durable-jobs`; hosted-worker and real-provider validation remain deferred to Phase 22
 V1 Phases 18–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -341,7 +341,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 ## 11. Next phases
 
-- Phase 17 — Complete on the branch. Phase 17A provides durable job/attempt/event/worker/credential/artifact
+- Phase 17 — Implementation complete locally on the branch. Phase 17A provides durable job/attempt/event/worker/credential/artifact
   schemas, lifecycle/retention hooks, and admin worker-credential management. Phase 17B adds
   authenticated tenant-scoped job submission, list/detail/event/cancel APIs, idempotency,
   capacity reservation, queue expiry, and linked operator replay. Phase 17C adds an internal

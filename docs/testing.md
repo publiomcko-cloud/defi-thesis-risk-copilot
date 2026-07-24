@@ -189,6 +189,17 @@ marking, and retention cleanup. The GitHub Actions backend job applies migration
 PostgreSQL-enabled suite; frontend CI runs the BFF contracts, production build, browser suite, and
 Compose rendering. No real provider credential or paid rental is used.
 
+The Phase 17 correction suite additionally proves repeated execution heartbeats, cancellation and
+lease-loss cleanup, fixed per-attempt lease horizons, exact schema rejection, typed retry versus
+permanent failure handling, organization-role revocation, no-worker queue recovery, durable
+provider-request reconciliation, direct-route restriction, database-backed report artifacts, and
+completed-only report links. PostgreSQL CI remains the concurrency evidence; no CI job may rent a
+real provider instance.
+
+`backend/scripts/run_smoke_checks.py` defaults to `http://127.0.0.1:8000`; set
+`SMOKE_BASE_URL` only when validating an isolated local API process. Optional LLM synthesis should
+be disabled for bounded smoke timing unless that provider is the explicit subject of the test.
+
 ## 7. Phase 18 validation
 
 Test durable objects, document versions, worker ingestion, tenant-filtered retrieval, citation lineage, deletion/tombstones, re-embedding migration, rollback, and retrieval evaluation.

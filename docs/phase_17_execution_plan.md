@@ -1,6 +1,6 @@
 # V1 Phase 17 Execution Plan — Durable Jobs and Hybrid Workers
 
-Status: **Complete — 17A–17F implemented and locally validated**
+Status: **Implementation complete locally — hosted-worker and real-provider validation remain deferred to Phase 22**
 
 Branch: `agent/v1-phase-17-durable-jobs`
 
@@ -821,7 +821,7 @@ Deliverables:
   flow, shutdown, retention, BFF denial, and Compose;
 - record local versus externally verified worker/provider behavior accurately.
 
-Implementation note: 17F is implemented. Authenticated users have a private `/jobs` workspace
+Implementation note: 17F and the final Phase 17 correction pass are implemented and locally validated. Authenticated users have a private `/jobs` workspace
 with status, progress, attempts, bounded event history, cancellation, safe errors, queue/retry
 guidance, and authorized report references. Account export includes safe job/event/artifact metadata
 without job inputs, event metadata, provider payloads, or credentials. Account deletion hides

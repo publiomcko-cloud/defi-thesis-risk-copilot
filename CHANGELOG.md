@@ -6,6 +6,10 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 
 ### Phase 17 Durable Jobs and Hybrid Workers
 
+- Correction pass completed locally: added supervised long-running heartbeats/cancellation, immutable
+  attempt lease horizons, exact job schemas, recovery maintenance, database report-reference
+  artifacts, completed-only report links, and durable Vast request reconciliation boundaries.
+
 - Added durable tenant-scoped jobs, attempts, events, artifacts, capacity reservations, scoped worker credentials, PostgreSQL-safe leases, retries, cancellation, and retention.
 - Added asynchronous authenticated analysis with idempotent report persistence and a trusted outbound-only worker profile.
 - Added an administrator-only, server-profiled Vast session job with dry-run defaults, cost reservation, session reconciliation, and idempotent cleanup.

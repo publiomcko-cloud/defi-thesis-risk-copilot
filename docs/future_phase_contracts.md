@@ -41,7 +41,7 @@ Some work may overlap, but completion labels must respect dependencies.
 
 # V1 Phase 17 — Durable Job Queue and Hybrid Workers
 
-Status: **Complete on `agent/v1-phase-17-durable-jobs`; hosted-worker and real-provider operation remain externally unverified**
+Status: **Implementation complete locally on `agent/v1-phase-17-durable-jobs`; hosted-worker and real-provider validation remain deferred to Phase 22**
 
 ## 17.1 Goal
 

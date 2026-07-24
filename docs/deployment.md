@@ -474,6 +474,21 @@ endpoint for any active sessions, and inspect `cleanup_failed` sessions before r
 replayed provider job reconciles its persisted session link; never create a replacement job merely
 because a worker response was lost.
 
+Run durable recovery from an operations scheduler, never a browser or the web-request process:
+
+```bash
+cd backend
+python -m scripts.recover_durable_jobs --dry-run
+python -m scripts.recover_durable_jobs
+```
+
+The command revalidates authorization, expires abandoned leases and queues, marks stale workers,
+finalizes safe cancellations, and reconciles durable capacity counters. Schedule it from a later
+operations runtime. `POST /api/admin/vast/sessions/start` is local dry-run diagnostics only and is
+rejected when durable Vast jobs are enabled or dry-run mode is off; all real startup must use the
+durable job route. Do not enable real rentals until the provider's request-ID reconciliation is
+verified in the deployment environment.
+
 ### Phase 17F user workspace and retention
 
 Authenticated users can review their own authorized jobs at `/jobs`. It exposes state, progress,

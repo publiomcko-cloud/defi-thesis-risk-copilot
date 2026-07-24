@@ -467,7 +467,14 @@ data. Account export includes the corresponding safe job/event/artifact projecti
 inputs, event metadata, worker credentials, or provider data. Account/organization deletion
 disposes of terminal job resources, marks incomplete outputs honestly, and leaves running work to
 the cancellation/lease-recovery path. Retention expires job events, terminal jobs with dependent
-attempts/artifacts, credentials, and expired artifacts according to configured policy.
+attempts/artifacts, credentials, and expired artifacts according to configured policy. Each claim
+also records a fixed maximum lease horizon; execution supervision heartbeats and checks
+cancellation while work is running, and it never submits progress or completion after lease loss.
+Only the central registry accepts the exact `analysis.generate.v1` and
+`vast.session.start.v1` input/result schemas. Successful analysis completion creates an
+`available` database-backed report-reference artifact; binary outputs remain incomplete until
+Phase 18 object storage. Provider startup persists a server-owned request identifier before the
+outbound call and blocks a second rental until an uncertain outcome is reconciled.
 
 ---
 
