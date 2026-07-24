@@ -44,7 +44,9 @@ import type {
   VastTestPromptResponse,
   JobResponse,
   JobSubmissionResponse,
-  JobOperations
+  JobOperations,
+  JobEventsResponse,
+  JobsResponse
 } from "./types";
 
 export function getApiBaseUrl(): string {
@@ -196,6 +198,28 @@ export async function fetchJob(jobId: string): Promise<JobResponse> {
   });
   if (!response.ok) {
     throw new Error(await errorDetail(response, `Job fetch failed with status ${response.status}`));
+  }
+  return response.json();
+}
+
+export async function fetchJobs(): Promise<JobsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/jobs`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Jobs fetch failed with status ${response.status}`));
+  }
+  return response.json();
+}
+
+export async function fetchJobEvents(jobId: string): Promise<JobEventsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/jobs/${jobId}/events`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Job events fetch failed with status ${response.status}`));
   }
   return response.json();
 }

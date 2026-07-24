@@ -247,10 +247,17 @@ export type JobResponse = {
   status: JobStatus;
   progress_percent: number;
   progress_message?: string | null;
+  attempt_count: number;
+  max_attempts: number;
   result_resource_type?: string | null;
   result_resource_id?: string | null;
   error_code?: string | null;
   error_summary?: string | null;
+  queue_expires_at?: string | null;
+  deadline_at?: string | null;
+  replay_of_job_id?: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type JobSubmissionResponse = {
@@ -265,6 +272,24 @@ export type JobOperations = {
   active_workers: number;
   stale_workers: number;
   provider_cleanup_failures: number;
+};
+
+export type JobsResponse = {
+  items: JobResponse[];
+};
+
+export type JobEvent = {
+  id: string;
+  job_id: string;
+  sequence_number: number;
+  event_type: string;
+  message: string;
+  created_at: string;
+};
+
+export type JobEventsResponse = {
+  items: JobEvent[];
+  next_after_sequence?: number | null;
 };
 
 export type Protocol = {

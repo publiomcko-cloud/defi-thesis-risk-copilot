@@ -268,6 +268,97 @@ textarea {
   line-height: 1;
 }
 
+.job-panel h2 {
+  font-size: 20px;
+  overflow-wrap: anywhere;
+}
+
+.job-status {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  padding: 6px 10px;
+  text-transform: capitalize;
+}
+
+.job-status-running,
+.job-status-leased,
+.job-status-queued,
+.job-status-retry_wait {
+  background: var(--warning-bg);
+  border-color: #ead891;
+  color: var(--warning);
+}
+
+.job-status-completed {
+  background: #e8f5ee;
+  border-color: #b7ddc5;
+  color: var(--accent-strong);
+}
+
+.job-progress {
+  background: #edf0ed;
+  border-radius: 999px;
+  height: 8px;
+  margin: 18px 0;
+  overflow: hidden;
+}
+
+.job-progress span {
+  background: var(--accent);
+  display: block;
+  height: 100%;
+  transition: width 160ms ease;
+}
+
+.job-meta-grid {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+}
+
+.job-meta-grid span {
+  color: var(--muted);
+  display: grid;
+  font-size: 13px;
+  gap: 4px;
+}
+
+.job-meta-grid strong {
+  color: var(--text);
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.notice-text,
+.result-reference,
+.muted-small {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.job-events {
+  border-top: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+  list-style: decimal;
+  margin: 18px 0 0;
+  padding: 16px 0 0 22px;
+}
+
+.job-events li {
+  display: grid;
+  gap: 2px;
+}
+
+.job-events span,
+.job-events time {
+  color: var(--muted);
+  font-size: 14px;
+}
+
 .success-text,
 .error-text {
   border-radius: 8px;

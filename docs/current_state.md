@@ -37,17 +37,17 @@ Completed on `main`:
 - Final Phase 14 public deployment;
 - V1 Phase 15 product hardening and public-safe UX.
 
-Phase 16 merge branch:
+Phase 17 implementation branch:
 
 ```text
-agent/v1-phase-16-identity-ownership
+agent/v1-phase-17-durable-jobs
 ```
 
 Current status:
 
 ```text
 V1 Phase 16 — Complete and merge-ready
-V1 Phase 17 — In progress; 17A–17D are implemented on `agent/v1-phase-17-durable-jobs`
+V1 Phase 17 — Complete on `agent/v1-phase-17-durable-jobs`; hosted workers and real rentals remain externally unverified
 V1 Phases 18–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -266,7 +266,8 @@ The project can:
 - enforce human approval before trusted ingestion;
 - optionally synthesize wording without replacing deterministic fields;
 - prepare ML/retrieval/HPC workspaces;
-- provide Phase 16 multi-user foundations on the active branch.
+- provide Phase 16 multi-user foundations on the active branch;
+- run authenticated asynchronous analysis through durable jobs and review private job history.
 
 ---
 
@@ -325,10 +326,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 - public rate limiting is still in-process, not distributed;
 - current RAG index is local JSON and intentionally public-curated only; organization metadata is not document/vector storage;
-- authenticated durable job control-plane APIs and asynchronous `analysis.generate` execution
-  exist on the Phase 17 branch behind disabled-by-default worker and async-analysis flags; Vast
-  provider jobs are disabled/dry-run by default; external real-rental operation and the broader
-  jobs workspace remain unimplemented;
+- durable jobs, private workspace, retention, export, and account-deletion behavior exist on the
+  Phase 17 branch behind disabled-by-default worker and async-analysis flags; Vast provider jobs
+  remain disabled/dry-run by default, and real hosted-worker/provider operation is unverified;
 - Render may cold-start;
 - several market adapters remain partial/manual fallbacks;
 - monitoring/discovery are manually initiated;
@@ -341,7 +341,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 ## 11. Next phases
 
-- Phase 17 — In Progress. Phase 17A provides durable job/attempt/event/worker/credential/artifact
+- Phase 17 — Complete on the branch. Phase 17A provides durable job/attempt/event/worker/credential/artifact
   schemas, lifecycle/retention hooks, and admin worker-credential management. Phase 17B adds
   authenticated tenant-scoped job submission, list/detail/event/cancel APIs, idempotency,
   capacity reservation, queue expiry, and linked operator replay. Phase 17C adds an internal
@@ -351,7 +351,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   Phase 17E adds an administrator/MFA-gated, server-profiled `vast.session.start` worker job with
   source-job/session uniqueness, pre-claim cost reservation, reconciliation after a lost completion
   response, idempotent cleanup, and aggregate operator status. It remains disabled and dry-run by
-  default; no real provider rental is claimed as deployed or externally verified;
+  default; Phase 17F adds a private jobs workspace and safe export/deletion/retention handling.
+  No real provider rental is claimed as deployed or externally verified;
 - Phase 18 — durable tenant RAG and object/vector storage;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;

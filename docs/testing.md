@@ -111,7 +111,8 @@ Test bounded export, exclusion of foreign/sensitive data, deletion confirmation,
 
 ### Frontend E2E
 
-Test anonymous demo, login/BFF/refresh/logout, account, thesis CRUD, organizations/memberships, recovery, consent, MFA, mobile layout, keyboard focus, and no private-content flash.
+Test anonymous demo, login/BFF/refresh/logout, account, private jobs workspace, thesis CRUD,
+organizations/memberships, recovery, consent, MFA, mobile layout, keyboard focus, and no private-content flash.
 
 A route-status smoke script is useful but is not full browser E2E coverage.
 
@@ -181,6 +182,12 @@ profile fields, pre-claim daily cost rejection, unique job-to-session linkage, r
 after a lost completion response, cancellation cleanup, migration upgrade/downgrade coverage, and
 safe aggregate operator state. CI must keep `VAST_DRY_RUN=true`; real rentals are never a test
 dependency.
+
+Phase 17F adds private workspace browser coverage for job status/events/cancellation/result links,
+safe account export of job/event/artifact metadata, account-deletion disposal, incomplete-artifact
+marking, and retention cleanup. The GitHub Actions backend job applies migrations and runs the
+PostgreSQL-enabled suite; frontend CI runs the BFF contracts, production build, browser suite, and
+Compose rendering. No real provider credential or paid rental is used.
 
 ## 7. Phase 18 validation
 

@@ -8,7 +8,9 @@ from sqlalchemy.orm import Session
 from app.jobs.constants import TERMINAL_JOB_STATUSES
 from app.jobs.state import transition_job
 from app.models.artifact import ArtifactModel
+from app.models.analysis_request import AnalysisRequestModel
 from app.models.job import JobModel
+from app.models.report import ReportModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
 
 
@@ -66,13 +68,52 @@ def _dispose_jobs(db: Session, statement, *, reason: str, now: datetime | None) 
             if target == "failed":
                 job.error_code = "authorization_revoked"
                 job.error_summary = "Job access was revoked before execution."
-        job.deleted_at = timestamp
+                from app.jobs.control_service import _release_capacity
+
+                _release_capacity(db, job)
+        # Running work remains recoverable until its worker acknowledges cancellation.
+        # Marking it deleted here would hide it from lease-expiry recovery and could strand
+        # a provider cleanup operation.
+        if job.status in TERMINAL_JOB_STATUSES:
+            job.deleted_at = timestamp
         job.updated_at = timestamp
-        for artifact in db.execute(
-            select(ArtifactModel).where(ArtifactModel.job_id == job.id)
-        ).scalars().all():
-            artifact.status = "deleted" if artifact.status == "available" else "incomplete"
-            artifact.deleted_at = timestamp
-            artifact.updated_at = timestamp
+        _dispose_job_artifacts(db, job.id, timestamp)
+        _dispose_job_results(db, job, timestamp)
     db.flush()
     return len(records)
+
+
+def mark_job_artifacts_incomplete(db: Session, job_id: str, *, now: datetime | None = None) -> None:
+    """Preserve only an honest incomplete marker for non-durable job outputs."""
+
+    timestamp = now or datetime.now(UTC)
+    for artifact in db.execute(
+        select(ArtifactModel)
+        .where(ArtifactModel.job_id == job_id)
+        .where(ArtifactModel.deleted_at.is_(None))
+        .where(ArtifactModel.status.in_({"pending_storage", "incomplete"}))
+    ).scalars().all():
+        artifact.status = "incomplete"
+        artifact.updated_at = timestamp
+
+
+def _dispose_job_artifacts(db: Session, job_id: str, timestamp: datetime) -> None:
+    for artifact in db.execute(
+        select(ArtifactModel).where(ArtifactModel.job_id == job_id)
+    ).scalars().all():
+        artifact.status = "deleted" if artifact.status == "available" else "incomplete"
+        artifact.deleted_at = timestamp
+        artifact.updated_at = timestamp
+
+
+def _dispose_job_results(db: Session, job: JobModel, timestamp: datetime) -> None:
+    if job.result_resource_type != "report" or not job.result_resource_id:
+        return
+    report = db.get(ReportModel, job.result_resource_id)
+    if report is not None and report.owner_user_id == job.owner_user_id:
+        report.deleted_at = timestamp
+    request = db.execute(
+        select(AnalysisRequestModel).where(AnalysisRequestModel.source_job_id == job.id)
+    ).scalars().one_or_none()
+    if request is not None and request.owner_user_id == job.owner_user_id:
+        request.deleted_at = timestamp

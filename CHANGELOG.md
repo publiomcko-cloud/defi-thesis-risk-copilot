@@ -4,6 +4,15 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 
 ## Unreleased — V1 Product Hardening
 
+### Phase 17 Durable Jobs and Hybrid Workers
+
+- Added durable tenant-scoped jobs, attempts, events, artifacts, capacity reservations, scoped worker credentials, PostgreSQL-safe leases, retries, cancellation, and retention.
+- Added asynchronous authenticated analysis with idempotent report persistence and a trusted outbound-only worker profile.
+- Added an administrator-only, server-profiled Vast session job with dry-run defaults, cost reservation, session reconciliation, and idempotent cleanup.
+- Added a private jobs workspace with status, progress, event detail, cancellation, safe error guidance, and authorized report links.
+- Added safe job/event/artifact account export and account-deletion handling for job results and incomplete outputs.
+- Added migration, provider fake, lifecycle, browser BFF, Compose, and retention validation. Hosted workers and real provider rentals remain externally unverified.
+
 ### Phase 17A Durable Job Foundation
 
 - Added durable PostgreSQL-backed job, attempt, event, worker, worker-credential, and artifact schemas with Phase 16 ownership, tenant, idempotency, cost, and retention constraints.

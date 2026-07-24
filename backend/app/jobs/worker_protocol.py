@@ -18,6 +18,7 @@ from app.jobs.control_service import (
     move_running_capacity_to_pending,
     release_running_capacity,
 )
+from app.jobs.lifecycle import mark_job_artifacts_incomplete
 from app.jobs.schemas import (
     JobResultEnvelope,
     WorkerCancellationResponse,
@@ -290,6 +291,7 @@ def fail_job(
         move_running_capacity_to_pending(db, job)
         job.available_at = datetime.now(UTC) + timedelta(seconds=_retry_delay_seconds(job.attempt_count, job.id))
     else:
+        mark_job_artifacts_incomplete(db, job.id)
         _cleanup_provider_for_terminal_job(db, job)
         transition_job(
             db,
@@ -354,6 +356,7 @@ def recover_expired_jobs(db: Session, *, now: datetime | None = None) -> int:
             _cancel_leased_job(db, job, attempt, job.leased_by_worker_id, commit=False)
         elif job.attempt_count >= job.max_attempts or not _deadline_allows_retry(job, timestamp):
             attempt = _attempt_for_lease(db, job)
+            mark_job_artifacts_incomplete(db, job.id, now=timestamp)
             _cleanup_provider_for_terminal_job(db, job)
             transition_job(db, job, "dead_letter", message="Lease expired after the final worker attempt.")
             if attempt:
@@ -470,6 +473,7 @@ def _cancel_leased_job(
     *,
     commit: bool = True,
 ) -> WorkerMutationResponse:
+    mark_job_artifacts_incomplete(db, job.id)
     _cleanup_provider_for_terminal_job(db, job)
     transition_job(db, job, "cancelled", worker_id=worker_id, message="Worker acknowledged job cancellation.")
     if attempt:

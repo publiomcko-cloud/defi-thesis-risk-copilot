@@ -41,7 +41,7 @@ Some work may overlap, but completion labels must respect dependencies.
 
 # V1 Phase 17 — Durable Job Queue and Hybrid Workers
 
-Status: **In Progress**
+Status: **Complete on `agent/v1-phase-17-durable-jobs`; hosted-worker and real-provider operation remain externally unverified**
 
 ## 17.1 Goal
 
@@ -61,7 +61,7 @@ Browser
   -> Vercel Next.js BFF
   -> Render FastAPI control plane
      -> PostgreSQL job queue/state
-     -> object-storage references
+  -> durable database result references
 
 Local/cloud worker
   -> outbound authenticated polling or claim
@@ -306,7 +306,7 @@ Frontend requirements:
 - cost controls are enforced;
 - artifacts have durable references;
 - browser job flow passes;
-- docs and runbooks are updated.
+- authenticated job workspace, account export/deletion, retention, docs, and runbooks are updated.
 
 ## 17.16 Out of scope
 

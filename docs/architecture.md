@@ -434,7 +434,7 @@ Key invariants:
 
 See [`future_phase_contracts.md`](future_phase_contracts.md).
 
-### Phase 17A–17E implemented foundation
+### Phase 17 implemented foundation
 
 PostgreSQL now persists job, attempt, event, worker, worker-credential, and artifact metadata.
 Job transitions are restricted to a closed service, events are append-only and sequenced, and
@@ -461,8 +461,13 @@ the default; a trusted worker receives provider secrets from its runtime configu
 the job envelope. Administrator aggregate operations show queue depth, active/stale workers,
 dead letters, and provider cleanup failures. Real hosted/provider operation remains a manual
 deployment concern and is not claimed as validated.
-Account/organization deletion disposes of affected jobs and artifacts, while retention expires
-credentials and terminal job material according to configured policy.
+Authenticated users have a tenant-filtered `/jobs` workspace that polls active work and exposes
+only safe status, progress, attempt, event, error, cancellation, and durable result-reference
+data. Account export includes the corresponding safe job/event/artifact projection, never raw
+inputs, event metadata, worker credentials, or provider data. Account/organization deletion
+disposes of terminal job resources, marks incomplete outputs honestly, and leaves running work to
+the cancellation/lease-recovery path. Retention expires job events, terminal jobs with dependent
+attempts/artifacts, credentials, and expired artifacts according to configured policy.
 
 ---
 

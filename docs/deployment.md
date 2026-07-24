@@ -310,7 +310,8 @@ alembic upgrade head \
 
 The public seed endpoint stays blocked in hosted public mode.
 
-Phase 17 will move heavy work out of this web startup/runtime path. Phase 18 will remove local runtime RAG authority.
+Phase 17 moves authenticated analysis and guarded provider work out of the web request when its
+feature flags and trusted worker are enabled. Phase 18 will remove local runtime RAG authority.
 
 ---
 
@@ -375,12 +376,12 @@ python -m scripts.cleanup_expired_data
 
 Phase 17/20 may schedule cleanup through durable jobs. A scheduler must not be added as an unreliable browser or web-process timer.
 
-### Phase 17A–17B job control-plane configuration
+### Phase 17 job control-plane configuration
 
-The job foundation is disabled by default and does not start a worker or change existing analysis
-requests. With `JOBS_ENABLED=true`, authenticated users may submit bounded jobs, but they remain
-queued until Phase 17C supplies a worker protocol. Keep it disabled in public deployment unless
-that queued-only behavior is explicitly being tested:
+Jobs are disabled by default and do not change public-demo requests. With the worker and async
+flags enabled, authenticated analysis runs through the durable control plane; anonymous public-demo
+analysis remains synchronous. Keep the feature disabled in public deployment unless the worker,
+credential, and rollback procedure are explicitly configured:
 
 ```env
 JOBS_ENABLED=false
@@ -401,9 +402,9 @@ WORKER_TOKEN_PEPPER=<server-only secret when WORKER_API_ENABLED=true in producti
 `WORKER_TOKEN_PEPPER` hashes worker-only credentials and must never be a browser/session token,
 job payload field, log value, or public environment variable. Production configuration fails
 closed if worker APIs are enabled without it. Administrative worker registration and credential
-issuance reuse the existing platform-admin/MFA boundary when MFA is configured; the internal
-worker protocol itself is not available until Phase 17C. `ASYNC_ANALYSIS_ENABLED` remains false:
-existing `/api/analyze` stays synchronous through Phase 17B.
+issuance reuse the existing platform-admin/MFA boundary when MFA is configured. The browser BFF
+never proxies `/internal/workers/*`. `ASYNC_ANALYSIS_ENABLED=false` is the rollback switch for
+authenticated analysis; existing reports and jobs remain durable for review.
 
 ### Phase 17D–17E trusted worker and guarded Vast job
 
@@ -473,6 +474,27 @@ endpoint for any active sessions, and inspect `cleanup_failed` sessions before r
 replayed provider job reconciles its persisted session link; never create a replacement job merely
 because a worker response was lost.
 
+### Phase 17F user workspace and retention
+
+Authenticated users can review their own authorized jobs at `/jobs`. It exposes state, progress,
+attempts, safe events/errors, cancellation, and report references. Administrators retain the
+separate worker and aggregate operations views. Account export includes safe job, event, and
+artifact metadata; it deliberately excludes job inputs, raw event metadata, provider responses,
+credentials, and worker tokens.
+
+Run retention manually until a later scheduler is approved:
+
+```bash
+cd backend
+python -m scripts.cleanup_expired_data --dry-run
+python -m scripts.cleanup_expired_data
+```
+
+The cleanup removes expired job events, terminal jobs with their attempts/artifacts, expired worker
+credentials, and artifacts whose retention deadline elapsed. It never makes an incomplete local
+output appear as a durable artifact. Before account deletion, users can export this safe projection;
+deletion cancels running work through lease recovery and disposes of terminal results/artifacts.
+
 ---
 
 ## 13. Local Docker
@@ -496,7 +518,7 @@ When running frontend outside Docker, use the reachable local backend URL.
 
 ---
 
-## 14. Phase 16 merge validation
+## 14. Phase 17 branch validation
 
 ### Backend
 

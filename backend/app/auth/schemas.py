@@ -67,7 +67,7 @@ class AccountResponse(BaseModel):
 
 
 class AccountExportResponse(BaseModel):
-    format_version: str = "phase16.account_export.v1"
+    format_version: str = "phase17.account_export.v2"
     exported_at: datetime
     profile: dict
     memberships: list[dict]
@@ -75,6 +75,9 @@ class AccountExportResponse(BaseModel):
     reports: list[dict]
     watchlists: list[dict]
     alerts: list[dict]
+    jobs: list[dict]
+    job_events: list[dict]
+    artifacts: list[dict]
     consents: list[dict]
     audit_events: list[dict]
 

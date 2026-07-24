@@ -19,10 +19,12 @@ from app.auth.security import constant_time_equal
 from app.auth.service import record_audit_event, user_response
 from app.db.session import get_db
 from app.jobs.lifecycle import dispose_jobs_for_account_deletion
+from app.models.artifact import ArtifactModel
 from app.models.access_audit_event import AccessAuditEventModel
 from app.models.alert_event import AlertEventModel
 from app.models.consent_record import ConsentRecordModel
 from app.models.organization import OrganizationMembershipModel
+from app.models.job import JobEventModel, JobModel
 from app.models.report import ReportModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.user import UserModel
@@ -78,6 +80,30 @@ def export_account(
     reports = db.execute(
         select(ReportModel).where(ReportModel.owner_user_id == current_user.id)
     ).scalars().all()
+    jobs = db.execute(
+        select(JobModel)
+        .where(JobModel.owner_user_id == current_user.id)
+        .where(JobModel.deleted_at.is_(None))
+        .order_by(JobModel.created_at.desc())
+    ).scalars().all()
+    job_ids = [item.id for item in jobs]
+    job_events = (
+        db.execute(
+            select(JobEventModel)
+            .where(JobEventModel.job_id.in_(job_ids))
+            .order_by(JobEventModel.job_id, JobEventModel.sequence_number)
+        ).scalars().all()
+        if job_ids
+        else []
+    )
+    artifacts = (
+        db.execute(
+            select(ArtifactModel)
+            .where(ArtifactModel.owner_user_id == current_user.id)
+            .where(ArtifactModel.deleted_at.is_(None))
+            .order_by(ArtifactModel.created_at.desc())
+        ).scalars().all()
+    )
     theses = db.execute(
         select(SavedThesisModel).where(SavedThesisModel.owner_user_id == current_user.id)
     ).scalars().all()
@@ -130,6 +156,47 @@ def export_account(
         alerts=[
             {"id": item.id, "watchlist_item_id": item.watchlist_item_id, "alert_type": item.alert_type, "status": item.status}
             for item in alerts
+        ],
+        jobs=[
+            {
+                "id": item.id,
+                "job_type": item.job_type,
+                "status": item.status,
+                "attempt_count": item.attempt_count,
+                "max_attempts": item.max_attempts,
+                "progress_percent": item.progress_percent,
+                "result_resource_type": item.result_resource_type,
+                "result_resource_id": item.result_resource_id,
+                "error_code": item.error_code,
+                "error_summary": item.error_summary,
+                "created_at": item.created_at,
+                "updated_at": item.updated_at,
+            }
+            for item in jobs
+        ],
+        job_events=[
+            {
+                "job_id": item.job_id,
+                "sequence_number": item.sequence_number,
+                "event_type": item.event_type,
+                "message": item.message,
+                "created_at": item.created_at,
+            }
+            for item in job_events
+        ],
+        artifacts=[
+            {
+                "id": item.id,
+                "job_id": item.job_id,
+                "artifact_type": item.artifact_type,
+                "status": item.status,
+                "resource_type": item.resource_type,
+                "resource_id": item.resource_id,
+                "content_type": item.content_type,
+                "size_bytes": item.size_bytes,
+                "created_at": item.created_at,
+            }
+            for item in artifacts
         ],
         consents=[
             {

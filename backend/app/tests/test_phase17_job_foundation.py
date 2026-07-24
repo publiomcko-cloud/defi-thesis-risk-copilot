@@ -18,6 +18,7 @@ from app.jobs.access import get_visible_job
 from app.jobs.lifecycle import (
     dispose_jobs_for_account_deletion,
     dispose_jobs_for_organization_deletion,
+    mark_job_artifacts_incomplete,
 )
 from app.jobs.control_service import _release_capacity
 from app.jobs.schemas import WorkerCredentialCreateRequest, WorkerRegistrationRequest
@@ -351,6 +352,82 @@ def test_job_retention_expires_credentials_and_removes_terminal_records(phase17_
         retained_artifact = db.get(ArtifactModel, "artifact_retention")
         assert retained_artifact.status == "deleted"
         assert retained_artifact.deleted_at is not None
+
+
+def test_account_export_includes_safe_job_history_and_disposal_marks_artifacts(phase17_client) -> None:
+    client, Session = phase17_client
+    with Session() as db:
+        owner = create_user(db, "job-export@example.test", token="job-export-token")
+        job = _job(owner.id, job_id="job_export_history")
+        artifact = ArtifactModel(
+            id="artifact_export_history",
+            job_id=job.id,
+            artifact_type="temporary_output",
+            status="pending_storage",
+            owner_user_id=owner.id,
+            visibility="private",
+        )
+        db.add_all([job, artifact])
+        db.flush()
+        append_job_event(
+            db,
+            job,
+            event_type="job.queued",
+            message="Job accepted for controlled execution.",
+            metadata={"provider_api_key": "must-not-export"},
+        )
+        db.commit()
+
+    exported = client.get("/api/account/export", headers={"Authorization": "Bearer job-export-token"})
+    assert exported.status_code == 200
+    payload = exported.json()
+    assert payload["format_version"] == "phase17.account_export.v2"
+    assert payload["jobs"][0]["id"] == "job_export_history"
+    assert payload["job_events"][0]["message"] == "Job accepted for controlled execution."
+    assert payload["artifacts"][0]["id"] == "artifact_export_history"
+    assert "must-not-export" not in str(payload)
+    assert "input_json" not in str(payload["jobs"])
+
+    deleted = client.request(
+        "DELETE",
+        "/api/account",
+        json={"confirmation": "DELETE"},
+        headers={"Authorization": "Bearer job-export-token"},
+    )
+    assert deleted.status_code == 200
+    with Session() as db:
+        record = db.get(JobModel, "job_export_history")
+        output = db.get(ArtifactModel, "artifact_export_history")
+        assert record is not None and record.status == "failed" and record.deleted_at is not None
+        assert output is not None and output.status == "incomplete" and output.deleted_at is not None
+
+
+def test_incomplete_artifacts_are_marked_before_terminal_job_retention(phase17_session) -> None:
+    with phase17_session() as db:
+        owner = _create_actor(db, "incomplete-artifact-owner")
+        job = _job(owner.id, job_id="job_incomplete_artifact")
+        pending = ArtifactModel(
+            id="artifact_pending",
+            job_id=job.id,
+            artifact_type="temporary_output",
+            status="pending_storage",
+            owner_user_id=owner.id,
+            visibility="private",
+        )
+        available = ArtifactModel(
+            id="artifact_available",
+            job_id=job.id,
+            artifact_type="report_reference",
+            status="available",
+            owner_user_id=owner.id,
+            visibility="private",
+        )
+        db.add_all([job, pending, available])
+        db.commit()
+        mark_job_artifacts_incomplete(db, job.id)
+        db.commit()
+        assert pending.status == "incomplete"
+        assert available.status == "available"
 
 
 def test_phase17_configuration_fails_closed_for_production_worker_routes() -> None:

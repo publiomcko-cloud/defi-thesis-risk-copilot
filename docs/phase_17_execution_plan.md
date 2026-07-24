@@ -1,6 +1,6 @@
 # V1 Phase 17 Execution Plan — Durable Jobs and Hybrid Workers
 
-Status: **In Progress — 17A–17E implemented; 17F planned**
+Status: **Complete — 17A–17F implemented and locally validated**
 
 Branch: `agent/v1-phase-17-durable-jobs`
 
@@ -820,6 +820,17 @@ Deliverables:
 - add CI coverage for migrations, PostgreSQL leasing/idempotency/fairness, fake execution, browser
   flow, shutdown, retention, BFF denial, and Compose;
 - record local versus externally verified worker/provider behavior accurately.
+
+Implementation note: 17F is implemented. Authenticated users have a private `/jobs` workspace
+with status, progress, attempts, bounded event history, cancellation, safe errors, queue/retry
+guidance, and authorized report references. Account export includes safe job/event/artifact metadata
+without job inputs, event metadata, provider payloads, or credentials. Account deletion hides
+terminal work, marks non-durable artifacts incomplete, releases unused queue capacity, and leaves
+running work visible to lease recovery until its cancellation is acknowledged. Retention expires
+job events, terminal jobs with attempts/artifacts, expired worker credentials, and expired artifacts.
+CI runs PostgreSQL migrations/tests, frontend BFF/browser checks, and Compose rendering with
+`VAST_DRY_RUN=true`; the local trusted worker and fake provider path are validated, while hosted
+workers and real provider rentals remain deliberately unverified.
 
 Completion checkpoint:
 

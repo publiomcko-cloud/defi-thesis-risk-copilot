@@ -21,8 +21,8 @@ The Render free-tier backend may cold-start after inactivity.
 ## Current Phase Status
 
 ```text
-Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–16
-In progress: V1 Phase 17 (17A–17E implemented on its branch)
+Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–17
+In progress: None
 Planned:   V1 Phases 18–22
 ```
 
@@ -32,7 +32,7 @@ The Phase 16 merge branch is:
 agent/v1-phase-16-identity-ownership
 ```
 
-Phase 16 delivers managed identity, BFF, ownership, organization, quota, account, consent, retention, and frontend foundations. Its detailed implementation record is archived in [`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/). Phase 17A–17E adds durable jobs, internal workers, asynchronous authenticated analysis, and an administrator-only server-profiled Vast job on `agent/v1-phase-17-durable-jobs`. Vast jobs are disabled and dry-run by default; real hosted provider operation remains unverified. The remaining live-provider and qualified legal release checks are tracked as final V1 Phase 22 work.
+Phase 16 delivers managed identity, BFF, ownership, organization, quota, account, consent, retention, and frontend foundations. Its detailed implementation record is archived in [`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/). Phase 17 adds durable jobs, internal workers, asynchronous authenticated analysis, a private jobs workspace, and an administrator-only server-profiled Vast job on `agent/v1-phase-17-durable-jobs`. Vast jobs are disabled and dry-run by default; real hosted provider operation remains unverified. The remaining live-provider and qualified legal release checks are tracked as final V1 Phase 22 work.
 
 ## Product Capabilities
 

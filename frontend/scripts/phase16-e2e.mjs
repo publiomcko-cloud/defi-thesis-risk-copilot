@@ -16,6 +16,39 @@ const state = {
   memberships: [],
   consents: [],
   mfaFactors: [],
+  jobs: [
+    {
+      id: "job-browser-queued",
+      job_type: "analysis.generate",
+      status: "queued",
+      progress_percent: 0,
+      progress_message: "Waiting for an eligible worker.",
+      attempt_count: 0,
+      max_attempts: 3,
+      created_at: now,
+      updated_at: now
+    },
+    {
+      id: "job-browser-completed",
+      job_type: "analysis.generate",
+      status: "completed",
+      progress_percent: 100,
+      attempt_count: 1,
+      max_attempts: 3,
+      result_resource_type: "report",
+      result_resource_id: "owner-report",
+      created_at: now,
+      updated_at: now
+    }
+  ],
+  jobEvents: [{
+    id: "job-event-browser-1",
+    job_id: "job-browser-queued",
+    sequence_number: 1,
+    event_type: "job.queued",
+    message: "Job accepted for controlled worker execution.",
+    created_at: now
+  }],
   refreshCount: 0,
   recoveryExchanges: 0,
   auditActions: [],
@@ -83,7 +116,7 @@ try {
   );
   assert(state.backendTokens.includes("access-owner-refreshed"), "BFF must forward the refreshed access token");
   assert(state.supabaseCookies.every((cookie) => cookie === ""), "browser cookies must not reach Supabase Auth");
-  console.log("Phase 16 browser E2E passed: anonymous, BFF session, account, thesis, organization, recovery, MFA, and mobile flows.");
+  console.log("Phase 17 browser E2E passed: anonymous, BFF session, jobs, account, thesis, organization, recovery, MFA, and mobile flows.");
 } catch (error) {
   await mkdir(artifactsDirectory, { recursive: true });
   if (activePage) {
@@ -161,6 +194,16 @@ async function runAuthenticatedFlow(browserInstance) {
   await page.getByRole("link", { name: "Account" }).waitFor();
   assert.equal(await page.getByRole("link", { name: "Login" }).count(), 0, "header must update after authentication");
 
+  await page.goto(`${appOrigin}/jobs`);
+  await page.getByRole("heading", { name: "Jobs", exact: true }).waitFor();
+  await page.getByText("job-browser-queued").waitFor();
+  await page.getByRole("button", { name: "Details" }).first().click();
+  await page.getByText("Job accepted for controlled worker execution.").waitFor();
+  await page.getByRole("button", { name: "Cancel job" }).click();
+  await page.getByText("cancelled", { exact: true }).waitFor();
+  await page.getByRole("link", { name: "Open report" }).waitFor();
+
+  await page.goto(`${appOrigin}/account`);
   await page.getByRole("button", { name: "Accept terms" }).click();
   await page.getByText("Terms consent recorded.").waitFor();
   const download = page.waitForEvent("download");
@@ -347,7 +390,12 @@ function handleBackend(method, url, payload, token, cookie, response) {
     if (!user) {
       state.anonymousReports.set(reportId, anonymousId);
     }
-    return send(response, 200, { report_id: reportId }, user ? {} : { "Set-Cookie": "defi_copilot_anon=anon-browser-a; Path=/; HttpOnly; SameSite=Lax" });
+    return send(
+      response,
+      200,
+      { report_id: reportId, status: "completed", risk_rating: "Moderate", summary: "Mocked deterministic report.", job_id: null },
+      user ? {} : { "Set-Cookie": "defi_copilot_anon=anon-browser-a; Path=/; HttpOnly; SameSite=Lax" },
+    );
   }
   if (method === "GET" && /^\/api\/reports\//.test(url.pathname)) {
     const reportId = url.pathname.split("/").pop();
@@ -363,6 +411,21 @@ function handleBackend(method, url, payload, token, cookie, response) {
   }
   if (method === "GET" && url.pathname === "/api/usage") {
     return send(response, 200, { items: [{ action: "analysis", used: 1, limit: 25, remaining: 24 }] });
+  }
+  if (method === "GET" && url.pathname === "/api/jobs") {
+    return send(response, 200, { items: state.jobs });
+  }
+  if (method === "GET" && /^\/api\/jobs\/[^/]+\/events$/.test(url.pathname)) {
+    const jobId = url.pathname.split("/")[3];
+    return send(response, 200, { items: state.jobEvents.filter((event) => event.job_id === jobId), next_after_sequence: null });
+  }
+  if (method === "POST" && /^\/api\/jobs\/[^/]+\/cancel$/.test(url.pathname)) {
+    const jobId = url.pathname.split("/")[3];
+    const job = state.jobs.find((item) => item.id === jobId);
+    if (!job) return send(response, 404, { detail: "Job not found" });
+    job.status = "cancelled";
+    job.updated_at = now;
+    return send(response, 200, job);
   }
   if (method === "GET" && url.pathname === "/api/consents") {
     return send(response, 200, { items: state.consents.filter((item) => item.userId === user.id) });
