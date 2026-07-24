@@ -1,6 +1,6 @@
 # V1 Phase 17 Execution Plan — Durable Jobs and Hybrid Workers
 
-Status: **Implementation complete locally — hosted-worker and real-provider validation remain deferred to Phase 22**
+Status: **Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22**
 
 Branch: `agent/v1-phase-17-durable-jobs`
 

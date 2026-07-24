@@ -81,6 +81,8 @@ class Settings(BaseSettings):
     vast_startup_timeout_seconds: int = 600
     vast_poll_interval_seconds: int = 10
     vast_dry_run: bool = True
+    vast_real_rentals_enabled: bool = False
+    vast_reconciliation_profile: str = "unverified"
     jobs_enabled: bool = False
     worker_api_enabled: bool = False
     async_analysis_enabled: bool = False
@@ -88,7 +90,10 @@ class Settings(BaseSettings):
     job_default_max_attempts: int = 3
     job_lease_seconds: int = 60
     job_heartbeat_seconds: int = 20
-    job_max_lease_extension_seconds: int = 300
+    job_max_lease_extension_seconds: int = 720
+    analysis_job_max_attempt_runtime_seconds: int = 300
+    job_cleanup_grace_seconds: int = 60
+    vast_reconciliation_grace_seconds: int = 30
     job_max_queue_age_seconds: int = 3600
     job_event_retention_days: int = 90
     job_terminal_retention_days: int = 30
@@ -152,6 +157,11 @@ class Settings(BaseSettings):
             raise ValueError("JOB_LEASE_SECONDS must be at least JOB_HEARTBEAT_SECONDS")
         if self.job_max_lease_extension_seconds < self.job_lease_seconds:
             raise ValueError("JOB_MAX_LEASE_EXTENSION_SECONDS must cover one lease")
+        if self.analysis_job_max_attempt_runtime_seconds < self.job_lease_seconds:
+            raise ValueError("ANALYSIS_JOB_MAX_ATTEMPT_RUNTIME_SECONDS must cover one lease")
+        vast_horizon = self.vast_startup_timeout_seconds + self.vast_reconciliation_grace_seconds + self.job_cleanup_grace_seconds
+        if self.job_max_lease_extension_seconds < max(self.analysis_job_max_attempt_runtime_seconds, vast_horizon):
+            raise ValueError("JOB_MAX_LEASE_EXTENSION_SECONDS must cover every registered job horizon")
         if min(
             self.job_max_queue_age_seconds,
             self.job_event_retention_days,

@@ -470,6 +470,11 @@ the cancellation/lease-recovery path. Retention expires job events, terminal job
 attempts/artifacts, credentials, and expired artifacts according to configured policy. Each claim
 also records a fixed maximum lease horizon; execution supervision heartbeats and checks
 cancellation while work is running, and it never submits progress or completion after lease loss.
+Cancellation is cooperative and the local worker waits for the active executor to exit before
+claiming another job. Daily provider cost is persisted as an auditable reservation ledger so active
+reserved cost and completed actual spend remain distinct during recovery. Recovery dry-run does no
+external provider I/O. Real Vast.ai rentals fail closed while the reconciliation profile is
+`unverified`.
 Only the central registry accepts the exact `analysis.generate.v1` and
 `vast.session.start.v1` input/result schemas. Successful analysis completion creates an
 `available` database-backed report-reference artifact; binary outputs remain incomplete until

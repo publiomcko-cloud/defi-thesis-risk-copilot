@@ -16,6 +16,7 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 - Added a private jobs workspace with status, progress, event detail, cancellation, safe error guidance, and authorized report links.
 - Added safe job/event/artifact account export and account-deletion handling for job results and incomplete outputs.
 - Added migration, provider fake, lifecycle, browser BFF, Compose, and retention validation. Hosted workers and real provider rentals remain externally unverified.
+- Added cooperative executor cancellation, fixed per-job attempt horizons, side-effect-free recovery dry runs, durable provider-cost reservations, immediate job revocation on organization access loss, and server-owned retry decisions. Real Vast.ai rental remains fail-closed until a verified adapter profile exists.
 
 ### Phase 17A Durable Job Foundation
 

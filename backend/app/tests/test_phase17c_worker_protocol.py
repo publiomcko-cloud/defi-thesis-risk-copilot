@@ -168,6 +168,13 @@ def test_exact_schema_rejection_retry_taxonomy_and_fixed_lease_horizon(worker_cl
         json={**payload, "error_code": "provider_unavailable", "error_summary": "temporary provider outage", "retryable": True, "error_category": "retryable_provider"},
         headers=_worker_auth(worker_token),
     )
+    assert retry.status_code == 422
+
+    retry = client.post(
+        f"/internal/workers/v1/jobs/{retry_job['id']}/fail",
+        json={**payload, "error_code": "worker_unavailable", "error_summary": "temporary worker outage", "retryable": False, "error_category": "retryable_infrastructure"},
+        headers=_worker_auth(worker_token),
+    )
     assert retry.json()["status"] == "retry_wait"
 
     permanent_job = _submit_job(client, owner_token, "permanent-classification-key")
@@ -300,8 +307,11 @@ def test_execution_supervisor_heartbeats_cancels_and_rejects_lease_loss(monkeypa
         def __init__(self) -> None:
             self.cancelled = False
 
-        def execute(self, _job):
-            time.sleep(2.1)
+        def execute(self, _job, cancellation=None):
+            for _ in range(30):
+                if cancellation is not None:
+                    cancellation.raise_if_cancelled()
+                time.sleep(0.1)
             return JobResultEnvelope(result_schema_version="analysis.generate.v1", result_json={"analysis_request": {}, "report": {}})
 
         def cancel(self, _job) -> None:

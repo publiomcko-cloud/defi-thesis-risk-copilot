@@ -55,6 +55,8 @@ LLM_PROVIDER=disabled
 RAG_SEMANTIC_ENABLED=false
 VAST_ENABLED=false
 VAST_DRY_RUN=true
+VAST_REAL_RENTALS_ENABLED=false
+VAST_RECONCILIATION_PROFILE=unverified
 ```
 
 Frontend:
@@ -460,11 +462,11 @@ limits are environment-owned. The generic `/api/jobs` route and public-demo path
 type. Use `GET /api/admin/jobs/operations` and the existing sessions endpoint to inspect aggregate
 queue/worker/cleanup state without exposing credentials.
 
-For a real rental, keep all three feature flags explicit, set `VAST_DRY_RUN=false`, require admin
-MFA, set a nonzero daily micro-USD budget, inject `VAST_API_KEY` or a configured encrypted provider
-credential only into the trusted worker runtime, and perform a dry-run rehearsal first. Do not put
-provider credentials in job requests, logs, or browser variables. This repository has not verified
-a real hosted worker or rental.
+Real rentals are deliberately unavailable in this release. `VAST_DRY_RUN=false` is rejected for a
+normal provider until a future adapter declares verified request idempotency, request
+reconciliation, and idempotent destroy support. Keep `VAST_REAL_RENTALS_ENABLED=false` and
+`VAST_RECONCILIATION_PROFILE=unverified`; no provider credential belongs in job requests, logs, or
+browser variables.
 
 Hosted worker recovery runbook: issue a new scoped credential, deploy it as a worker-only secret,
 restart the outbound-only worker, verify its `last_seen_at` and operations summary, then revoke the
@@ -483,7 +485,9 @@ python -m scripts.recover_durable_jobs
 ```
 
 The command revalidates authorization, expires abandoned leases and queues, marks stale workers,
-finalizes safe cancellations, and reconciles durable capacity counters. Schedule it from a later
+finalizes safe cancellations, and reconciles durable capacity and provider-cost ledger counters.
+`--dry-run` makes no provider health, reconciliation, rent, or destroy call and persists no
+database change. Schedule it from a later
 operations runtime. `POST /api/admin/vast/sessions/start` is local dry-run diagnostics only and is
 rejected when durable Vast jobs are enabled or dry-run mode is off; all real startup must use the
 durable job route. Do not enable real rentals until the provider's request-ID reconciliation is

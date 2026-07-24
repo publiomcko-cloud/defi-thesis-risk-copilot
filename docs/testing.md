@@ -189,10 +189,10 @@ marking, and retention cleanup. The GitHub Actions backend job applies migration
 PostgreSQL-enabled suite; frontend CI runs the BFF contracts, production build, browser suite, and
 Compose rendering. No real provider credential or paid rental is used.
 
-The Phase 17 correction suite additionally proves repeated execution heartbeats, cancellation and
+The Phase 17 correction suite additionally proves cooperative executor termination/no-overlap execution, repeated execution heartbeats, cancellation and
 lease-loss cleanup, fixed per-attempt lease horizons, exact schema rejection, typed retry versus
 permanent failure handling, organization-role revocation, no-worker queue recovery, durable
-provider-request reconciliation, direct-route restriction, database-backed report artifacts, and
+provider-request reconciliation, side-effect-free recovery dry runs, durable provider-cost accounting, immediate organization authorization revocation, real-provider fail-closed configuration, direct-route restriction, database-backed report artifacts, and
 completed-only report links. PostgreSQL CI remains the concurrency evidence; no CI job may rent a
 real provider instance.
 

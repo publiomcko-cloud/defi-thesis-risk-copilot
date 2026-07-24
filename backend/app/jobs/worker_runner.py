@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import signal
+import inspect
 import time
 from dataclasses import dataclass
 from threading import Event, Thread
@@ -12,6 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.jobs.errors import JobErrorCategory, JobExecutionError, classify_exception
+from app.jobs.cancellation import CancellationContext
 from app.jobs.executors import get_executor
 from app.jobs.schemas import WorkerClaimedJob
 
@@ -119,10 +121,8 @@ def run_worker(*, once: bool = False) -> int:
                         {**lease_payload, "result": result.model_dump(mode="json")},
                     )
                 except LeaseLostError:
-                    _cancel_executor(executor, job)
                     logger.info("Worker lease ended while executing job %s.", job.id)
                 except JobExecutionError as exc:
-                    _cancel_executor(executor, job)
                     if exc.category == JobErrorCategory.CANCELLATION:
                         client.request("POST", f"/internal/workers/v1/jobs/{job.id}/release", lease_payload)
                     else:
@@ -139,7 +139,6 @@ def run_worker(*, once: bool = False) -> int:
                         )
                 except Exception as exc:
                     classified = classify_exception(exc)
-                    _cancel_executor(executor, job)
                     client.request(
                         "POST",
                         f"/internal/workers/v1/jobs/{job.id}/fail",
@@ -147,8 +146,7 @@ def run_worker(*, once: bool = False) -> int:
                             **lease_payload,
                             "error_code": classified.code,
                             "error_summary": classified.safe_summary,
-                            "retryable": classified.retryable,
-                            "error_category": classified.category.value,
+                                "error_category": classified.category.value,
                         },
                     )
             active = None
@@ -199,21 +197,26 @@ def _execute_with_supervision(
 
     done = Event()
     outcome: dict[str, object] = {}
+    cancellation = CancellationContext(deadline_at=job.execution_deadline_at or job.lease_expires_at)
 
     def run() -> None:
         try:
-            outcome["result"] = executor.execute(job)  # type: ignore[attr-defined]
+            execute = executor.execute  # type: ignore[attr-defined]
+            outcome["result"] = execute(job, cancellation) if len(inspect.signature(execute).parameters) > 1 else execute(job)
         except Exception as exc:  # The worker maps errors after supervision finishes.
             outcome["error"] = exc
         finally:
             done.set()
 
-    thread = Thread(target=run, name=f"job-{job.id}", daemon=True)
+    # This is deliberately non-daemon. The worker never claims another job until the
+    # cooperative executor has left this thread, including after lease loss/shutdown.
+    thread = Thread(target=run, name=f"job-{job.id}", daemon=False)
     thread.start()
     interval = max(float(os.getenv("JOB_HEARTBEAT_SECONDS", "20")), 0.1)
     while not done.wait(interval):
         if stop_event.is_set():
-            _cancel_executor(executor, job)
+            cancellation.cancel("worker_shutdown")
+            _wait_for_executor(thread, done, executor, job)
             raise JobExecutionError(JobErrorCategory.CANCELLATION, "worker_shutdown", "Worker shutdown requested cancellation.")
         try:
             heartbeat = client.request("POST", f"/internal/workers/v1/jobs/{job.id}/heartbeat", lease_payload)
@@ -222,18 +225,31 @@ def _execute_with_supervision(
             cancelled = client.request("GET", f"/internal/workers/v1/jobs/{job.id}/cancellation")
         except WorkerControlPlaneError as exc:
             if exc.status_code == 409:
-                _cancel_executor(executor, job)
+                cancellation.cancel("lease_lost")
+                _wait_for_executor(thread, done, executor, job)
                 raise LeaseLostError() from exc
             raise
         if cancelled.get("cancellation_requested") or cancelled.get("terminal"):
-            _cancel_executor(executor, job)
+            cancellation.cancel("control_plane_cancellation")
+            _wait_for_executor(thread, done, executor, job)
             raise JobExecutionError(JobErrorCategory.CANCELLATION, "job_cancelled", "Job cancellation was requested.")
     if "error" in outcome:
         raise classify_exception(outcome["error"])  # type: ignore[arg-type]
     if stop_event.is_set():
-        _cancel_executor(executor, job)
+        cancellation.cancel("worker_shutdown")
         raise JobExecutionError(JobErrorCategory.CANCELLATION, "worker_shutdown", "Worker shutdown requested cancellation.")
     return outcome["result"]
+
+
+def _wait_for_executor(thread: Thread, done: Event, executor: object, job: WorkerClaimedJob) -> None:
+    """Do not abandon an executor into a new claim cycle; cleanup is idempotent."""
+
+    _cancel_executor(executor, job)
+    while not done.wait(0.1):
+        # Cooperative executors observe their context. Waiting here is intentional:
+        # a worker with max_concurrency=1 must not overlap an abandoned attempt.
+        continue
+    thread.join(timeout=0)
 
 
 def _progress_message(job_type: str, stage: str) -> str:

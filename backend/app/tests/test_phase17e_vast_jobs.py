@@ -14,9 +14,10 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.jobs.schemas import WorkerClaimedJob, WorkerCredentialCreateRequest, WorkerRegistrationRequest
 from app.jobs.vast_executor import VastJobExecutor
+from app.jobs.worker_protocol import recover_durable_jobs
 from app.jobs.worker_service import issue_worker_credential, register_worker
 from app.main import app
-from app.models.job import JobModel
+from app.models.job import JobModel, ProviderCostReservationModel
 from app.models.vast_session import VastSessionModel
 
 
@@ -89,7 +90,8 @@ def test_vast_cancellation_invokes_idempotent_cleanup(phase17e_client) -> None:
             select(VastSessionModel).where(VastSessionModel.source_job_id == created["id"])
         ).scalars().one()
         assert session.status == "destroyed"
-        assert db.get(JobModel, created["id"]).reserved_cost_microusd > 0
+        assert db.get(JobModel, created["id"]).reserved_cost_microusd == 0
+        assert db.query(ProviderCostReservationModel).filter_by(job_id=created["id"]).one().status == "released"
 
 
 def test_provider_job_is_admin_only_server_profiled_and_budgeted(phase17e_client, monkeypatch) -> None:
@@ -136,6 +138,28 @@ def test_admin_operations_exposes_aggregate_safe_job_state(phase17e_client) -> N
         "stale_workers": 0,
         "provider_cleanup_failures": 0,
     }
+
+
+def test_recovery_dry_run_never_invokes_provider_cleanup(phase17e_client, monkeypatch) -> None:
+    client, Session, admin_token, _ = phase17e_client
+    created = _queue_vast_job(client, admin_token, "phase17e-recovery-dry-run")
+    calls: list[bool] = []
+
+    def unexpected_cleanup(*_args, **_kwargs) -> None:
+        calls.append(bool(_kwargs.get("perform_external_cleanup")))
+
+    monkeypatch.setattr("app.jobs.worker_protocol._cleanup_provider_for_terminal_job", unexpected_cleanup)
+    with Session() as db:
+        job = db.get(JobModel, created["id"])
+        assert job is not None
+        job.status = "cancel_requested"
+        job.leased_by_worker_id = None
+        db.commit()
+        counts = recover_durable_jobs(db, dry_run=True)
+        assert counts["provider_cleanup_candidates"] == 0
+    with Session() as db:
+        assert db.get(JobModel, created["id"]).status == "cancel_requested"
+    assert calls == [False]
 
 
 @pytest.fixture

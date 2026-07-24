@@ -96,7 +96,8 @@ class WorkerProgressRequest(WorkerLeaseRequest):
 class WorkerFailureRequest(WorkerLeaseRequest):
     error_code: str = Field(min_length=1, max_length=64, pattern=r"^[a-z0-9_]+$")
     error_summary: str = Field(min_length=1, max_length=512)
-    retryable: bool = False
+    # Retained only for old local workers; retry policy remains server-owned.
+    retryable: bool | None = None
     error_category: Literal[
         "permanent_input",
         "permanent_authorization",
@@ -118,6 +119,7 @@ class WorkerClaimedJob(BaseModel):
     lease_generation: int = Field(gt=0)
     lease_token: str = Field(min_length=24)
     lease_expires_at: datetime
+    execution_deadline_at: datetime | None = None
     deadline_at: datetime | None
 
 

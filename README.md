@@ -32,7 +32,7 @@ The Phase 16 merge branch is:
 agent/v1-phase-16-identity-ownership
 ```
 
-Phase 16 delivers managed identity, BFF, ownership, organization, quota, account, consent, retention, and frontend foundations. Its detailed implementation record is archived in [`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/). Phase 17 implementation is complete locally on `agent/v1-phase-17-durable-jobs`: it hardens durable jobs, internal workers, asynchronous authenticated analysis, a private jobs workspace, and the administrator-only server-profiled Vast job. Jobs and real provider startup remain disabled by default; hosted-worker and real-provider validation remain deferred to Phase 22.
+Phase 16 delivers managed identity, BFF, ownership, organization, quota, account, consent, retention, and frontend foundations. Its detailed implementation record is archived in [`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/). V1 Phase 17 — Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22. It hardens durable jobs, internal workers, asynchronous authenticated analysis, a private jobs workspace, and the administrator-only server-profiled Vast job. Jobs and real provider startup remain disabled by default.
 
 ## Product Capabilities
 

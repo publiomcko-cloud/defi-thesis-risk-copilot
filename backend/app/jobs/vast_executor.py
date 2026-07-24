@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.auth.service import user_context
 from app.db.session import SessionLocal
+from app.jobs.cancellation import CancellationContext
 from app.jobs.errors import JobErrorCategory, JobExecutionError
 from app.jobs.schemas import JobResultEnvelope, WorkerClaimedJob
 from app.llm.vast.lifecycle import destroy_session, start_session
@@ -29,8 +30,10 @@ class VastJobExecutor:
         self._session_factory = session_factory
         self._starter = starter
 
-    def execute(self, job: WorkerClaimedJob) -> JobResultEnvelope:
+    def execute(self, job: WorkerClaimedJob, cancellation: CancellationContext | None = None) -> JobResultEnvelope:
+        cancellation = cancellation or CancellationContext()
         allow_remote_gpu, warm_instance, session_id, owner_id = _vast_input(job)
+        cancellation.raise_if_cancelled()
         with self._session_factory() as db:
             owner = db.get(UserModel, owner_id)
             if owner is None:
@@ -43,6 +46,7 @@ class VastJobExecutor:
                     warm_instance=warm_instance,
                     session_id=session_id,
                     source_job_id=job.id,
+                    cancellation=cancellation,
                 )
             except HTTPException as exc:
                 raise VastExecutionError(JobErrorCategory.PERMANENT_INPUT, "vast_request_rejected", str(exc.detail)) from exc
@@ -53,6 +57,7 @@ class VastJobExecutor:
                     else JobErrorCategory.RETRYABLE_PROVIDER
                 )
                 raise VastExecutionError(category, "vast_session_not_ready", session.last_error or "Vast session did not reach ready state.")
+            cancellation.raise_if_cancelled()
             return JobResultEnvelope(
                 result_schema_version="vast.session.start.v1",
                 result_json={

@@ -52,6 +52,24 @@ def dispose_jobs_for_organization_deletion(
     return disposed
 
 
+def revoke_jobs_for_authorization_change(
+    db: Session,
+    *,
+    user_id: str | None = None,
+    organization_id: str | None = None,
+    reason: str,
+    now: datetime | None = None,
+) -> int:
+    """Immediately transition jobs whose write authority was removed."""
+
+    statement = select(JobModel).where(JobModel.deleted_at.is_(None))
+    if organization_id is not None:
+        statement = statement.where(JobModel.organization_id == organization_id)
+    if user_id is not None:
+        statement = statement.where(JobModel.owner_user_id == user_id)
+    return _dispose_jobs(db, statement, reason=reason, now=now)
+
+
 def _dispose_jobs(db: Session, statement, *, reason: str, now: datetime | None) -> int:
     timestamp = now or datetime.now(UTC)
     records = db.execute(statement.where(JobModel.deleted_at.is_(None))).scalars().all()

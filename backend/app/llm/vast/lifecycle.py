@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.auth.schemas import UserContext
 from app.auth.service import record_audit_event
 from app.core.config import Settings, get_settings
+from app.jobs.cancellation import CancellationContext
+from app.jobs.errors import JobExecutionError
 from app.llm.base import LLMRequest
 from app.llm.vast.client import VastClient, VastClientError, select_offer
 from app.llm.vast.provider import VastEphemeralProvider
@@ -59,12 +61,18 @@ def start_session(
     *,
     session_id: str | None = None,
     source_job_id: str | None = None,
+    cancellation: CancellationContext | None = None,
 ) -> VastSessionModel:
     settings = get_settings()
     if not settings.vast_enabled:
         raise HTTPException(status_code=400, detail="Vast.ai provider is disabled")
     if not settings.vast_dry_run and not allow_remote_gpu:
         raise HTTPException(status_code=400, detail="Remote GPU use must be explicitly allowed")
+    if client is None and not settings.vast_dry_run and (
+        not settings.vast_real_rentals_enabled or settings.vast_reconciliation_profile != "verified_v1"
+    ):
+        raise HTTPException(status_code=503, detail="Real Vast.ai rentals are disabled until reconciliation is verified.")
+    _check_cancellation(cancellation)
 
     session: VastSessionModel | None = None
     if session_id:
@@ -102,13 +110,21 @@ def start_session(
         record_audit_event(db, actor.id, "vast.session_start_requested", "vast_session", session.id)
 
     vast_client = client or _client_from_config(db, settings)
+    if client is None and not settings.vast_dry_run and not (
+        vast_client.supports_verified_request_idempotency
+        and vast_client.supports_request_reconciliation
+        and vast_client.supports_idempotent_destroy
+    ):
+        raise HTTPException(status_code=503, detail="The selected Vast.ai provider profile is not verified for real rentals.")
     try:
         if session.status == "ready":
             return session
         if session.provider_request_state in {"submitted_unknown", "reconciliation_failed"}:
+            _check_cancellation(cancellation)
             if not _reconcile_provider_request(db, actor, session, vast_client):
                 return session
         _transition(db, session, "searching_offer")
+        _check_cancellation(cancellation)
         offers = vast_client.search_offers()
         offer = select_offer(offers, settings)
         if offer is None:
@@ -129,6 +145,7 @@ def start_session(
         )
 
         if not session.vast_instance_id:
+            _check_cancellation(cancellation)
             _transition(db, session, "renting_instance")
             # This is committed before outbound provider I/O. A lost response leaves
             # an explicit uncertain state rather than permitting a duplicate rental.
@@ -154,7 +171,8 @@ def start_session(
             db.commit()
             return session
 
-        status = _wait_for_instance_ready(db, actor, session, vast_client, settings)
+        status = _wait_for_instance_ready(db, actor, session, vast_client, settings, cancellation=cancellation)
+        _check_cancellation(cancellation)
         if session.status in {"destroyed", "cleanup_failed"}:
             return session
         _merge_metadata(session, {"instance_status": _safe_metadata(status)})
@@ -185,6 +203,10 @@ def start_session(
             _fail(db, actor, session, "rent_failed", str(exc))
             _attempt_cleanup(db, actor, session, vast_client)
         return session
+    except JobExecutionError:
+        # The worker already lost authority or reached its deadline. Do not mutate
+        # provider/session state from this startup path after that point.
+        raise
     except Exception as exc:
         _fail(db, actor, session, "request_failed", "Vast.ai startup failed")
         _attempt_cleanup(db, actor, session, vast_client)
@@ -433,6 +455,7 @@ def _wait_for_instance_ready(
     session: VastSessionModel,
     client: VastClient,
     settings: Settings,
+    cancellation: CancellationContext | None = None,
 ) -> dict:
     _transition(db, session, "booting")
     if settings.vast_dry_run:
@@ -441,6 +464,7 @@ def _wait_for_instance_ready(
     deadline = datetime.now(UTC) + timedelta(seconds=settings.vast_startup_timeout_seconds)
     last_status: dict = {}
     while datetime.now(UTC) <= deadline:
+        _check_cancellation(cancellation)
         last_status = client.get_instance_status(session.vast_instance_id or "")
         _merge_metadata(session, {"last_polled_status": _safe_metadata(last_status)})
         session.public_endpoint_url = last_status.get("public_endpoint_url") or session.public_endpoint_url
@@ -506,3 +530,8 @@ def _client_from_config(db: Session, settings: Settings) -> VastClient:
         name=settings.vast_credential_name,
     )
     return VastClient(settings, api_key=credential_secret or settings.vast_api_key)
+
+
+def _check_cancellation(cancellation: CancellationContext | None) -> None:
+    if cancellation is not None:
+        cancellation.raise_if_cancelled()

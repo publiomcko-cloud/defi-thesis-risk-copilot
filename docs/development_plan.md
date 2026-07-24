@@ -335,7 +335,7 @@ Core outcomes:
 
 Phase 17 must preserve Phase 16 ownership, quotas, actor boundaries, and auditability.
 
-Phase 17 implementation is complete locally on `agent/v1-phase-17-durable-jobs`. It provides durable job, attempt, event,
+V1 Phase 17 — Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22. It provides durable job, attempt, event,
 worker, credential, artifact, and capacity-reservation schemas; closed transitions; tenant-scoped
 submission, idempotency, queue expiry, cancellation, and operator replay; PostgreSQL-safe worker
 leasing/recovery; asynchronous authenticated analysis; a private jobs workspace; retention and

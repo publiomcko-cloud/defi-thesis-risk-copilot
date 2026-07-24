@@ -183,3 +183,28 @@ class JobCapacityReservationModel(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class ProviderCostReservationModel(Base):
+    """Auditable daily provider-cost state; never infer completed spend from active jobs."""
+
+    __tablename__ = "provider_cost_reservations"
+    __table_args__ = (
+        CheckConstraint("reserved_cost_microusd >= 0", name="ck_provider_cost_reserved"),
+        CheckConstraint("actual_cost_microusd >= 0", name="ck_provider_cost_actual"),
+        CheckConstraint("status IN ('reserved', 'running', 'completed', 'released', 'cancelled', 'reconciliation_required')", name="ck_provider_cost_status"),
+        UniqueConstraint("job_id", name="uq_provider_cost_reservations_job"),
+        Index("ix_provider_cost_reservations_period_status", "provider", "period_start", "period_end", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    job_id: Mapped[str] = mapped_column(ForeignKey("jobs.id", ondelete="CASCADE"), nullable=False, index=True)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    period_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    period_end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    reserved_cost_microusd: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    actual_cost_microusd: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="reserved", nullable=False, index=True)
+    released_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)

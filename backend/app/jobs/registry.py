@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from app.jobs.schemas import JobResultEnvelope
+from app.core.config import Settings
 from app.jobs.errors import JobErrorCategory
 from app.schemas.analysis import AnalysisRequest
 
@@ -24,7 +25,14 @@ class JobTypeSpec:
     executor_name: str
     cost_estimator_name: str
     retryable_categories: frozenset[JobErrorCategory]
+    accepted_failure_categories: frozenset[JobErrorCategory]
     requires_provider: bool
+    maximum_attempt_runtime_seconds: int | None = None
+
+    def execution_horizon_seconds(self, settings: Settings) -> int:
+        if self.job_type == "vast.session.start":
+            return settings.vast_startup_timeout_seconds + settings.vast_reconciliation_grace_seconds + settings.job_cleanup_grace_seconds
+        return self.maximum_attempt_runtime_seconds or settings.analysis_job_max_attempt_runtime_seconds
 
 
 def _analysis_input(value: dict) -> None:
@@ -59,7 +67,9 @@ JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
         executor_name="analysis",
         cost_estimator_name="deterministic_zero_cost",
         retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
+        accepted_failure_categories=frozenset({JobErrorCategory.PERMANENT_INPUT, JobErrorCategory.PERMANENT_AUTHORIZATION, JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
         requires_provider=False,
+        maximum_attempt_runtime_seconds=300,
     ),
     "vast.session.start": JobTypeSpec(
         job_type="vast.session.start",
@@ -70,6 +80,7 @@ JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
         executor_name="vast",
         cost_estimator_name="server_profiled_vast",
         retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE, JobErrorCategory.RETRYABLE_PROVIDER}),
+        accepted_failure_categories=frozenset({JobErrorCategory.PERMANENT_INPUT, JobErrorCategory.PERMANENT_AUTHORIZATION, JobErrorCategory.RETRYABLE_INFRASTRUCTURE, JobErrorCategory.RETRYABLE_PROVIDER, JobErrorCategory.UNCERTAIN_EXTERNAL_SIDE_EFFECT}),
         requires_provider=True,
     ),
 }

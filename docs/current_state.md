@@ -47,7 +47,7 @@ Current status:
 
 ```text
 V1 Phase 16 — Complete and merge-ready
-V1 Phase 17 — Implementation complete locally on `agent/v1-phase-17-durable-jobs`; hosted-worker and real-provider validation remain deferred to Phase 22
+V1 Phase 17 — Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22
 V1 Phases 18–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -351,7 +351,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   Phase 17E adds an administrator/MFA-gated, server-profiled `vast.session.start` worker job with
   source-job/session uniqueness, pre-claim cost reservation, reconciliation after a lost completion
   response, idempotent cleanup, and aggregate operator status. It remains disabled and dry-run by
-  default; Phase 17F adds a private jobs workspace and safe export/deletion/retention handling.
+  default; Phase 17F adds a private jobs workspace and safe export/deletion/retention handling. Final corrections add cooperative executor cancellation and no-overlap worker behavior, fixed per-job lease horizons, provider-cost ledger reconstruction, authorization-change disposal, registry-owned retries, and dry-run recovery that never invokes provider cleanup. Real Vast.ai rentals remain blocked because request reconciliation is unverified.
   No real provider rental is claimed as deployed or externally verified;
 - Phase 18 — durable tenant RAG and object/vector storage;
 - Phase 19 — production operations and security;

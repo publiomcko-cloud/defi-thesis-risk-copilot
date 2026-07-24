@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth.policies import can_manage_members, can_manage_organization
 from app.auth.schemas import UserContext
 from app.auth.service import normalize_email, record_audit_event
-from app.jobs.lifecycle import dispose_jobs_for_organization_deletion
+from app.jobs.lifecycle import dispose_jobs_for_organization_deletion, revoke_jobs_for_authorization_change
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 from app.organizations.schemas import (
@@ -110,6 +110,13 @@ def update_organization(
         org.name = request.name
     if request.status is not None:
         org.status = request.status
+        if org.status != "active":
+            revoke_jobs_for_authorization_change(
+                db,
+                organization_id=org.id,
+                reason="organization_disabled",
+                now=datetime.now(UTC),
+            )
     org.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(org)
@@ -238,6 +245,14 @@ def update_member(
     if request.status is not None:
         membership.status = request.status
     membership.updated_at = datetime.now(UTC)
+    if membership.status != "active" or membership.role not in {"owner", "admin", "member"}:
+        revoke_jobs_for_authorization_change(
+            db,
+            user_id=membership.user_id,
+            organization_id=org.id,
+            reason="organization_membership_revoked",
+            now=membership.updated_at,
+        )
     db.commit()
     db.refresh(membership)
     action = (

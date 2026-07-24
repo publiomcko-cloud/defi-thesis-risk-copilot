@@ -26,7 +26,7 @@ from app.jobs.schemas import (
     JobSubmissionRequest,
 )
 from app.jobs.state import append_job_event, transition_job
-from app.models.job import JobCapacityReservationModel, JobEventModel, JobModel
+from app.models.job import JobCapacityReservationModel, JobEventModel, JobModel, ProviderCostReservationModel
 from app.models.organization import OrganizationModel
 from app.models.usage_quota import UsageQuotaModel
 from app.models.user import UserModel
@@ -312,6 +312,10 @@ def submit_vast_start_job(
         raise HTTPException(status_code=403, detail="Platform administrator role required")
     if not settings.vast_job_enabled or not settings.vast_enabled:
         raise HTTPException(status_code=503, detail="Vast job execution is disabled.")
+    if not settings.vast_dry_run and (
+        not settings.vast_real_rentals_enabled or settings.vast_reconciliation_profile != "verified_v1"
+    ):
+        raise HTTPException(status_code=503, detail="Real Vast.ai rentals are disabled until reconciliation is verified.")
     if not settings.vast_dry_run and not allow_remote_gpu:
         raise HTTPException(status_code=422, detail="Remote GPU use must be explicitly allowed.")
     return submit_job(
@@ -403,6 +407,7 @@ def _create_reserved_job(
     )
     db.add(job)
     db.flush()
+    _create_provider_cost_reservation(db, job, now)
     append_job_event(
         db,
         job,
@@ -545,6 +550,16 @@ def _release_unused_cost_reservation(db: Session, job: JobModel) -> None:
         record.reserved_cost_microusd = max(0, record.reserved_cost_microusd - job.reserved_cost_microusd)
         record.updated_at = datetime.now(UTC)
     job.reserved_cost_microusd = 0
+    reservation = db.execute(
+        select(ProviderCostReservationModel)
+        .where(ProviderCostReservationModel.job_id == job.id)
+        .with_for_update()
+    ).scalars().one_or_none()
+    if reservation is not None and reservation.status not in {"completed", "released", "cancelled"}:
+        reservation.status = "released"
+        reservation.reserved_cost_microusd = 0
+        reservation.released_at = datetime.now(UTC)
+        reservation.updated_at = reservation.released_at
 
 
 def _capacity_records(
@@ -620,6 +635,26 @@ def _reserve_daily_cost(
         raise HTTPException(status_code=429, detail="Daily job cost budget exceeded.")
     global_record.reserved_cost_microusd += estimated_cost_microusd
     global_record.updated_at = datetime.now(UTC)
+
+
+def _create_provider_cost_reservation(db: Session, job: JobModel, now: datetime) -> None:
+    if job.job_type != "vast.session.start":
+        return
+    period_start, period_end = _day_window()
+    db.add(
+        ProviderCostReservationModel(
+            id=f"jobcost_{job.id}",
+            job_id=job.id,
+            provider="vast_ai",
+            period_start=period_start,
+            period_end=period_end,
+            reserved_cost_microusd=job.reserved_cost_microusd,
+            actual_cost_microusd=0,
+            status="reserved",
+            created_at=now,
+            updated_at=now,
+        )
+    )
 
 
 def _reserve_quota(db: Session, actor: UserContext, job_type: str) -> None:

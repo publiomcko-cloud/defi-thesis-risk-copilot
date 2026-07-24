@@ -17,6 +17,18 @@ class VastClient:
         self.base_url = settings.vast_api_base_url.rstrip("/")
         self.dry_run = settings.vast_dry_run
 
+    @property
+    def supports_verified_request_idempotency(self) -> bool:
+        return self.dry_run
+
+    @property
+    def supports_request_reconciliation(self) -> bool:
+        return self.dry_run
+
+    @property
+    def supports_idempotent_destroy(self) -> bool:
+        return self.dry_run
+
     def search_offers(self) -> list[VastOffer]:
         if self.dry_run:
             return [

@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.agents.orchestrator import AnalysisWorkflowResult, run_analysis_workflow
 from app.auth.service import user_context
 from app.db.session import SessionLocal
+from app.jobs.cancellation import CancellationContext
 from app.jobs.errors import JobErrorCategory, JobExecutionError
 from app.jobs.schemas import JobResultEnvelope, WorkerClaimedJob
 from app.models.user import UserModel
@@ -28,13 +29,22 @@ class AnalysisJobExecutor:
         self._session_factory = session_factory
         self._workflow_runner = workflow_runner
 
-    def execute(self, job: WorkerClaimedJob) -> JobResultEnvelope:
+    def execute(self, job: WorkerClaimedJob, cancellation: CancellationContext | None = None) -> JobResultEnvelope:
+        cancellation = cancellation or CancellationContext()
         request, report_id = _analysis_input(job)
+        cancellation.raise_if_cancelled()
         with self._session_factory() as db:
             owner = db.get(UserModel, _owner_id(job))
             if owner is None:
                 raise AnalysisExecutionError(JobErrorCategory.PERMANENT_AUTHORIZATION, "analysis_owner_unavailable", "Analysis owner is unavailable.")
-            workflow_result = self._workflow_runner(request, report_id, db, actor=user_context(owner))
+            workflow_result = self._workflow_runner(
+                request,
+                report_id,
+                db,
+                actor=user_context(owner),
+                cancellation=cancellation,
+            )
+            cancellation.raise_if_cancelled()
             return JobResultEnvelope(
                 result_schema_version="analysis.generate.v1",
                 result_json={

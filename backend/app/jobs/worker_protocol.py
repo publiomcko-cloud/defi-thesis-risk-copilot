@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.auth.security import constant_time_equal, hash_job_lease_token, redact_sensitive
 from app.auth.service import user_context
 from app.core.config import get_settings
+from app.jobs.errors import JobErrorCategory
 from app.jobs.control_service import (
     _release_capacity,
     move_pending_capacity_to_running,
@@ -19,7 +20,7 @@ from app.jobs.control_service import (
     release_running_capacity,
 )
 from app.jobs.lifecycle import mark_job_artifacts_incomplete
-from app.jobs.registry import validate_result_schema
+from app.jobs.registry import get_job_spec, validate_result_schema
 from app.jobs.schemas import (
     JobResultEnvelope,
     WorkerCancellationResponse,
@@ -33,7 +34,7 @@ from app.jobs.schemas import (
 )
 from app.jobs.state import append_job_event, transition_job
 from app.jobs.worker_service import verify_worker_credential
-from app.models.job import JobAttemptModel, JobCapacityReservationModel, JobModel
+from app.models.job import JobAttemptModel, JobCapacityReservationModel, JobModel, ProviderCostReservationModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 from app.models.vast_session import VastSessionModel
@@ -136,6 +137,7 @@ def claim_next_job(db: Session, identity: WorkerIdentity) -> WorkerClaimResponse
             created_at=now,
         )
     )
+    _mark_provider_reservation_running(db, job)
     db.commit()
     return WorkerClaimResponse(
         job=WorkerClaimedJob(
@@ -146,6 +148,7 @@ def claim_next_job(db: Session, identity: WorkerIdentity) -> WorkerClaimResponse
             lease_generation=generation,
             lease_token=lease_token,
             lease_expires_at=lease_expires_at,
+            execution_deadline_at=max_lease_expires_at,
             deadline_at=job.deadline_at,
         )
     )
@@ -251,6 +254,7 @@ def complete_job(
             * get_settings().vast_max_session_minutes
             // 60,
         )
+        _complete_provider_cost_reservation(db, job)
     job.result_schema_version = result.result_schema_version
     job.progress_percent = 100
     job.progress_message = "Worker completed the job."
@@ -279,8 +283,13 @@ def fail_job(
     attempt.error_code = job.error_code
     attempt.error_summary = job.error_summary
     attempt.ended_at = datetime.now(UTC)
-    should_reconcile = request.error_category == "uncertain_external_side_effect"
-    if (request.retryable or should_reconcile) and job.attempt_count < job.max_attempts and _deadline_allows_retry(job):
+    category = JobErrorCategory(request.error_category)
+    spec = get_job_spec(job.job_type)
+    if category not in spec.accepted_failure_categories:
+        raise HTTPException(status_code=422, detail="Worker error category is not allowed for this job type.")
+    should_reconcile = category == JobErrorCategory.UNCERTAIN_EXTERNAL_SIDE_EFFECT
+    should_retry = category in spec.retryable_categories
+    if (should_retry or should_reconcile) and job.attempt_count < job.max_attempts and _deadline_allows_retry(job):
         transition_job(
             db,
             job,
@@ -290,6 +299,8 @@ def fail_job(
             metadata={"error_code": job.error_code, "error_category": request.error_category},
         )
         attempt.outcome = "retry_wait"
+        if should_reconcile:
+            _mark_provider_reservation_reconciliation_required(db, job)
         move_running_capacity_to_pending(db, job)
         job.available_at = datetime.now(UTC) + timedelta(seconds=_retry_delay_seconds(job.attempt_count, job.id))
     else:
@@ -338,7 +349,12 @@ def cancellation_status(db: Session, identity: WorkerIdentity, job_id: str) -> W
     )
 
 
-def recover_expired_jobs(db: Session, *, now: datetime | None = None) -> int:
+def recover_expired_jobs(
+    db: Session,
+    *,
+    now: datetime | None = None,
+    perform_external_cleanup: bool = True,
+) -> int:
     timestamp = now or datetime.now(UTC)
     statement = (
         select(JobModel)
@@ -355,11 +371,18 @@ def recover_expired_jobs(db: Session, *, now: datetime | None = None) -> int:
             _expire_queued_job(db, job)
         elif job.status == "cancel_requested":
             attempt = _attempt_for_lease(db, job)
-            _cancel_leased_job(db, job, attempt, job.leased_by_worker_id, commit=False)
+            _cancel_leased_job(
+                db,
+                job,
+                attempt,
+                job.leased_by_worker_id,
+                commit=False,
+                perform_external_cleanup=perform_external_cleanup,
+            )
         elif job.attempt_count >= job.max_attempts or not _deadline_allows_retry(job, timestamp):
             attempt = _attempt_for_lease(db, job)
             mark_job_artifacts_incomplete(db, job.id, now=timestamp)
-            _cleanup_provider_for_terminal_job(db, job)
+            _cleanup_provider_for_terminal_job(db, job, perform_external_cleanup=perform_external_cleanup)
             transition_job(db, job, "dead_letter", message="Lease expired after the final worker attempt.")
             if attempt:
                 attempt.ended_at = timestamp
@@ -388,7 +411,7 @@ def recover_durable_jobs(db: Session, *, now: datetime | None = None, dry_run: b
 
     timestamp = now or datetime.now(UTC)
     stale_workers = _mark_stale_workers(db, timestamp)
-    expired = recover_expired_jobs(db, now=timestamp)
+    expired = recover_expired_jobs(db, now=timestamp, perform_external_cleanup=not dry_run)
     authorization_revoked = 0
     cancellation_finalized = 0
     jobs = db.execute(
@@ -414,15 +437,25 @@ def recover_durable_jobs(db: Session, *, now: datetime | None = None, dry_run: b
             job.error_summary = "Job authorization was revoked during controlled execution."
             authorization_revoked += 1
         elif job.status == "cancel_requested" and job.leased_by_worker_id is None:
-            _cancel_leased_job(db, job, None, None, commit=False)
+            _cancel_leased_job(
+                db,
+                job,
+                None,
+                None,
+                commit=False,
+                perform_external_cleanup=not dry_run,
+            )
             cancellation_finalized += 1
     capacity_adjustments = _reconcile_capacity(db, timestamp)
+    provider_cleanup_candidates = _provider_cleanup_candidate_count(db)
     counts = {
         "expired_jobs": expired,
         "stale_workers": stale_workers,
         "authorization_revoked": authorization_revoked,
         "cancellation_finalized": cancellation_finalized,
         "capacity_adjustments": capacity_adjustments,
+        "cost_adjustments": capacity_adjustments,
+        "provider_cleanup_candidates": provider_cleanup_candidates,
     }
     if dry_run:
         db.rollback()
@@ -575,14 +608,16 @@ def _cancel_leased_job(
     worker_id: str | None,
     *,
     commit: bool = True,
+    perform_external_cleanup: bool = True,
 ) -> WorkerMutationResponse:
     mark_job_artifacts_incomplete(db, job.id)
-    _cleanup_provider_for_terminal_job(db, job)
+    _cleanup_provider_for_terminal_job(db, job, perform_external_cleanup=perform_external_cleanup)
     transition_job(db, job, "cancelled", worker_id=worker_id, message="Worker acknowledged job cancellation.")
     if attempt:
         attempt.ended_at = datetime.now(UTC)
         attempt.outcome = "cancelled"
     release_running_capacity(db, job)
+    _release_capacity(db, job)
     _clear_lease(job)
     if commit:
         db.commit()
@@ -607,7 +642,7 @@ def _clear_lease(job: JobModel) -> None:
 
 
 def _attempt_max_lease_horizon(job: JobModel, now: datetime) -> datetime:
-    horizon = now + timedelta(seconds=get_settings().job_max_lease_extension_seconds)
+    horizon = now + timedelta(seconds=get_job_spec(job.job_type).execution_horizon_seconds(get_settings()))
     if job.deadline_at is not None:
         horizon = min(horizon, _utc(job.deadline_at))
     return horizon
@@ -698,11 +733,20 @@ def _reconcile_capacity(db: Session, now: datetime) -> int:
                 current[0] += 1
             else:
                 current[1] += 1
-            if scope_type == "global":
-                current[2] += job.reserved_cost_microusd
+    _rebuild_provider_cost_reservations(db, now)
+    period_start, period_end = _current_period(now)
+    provider_cost = sum(
+        (item.actual_cost_microusd if item.status == "completed" else item.reserved_cost_microusd)
+        for item in db.execute(
+            select(ProviderCostReservationModel)
+            .where(ProviderCostReservationModel.period_start == period_start)
+            .where(ProviderCostReservationModel.period_end == period_end)
+            .where(ProviderCostReservationModel.status.in_({"reserved", "running", "completed", "reconciliation_required"}))
+        ).scalars().all()
+    )
     adjusted = 0
     for record in db.execute(select(JobCapacityReservationModel).with_for_update()).scalars().all():
-        pending, running, cost = desired.get((record.scope_type, record.scope_id), [0, 0, 0])
+        pending, running, cost = desired.get((record.scope_type, record.scope_id), [0, 0, provider_cost if record.scope_type == "global" else 0])
         if (record.pending_count, record.running_count, record.reserved_cost_microusd) != (pending, running, cost):
             record.pending_count = pending
             record.running_count = running
@@ -741,10 +785,10 @@ def _persist_vast_completion(db: Session, job: JobModel, result_json: dict) -> V
     return session
 
 
-def _cleanup_provider_for_terminal_job(db: Session, job: JobModel) -> None:
+def _cleanup_provider_for_terminal_job(db: Session, job: JobModel, *, perform_external_cleanup: bool = True) -> None:
     """Best-effort, idempotent teardown for a cancelled or terminal Vast job."""
 
-    if job.job_type != "vast.session.start":
+    if job.job_type != "vast.session.start" or not perform_external_cleanup:
         return
     session = db.execute(
         select(VastSessionModel).where(VastSessionModel.source_job_id == job.id)
@@ -762,6 +806,63 @@ def _cleanup_provider_for_terminal_job(db: Session, job: JobModel) -> None:
         # The session lifecycle records its own cleanup failure. Job cancellation must
         # remain terminal even if the remote provider cannot be reached.
         return
+
+
+def _current_period(now: datetime) -> tuple[datetime, datetime]:
+    from app.quotas.service import _day_window
+
+    return _day_window()
+
+
+def _complete_provider_cost_reservation(db: Session, job: JobModel) -> None:
+    reservation = db.execute(
+        select(ProviderCostReservationModel).where(ProviderCostReservationModel.job_id == job.id).with_for_update()
+    ).scalars().one_or_none()
+    if reservation is None:
+        return
+    reservation.actual_cost_microusd = job.actual_cost_microusd
+    reservation.status = "completed"
+    reservation.updated_at = datetime.now(UTC)
+
+
+def _mark_provider_reservation_running(db: Session, job: JobModel) -> None:
+    reservation = db.execute(
+        select(ProviderCostReservationModel).where(ProviderCostReservationModel.job_id == job.id).with_for_update()
+    ).scalars().one_or_none()
+    if reservation is not None and reservation.status == "reserved":
+        reservation.status = "running"
+        reservation.updated_at = datetime.now(UTC)
+
+
+def _mark_provider_reservation_reconciliation_required(db: Session, job: JobModel) -> None:
+    reservation = db.execute(
+        select(ProviderCostReservationModel).where(ProviderCostReservationModel.job_id == job.id).with_for_update()
+    ).scalars().one_or_none()
+    if reservation is not None:
+        reservation.status = "reconciliation_required"
+        reservation.updated_at = datetime.now(UTC)
+
+
+def _rebuild_provider_cost_reservations(db: Session, now: datetime) -> None:
+    period_start, period_end = _current_period(now)
+    for job in db.execute(select(JobModel).where(JobModel.job_type == "vast.session.start")).scalars().all():
+        reservation = db.execute(
+            select(ProviderCostReservationModel).where(ProviderCostReservationModel.job_id == job.id)
+        ).scalars().one_or_none()
+        if reservation is not None:
+            continue
+        status = "completed" if job.status == "completed" else "released" if job.reserved_cost_microusd == 0 else "running" if job.status in {"leased", "running", "cancel_requested"} else "reserved"
+        db.add(ProviderCostReservationModel(
+            id=f"jobcost_{job.id}", job_id=job.id, provider="vast_ai", period_start=period_start, period_end=period_end,
+            reserved_cost_microusd=job.reserved_cost_microusd, actual_cost_microusd=job.actual_cost_microusd,
+            status=status, released_at=now if status == "released" else None, created_at=now, updated_at=now,
+        ))
+
+
+def _provider_cleanup_candidate_count(db: Session) -> int:
+    return len(db.execute(
+        select(VastSessionModel.id).where(VastSessionModel.status.not_in({"destroyed"}))
+    ).all())
 
 
 def _is_postgres(db: Session) -> bool:
