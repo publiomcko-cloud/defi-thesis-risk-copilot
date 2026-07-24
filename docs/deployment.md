@@ -493,6 +493,11 @@ rejected when durable Vast jobs are enabled or dry-run mode is off; all real sta
 durable job route. Do not enable real rentals until the provider's request-ID reconciliation is
 verified in the deployment environment.
 
+Organization membership changes are safe to apply without deleting completed shared work: they
+revoke active jobs only. Queued/retry work is failed and releases its reservation; leased/running
+work waits for normal worker cancellation acknowledgement. Account deletion, organization deletion,
+and retention cleanup remain the only destructive job-result lifecycle paths.
+
 ### Phase 17F user workspace and retention
 
 Authenticated users can review their own authorized jobs at `/jobs`. It exposes state, progress,

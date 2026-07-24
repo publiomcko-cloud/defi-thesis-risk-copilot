@@ -821,7 +821,7 @@ Deliverables:
   flow, shutdown, retention, BFF denial, and Compose;
 - record local versus externally verified worker/provider behavior accurately.
 
-Implementation note: 17F and the final Phase 17 correction pass are implemented and locally validated. Authenticated users have a private `/jobs` workspace
+Implementation note: 17F and the final Phase 17 correction pass are implemented and locally validated. Authorization revocation is non-destructive for terminal organization resources, recovery rebuilds missing capacity rows, provider terminal accounting distinguishes no-request, known-cost, and uncertain outcomes, and the analysis horizon is controlled by `ANALYSIS_JOB_MAX_ATTEMPT_RUNTIME_SECONDS`. Authenticated users have a private `/jobs` workspace
 with status, progress, attempts, bounded event history, cancellation, safe errors, queue/retry
 guidance, and authorized report references. Account export includes safe job/event/artifact metadata
 without job inputs, event metadata, provider payloads, or credentials. Account deletion hides

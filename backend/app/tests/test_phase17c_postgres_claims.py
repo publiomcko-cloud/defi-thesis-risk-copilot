@@ -15,10 +15,11 @@ from app.core.config import get_settings
 from app.db.session import create_database_engine
 from app.jobs.control_service import release_running_capacity, submit_job
 from app.jobs.schemas import JobSubmissionRequest, WorkerCredentialCreateRequest, WorkerRegistrationRequest
-from app.jobs.worker_protocol import authenticate_worker, claim_next_job
+from app.jobs.worker_protocol import authenticate_worker, claim_next_job, recover_durable_jobs
 from app.jobs.worker_service import issue_worker_credential, register_worker
 from app.models.access_audit_event import AccessAuditEventModel
-from app.models.job import JobAttemptModel, JobEventModel, JobModel
+from app.models.job import JobAttemptModel, JobCapacityReservationModel, JobEventModel, JobModel
+from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.usage_quota import UsageQuotaModel
 from app.models.user import UserModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
@@ -117,5 +118,72 @@ def test_postgres_skip_locked_claim_has_one_winner(
                 db.execute(delete(UsageQuotaModel).where(UsageQuotaModel.subject_id == user_id))
                 db.execute(delete(AccessAuditEventModel).where(AccessAuditEventModel.actor_user_id == user_id))
                 db.execute(delete(UserModel).where(UserModel.id == user_id))
+                db.commit()
+        get_settings.cache_clear()
+
+
+def test_postgres_recovery_rebuilds_missing_capacity_rows(
+    postgres_sessions: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JOBS_ENABLED", "true")
+    suffix = uuid4().hex[:12]
+    owner_id = ""
+    try:
+        with postgres_sessions() as db:
+            owner = create_user(db, f"phase17c-capacity-{suffix}@example.test", token=f"capacity-{suffix}")
+            owner_id = owner.id
+            org = OrganizationModel(
+                id=f"org_phase17c_{suffix}", name="Capacity recovery", slug=f"capacity-recovery-{suffix}",
+                status="active", created_by_user_id=owner.id,
+            )
+            db.add(org)
+            db.flush()
+            db.add(OrganizationMembershipModel(
+                id=f"membership_phase17c_{suffix}", organization_id=org.id, user_id=owner.id,
+                role="member", status="active",
+            ))
+            db.flush()
+            actor = UserContext(
+                id=owner.id, email=owner.email, role="common", platform_role="user", plan="free",
+                auth_enabled=True, email_verified=True,
+            )
+            job, _ = submit_job(
+                db,
+                actor,
+                JobSubmissionRequest(
+                    job_type="analysis.generate", input_schema_version="analysis.generate.v1", organization_id=org.id,
+                    input_json={"analysis_request": {"strategy_description": "Capacity recovery.", "protocols": ["aave"], "manual_inputs": {}, "analysis_depth": "standard"}},
+                ),
+                f"phase17c-capacity-{suffix}",
+            )
+            db.execute(delete(JobCapacityReservationModel).where(JobCapacityReservationModel.scope_id.in_({"all", owner.id, org.id, "controlled:analysis.generate"})))
+            db.commit()
+            counts = recover_durable_jobs(db)
+            assert counts["capacity_adjustments"] >= 0
+            records = {
+                (item.scope_type, item.scope_id): item
+                for item in db.execute(
+                    select(JobCapacityReservationModel).where(
+                        JobCapacityReservationModel.scope_id.in_({"all", owner.id, org.id, "controlled:analysis.generate"})
+                    )
+                ).scalars().all()
+            }
+            assert records[("global", "all")].pending_count == 1
+            assert records[("provider", "controlled:analysis.generate")].pending_count == 1
+            assert records[("user", owner.id)].pending_count == 1
+            assert records[("organization", org.id)].pending_count == 1
+            db.commit()
+    finally:
+        if owner_id:
+            with postgres_sessions() as db:
+                job_ids = [item.id for item in db.execute(select(JobModel).where(JobModel.owner_user_id == owner_id)).scalars().all()]
+                db.execute(delete(JobEventModel).where(JobEventModel.job_id.in_(job_ids)))
+                db.execute(delete(JobAttemptModel).where(JobAttemptModel.job_id.in_(job_ids)))
+                db.execute(delete(JobModel).where(JobModel.id.in_(job_ids)))
+                db.execute(delete(OrganizationMembershipModel).where(OrganizationMembershipModel.user_id == owner_id))
+                db.execute(delete(OrganizationModel).where(OrganizationModel.created_by_user_id == owner_id))
+                db.execute(delete(UsageQuotaModel).where(UsageQuotaModel.subject_id == owner_id))
+                db.execute(delete(UserModel).where(UserModel.id == owner_id))
                 db.commit()
         get_settings.cache_clear()

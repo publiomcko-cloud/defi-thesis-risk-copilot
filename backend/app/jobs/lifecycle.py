@@ -60,14 +60,46 @@ def revoke_jobs_for_authorization_change(
     reason: str,
     now: datetime | None = None,
 ) -> int:
-    """Immediately transition jobs whose write authority was removed."""
+    """Revoke only active execution; preserve completed organization resources."""
 
-    statement = select(JobModel).where(JobModel.deleted_at.is_(None))
+    statement = select(JobModel).where(JobModel.deleted_at.is_(None)).where(
+        JobModel.status.in_({"queued", "retry_wait", "leased", "running"})
+    )
     if organization_id is not None:
         statement = statement.where(JobModel.organization_id == organization_id)
     if user_id is not None:
         statement = statement.where(JobModel.owner_user_id == user_id)
-    return _dispose_jobs(db, statement, reason=reason, now=now)
+    timestamp = now or datetime.now(UTC)
+    affected = 0
+    for job in db.execute(statement).scalars().all():
+        if job.status in {"queued", "retry_wait"}:
+            transition_job(
+                db,
+                job,
+                "failed",
+                message="Job authorization was revoked before worker execution.",
+                metadata={"reason": reason},
+            )
+            job.error_code = "authorization_revoked"
+            job.error_summary = "Job authorization was revoked before worker execution."
+            mark_job_artifacts_incomplete(db, job.id, now=timestamp)
+            from app.jobs.control_service import _release_capacity
+
+            _release_capacity(db, job)
+        else:
+            transition_job(
+                db,
+                job,
+                "cancel_requested",
+                message="Job authorization was revoked during controlled execution.",
+                metadata={"reason": reason},
+            )
+            job.error_code = "authorization_revoked"
+            job.error_summary = "Job authorization was revoked during controlled execution."
+        job.updated_at = timestamp
+        affected += 1
+    db.flush()
+    return affected
 
 
 def _dispose_jobs(db: Session, statement, *, reason: str, now: datetime | None) -> int:

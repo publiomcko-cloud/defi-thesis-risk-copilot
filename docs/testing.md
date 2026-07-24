@@ -196,6 +196,10 @@ provider-request reconciliation, side-effect-free recovery dry runs, durable pro
 completed-only report links. PostgreSQL CI remains the concurrency evidence; no CI job may rent a
 real provider instance.
 
+The final Phase 17 correction coverage additionally verifies non-destructive membership revocation,
+environment-controlled analysis lease horizons, and PostgreSQL reconstruction of deleted capacity
+rows for global, provider, user, and organization scopes.
+
 `backend/scripts/run_smoke_checks.py` defaults to `http://127.0.0.1:8000`; set
 `SMOKE_BASE_URL` only when validating an isolated local API process. Optional LLM synthesis should
 be disabled for bounded smoke timing unless that provider is the explicit subject of the test.

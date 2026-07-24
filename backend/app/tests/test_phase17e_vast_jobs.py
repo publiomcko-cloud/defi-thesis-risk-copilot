@@ -90,8 +90,12 @@ def test_vast_cancellation_invokes_idempotent_cleanup(phase17e_client) -> None:
             select(VastSessionModel).where(VastSessionModel.source_job_id == created["id"])
         ).scalars().one()
         assert session.status == "destroyed"
-        assert db.get(JobModel, created["id"]).reserved_cost_microusd == 0
-        assert db.query(ProviderCostReservationModel).filter_by(job_id=created["id"]).one().status == "released"
+        job = db.get(JobModel, created["id"])
+        reservation = db.query(ProviderCostReservationModel).filter_by(job_id=created["id"]).one()
+        assert job.reserved_cost_microusd == 0
+        assert job.actual_cost_microusd == 125_000
+        assert reservation.status == "completed"
+        assert reservation.actual_cost_microusd == 125_000
 
 
 def test_provider_job_is_admin_only_server_profiled_and_budgeted(phase17e_client, monkeypatch) -> None:

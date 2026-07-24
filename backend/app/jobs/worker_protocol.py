@@ -4,6 +4,7 @@ import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from secrets import token_urlsafe
+from uuid import uuid4
 
 from fastapi import HTTPException
 from sqlalchemy import case, select
@@ -306,6 +307,7 @@ def fail_job(
     else:
         mark_job_artifacts_incomplete(db, job.id)
         _cleanup_provider_for_terminal_job(db, job)
+        _finalize_provider_cost(db, job)
         transition_job(
             db,
             job,
@@ -383,6 +385,7 @@ def recover_expired_jobs(
             attempt = _attempt_for_lease(db, job)
             mark_job_artifacts_incomplete(db, job.id, now=timestamp)
             _cleanup_provider_for_terminal_job(db, job, perform_external_cleanup=perform_external_cleanup)
+            _finalize_provider_cost(db, job)
             transition_job(db, job, "dead_letter", message="Lease expired after the final worker attempt.")
             if attempt:
                 attempt.ended_at = timestamp
@@ -612,12 +615,12 @@ def _cancel_leased_job(
 ) -> WorkerMutationResponse:
     mark_job_artifacts_incomplete(db, job.id)
     _cleanup_provider_for_terminal_job(db, job, perform_external_cleanup=perform_external_cleanup)
+    _finalize_provider_cost(db, job)
     transition_job(db, job, "cancelled", worker_id=worker_id, message="Worker acknowledged job cancellation.")
     if attempt:
         attempt.ended_at = datetime.now(UTC)
         attempt.outcome = "cancelled"
     release_running_capacity(db, job)
-    _release_capacity(db, job)
     _clear_lease(job)
     if commit:
         db.commit()
@@ -716,7 +719,7 @@ def _mark_stale_workers(db: Session, now: datetime) -> int:
 
 
 def _reconcile_capacity(db: Session, now: datetime) -> int:
-    """Make durable counters match non-terminal job state after crashes."""
+    """Rebuild every durable capacity scope from job state after crashes."""
 
     from app.jobs.control_service import _capacity_scopes
 
@@ -744,9 +747,25 @@ def _reconcile_capacity(db: Session, now: datetime) -> int:
             .where(ProviderCostReservationModel.status.in_({"reserved", "running", "completed", "reconciliation_required"}))
         ).scalars().all()
     )
+    # Completed provider spend remains budget-relevant even after every job is
+    # terminal, so recovery must retain/recreate the global accounting row.
+    desired.setdefault(("global", "all"), [0, 0, provider_cost])[2] = provider_cost
+    records = {
+        (record.scope_type, record.scope_id): record
+        for record in db.execute(select(JobCapacityReservationModel).with_for_update()).scalars().all()
+    }
+    for scope_type, scope_id in desired:
+        if (scope_type, scope_id) not in records:
+            _create_reconciled_capacity_record(db, scope_type, scope_id, now)
+    db.flush()
+    records = {
+        (record.scope_type, record.scope_id): record
+        for record in db.execute(select(JobCapacityReservationModel).with_for_update()).scalars().all()
+    }
+
     adjusted = 0
-    for record in db.execute(select(JobCapacityReservationModel).with_for_update()).scalars().all():
-        pending, running, cost = desired.get((record.scope_type, record.scope_id), [0, 0, provider_cost if record.scope_type == "global" else 0])
+    for (scope_type, scope_id), record in records.items():
+        pending, running, cost = desired.get((scope_type, scope_id), [0, 0, provider_cost if scope_type == "global" else 0])
         if (record.pending_count, record.running_count, record.reserved_cost_microusd) != (pending, running, cost):
             record.pending_count = pending
             record.running_count = running
@@ -755,6 +774,37 @@ def _reconcile_capacity(db: Session, now: datetime) -> int:
             record.updated_at = now
             adjusted += 1
     return adjusted
+
+
+def _create_reconciled_capacity_record(db: Session, scope_type: str, scope_id: str, now: datetime) -> None:
+    """Insert missing counters without treating a concurrent recovery as corruption."""
+
+    values = {
+        "id": f"jobcap_{uuid4().hex[:12]}",
+        "scope_type": scope_type,
+        "scope_id": scope_id,
+        "pending_count": 0,
+        "running_count": 0,
+        "reserved_cost_microusd": 0,
+        "created_at": now,
+        "updated_at": now,
+    }
+    if _is_postgres(db):
+        from sqlalchemy.dialects.postgresql import insert
+
+        db.execute(
+            insert(JobCapacityReservationModel)
+            .values(**values)
+            .on_conflict_do_nothing(index_elements=["scope_type", "scope_id"])
+        )
+    else:
+        from sqlalchemy.dialects.sqlite import insert
+
+        db.execute(
+            insert(JobCapacityReservationModel)
+            .values(**values)
+            .on_conflict_do_nothing(index_elements=["scope_type", "scope_id"])
+        )
 
 
 def _looks_sensitive_progress(message: str) -> bool:
@@ -806,6 +856,54 @@ def _cleanup_provider_for_terminal_job(db: Session, job: JobModel, *, perform_ex
         # The session lifecycle records its own cleanup failure. Job cancellation must
         # remain terminal even if the remote provider cannot be reached.
         return
+
+
+def _finalize_provider_cost(db: Session, job: JobModel) -> None:
+    """Settle one terminal provider job without assuming failed work was free."""
+
+    if job.job_type != "vast.session.start":
+        return
+    reservation = db.execute(
+        select(ProviderCostReservationModel)
+        .where(ProviderCostReservationModel.job_id == job.id)
+        .with_for_update()
+    ).scalars().one_or_none()
+    if reservation is None or reservation.status == "completed":
+        return
+    session = db.execute(
+        select(VastSessionModel).where(VastSessionModel.source_job_id == job.id)
+    ).scalars().one_or_none()
+    if session is None or session.provider_request_state in {None, "request_not_submitted"}:
+        _release_capacity(db, job)
+        return
+    if session.provider_request_state in {"submitted_unknown", "reconciliation_failed"} or not session.vast_instance_id:
+        reservation.status = "reconciliation_required"
+        reservation.updated_at = datetime.now(UTC)
+        return
+
+    actual_cost = job.actual_cost_microusd or min(
+        job.estimated_cost_microusd,
+        int(round((session.hourly_cost_usd or 0) * 1_000_000))
+        * get_settings().vast_max_session_minutes
+        // 60,
+    )
+    unused_cost = max(0, job.reserved_cost_microusd - actual_cost)
+    if unused_cost:
+        global_record = db.execute(
+            select(JobCapacityReservationModel)
+            .where(JobCapacityReservationModel.scope_type == "global")
+            .where(JobCapacityReservationModel.scope_id == "all")
+            .with_for_update()
+        ).scalars().one_or_none()
+        if global_record is not None:
+            global_record.reserved_cost_microusd = max(0, global_record.reserved_cost_microusd - unused_cost)
+            global_record.updated_at = datetime.now(UTC)
+    job.actual_cost_microusd = actual_cost
+    job.reserved_cost_microusd = 0
+    reservation.reserved_cost_microusd = 0
+    reservation.actual_cost_microusd = actual_cost
+    reservation.status = "completed"
+    reservation.updated_at = datetime.now(UTC)
 
 
 def _current_period(now: datetime) -> tuple[datetime, datetime]:

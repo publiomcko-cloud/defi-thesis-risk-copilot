@@ -191,6 +191,8 @@ def test_exact_schema_rejection_retry_taxonomy_and_fixed_lease_horizon(worker_cl
     )
     assert permanent.json()["status"] == "dead_letter"
 
+    monkeypatch.setenv("ANALYSIS_JOB_MAX_ATTEMPT_RUNTIME_SECONDS", "90")
+    get_settings.cache_clear()
     horizon_job = _submit_job(client, owner_token, "fixed-horizon-key")
     with Session() as db:
         db.get(JobModel, horizon_job["id"]).available_at = datetime.now(UTC) - timedelta(seconds=1)
@@ -199,8 +201,8 @@ def test_exact_schema_rejection_retry_taxonomy_and_fixed_lease_horizon(worker_cl
     payload = _lease_payload(lease)
     with Session() as db:
         attempt = db.query(JobAttemptModel).filter_by(job_id=horizon_job["id"], lease_generation=lease["lease_generation"]).one()
-        attempt.max_lease_expires_at = datetime.now(UTC) + timedelta(milliseconds=100)
-        db.commit()
+        assert lease["execution_deadline_at"].removesuffix("Z") == attempt.max_lease_expires_at.isoformat().removesuffix("+00:00")
+        assert 85 <= (attempt.max_lease_expires_at - attempt.created_at).total_seconds() <= 95
     heartbeat = client.post(f"/internal/workers/v1/jobs/{horizon_job['id']}/heartbeat", json=payload, headers=_worker_auth(worker_token))
     assert heartbeat.status_code == 200
     with Session() as db:

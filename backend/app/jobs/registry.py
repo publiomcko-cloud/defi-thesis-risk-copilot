@@ -69,7 +69,9 @@ JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
         retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
         accepted_failure_categories=frozenset({JobErrorCategory.PERMANENT_INPUT, JobErrorCategory.PERMANENT_AUTHORIZATION, JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
         requires_provider=False,
-        maximum_attempt_runtime_seconds=300,
+        # The analysis horizon is entirely environment-configured so an operator can
+        # lower or raise it without changing the registry source.
+        maximum_attempt_runtime_seconds=None,
     ),
     "vast.session.start": JobTypeSpec(
         job_type="vast.session.start",

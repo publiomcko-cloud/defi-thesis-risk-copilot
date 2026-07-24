@@ -19,6 +19,7 @@ from app.jobs.lifecycle import (
     dispose_jobs_for_account_deletion,
     dispose_jobs_for_organization_deletion,
     mark_job_artifacts_incomplete,
+    revoke_jobs_for_authorization_change,
 )
 from app.jobs.control_service import _release_capacity
 from app.jobs.schemas import WorkerCredentialCreateRequest, WorkerRegistrationRequest
@@ -31,9 +32,11 @@ from app.jobs.worker_service import (
     verify_worker_credential,
 )
 from app.models.artifact import ArtifactModel
+from app.models.analysis_request import AnalysisRequestModel
 from app.models.access_audit_event import AccessAuditEventModel
 from app.models.job import JobEventModel, JobModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
+from app.models.report import ReportModel
 from app.models.usage_quota import UsageQuotaModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
 from app.main import app
@@ -296,6 +299,76 @@ def test_account_and_organization_disposal_hide_jobs_and_disable_org_workers(pha
         db.commit()
         assert worker.status == "disabled"
         assert credential.status == "revoked"
+
+
+def test_authorization_revocation_preserves_terminal_organization_results(phase17_session) -> None:
+    with phase17_session() as db:
+        owner = _create_actor(db, "authorization-revocation-owner")
+        org = OrganizationModel(
+            id="org_phase17_revoke",
+            name="Phase 17 Revocation",
+            slug="phase17-revocation",
+            status="active",
+            created_by_user_id=owner.id,
+        )
+        queued = _job(owner.id, job_id="job_revoke_queued", organization_id=org.id, visibility="organization")
+        running = _job(owner.id, job_id="job_revoke_running", status="running", organization_id=org.id, visibility="organization")
+        completed = _job(owner.id, job_id="job_revoke_completed", status="completed", organization_id=org.id, visibility="organization")
+        db.add_all([org, queued, running, completed])
+        db.flush()
+        request = AnalysisRequestModel(
+            id="analysis_revoke_completed",
+            strategy_description="Completed organization analysis.",
+            protocols=["aave"],
+            manual_inputs_json={},
+            analysis_depth="standard",
+            source_job_id=completed.id,
+            owner_user_id=owner.id,
+            organization_id=org.id,
+            visibility="organization",
+        )
+        report = ReportModel(
+            id="report_revoke_completed",
+            analysis_request_id=request.id,
+            source_job_id=completed.id,
+            owner_user_id=owner.id,
+            organization_id=org.id,
+            visibility="organization",
+            title="Completed report",
+            risk_rating="medium",
+            summary="Completed output.",
+            report_markdown="# Completed",
+            report_json={},
+        )
+        artifact = ArtifactModel(
+            id="artifact_revoke_completed",
+            job_id=completed.id,
+            artifact_type="report_reference",
+            status="available",
+            owner_user_id=owner.id,
+            organization_id=org.id,
+            visibility="organization",
+            resource_type="report",
+            resource_id=report.id,
+        )
+        db.add_all([request, report, artifact])
+        db.commit()
+
+        assert revoke_jobs_for_authorization_change(
+            db,
+            user_id=owner.id,
+            organization_id=org.id,
+            reason="organization_membership_revoked",
+        ) == 2
+        db.commit()
+        assert db.get(JobModel, queued.id).status == "failed"
+        assert db.get(JobModel, queued.id).error_code == "authorization_revoked"
+        assert db.get(JobModel, running.id).status == "cancel_requested"
+        assert db.get(JobModel, completed.id).status == "completed"
+        assert db.get(JobModel, completed.id).deleted_at is None
+        assert db.get(ReportModel, report.id).deleted_at is None
+        assert db.get(ArtifactModel, artifact.id).status == "available"
+        assert db.get(ArtifactModel, artifact.id).deleted_at is None
 
 
 def test_job_retention_expires_credentials_and_removes_terminal_records(phase17_session, monkeypatch) -> None:
