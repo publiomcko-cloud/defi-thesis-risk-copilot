@@ -10,6 +10,7 @@ from sqlalchemy import case, select
 from sqlalchemy.orm import Session
 
 from app.auth.security import constant_time_equal, hash_job_lease_token, redact_sensitive
+from app.auth.service import user_context
 from app.core.config import get_settings
 from app.jobs.control_service import (
     _release_capacity,
@@ -33,6 +34,7 @@ from app.jobs.worker_service import verify_worker_credential
 from app.models.job import JobAttemptModel, JobModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
+from app.models.vast_session import VastSessionModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
 from app.services.analysis_service import persist_async_analysis_completion
 
@@ -231,6 +233,20 @@ def complete_job(
             "analysis_request_id": job.input_json["_server_context"]["analysis_request_id"],
             "report_id": job.result_resource_id,
         }
+    elif job.job_type == "vast.session.start" and job.input_schema_version == "vast.session.start.v1":
+        if result.result_schema_version != "vast.session.start.v1":
+            raise HTTPException(status_code=422, detail="Vast jobs require the vast.session.start.v1 result schema.")
+        session = _persist_vast_completion(db, job, result.result_json)
+        job.result_json = {
+            "vast_session_id": job.result_resource_id,
+            "provider_status": result.result_json["provider_status"],
+        }
+        job.actual_cost_microusd = min(
+            job.estimated_cost_microusd,
+            int(round((session.hourly_cost_usd or 0) * 1_000_000))
+            * get_settings().vast_max_session_minutes
+            // 60,
+        )
     else:
         job.result_json = result.result_json
     job.result_schema_version = result.result_schema_version
@@ -274,6 +290,7 @@ def fail_job(
         move_running_capacity_to_pending(db, job)
         job.available_at = datetime.now(UTC) + timedelta(seconds=_retry_delay_seconds(job.attempt_count, job.id))
     else:
+        _cleanup_provider_for_terminal_job(db, job)
         transition_job(
             db,
             job,
@@ -337,6 +354,7 @@ def recover_expired_jobs(db: Session, *, now: datetime | None = None) -> int:
             _cancel_leased_job(db, job, attempt, job.leased_by_worker_id, commit=False)
         elif job.attempt_count >= job.max_attempts or not _deadline_allows_retry(job, timestamp):
             attempt = _attempt_for_lease(db, job)
+            _cleanup_provider_for_terminal_job(db, job)
             transition_job(db, job, "dead_letter", message="Lease expired after the final worker attempt.")
             if attempt:
                 attempt.ended_at = timestamp
@@ -452,6 +470,7 @@ def _cancel_leased_job(
     *,
     commit: bool = True,
 ) -> WorkerMutationResponse:
+    _cleanup_provider_for_terminal_job(db, job)
     transition_job(db, job, "cancelled", worker_id=worker_id, message="Worker acknowledged job cancellation.")
     if attempt:
         attempt.ended_at = datetime.now(UTC)
@@ -548,6 +567,48 @@ def _looks_sensitive_progress(message: str) -> bool:
 
 def _mutation(job: JobModel) -> WorkerMutationResponse:
     return WorkerMutationResponse(job_id=job.id, status=job.status, lease_expires_at=job.lease_expires_at)
+
+
+def _persist_vast_completion(db: Session, job: JobModel, result_json: dict) -> VastSessionModel:
+    try:
+        session_id = result_json["vast_session_id"]
+        provider_status = result_json["provider_status"]
+        expected_id = job.input_json["_server_context"]["vast_session_id"]
+    except (KeyError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail="Vast job result is invalid.") from exc
+    if not isinstance(session_id, str) or session_id != expected_id or session_id != job.result_resource_id:
+        raise HTTPException(status_code=422, detail="Vast job result used an unexpected session identifier.")
+    if not isinstance(provider_status, str) or len(provider_status) > 64:
+        raise HTTPException(status_code=422, detail="Vast job result is invalid.")
+    session = db.get(VastSessionModel, session_id)
+    if session is None or session.source_job_id != job.id:
+        raise HTTPException(status_code=409, detail="Vast session is not linked to this job.")
+    if session.status != provider_status:
+        raise HTTPException(status_code=422, detail="Vast job result does not match the durable provider session state.")
+    return session
+
+
+def _cleanup_provider_for_terminal_job(db: Session, job: JobModel) -> None:
+    """Best-effort, idempotent teardown for a cancelled or terminal Vast job."""
+
+    if job.job_type != "vast.session.start":
+        return
+    session = db.execute(
+        select(VastSessionModel).where(VastSessionModel.source_job_id == job.id)
+    ).scalars().one_or_none()
+    if session is None or session.status == "destroyed" or not job.owner_user_id:
+        return
+    owner = db.get(UserModel, job.owner_user_id)
+    if owner is None:
+        return
+    try:
+        from app.llm.vast.lifecycle import destroy_session
+
+        destroy_session(db, user_context(owner), session.id)
+    except Exception:
+        # The session lifecycle records its own cleanup failure. Job cancellation must
+        # remain terminal even if the remote provider cannot be reached.
+        return
 
 
 def _is_postgres(db: Session) -> bool:

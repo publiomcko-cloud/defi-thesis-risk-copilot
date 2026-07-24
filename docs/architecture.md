@@ -434,7 +434,7 @@ Key invariants:
 
 See [`future_phase_contracts.md`](future_phase_contracts.md).
 
-### Phase 17A–17D implemented foundation
+### Phase 17A–17E implemented foundation
 
 PostgreSQL now persists job, attempt, event, worker, worker-credential, and artifact metadata.
 Job transitions are restricted to a closed service, events are append-only and sequenced, and
@@ -451,7 +451,16 @@ control plane transactionally persists the linked report and analysis request. T
 co-located Compose profile receives the configured database and public-curated knowledge-base
 mount; a remote worker must not receive general production database credentials without an explicit
 least-privilege deployment design. `ASYNC_ANALYSIS_ENABLED` gates authenticated queue use, while
-anonymous public analysis remains synchronous. Provider execution arrives in later Phase 17 slices.
+anonymous public analysis remains synchronous. The separate `vast.session.start.v1` executor is
+available only through a dedicated platform-admin/MFA-gated endpoint, never through ordinary
+analysis or the generic jobs API. It accepts no caller-selected model/image, preallocates and
+uniquely links a `vast_sessions.source_job_id` resource before provider work, reserves the maximum
+configured cost before claim, and reuses that session on a retry after a lost worker response.
+Cancellation and terminal failure request idempotent cleanup. The fake/dry-run provider remains
+the default; a trusted worker receives provider secrets from its runtime configuration, never from
+the job envelope. Administrator aggregate operations show queue depth, active/stale workers,
+dead letters, and provider cleanup failures. Real hosted/provider operation remains a manual
+deployment concern and is not claimed as validated.
 Account/organization deletion disposes of affected jobs and artifacts, while retention expires
 credentials and terminal job material according to configured policy.
 

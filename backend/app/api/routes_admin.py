@@ -21,6 +21,7 @@ from app.providers.schemas import (
     ProviderCredentialUpdateRequest,
 )
 from app.jobs.schemas import (
+    JobOperationsResponse,
     WorkerCredentialCreateRequest,
     WorkerCredentialIssuedResponse,
     WorkerCredentialResponse,
@@ -30,6 +31,7 @@ from app.jobs.schemas import (
     WorkerResponse,
     WorkersResponse,
 )
+from app.jobs.control_service import job_operations_summary
 from app.jobs.worker_service import (
     disable_worker,
     issue_worker_credential,
@@ -116,6 +118,14 @@ def get_workers(
     _: UserContext = Depends(require_admin),
 ) -> WorkersResponse:
     return WorkersResponse(items=list_workers(db))
+
+
+@router.get("/admin/jobs/operations", response_model=JobOperationsResponse)
+def get_job_operations(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> JobOperationsResponse:
+    return job_operations_summary(db)
 
 
 @router.post("/admin/workers/{worker_id}/disable", response_model=WorkerResponse)

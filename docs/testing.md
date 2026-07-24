@@ -175,7 +175,12 @@ PostgreSQL `SKIP LOCKED` one-winner claims, lease-generation stale-mutation deni
 progress bounds, cancellation acknowledgement, expiry recovery, retry/dead-letter, and fake
 executor tests. The local worker remains optional and has no public port. Phase 17D replaces the
 fake executor for `analysis.generate.v1` with deterministic report generation; generic lifecycle
-fixtures remain schema-versioned queue tests. Vast.ai jobs remain later work.
+fixtures remain schema-versioned queue tests. Phase 17E adds fake/dry-run `vast.session.start.v1`
+coverage: admin-only dedicated submission, rejection by the generic jobs route and arbitrary
+profile fields, pre-claim daily cost rejection, unique job-to-session linkage, retry reconciliation
+after a lost completion response, cancellation cleanup, migration upgrade/downgrade coverage, and
+safe aggregate operator state. CI must keep `VAST_DRY_RUN=true`; real rentals are never a test
+dependency.
 
 ## 7. Phase 18 validation
 

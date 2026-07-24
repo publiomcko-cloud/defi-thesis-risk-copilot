@@ -1,6 +1,6 @@
 # V1 Phase 17 Execution Plan — Durable Jobs and Hybrid Workers
 
-Status: **In Progress — 17A–17D implemented; 17E–17F planned**
+Status: **In Progress — 17A–17E implemented; 17F planned**
 
 Branch: `agent/v1-phase-17-durable-jobs`
 
@@ -16,12 +16,14 @@ public-demo boundaries.
 Where this plan is more restrictive or more specific than the broad Phase 17 contract, follow
 this plan for implementation and update the broad contract during the final documentation pass.
 
-Phase 17A–17D implementation evidence now exists for durable schemas and migrations, closed
+Phase 17A–17E implementation evidence now exists for durable schemas and migrations, closed
 transitions, queue admission, worker credential lifecycle, internal leasing, and authenticated
 asynchronous analysis. `analysis.generate` uses preallocated report and analysis IDs, an immutable
 server-owned snapshot, source-job uniqueness, and transactional report completion. The anonymous
-public-demo route remains synchronous. Vast provider execution and the broader jobs workspace are
-still planned.
+public-demo route remains synchronous. Phase 17E adds an administrator-only, server-profiled
+`vast.session.start.v1` job in dry-run by default. Each provider session is uniquely linked to its
+source job, so a lost worker completion response reconciles the existing session rather than
+starting another rental. The broader jobs workspace remains planned for 17F.
 
 ---
 
@@ -791,6 +793,16 @@ Checkpoint:
 - cost/provider caps reject work before execution;
 - no real rental occurs in CI;
 - no ordinary analysis or public route can submit the provider job.
+
+Implementation note: 17E is implemented. The dedicated administrator route requires the existing
+platform-admin/MFA dependency, accepts only `allow_remote_gpu` and `warm_instance`, and rejects
+arbitrary model/image input. It reserves the configured maximum micro-USD cost before worker claim,
+preallocates a `vast_*` resource ID, and persists a unique `vast_sessions.source_job_id` link.
+`VAST_ENABLED`, `VAST_JOB_ENABLED`, and `VAST_DRY_RUN` remain false, false, and true by default.
+The configured offer/GPU/verified-host/runtime/active-instance/startup/cleanup controls remain
+server-owned. Tests use the fake dry-run client only; no real Vast rental has been performed by CI
+or claimed as externally validated. `GET /api/admin/jobs/operations` provides aggregate queue,
+worker, dead-letter, and cleanup-failure state for administrators.
 
 ### 17F — Workspace, retention, documentation, and release validation
 

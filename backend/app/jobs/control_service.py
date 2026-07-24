@@ -3,10 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal, ROUND_UP
 from uuid import uuid4
 
 from fastapi import HTTPException
-from sqlalchemy import or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -19,6 +20,7 @@ from app.jobs.schemas import (
     JobEventResponse,
     JobEventsResponse,
     JobInputEnvelope,
+    JobOperationsResponse,
     JobResponse,
     JobSubmissionRequest,
 )
@@ -27,6 +29,8 @@ from app.models.job import JobCapacityReservationModel, JobEventModel, JobModel
 from app.models.organization import OrganizationModel
 from app.models.usage_quota import UsageQuotaModel
 from app.models.user import UserModel
+from app.models.vast_session import VastSessionModel
+from app.models.worker import WorkerModel
 from app.quotas.service import ACTION_ANALYSIS, _day_window, _limit_for
 
 
@@ -61,6 +65,7 @@ def submit_job(
     *,
     replay_of_job_id: str | None = None,
     created_by_user_id: str | None = None,
+    allow_provider_job: bool = False,
 ) -> tuple[JobModel, bool]:
     """Create one queued job and its reservation in a single database transaction.
 
@@ -70,6 +75,8 @@ def submit_job(
     """
 
     ensure_jobs_enabled()
+    if request.job_type == "vast.session.start" and not allow_provider_job:
+        raise HTTPException(status_code=403, detail="Vast jobs require the dedicated administrator endpoint.")
     if len(idempotency_key.strip()) < 8 or len(idempotency_key) > 128:
         raise HTTPException(status_code=422, detail="Idempotency-Key must be between 8 and 128 characters.")
     _validate_submission_input(request.input_json)
@@ -136,6 +143,39 @@ def list_visible_jobs(db: Session, actor: UserContext, limit: int) -> list[JobMo
         .order_by(JobModel.created_at.desc(), JobModel.id.desc())
         .limit(limit)
     ).scalars().all()
+
+
+def job_operations_summary(db: Session) -> JobOperationsResponse:
+    """Return only aggregate operational state for the administrator surface."""
+
+    def count(statement) -> int:
+        return int(db.execute(statement).scalar_one() or 0)
+
+    return JobOperationsResponse(
+        queued_jobs=count(
+            select(func.count())
+            .select_from(JobModel)
+            .where(JobModel.deleted_at.is_(None))
+            .where(JobModel.status.in_({"queued", "retry_wait"}))
+        ),
+        leased_or_running_jobs=count(
+            select(func.count())
+            .select_from(JobModel)
+            .where(JobModel.deleted_at.is_(None))
+            .where(JobModel.status.in_({"leased", "running", "cancel_requested"}))
+        ),
+        dead_letter_jobs=count(
+            select(func.count())
+            .select_from(JobModel)
+            .where(JobModel.deleted_at.is_(None))
+            .where(JobModel.status == "dead_letter")
+        ),
+        active_workers=count(select(func.count()).select_from(WorkerModel).where(WorkerModel.status == "active")),
+        stale_workers=count(select(func.count()).select_from(WorkerModel).where(WorkerModel.status == "stale")),
+        provider_cleanup_failures=count(
+            select(func.count()).select_from(VastSessionModel).where(VastSessionModel.status == "cleanup_failed")
+        ),
+    )
 
 
 def select_from_active_memberships(user_id: str):
@@ -226,6 +266,7 @@ def replay_job(db: Session, operator: UserContext, job_id: str) -> JobModel:
         replay_key,
         replay_of_job_id=original.id,
         created_by_user_id=operator.id,
+        allow_provider_job=original.job_type == "vast.session.start",
     )
     return job
 
@@ -251,6 +292,39 @@ def job_response(job: JobModel) -> JobResponse:
         replay_of_job_id=job.replay_of_job_id,
         created_at=job.created_at,
         updated_at=job.updated_at,
+    )
+
+
+def submit_vast_start_job(
+    db: Session,
+    actor: UserContext,
+    *,
+    allow_remote_gpu: bool,
+    warm_instance: bool,
+    idempotency_key: str,
+) -> tuple[JobModel, bool]:
+    """Queue an administrator-approved server-profiled Vast startup request."""
+
+    settings = get_settings()
+    if not actor.is_admin:
+        raise HTTPException(status_code=403, detail="Platform administrator role required")
+    if not settings.vast_job_enabled or not settings.vast_enabled:
+        raise HTTPException(status_code=503, detail="Vast job execution is disabled.")
+    if not settings.vast_dry_run and not allow_remote_gpu:
+        raise HTTPException(status_code=422, detail="Remote GPU use must be explicitly allowed.")
+    return submit_job(
+        db,
+        actor,
+        JobSubmissionRequest(
+            job_type="vast.session.start",
+            input_schema_version="vast.session.start.v1",
+            input_json={
+                "allow_remote_gpu": allow_remote_gpu,
+                "warm_instance": warm_instance,
+            },
+        ),
+        idempotency_key,
+        allow_provider_job=True,
     )
 
 
@@ -280,21 +354,20 @@ def _create_reserved_job(
     created_by_user_id: str,
 ) -> JobModel:
     _validate_enabled_job_type(request.job_type)
-    _reserve_capacity(db, actor, scope["organization_id"], request.job_type)
+    estimated_cost_microusd = _estimated_job_cost_microusd(request.job_type)
+    _reserve_capacity(db, actor, scope["organization_id"], request.job_type, estimated_cost_microusd)
     _reserve_quota(db, actor, request.job_type)
     now = datetime.now(UTC)
-    report_id = f"report_{uuid4().hex[:12]}"
-    analysis_request_id = f"analysis_{uuid4().hex[:12]}"
+    result_resource_type, result_resource_id, extra_context = _preallocate_result_resource(request.job_type)
     queue_expires_at = now + timedelta(seconds=get_settings().job_max_queue_age_seconds)
     input_snapshot = {
         "request": request.input_json,
         "_server_context": {
-            "analysis_request_id": analysis_request_id,
-            "report_id": report_id,
             "owner_user_id": actor.id,
             "organization_id": scope["organization_id"],
             "visibility": "organization" if scope["organization_id"] else "private",
             "submitted_by_user_id": created_by_user_id,
+            **extra_context,
         },
     }
     job = JobModel(
@@ -309,8 +382,8 @@ def _create_reserved_job(
         input_schema_version=request.input_schema_version,
         input_json=input_snapshot,
         request_fingerprint=fingerprint,
-        result_resource_type="report",
-        result_resource_id=report_id,
+        result_resource_type=result_resource_type,
+        result_resource_id=result_resource_id,
         max_attempts=get_settings().job_default_max_attempts,
         available_at=now,
         queue_expires_at=queue_expires_at,
@@ -319,8 +392,8 @@ def _create_reserved_job(
         idempotency_subject_type=scope["subject_type"],
         idempotency_subject_id=scope["subject_id"],
         idempotency_key=idempotency_key,
-        estimated_cost_microusd=0,
-        reserved_cost_microusd=0,
+        estimated_cost_microusd=estimated_cost_microusd,
+        reserved_cost_microusd=estimated_cost_microusd,
         actual_cost_microusd=0,
         replay_of_job_id=replay_of_job_id,
         created_at=now,
@@ -334,7 +407,7 @@ def _create_reserved_job(
         event_type="job.queued",
         message="Job accepted and queued for controlled worker execution.",
         actor_user_id=created_by_user_id,
-        metadata={"result_resource_id": report_id, "replay_of_job_id": replay_of_job_id},
+        metadata={"result_resource_id": result_resource_id, "replay_of_job_id": replay_of_job_id},
     )
     return job
 
@@ -368,7 +441,13 @@ def _idempotent_job(db: Session, scope: dict[str, str | None], job_type: str, ke
     ).scalars().one_or_none()
 
 
-def _reserve_capacity(db: Session, actor: UserContext, organization_id: str | None, job_type: str) -> None:
+def _reserve_capacity(
+    db: Session,
+    actor: UserContext,
+    organization_id: str | None,
+    job_type: str,
+    estimated_cost_microusd: int,
+) -> None:
     """Serialize capacity checks through durable rows in a stable lock order."""
 
     settings = get_settings()
@@ -388,7 +467,12 @@ def _reserve_capacity(db: Session, actor: UserContext, organization_id: str | No
     for record, _, _, _ in records:
         record.pending_count += 1
         record.updated_at = datetime.now(UTC)
-    _reserve_daily_cost(db, _get_capacity_record(db, "global", "all"), settings.job_daily_cost_budget_microusd)
+    _reserve_daily_cost(
+        db,
+        _get_capacity_record(db, "global", "all"),
+        settings.job_daily_cost_budget_microusd,
+        estimated_cost_microusd,
+    )
 
 
 def _release_capacity(db: Session, job: JobModel) -> None:
@@ -402,6 +486,7 @@ def _release_capacity(db: Session, job: JobModel) -> None:
         if record is not None and record.pending_count > 0:
             record.pending_count -= 1
             record.updated_at = datetime.now(UTC)
+    _release_unused_cost_reservation(db, job)
 
 
 def move_pending_capacity_to_running(db: Session, job: JobModel) -> None:
@@ -440,6 +525,24 @@ def release_running_capacity(db: Session, job: JobModel) -> None:
         if record.running_count > 0:
             record.running_count -= 1
             record.updated_at = now
+
+
+def _release_unused_cost_reservation(db: Session, job: JobModel) -> None:
+    """Return a reservation only when the provider work never completed.
+
+    Completed provider jobs retain their reservation for the daily spend guard.  A queued
+    cancellation, expiry, or pre-execution authorization failure must not consume that
+    capacity for the rest of the day.
+    """
+
+    if job.reserved_cost_microusd <= 0:
+        return
+    record = _get_capacity_record(db, "global", "all")
+    period_start, period_end = _day_window()
+    if record.budget_period_start == period_start and record.budget_period_end == period_end:
+        record.reserved_cost_microusd = max(0, record.reserved_cost_microusd - job.reserved_cost_microusd)
+        record.updated_at = datetime.now(UTC)
+    job.reserved_cost_microusd = 0
 
 
 def _capacity_records(
@@ -504,13 +607,13 @@ def _reserve_daily_cost(
     db: Session,
     global_record: JobCapacityReservationModel,
     budget_microusd: int,
+    estimated_cost_microusd: int,
 ) -> None:
     period_start, period_end = _day_window()
     if global_record.budget_period_start != period_start or global_record.budget_period_end != period_end:
         global_record.budget_period_start = period_start
         global_record.budget_period_end = period_end
         global_record.reserved_cost_microusd = 0
-    estimated_cost_microusd = 0
     if budget_microusd and global_record.reserved_cost_microusd + estimated_cost_microusd > budget_microusd:
         raise HTTPException(status_code=429, detail="Daily job cost budget exceeded.")
     global_record.reserved_cost_microusd += estimated_cost_microusd
@@ -562,8 +665,34 @@ def _validate_enabled_job_type(job_type: str) -> None:
     if job_type == "analysis.generate":
         return
     if job_type == "vast.session.start" and get_settings().vast_job_enabled:
-        raise HTTPException(status_code=503, detail="Vast job execution is not available until the worker phase.")
+        return
     raise HTTPException(status_code=403, detail="This job type is not enabled.")
+
+
+def _preallocate_result_resource(job_type: str) -> tuple[str, str, dict[str, str]]:
+    if job_type == "analysis.generate":
+        report_id = f"report_{uuid4().hex[:12]}"
+        return "report", report_id, {
+            "analysis_request_id": f"analysis_{uuid4().hex[:12]}",
+            "report_id": report_id,
+        }
+    if job_type == "vast.session.start":
+        session_id = f"vast_{uuid4().hex[:12]}"
+        return "vast_session", session_id, {"vast_session_id": session_id}
+    raise HTTPException(status_code=403, detail="This job type is not enabled.")
+
+
+def _estimated_job_cost_microusd(job_type: str) -> int:
+    if job_type != "vast.session.start":
+        return 0
+    settings = get_settings()
+    estimated = (
+        Decimal(str(settings.vast_max_hourly_cost_usd))
+        * Decimal(settings.vast_max_session_minutes)
+        / Decimal(60)
+        * Decimal(1_000_000)
+    )
+    return int(estimated.to_integral_value(rounding=ROUND_UP))
 
 
 def _validate_submission_input(value: dict) -> None:

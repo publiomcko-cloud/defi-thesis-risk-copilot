@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi import Header
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_admin
@@ -16,6 +17,8 @@ from app.llm.vast.lifecycle import (
     start_session,
     vast_config_response,
 )
+from app.jobs.control_service import job_response, submit_vast_start_job
+from app.jobs.schemas import JobSubmissionResponse
 from app.llm.vast.schemas import (
     VastCleanupResponse,
     VastConfigResponse,
@@ -67,12 +70,30 @@ def start_vast_session(
     session = start_session(
         db,
         current_user,
-        model=request.model,
-        image=request.image,
         allow_remote_gpu=request.allow_remote_gpu,
         warm_instance=request.warm_instance,
     )
     return VastSessionActionResponse(session=session_response(session))
+
+
+@router.post("/admin/vast/jobs/start", response_model=JobSubmissionResponse, status_code=202)
+def queue_vast_session_start(
+    request: VastStartSessionRequest,
+    db: Session = Depends(get_db),
+    current_user: UserContext = Depends(require_admin),
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+) -> JobSubmissionResponse:
+    settings = get_settings()
+    if settings.public_demo_mode:
+        raise HTTPException(status_code=403, detail="Vast.ai jobs are disabled in public demo mode.")
+    job, replayed = submit_vast_start_job(
+        db,
+        current_user,
+        allow_remote_gpu=request.allow_remote_gpu,
+        warm_instance=request.warm_instance,
+        idempotency_key=idempotency_key,
+    )
+    return JobSubmissionResponse(job=job_response(job), idempotent_replay=replayed)
 
 
 @router.get("/admin/vast/sessions", response_model=VastSessionListResponse)

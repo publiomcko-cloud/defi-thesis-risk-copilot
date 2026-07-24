@@ -42,7 +42,9 @@ import type {
   VastSessionListResponse,
   VastStartSessionRequest,
   VastTestPromptResponse,
-  JobResponse
+  JobResponse,
+  JobSubmissionResponse,
+  JobOperations
 } from "./types";
 
 export function getApiBaseUrl(): string {
@@ -482,6 +484,40 @@ export async function startVastSession(
 
   if (!response.ok) {
     throw new Error(await errorDetail(response, `Vast session start failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function queueVastSessionStart(
+  payload: VastStartSessionRequest,
+  idempotencyKey: string
+): Promise<JobSubmissionResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/vast/jobs/start`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Vast job submission failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function fetchJobOperations(): Promise<JobOperations> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/jobs/operations`, {
+    cache: "no-store",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Job operations fetch failed with status ${response.status}`));
   }
 
   return response.json();

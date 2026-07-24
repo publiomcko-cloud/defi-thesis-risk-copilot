@@ -405,7 +405,7 @@ issuance reuse the existing platform-admin/MFA boundary when MFA is configured; 
 worker protocol itself is not available until Phase 17C. `ASYNC_ANALYSIS_ENABLED` remains false:
 existing `/api/analyze` stays synchronous through Phase 17B.
 
-### Phase 17D local analysis worker
+### Phase 17D–17E trusted worker and guarded Vast job
 
 Phase 17D provides an optional trusted co-located analysis worker. Keep it off in the public demo.
 For an authenticated local test only, register a worker and issue its scoped credential through
@@ -417,6 +417,8 @@ WORKER_API_ENABLED=true
 WORKER_TOKEN_PEPPER=<server-only random value>
 WORKER_CREDENTIAL=<issued wrk_ credential, worker container only>
 ASYNC_ANALYSIS_ENABLED=true
+VAST_ENABLED=false
+VAST_DRY_RUN=true
 VAST_JOB_ENABLED=false
 ```
 
@@ -429,9 +431,47 @@ its own credential. It can claim only allowlisted job types. The Compose profile
 PostgreSQL database and public-curated knowledge base so it can run the deterministic analysis
 workflow, but it sends only a bounded completion result to the control plane; the control plane
 persists the report. Do not use this Compose profile as a remote-worker blueprint: hosted workers
-need a separately designed least-privilege data-access path. It never connects wallets, signs,
-trades, or starts Vast.ai. Stop it with `docker compose --profile worker stop worker`; SIGTERM
-stops new claims and releases its active lease for retry.
+need a separately designed least-privilege data-access path. It never connects wallets, signs, or
+trades. Stop it with `docker compose --profile worker stop worker`; SIGTERM stops new claims and
+releases its active lease for retry.
+
+To test the Phase 17E provider path privately, first register a worker whose credential is scoped
+to `vast.session.start`, configure its `WORKER_CREDENTIAL`, and retain dry-run mode:
+
+```env
+JOBS_ENABLED=true
+WORKER_API_ENABLED=true
+VAST_ENABLED=true
+VAST_DRY_RUN=true
+VAST_JOB_ENABLED=true
+VAST_MODEL=<server-owned model identifier>
+VAST_IMAGE=<server-owned image identifier>
+VAST_MAX_HOURLY_COST_USD=0.50
+VAST_MAX_SESSION_MINUTES=30
+VAST_MAX_ACTIVE_INSTANCES=1
+JOB_DAILY_COST_BUDGET_MICROUSD=500000
+```
+
+Only a platform administrator satisfying configured MFA may submit
+`POST /api/admin/vast/jobs/start`. The job body has only `allow_remote_gpu` and `warm_instance`;
+the model, image, offer, GPU, host verification, cost, runtime, startup timeout, and cleanup
+limits are environment-owned. The generic `/api/jobs` route and public-demo paths reject this job
+type. Use `GET /api/admin/jobs/operations` and the existing sessions endpoint to inspect aggregate
+queue/worker/cleanup state without exposing credentials.
+
+For a real rental, keep all three feature flags explicit, set `VAST_DRY_RUN=false`, require admin
+MFA, set a nonzero daily micro-USD budget, inject `VAST_API_KEY` or a configured encrypted provider
+credential only into the trusted worker runtime, and perform a dry-run rehearsal first. Do not put
+provider credentials in job requests, logs, or browser variables. This repository has not verified
+a real hosted worker or rental.
+
+Hosted worker recovery runbook: issue a new scoped credential, deploy it as a worker-only secret,
+restart the outbound-only worker, verify its `last_seen_at` and operations summary, then revoke the
+old credential after the overlap window. To roll back, set `VAST_JOB_ENABLED=false` (and
+`VAST_ENABLED=false` for an immediate hard stop), stop the worker, run the administrator cleanup
+endpoint for any active sessions, and inspect `cleanup_failed` sessions before re-enabling. A
+replayed provider job reconciles its persisted session link; never create a replacement job merely
+because a worker response was lost.
 
 ---
 

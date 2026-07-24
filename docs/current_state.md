@@ -327,7 +327,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 - current RAG index is local JSON and intentionally public-curated only; organization metadata is not document/vector storage;
 - authenticated durable job control-plane APIs and asynchronous `analysis.generate` execution
   exist on the Phase 17 branch behind disabled-by-default worker and async-analysis flags; Vast
-  provider execution and the broader jobs workspace are not implemented;
+  provider jobs are disabled/dry-run by default; external real-rental operation and the broader
+  jobs workspace remain unimplemented;
 - Render may cold-start;
 - several market adapters remain partial/manual fallbacks;
 - monitoring/discovery are manually initiated;
@@ -347,7 +348,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   credential-authenticated worker protocol. Phase 17D migrates authenticated analysis behind
   `ASYNC_ANALYSIS_ENABLED`, with immutable inputs, preallocated report IDs, transactional
   completion, source-job uniqueness, progress/cancellation UX, and synchronous anonymous fallback.
-  Vast provider execution is not implemented yet;
+  Phase 17E adds an administrator/MFA-gated, server-profiled `vast.session.start` worker job with
+  source-job/session uniqueness, pre-claim cost reservation, reconciliation after a lost completion
+  response, idempotent cleanup, and aggregate operator status. It remains disabled and dry-run by
+  default; no real provider rental is claimed as deployed or externally verified;
 - Phase 18 — durable tenant RAG and object/vector storage;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;

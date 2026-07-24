@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Float, Integer, String, Text
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 from sqlalchemy.types import JSON
 
@@ -9,10 +9,16 @@ from app.db.base import Base
 
 class VastSessionModel(Base):
     __tablename__ = "vast_sessions"
+    __table_args__ = (
+        UniqueConstraint("source_job_id", name="uq_vast_sessions_source_job"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     status: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     provider: Mapped[str] = mapped_column(String(64), default="vast_ai", nullable=False)
+    source_job_id: Mapped[str | None] = mapped_column(
+        ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     vast_instance_id: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     vast_contract_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     offer_id: Mapped[str | None] = mapped_column(String(128), nullable=True)

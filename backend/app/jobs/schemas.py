@@ -214,6 +214,15 @@ class WorkersResponse(BaseModel):
     items: list[WorkerResponse]
 
 
+class JobOperationsResponse(BaseModel):
+    queued_jobs: int = Field(ge=0)
+    leased_or_running_jobs: int = Field(ge=0)
+    dead_letter_jobs: int = Field(ge=0)
+    active_workers: int = Field(ge=0)
+    stale_workers: int = Field(ge=0)
+    provider_cleanup_failures: int = Field(ge=0)
+
+
 class JobResponse(BaseModel):
     id: str
     job_type: str

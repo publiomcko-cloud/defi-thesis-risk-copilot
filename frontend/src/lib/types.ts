@@ -93,6 +93,7 @@ export type VastConfig = {
   container_port: number;
   startup_timeout_seconds: number;
   poll_interval_seconds: number;
+  job_enabled: boolean;
 };
 
 export type VastSession = {
@@ -129,8 +130,6 @@ export type VastSessionListResponse = {
 };
 
 export type VastStartSessionRequest = {
-  model?: string;
-  image?: string;
   allow_remote_gpu: boolean;
   warm_instance: boolean;
 };
@@ -252,6 +251,20 @@ export type JobResponse = {
   result_resource_id?: string | null;
   error_code?: string | null;
   error_summary?: string | null;
+};
+
+export type JobSubmissionResponse = {
+  job: JobResponse;
+  idempotent_replay: boolean;
+};
+
+export type JobOperations = {
+  queued_jobs: number;
+  leased_or_running_jobs: number;
+  dead_letter_jobs: number;
+  active_workers: number;
+  stale_workers: number;
+  provider_cleanup_failures: number;
 };
 
 export type Protocol = {

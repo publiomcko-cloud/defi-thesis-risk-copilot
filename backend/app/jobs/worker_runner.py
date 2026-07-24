@@ -12,6 +12,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from app.jobs.analysis_executor import AnalysisExecutionError
+from app.jobs.vast_executor import VastExecutionError
 from app.jobs.executors import get_executor
 from app.jobs.schemas import WorkerClaimedJob
 
@@ -85,7 +86,7 @@ def run_worker(*, once: bool = False) -> int:
             client.request(
                 "POST",
                 f"/internal/workers/v1/jobs/{job.id}/progress",
-                {**lease_payload, "progress_percent": 10, "progress_message": "Preparing deterministic analysis inputs."},
+                {**lease_payload, "progress_percent": 10, "progress_message": _progress_message(job.job_type, "started")},
             )
             if stop_event.is_set():
                 client.request("POST", f"/internal/workers/v1/jobs/{job.id}/release", lease_payload)
@@ -96,41 +97,45 @@ def run_worker(*, once: bool = False) -> int:
                 client.request("POST", f"/internal/workers/v1/jobs/{job.id}/release", lease_payload)
             else:
                 try:
-                    result = get_executor(job.job_type).execute(job)
+                    executor = get_executor(job.job_type)
+                    result = executor.execute(job)
                     cancelled = client.request("GET", f"/internal/workers/v1/jobs/{job.id}/cancellation")
                     if cancelled.get("cancellation_requested"):
+                        _cancel_executor(executor, job)
                         client.request("POST", f"/internal/workers/v1/jobs/{job.id}/release", lease_payload)
                     else:
                         client.request(
                             "POST",
                             f"/internal/workers/v1/jobs/{job.id}/progress",
-                            {**lease_payload, "progress_percent": 90, "progress_message": "Persisting the deterministic report."},
+                            {**lease_payload, "progress_percent": 90, "progress_message": _progress_message(job.job_type, "persisting")},
                         )
                         client.request(
                             "POST",
                             f"/internal/workers/v1/jobs/{job.id}/complete",
                             {**lease_payload, "result": result.model_dump(mode="json")},
                         )
-                except AnalysisExecutionError as exc:
+                except (AnalysisExecutionError, VastExecutionError) as exc:
+                    _cancel_executor(get_executor(job.job_type), job)
                     client.request(
                         "POST",
                         f"/internal/workers/v1/jobs/{job.id}/fail",
                         {
                             **lease_payload,
-                            "error_code": "analysis_input_invalid",
+                            "error_code": "execution_input_invalid",
                             "error_summary": str(exc),
                             "retryable": False,
                         },
                     )
                 except Exception:
+                    _cancel_executor(get_executor(job.job_type), job)
                     client.request(
                         "POST",
                         f"/internal/workers/v1/jobs/{job.id}/fail",
                         {
                             **lease_payload,
-                            "error_code": "analysis_execution_failed",
-                            "error_summary": "The worker could not complete the deterministic analysis.",
-                            "retryable": True,
+                            "error_code": "execution_failed",
+                            "error_summary": "The worker could not complete the controlled job.",
+                            "retryable": False,
                         },
                     )
             active = None
@@ -159,6 +164,21 @@ def main() -> int:
     parser.add_argument("--once", action="store_true", help="Claim and process at most one job.")
     args = parser.parse_args()
     return run_worker(once=args.once)
+
+
+def _cancel_executor(executor: object, job: WorkerClaimedJob) -> None:
+    cancel = getattr(executor, "cancel", None)
+    if callable(cancel):
+        try:
+            cancel(job)
+        except Exception:
+            logger.warning("Worker cleanup failed for job %s.", job.id)
+
+
+def _progress_message(job_type: str, stage: str) -> str:
+    if job_type == "vast.session.start":
+        return "Preparing the controlled Vast.ai session request." if stage == "started" else "Recording Vast.ai session state."
+    return "Preparing deterministic analysis inputs." if stage == "started" else "Persisting the deterministic report."
 
 
 if __name__ == "__main__":

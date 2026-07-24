@@ -46,32 +46,44 @@ def vast_config_response(settings: Settings | None = None) -> VastConfigResponse
         container_port=settings.vast_container_port,
         startup_timeout_seconds=settings.vast_startup_timeout_seconds,
         poll_interval_seconds=settings.vast_poll_interval_seconds,
+        job_enabled=settings.vast_job_enabled,
     )
 
 
 def start_session(
     db: Session,
     actor: UserContext,
-    model: str | None = None,
-    image: str | None = None,
     allow_remote_gpu: bool = False,
     warm_instance: bool = False,
     client: VastClient | None = None,
+    *,
+    session_id: str | None = None,
+    source_job_id: str | None = None,
 ) -> VastSessionModel:
     settings = get_settings()
     if not settings.vast_enabled:
         raise HTTPException(status_code=400, detail="Vast.ai provider is disabled")
     if not settings.vast_dry_run and not allow_remote_gpu:
         raise HTTPException(status_code=400, detail="Remote GPU use must be explicitly allowed")
+
+    if session_id:
+        existing = db.get(VastSessionModel, session_id)
+        if existing is not None:
+            if existing.source_job_id != source_job_id:
+                raise HTTPException(status_code=409, detail="Vast session is linked to another job")
+            # A retry after a lost completion response must reconcile this durable
+            # provider request rather than submit another rental.
+            return existing
     if _active_session_count(db) >= settings.vast_max_active_instances:
         raise HTTPException(status_code=409, detail="Vast.ai max active instance limit reached")
 
     session = VastSessionModel(
-        id=f"vast_{uuid4().hex[:12]}",
+        id=session_id or f"vast_{uuid4().hex[:12]}",
         status="idle",
         provider="vast_ai",
-        model=model or settings.vast_model or "dry-run-model",
-        image=image or settings.vast_image or "dry-run-image",
+        source_job_id=source_job_id,
+        model=settings.vast_model or "dry-run-model",
+        image=settings.vast_image or "dry-run-image",
         max_runtime_minutes=settings.vast_max_session_minutes,
         container_port=settings.vast_container_port,
         created_by=actor.id,
@@ -79,6 +91,7 @@ def start_session(
             "dry_run": settings.vast_dry_run,
             "warm_instance": warm_instance,
             "auto_destroy": settings.vast_auto_destroy,
+            "provider_profile": "environment_v1",
         },
     )
     db.add(session)
