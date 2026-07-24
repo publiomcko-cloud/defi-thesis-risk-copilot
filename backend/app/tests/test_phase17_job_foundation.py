@@ -245,13 +245,14 @@ def test_account_and_organization_disposal_hide_jobs_and_disable_org_workers(pha
         db.add(org)
         db.flush()
         account_job = _job(owner.id, job_id="job_account_disposal")
+        running_job = _job(owner.id, job_id="job_account_running_disposal", status="running")
         org_job = _job(
             owner.id,
             job_id="job_org_disposal",
             organization_id=org.id,
             visibility="organization",
         )
-        db.add_all([account_job, org_job])
+        db.add_all([account_job, running_job, org_job])
         db.flush()
         artifact = ArtifactModel(
             id="artifact_disposal",
@@ -282,10 +283,12 @@ def test_account_and_organization_disposal_hide_jobs_and_disable_org_workers(pha
         db.add_all([artifact, worker, credential])
         db.commit()
 
-        assert dispose_jobs_for_account_deletion(db, owner.id) == 2
+        assert dispose_jobs_for_account_deletion(db, owner.id) == 3
         db.commit()
         assert account_job.status == "failed"
         assert account_job.deleted_at is not None
+        assert running_job.status == "cancel_requested"
+        assert running_job.deleted_at is None
         assert artifact.status == "incomplete"
 
         # A deleted account disposition is idempotent; organization cleanup still disables workers.
@@ -504,8 +507,15 @@ def test_job_control_plane_is_idempotent_scoped_and_isolated(phase17_client, mon
 
     payload = {
         "job_type": "analysis.generate",
-        "input_schema_version": "v1",
-        "input_json": {"strategy": "Supply USDC to a lending market."},
+        "input_schema_version": "analysis.generate.v1",
+        "input_json": {
+            "analysis_request": {
+                "strategy_description": "Supply USDC to a lending market.",
+                "protocols": ["aave"],
+                "manual_inputs": {},
+                "analysis_depth": "standard",
+            }
+        },
         "organization_id": "org_jobs_a",
     }
     headers = {"Authorization": "Bearer jobs-alice-token", "Idempotency-Key": "jobs-idempotency-a"}
@@ -525,7 +535,17 @@ def test_job_control_plane_is_idempotent_scoped_and_isolated(phase17_client, mon
 
     changed = client.post(
         "/api/jobs",
-        json={**payload, "input_json": {"strategy": "Different strategy."}},
+        json={
+            **payload,
+            "input_json": {
+                "analysis_request": {
+                    "strategy_description": "Different strategy.",
+                    "protocols": ["aave"],
+                    "manual_inputs": {},
+                    "analysis_depth": "standard",
+                }
+            },
+        },
         headers=headers,
     )
     assert changed.status_code == 409
@@ -575,8 +595,8 @@ def test_job_submission_is_feature_gated_until_enabled(phase17_client) -> None:
         "/api/jobs",
         json={
             "job_type": "analysis.generate",
-            "input_schema_version": "v1",
-            "input_json": {"strategy": "Feature-flagged job."},
+            "input_schema_version": "analysis.generate.v1",
+            "input_json": {"analysis_request": {"strategy_description": "Feature-flagged job.", "protocols": ["aave"], "manual_inputs": {}, "analysis_depth": "standard"}},
         },
         headers={"Authorization": "Bearer jobs-disabled-token", "Idempotency-Key": "jobs-disabled-key"},
     )
@@ -594,8 +614,15 @@ def test_job_pending_limit_replay_and_public_demo_denial(phase17_client, monkeyp
 
     payload = {
         "job_type": "analysis.generate",
-        "input_schema_version": "v1",
-        "input_json": {"strategy": "Conservative lending strategy."},
+        "input_schema_version": "analysis.generate.v1",
+        "input_json": {
+            "analysis_request": {
+                "strategy_description": "Conservative lending strategy.",
+                "protocols": ["aave"],
+                "manual_inputs": {},
+                "analysis_depth": "standard",
+            }
+        },
     }
     first = client.post(
         "/api/jobs",

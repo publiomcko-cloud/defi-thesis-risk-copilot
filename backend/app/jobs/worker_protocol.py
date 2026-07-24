@@ -683,6 +683,8 @@ def _mark_stale_workers(db: Session, now: datetime) -> int:
 def _reconcile_capacity(db: Session, now: datetime) -> int:
     """Make durable counters match non-terminal job state after crashes."""
 
+    from app.jobs.control_service import _capacity_scopes
+
     desired: dict[tuple[str, str], list[int]] = {}
     active = db.execute(
         select(JobModel)

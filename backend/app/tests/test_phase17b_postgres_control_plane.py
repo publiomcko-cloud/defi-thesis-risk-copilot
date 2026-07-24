@@ -55,8 +55,8 @@ def test_postgres_concurrent_duplicate_submission_reserves_one_job(
     )
     request = JobSubmissionRequest(
         job_type="analysis.generate",
-        input_schema_version="v1",
-        input_json={"strategy": "Concurrent idempotency check."},
+        input_schema_version="analysis.generate.v1",
+        input_json={"analysis_request": {"strategy_description": "Concurrent idempotency check.", "protocols": ["aave"], "manual_inputs": {}, "analysis_depth": "standard"}},
     )
     barrier = Barrier(2)
 

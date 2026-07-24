@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from fastapi import HTTPException
 
 from app.jobs.schemas import JobResultEnvelope
+from app.jobs.errors import JobErrorCategory
 from app.schemas.analysis import AnalysisRequest
 
 
@@ -20,6 +21,9 @@ class JobTypeSpec:
     result_schema_versions: frozenset[str]
     input_validator: InputValidator
     result_validator: ResultValidator
+    executor_name: str
+    cost_estimator_name: str
+    retryable_categories: frozenset[JobErrorCategory]
     requires_provider: bool
 
 
@@ -52,6 +56,9 @@ JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
         result_schema_versions=frozenset({"analysis.generate.v1"}),
         input_validator=_analysis_input,
         result_validator=_analysis_result,
+        executor_name="analysis",
+        cost_estimator_name="deterministic_zero_cost",
+        retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
         requires_provider=False,
     ),
     "vast.session.start": JobTypeSpec(
@@ -60,6 +67,9 @@ JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
         result_schema_versions=frozenset({"vast.session.start.v1"}),
         input_validator=_vast_input,
         result_validator=_vast_result,
+        executor_name="vast",
+        cost_estimator_name="server_profiled_vast",
+        retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE, JobErrorCategory.RETRYABLE_PROVIDER}),
         requires_provider=True,
     ),
 }
@@ -86,3 +96,18 @@ def validate_result_schema(job_type: str, schema_version: str, result: JobResult
         raise HTTPException(status_code=422, detail="Unsupported durable job result schema version.")
     spec.result_validator(result.result_json)
     return spec
+
+
+def executor_for_job_type(job_type: str):
+    """Resolve only a registry-declared executor; imports remain lazy for workers."""
+
+    spec = get_job_spec(job_type)
+    if spec.executor_name == "analysis":
+        from app.jobs.analysis_executor import AnalysisJobExecutor
+
+        return AnalysisJobExecutor()
+    if spec.executor_name == "vast":
+        from app.jobs.vast_executor import VastJobExecutor
+
+        return VastJobExecutor()
+    raise HTTPException(status_code=422, detail="No durable executor is registered for this job type.")

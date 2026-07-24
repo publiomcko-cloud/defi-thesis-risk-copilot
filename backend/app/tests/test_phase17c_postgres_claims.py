@@ -67,8 +67,8 @@ def test_postgres_skip_locked_claim_has_one_winner(
                 owner_actor,
                 JobSubmissionRequest(
                     job_type="analysis.generate",
-                    input_schema_version="v1",
-                    input_json={"strategy": "PostgreSQL SKIP LOCKED claim test."},
+                    input_schema_version="analysis.generate.v1",
+                    input_json={"analysis_request": {"strategy_description": "PostgreSQL SKIP LOCKED claim test.", "protocols": ["aave"], "manual_inputs": {}, "analysis_depth": "standard"}},
                 ),
                 f"phase17c-claim-{suffix}",
             )

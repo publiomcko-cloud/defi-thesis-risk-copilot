@@ -70,6 +70,10 @@ def test_phase17a_upgrade_downgrade_upgrade_has_durable_job_contract(tmp_path: P
     assert frozenset({"source_job_id"}) in _unique_column_sets(connection, "reports")
     assert "source_job_id" in _columns(connection, "vast_sessions")
     assert frozenset({"source_job_id"}) in _unique_column_sets(connection, "vast_sessions")
+    assert "max_lease_expires_at" in _columns(connection, "job_attempts")
+    assert "provider_request_id" in _columns(connection, "vast_sessions")
+    assert "provider_request_state" in _columns(connection, "vast_sessions")
+    assert frozenset({"provider_request_id"}) in _unique_column_sets(connection, "vast_sessions")
     connection.close()
 
     _alembic(database_path, "downgrade", PHASE16_HEAD)

@@ -222,6 +222,7 @@ def _execute_with_supervision(
             cancelled = client.request("GET", f"/internal/workers/v1/jobs/{job.id}/cancellation")
         except WorkerControlPlaneError as exc:
             if exc.status_code == 409:
+                _cancel_executor(executor, job)
                 raise LeaseLostError() from exc
             raise
         if cancelled.get("cancellation_requested") or cancelled.get("terminal"):
