@@ -272,6 +272,51 @@ def test_non_dry_run_startup_timeout_cleans_up(vast_client, monkeypatch) -> None
     assert session.last_error == "Vast.ai startup timed out"
 
 
+def test_direct_vast_start_is_disabled_when_durable_jobs_are_enabled(vast_client, monkeypatch) -> None:
+    client, _ = vast_client
+    monkeypatch.setenv("JOBS_ENABLED", "true")
+    monkeypatch.setenv("VAST_JOB_ENABLED", "true")
+    get_settings.cache_clear()
+    response = client.post("/api/admin/vast/sessions/start", headers=_auth("admin-token"), json={})
+    assert response.status_code == 409
+    assert "durable Vast job route" in response.json()["detail"]
+
+
+def test_uncertain_provider_request_reconciles_before_another_rental(vast_client) -> None:
+    _, Session = vast_client
+    actor = _actor()
+    provider = LostResponseProvider(found=True)
+    with Session() as db:
+        first = start_session(db, actor, client=provider, session_id="vast_uncertain", source_job_id="job_uncertain")
+        assert first.provider_request_state == "submitted_unknown"
+        retry = start_session(db, actor, client=provider, session_id="vast_uncertain", source_job_id="job_uncertain")
+    assert provider.rent_calls == 1
+    assert retry.status == "ready"
+    assert retry.provider_request_state == "ready"
+    assert retry.vast_instance_id == "instance_reconciled"
+
+
+def test_uncertain_provider_absence_can_retry_but_ambiguity_blocks_second_rental(vast_client) -> None:
+    _, Session = vast_client
+    actor = _actor()
+    absent = LostResponseProvider(found=False)
+    with Session() as db:
+        first = start_session(db, actor, client=absent, session_id="vast_absent", source_job_id="job_absent")
+        assert first.provider_request_state == "submitted_unknown"
+        retry = start_session(db, actor, client=absent, session_id="vast_absent", source_job_id="job_absent")
+    assert absent.rent_calls == 2
+    assert retry.status == "ready"
+
+    ambiguous = LostResponseProvider(found="ambiguous")
+    with Session() as db:
+        db.get(VastSessionModel, "vast_absent").status = "destroyed"
+        db.commit()
+        start_session(db, actor, client=ambiguous, session_id="vast_ambiguous", source_job_id="job_ambiguous")
+        blocked = start_session(db, actor, client=ambiguous, session_id="vast_ambiguous", source_job_id="job_ambiguous")
+    assert ambiguous.rent_calls == 1
+    assert blocked.provider_request_state == "reconciliation_failed"
+
+
 def test_raw_api_key_is_never_returned(vast_client, monkeypatch) -> None:
     client, _ = vast_client
     monkeypatch.setenv("VAST_API_KEY", "vast-secret-key-123")
@@ -384,3 +429,23 @@ class StatusTransitionClient:
 
     def destroy_instance(self, instance_id):
         return {"destroyed": True}
+
+
+class LostResponseProvider(StatusTransitionClient):
+    def __init__(self, found: bool | str) -> None:
+        super().__init__([{"status": "running", "health_status": "healthy"}])
+        self.found = found
+        self.rent_calls = 0
+
+    def rent_instance(self, offer, image, model, disk_gb, *, request_id):
+        self.rent_calls += 1
+        if self.rent_calls == 1:
+            raise VastClientError("Vast.ai API request failed")
+        return {"instance_id": "instance_retry", "contract_id": "contract_retry"}
+
+    def find_instance_by_request_id(self, request_id):
+        if self.found is True:
+            return {"instance_id": "instance_reconciled", "contract_id": "contract_reconciled"}
+        if self.found == "ambiguous":
+            return {"contract_id": "contract_only"}
+        return None

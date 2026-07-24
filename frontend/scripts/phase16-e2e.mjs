@@ -25,6 +25,8 @@ const state = {
       progress_message: "Waiting for an eligible worker.",
       attempt_count: 0,
       max_attempts: 3,
+      result_resource_type: "report",
+      result_resource_id: "must-not-link-before-completion",
       created_at: now,
       updated_at: now
     },
@@ -197,6 +199,7 @@ async function runAuthenticatedFlow(browserInstance) {
   await page.goto(`${appOrigin}/jobs`);
   await page.getByRole("heading", { name: "Jobs", exact: true }).waitFor();
   await page.getByText("job-browser-queued").waitFor();
+  assert.equal(await page.getByRole("link", { name: "Open report" }).count(), 1, "only completed report jobs may expose a report link");
   await page.getByRole("button", { name: "Details" }).first().click();
   await page.getByText("Job accepted for controlled worker execution.").waitFor();
   await page.getByRole("button", { name: "Cancel job" }).click();

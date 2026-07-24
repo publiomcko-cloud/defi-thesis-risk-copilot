@@ -38,19 +38,31 @@ class VastClient:
             raise VastClientError("Unexpected Vast.ai offer response shape")
         return [_offer_from_payload(item) for item in offers if isinstance(item, dict)]
 
-    def rent_instance(self, offer: VastOffer, image: str, model: str, disk_gb: int) -> dict[str, Any]:
+    def rent_instance(
+        self,
+        offer: VastOffer,
+        image: str,
+        model: str,
+        disk_gb: int,
+        *,
+        request_id: str,
+    ) -> dict[str, Any]:
         if self.dry_run:
             return {
                 "instance_id": f"dry_instance_{offer.id}",
                 "contract_id": f"dry_contract_{offer.id}",
                 "public_endpoint_url": offer.public_endpoint_url or "http://dry-run-vast.local:8000",
                 "dry_run": True,
+                "provider_request_id": request_id,
             }
         payload = {
             "client_id": "me",
             "image": image,
             "disk": disk_gb,
             "env": {"MODEL": model},
+            # Vast.ai support for a caller request identifier must be verified before
+            # real rentals are enabled. It is still persisted locally for reconciliation.
+            "client_request_id": request_id,
         }
         data = self._request("PUT", f"/asks/{offer.id}/", json=payload)
         return {
@@ -59,6 +71,13 @@ class VastClient:
             "public_endpoint_url": data.get("public_endpoint_url") or data.get("url"),
             "raw": data,
         }
+
+    def find_instance_by_request_id(self, request_id: str) -> dict[str, Any] | None:
+        """Locate a prior rental only when the provider exposes a trusted match."""
+
+        if self.dry_run:
+            return None
+        raise VastClientError("Vast.ai request-id reconciliation is not verified for this provider profile")
 
     def get_instance_status(self, instance_id: str) -> dict[str, Any]:
         if self.dry_run:

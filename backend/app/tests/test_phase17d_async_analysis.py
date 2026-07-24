@@ -14,6 +14,7 @@ from app.jobs.schemas import WorkerCredentialCreateRequest, WorkerRegistrationRe
 from app.jobs.worker_service import issue_worker_credential, register_worker
 from app.main import app
 from app.models.analysis_request import AnalysisRequestModel
+from app.models.artifact import ArtifactModel
 from app.models.job import JobModel
 from app.models.report import ReportModel
 from app.reports.templates import REQUIRED_REPORT_SECTIONS
@@ -75,6 +76,12 @@ def test_authenticated_analysis_queues_once_and_persists_one_report(phase17d_cli
             "analysis_request_id": requests[0].id,
             "report_id": reports[0].id,
         }
+        artifact = db.get(ArtifactModel, f"artifact_{queued['job_id']}")
+        assert artifact is not None
+        assert artifact.status == "available"
+        assert artifact.storage_backend == "database"
+        assert artifact.resource_type == "report"
+        assert artifact.resource_id == reports[0].id
 
 
 def test_cancellation_wins_without_persisting_a_report(phase17d_client) -> None:

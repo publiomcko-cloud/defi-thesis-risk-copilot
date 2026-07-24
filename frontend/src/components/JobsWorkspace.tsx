@@ -148,7 +148,7 @@ function JobEvents({ events }: { events: JobEvent[] }) {
 
 function jobMessage(job: JobResponse): string {
   if (job.progress_message) return job.progress_message;
-  if (job.status === "queued" || job.status === "retry_wait") return "Waiting for an eligible worker.";
+  if (job.status === "queued") return "Waiting for an eligible worker.";
   if (job.status === "cancel_requested") return "Cancellation has been requested and is waiting for the worker.";
   if (job.status === "leased") return "A worker holds the lease and is preparing controlled execution.";
   if (job.status === "running") return "A worker is executing under an active lease.";

@@ -62,6 +62,11 @@ def start_vast_session(
     current_user: UserContext = Depends(require_admin),
 ) -> VastSessionActionResponse:
     settings = get_settings()
+    if settings.vast_job_enabled or not settings.vast_dry_run:
+        raise HTTPException(
+            status_code=409,
+            detail="Direct Vast startup is limited to local dry-run diagnostics. Use the durable Vast job route for controlled startup.",
+        )
     if settings.public_demo_mode and not settings.vast_dry_run:
         raise HTTPException(
             status_code=403,
