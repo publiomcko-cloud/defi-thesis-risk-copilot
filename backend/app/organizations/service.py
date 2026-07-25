@@ -109,14 +109,14 @@ def update_organization(
     if request.name is not None:
         org.name = request.name
     if request.status is not None:
-        org.status = request.status
-        if org.status != "active":
+        if request.status != "active":
             revoke_jobs_for_authorization_change(
                 db,
                 organization_id=org.id,
                 reason="organization_disabled",
                 now=datetime.now(UTC),
             )
+        org.status = request.status
     org.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(org)
@@ -240,19 +240,21 @@ def update_member(
             {"organization_id": org.id, "reason": "final_active_owner"},
         )
         raise HTTPException(status_code=409, detail="Cannot remove the final active organization owner")
-    if request.role is not None:
-        membership.role = request.role
-    if request.status is not None:
-        membership.status = request.status
-    membership.updated_at = datetime.now(UTC)
-    if membership.status != "active" or membership.role not in {"owner", "admin", "member"}:
+    next_role = request.role if request.role is not None else membership.role
+    next_status = request.status if request.status is not None else membership.status
+    if next_status != "active" or next_role not in {"owner", "admin", "member"}:
         revoke_jobs_for_authorization_change(
             db,
             user_id=membership.user_id,
             organization_id=org.id,
             reason="organization_membership_revoked",
-            now=membership.updated_at,
+            now=datetime.now(UTC),
         )
+    if request.role is not None:
+        membership.role = request.role
+    if request.status is not None:
+        membership.status = request.status
+    membership.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(membership)
     action = (
@@ -334,6 +336,7 @@ def _get_membership(db: Session, organization_id: str, membership_id: str) -> Or
         select(OrganizationMembershipModel)
         .where(OrganizationMembershipModel.organization_id == organization_id)
         .where(OrganizationMembershipModel.id == membership_id)
+        .with_for_update()
     ).scalars().first()
     if membership is None:
         raise HTTPException(status_code=404, detail="Membership not found")

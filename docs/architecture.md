@@ -475,10 +475,13 @@ claiming another job. Daily provider cost is persisted as an auditable reservati
 reserved cost and completed actual spend remain distinct during recovery. Recovery dry-run does no
 external provider I/O. Real Vast.ai rentals fail closed while the reconciliation profile is
 `unverified`.
-Membership and organization authorization changes are non-destructive: queued/retry jobs fail with
-`authorization_revoked`, leased/running jobs become `cancel_requested`, and terminal organization
-reports/artifacts remain intact. Recovery reconstructs missing global, provider, user, and
-organization capacity rows from durable jobs. Terminal provider accounting releases only work with
+Membership and organization authorization changes are non-destructive and acquire `FOR UPDATE`
+locks on affected active job rows before committing the membership or organization mutation:
+queued/retry jobs fail with `authorization_revoked`, leased/running jobs become
+`cancel_requested`, and terminal organization reports/artifacts remain intact. Recovery
+reconstructs missing global, provider, user, and organization capacity rows from durable jobs;
+the rebuilt global row restores the active budget period and aggregates completed provider spend
+from the durable ledger. Terminal provider accounting releases only work with
 no provider request, records known resource cost, and retains a conservative reservation for an
 uncertain provider outcome.
 Only the central registry accepts the exact `analysis.generate.v1` and

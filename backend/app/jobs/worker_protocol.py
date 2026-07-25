@@ -756,7 +756,14 @@ def _reconcile_capacity(db: Session, now: datetime) -> int:
     }
     for scope_type, scope_id in desired:
         if (scope_type, scope_id) not in records:
-            _create_reconciled_capacity_record(db, scope_type, scope_id, now)
+            _create_reconciled_capacity_record(
+                db,
+                scope_type,
+                scope_id,
+                now,
+                budget_period_start=period_start if scope_type == "global" else None,
+                budget_period_end=period_end if scope_type == "global" else None,
+            )
     db.flush()
     records = {
         (record.scope_type, record.scope_id): record
@@ -766,17 +773,30 @@ def _reconcile_capacity(db: Session, now: datetime) -> int:
     adjusted = 0
     for (scope_type, scope_id), record in records.items():
         pending, running, cost = desired.get((scope_type, scope_id), [0, 0, provider_cost if scope_type == "global" else 0])
-        if (record.pending_count, record.running_count, record.reserved_cost_microusd) != (pending, running, cost):
+        period_mismatch = scope_type == "global" and (
+            record.budget_period_start != period_start or record.budget_period_end != period_end
+        )
+        if (record.pending_count, record.running_count, record.reserved_cost_microusd) != (pending, running, cost) or period_mismatch:
             record.pending_count = pending
             record.running_count = running
             if record.scope_type == "global":
                 record.reserved_cost_microusd = cost
+                record.budget_period_start = period_start
+                record.budget_period_end = period_end
             record.updated_at = now
             adjusted += 1
     return adjusted
 
 
-def _create_reconciled_capacity_record(db: Session, scope_type: str, scope_id: str, now: datetime) -> None:
+def _create_reconciled_capacity_record(
+    db: Session,
+    scope_type: str,
+    scope_id: str,
+    now: datetime,
+    *,
+    budget_period_start: datetime | None,
+    budget_period_end: datetime | None,
+) -> None:
     """Insert missing counters without treating a concurrent recovery as corruption."""
 
     values = {
@@ -786,6 +806,8 @@ def _create_reconciled_capacity_record(db: Session, scope_type: str, scope_id: s
         "pending_count": 0,
         "running_count": 0,
         "reserved_cost_microusd": 0,
+        "budget_period_start": budget_period_start,
+        "budget_period_end": budget_period_end,
         "created_at": now,
         "updated_at": now,
     }

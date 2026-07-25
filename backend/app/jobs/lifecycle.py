@@ -71,7 +71,10 @@ def revoke_jobs_for_authorization_change(
         statement = statement.where(JobModel.owner_user_id == user_id)
     timestamp = now or datetime.now(UTC)
     affected = 0
-    for job in db.execute(statement).scalars().all():
+    # Keep the job-row lock order aligned with worker mutations. An authorization
+    # change therefore either observes a finished mutation before it begins, or
+    # prevents a later claim/heartbeat/completion from crossing the revocation.
+    for job in db.execute(statement.with_for_update()).scalars().all():
         if job.status in {"queued", "retry_wait"}:
             transition_job(
                 db,

@@ -6,6 +6,7 @@ from threading import Barrier
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import delete, select
 from sqlalchemy.orm import sessionmaker
 
@@ -14,15 +15,31 @@ from app.auth.service import create_user, user_context
 from app.core.config import get_settings
 from app.db.session import create_database_engine
 from app.jobs.control_service import release_running_capacity, submit_job
-from app.jobs.schemas import JobSubmissionRequest, WorkerCredentialCreateRequest, WorkerRegistrationRequest
-from app.jobs.worker_protocol import authenticate_worker, claim_next_job, recover_durable_jobs
+from app.jobs.schemas import (
+    JobResultEnvelope,
+    JobSubmissionRequest,
+    WorkerCredentialCreateRequest,
+    WorkerHeartbeatRequest,
+    WorkerLeaseRequest,
+    WorkerRegistrationRequest,
+)
+from app.jobs.worker_protocol import (
+    authenticate_worker,
+    claim_next_job,
+    complete_job,
+    heartbeat_job,
+    recover_durable_jobs,
+    start_job,
+)
 from app.jobs.worker_service import issue_worker_credential, register_worker
 from app.models.access_audit_event import AccessAuditEventModel
-from app.models.job import JobAttemptModel, JobCapacityReservationModel, JobEventModel, JobModel
+from app.models.job import JobAttemptModel, JobCapacityReservationModel, JobEventModel, JobModel, ProviderCostReservationModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.usage_quota import UsageQuotaModel
 from app.models.user import UserModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
+from app.organizations.schemas import MembershipUpdateRequest, OrganizationUpdateRequest
+from app.organizations.service import update_member, update_organization
 
 
 pytestmark = pytest.mark.postgres_integration
@@ -36,6 +53,107 @@ def postgres_sessions() -> sessionmaker:
     if engine.dialect.name != "postgresql":
         pytest.skip("PostgreSQL worker claim tests require a PostgreSQL DATABASE_URL")
     return sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+def _seed_organization_job(
+    db,
+    suffix: str,
+) -> dict[str, str]:
+    """Create an organization-owned job plus a separately privileged worker operator."""
+
+    owner = create_user(db, f"phase17c-owner-{suffix}@example.test", token=f"owner-{suffix}")
+    admin = create_user(db, f"phase17c-admin-{suffix}@example.test", role="admin", token=f"admin-{suffix}")
+    org = OrganizationModel(
+        id=f"org_phase17c_{suffix}",
+        name="Authorization locking",
+        slug=f"authorization-locking-{suffix}",
+        status="active",
+        created_by_user_id=admin.id,
+    )
+    db.add(org)
+    db.flush()
+    admin_membership = OrganizationMembershipModel(
+        id=f"membership_admin_phase17c_{suffix}",
+        organization_id=org.id,
+        user_id=admin.id,
+        role="owner",
+        status="active",
+    )
+    owner_membership = OrganizationMembershipModel(
+        id=f"membership_owner_phase17c_{suffix}",
+        organization_id=org.id,
+        user_id=owner.id,
+        role="member",
+        status="active",
+    )
+    db.add_all([admin_membership, owner_membership])
+    db.flush()
+    job, _ = submit_job(
+        db,
+        user_context(owner),
+        JobSubmissionRequest(
+            job_type="analysis.generate",
+            input_schema_version="analysis.generate.v1",
+            organization_id=org.id,
+            input_json={
+                "analysis_request": {
+                    "strategy_description": "Authorization revocation locking test.",
+                    "protocols": ["aave"],
+                    "manual_inputs": {},
+                    "analysis_depth": "standard",
+                }
+            },
+        ),
+        f"phase17c-authorization-{suffix}",
+    )
+    worker = register_worker(
+        db,
+        user_context(admin),
+        WorkerRegistrationRequest(
+            name=f"phase17c-authorization-{suffix}",
+            protocol_version="v1",
+            allowed_job_types=["analysis.generate"],
+        ),
+    )
+    credential = issue_worker_credential(
+        db,
+        user_context(admin),
+        worker.id,
+        WorkerCredentialCreateRequest(),
+    )
+    db.commit()
+    return {
+        "admin_id": admin.id,
+        "owner_id": owner.id,
+        "organization_id": org.id,
+        "owner_membership_id": owner_membership.id,
+        "job_id": job.id,
+        "worker_id": worker.id,
+        "worker_token": credential.token,
+    }
+
+
+def _cleanup_organization_job(db, fixture: dict[str, str]) -> None:
+    job_ids = [
+        item.id
+        for item in db.execute(
+            select(JobModel).where(JobModel.owner_user_id.in_({fixture["owner_id"], fixture["admin_id"]}))
+        ).scalars().all()
+    ]
+    if job_ids:
+        db.execute(delete(JobEventModel).where(JobEventModel.job_id.in_(job_ids)))
+        db.execute(delete(JobAttemptModel).where(JobAttemptModel.job_id.in_(job_ids)))
+        db.execute(delete(JobModel).where(JobModel.id.in_(job_ids)))
+    db.execute(delete(WorkerCredentialModel).where(WorkerCredentialModel.worker_id == fixture["worker_id"]))
+    db.execute(delete(WorkerModel).where(WorkerModel.id == fixture["worker_id"]))
+    db.execute(delete(OrganizationMembershipModel).where(OrganizationMembershipModel.organization_id == fixture["organization_id"]))
+    db.execute(delete(OrganizationModel).where(OrganizationModel.id == fixture["organization_id"]))
+    user_ids = {fixture["owner_id"], fixture["admin_id"]}
+    db.execute(delete(JobCapacityReservationModel).where(JobCapacityReservationModel.scope_id.in_(user_ids | {fixture["organization_id"]})))
+    db.execute(delete(UsageQuotaModel).where(UsageQuotaModel.subject_id.in_(user_ids)))
+    db.execute(delete(AccessAuditEventModel).where(AccessAuditEventModel.actor_user_id.in_(user_ids)))
+    db.execute(delete(UserModel).where(UserModel.id.in_(user_ids)))
+    db.commit()
 
 
 def test_postgres_skip_locked_claim_has_one_winner(
@@ -173,6 +291,33 @@ def test_postgres_recovery_rebuilds_missing_capacity_rows(
             assert records[("provider", "controlled:analysis.generate")].pending_count == 1
             assert records[("user", owner.id)].pending_count == 1
             assert records[("organization", org.id)].pending_count == 1
+            period_start = records[("global", "all")].budget_period_start
+            period_end = records[("global", "all")].budget_period_end
+            db.add(ProviderCostReservationModel(
+                id=f"jobcost_phase17c_{suffix}",
+                job_id=job.id,
+                provider="vast_ai",
+                period_start=period_start,
+                period_end=period_end,
+                reserved_cost_microusd=0,
+                actual_cost_microusd=123_456,
+                status="completed",
+            ))
+            db.flush()
+            db.execute(delete(JobCapacityReservationModel).where(
+                (JobCapacityReservationModel.scope_type == "global")
+                & (JobCapacityReservationModel.scope_id == "all")
+            ))
+            db.commit()
+            recover_durable_jobs(db)
+            rebuilt_global = db.execute(
+                select(JobCapacityReservationModel)
+                .where(JobCapacityReservationModel.scope_type == "global")
+                .where(JobCapacityReservationModel.scope_id == "all")
+            ).scalars().one()
+            assert rebuilt_global.budget_period_start == period_start
+            assert rebuilt_global.budget_period_end == period_end
+            assert rebuilt_global.reserved_cost_microusd == 123_456
             db.commit()
     finally:
         if owner_id:
@@ -186,4 +331,137 @@ def test_postgres_recovery_rebuilds_missing_capacity_rows(
                 db.execute(delete(UsageQuotaModel).where(UsageQuotaModel.subject_id == owner_id))
                 db.execute(delete(UserModel).where(UserModel.id == owner_id))
                 db.commit()
+        get_settings.cache_clear()
+
+
+def test_postgres_membership_downgrade_blocks_claim(
+    postgres_sessions: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JOBS_ENABLED", "true")
+    monkeypatch.setenv("WORKER_API_ENABLED", "true")
+    monkeypatch.setenv("WORKER_TOKEN_PEPPER", "phase17c-postgres-pepper")
+    get_settings.cache_clear()
+    fixture: dict[str, str] | None = None
+    try:
+        with postgres_sessions() as db:
+            fixture = _seed_organization_job(db, uuid4().hex[:12])
+            admin = db.get(UserModel, fixture["admin_id"])
+            assert admin is not None
+            update_member(
+                db,
+                user_context(admin),
+                fixture["organization_id"],
+                fixture["owner_membership_id"],
+                MembershipUpdateRequest(role="viewer"),
+            )
+            identity = authenticate_worker(db, fixture["worker_token"], "v1")
+            assert claim_next_job(db, identity).job is None
+            job = db.get(JobModel, fixture["job_id"])
+            assert job is not None
+            assert job.status == "failed"
+            assert job.error_code == "authorization_revoked"
+    finally:
+        if fixture is not None:
+            with postgres_sessions() as db:
+                _cleanup_organization_job(db, fixture)
+        get_settings.cache_clear()
+
+
+def test_postgres_membership_removal_blocks_completion(
+    postgres_sessions: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JOBS_ENABLED", "true")
+    monkeypatch.setenv("WORKER_API_ENABLED", "true")
+    monkeypatch.setenv("WORKER_TOKEN_PEPPER", "phase17c-postgres-pepper")
+    get_settings.cache_clear()
+    fixture: dict[str, str] | None = None
+    try:
+        with postgres_sessions() as db:
+            fixture = _seed_organization_job(db, uuid4().hex[:12])
+            identity = authenticate_worker(db, fixture["worker_token"], "v1")
+            claim = claim_next_job(db, identity).job
+            assert claim is not None
+            lease = WorkerLeaseRequest(lease_generation=claim.lease_generation, lease_token=claim.lease_token)
+            assert start_job(db, identity, claim.id, lease).status == "running"
+
+            admin = db.get(UserModel, fixture["admin_id"])
+            assert admin is not None
+            update_member(
+                db,
+                user_context(admin),
+                fixture["organization_id"],
+                fixture["owner_membership_id"],
+                MembershipUpdateRequest(status="removed"),
+            )
+            with pytest.raises(HTTPException) as completion:
+                complete_job(
+                    db,
+                    identity,
+                    claim.id,
+                    lease,
+                    JobResultEnvelope(
+                        result_schema_version="analysis.generate.v1",
+                        result_json={"analysis_request": {}, "report": {}},
+                    ),
+                )
+            assert completion.value.status_code == 409
+            job = db.get(JobModel, claim.id)
+            assert job is not None
+            assert job.status == "cancel_requested"
+            assert job.error_code == "authorization_revoked"
+    finally:
+        if fixture is not None:
+            with postgres_sessions() as db:
+                _cleanup_organization_job(db, fixture)
+        get_settings.cache_clear()
+
+
+def test_postgres_organization_disablement_blocks_heartbeat(
+    postgres_sessions: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JOBS_ENABLED", "true")
+    monkeypatch.setenv("WORKER_API_ENABLED", "true")
+    monkeypatch.setenv("WORKER_TOKEN_PEPPER", "phase17c-postgres-pepper")
+    get_settings.cache_clear()
+    fixture: dict[str, str] | None = None
+    try:
+        with postgres_sessions() as db:
+            fixture = _seed_organization_job(db, uuid4().hex[:12])
+            identity = authenticate_worker(db, fixture["worker_token"], "v1")
+            claim = claim_next_job(db, identity).job
+            assert claim is not None
+            lease = WorkerLeaseRequest(lease_generation=claim.lease_generation, lease_token=claim.lease_token)
+            assert start_job(db, identity, claim.id, lease).status == "running"
+
+            admin = db.get(UserModel, fixture["admin_id"])
+            assert admin is not None
+            update_organization(
+                db,
+                user_context(admin),
+                fixture["organization_id"],
+                OrganizationUpdateRequest(status="disabled"),
+            )
+            with pytest.raises(HTTPException) as heartbeat:
+                heartbeat_job(
+                    db,
+                    identity,
+                    claim.id,
+                    WorkerHeartbeatRequest(
+                        lease_generation=claim.lease_generation,
+                        lease_token=claim.lease_token,
+                        progress_percent=50,
+                    ),
+                )
+            assert heartbeat.value.status_code == 409
+            job = db.get(JobModel, claim.id)
+            assert job is not None
+            assert job.status == "cancel_requested"
+            assert job.error_code == "authorization_revoked"
+    finally:
+        if fixture is not None:
+            with postgres_sessions() as db:
+                _cleanup_organization_job(db, fixture)
         get_settings.cache_clear()
