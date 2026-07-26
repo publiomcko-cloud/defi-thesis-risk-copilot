@@ -438,6 +438,29 @@ need a separately designed least-privilege data-access path. It never connects w
 trades. Stop it with `docker compose --profile worker stop worker`; SIGTERM stops new claims and
 releases its active lease for retry.
 
+### Low-cost production worker: scheduled GitHub Actions
+
+For this public repository's low-volume production deployment, Phase 17 can run as the
+outbound-only `.github/workflows/phase17-scheduled-worker.yml` workflow instead of a continuously
+billed Render Background Worker. It runs every five minutes, claims at most one
+`analysis.generate` job with `--once`, and has no inbound network endpoint. This intentionally
+trades immediate execution for bounded cost and a maximum normal queue delay of about five
+minutes.
+
+Create a protected GitHub environment named `production-worker` and set these environment secrets:
+
+```text
+WORKER_CONTROL_PLANE_URL=https://<production-backend>
+WORKER_CREDENTIAL=<one scoped analysis.generate worker credential>
+```
+
+The workflow has no pull-request trigger, uses read-only repository permissions, serializes runs,
+checks out `main`, and must never print environment variables or credentials. Keep the credential
+scoped only to `analysis.generate`; rotate it through the platform-admin worker API and GitHub
+environment secret together. Use Actions manual dispatch for an immediate bounded run. Scheduled
+workflows can be delayed by GitHub, so this path is suitable for low volume rather than
+latency-sensitive workloads. Do not store provider credentials in the GitHub environment.
+
 To test the Phase 17E provider path privately, first register a worker whose credential is scoped
 to `vast.session.start`, configure its `WORKER_CREDENTIAL`, and retain dry-run mode:
 

@@ -832,6 +832,13 @@ CI runs PostgreSQL migrations/tests, frontend BFF/browser checks, and Compose re
 `VAST_DRY_RUN=true`; the local trusted worker and fake provider path are validated, while hosted
 workers and real provider rentals remain deliberately unverified.
 
+Production may use the repository's scheduled GitHub Actions worker for low-volume
+`analysis.generate` processing. It is outbound-only, claims one job per manually dispatched or
+five-minute scheduled run, is serialized to avoid overlapping executor claims, and receives only
+a scoped worker credential through the protected `production-worker` environment. It does not run
+on pull requests and has no provider credential or inbound port. This deployment mode has bounded
+queue latency and is not a substitute for a continuously available hosted worker.
+
 Completion checkpoint:
 
 - every completion gate below has code and automated evidence;
