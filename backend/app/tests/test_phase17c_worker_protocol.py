@@ -77,6 +77,12 @@ def test_worker_protocol_leases_progresses_completes_and_rejects_stale_mutations
         headers=_worker_auth(worker_token),
     )
     assert progress.status_code == 200
+    with Session() as db:
+        record = db.get(JobModel, job["id"])
+        assert record is not None
+        record.error_code = "worker_infrastructure_error"
+        record.error_summary = "A previous retryable attempt failed."
+        db.commit()
     complete = client.post(
         f"/internal/workers/v1/jobs/{job['id']}/complete",
         json={
@@ -90,6 +96,11 @@ def test_worker_protocol_leases_progresses_completes_and_rejects_stale_mutations
     )
     assert complete.status_code == 200
     assert complete.json()["status"] == "completed"
+    with Session() as db:
+        record = db.get(JobModel, job["id"])
+        assert record is not None
+        assert record.error_code is None
+        assert record.error_summary is None
     stale = client.post(f"/internal/workers/v1/jobs/{job['id']}/complete", json={**payload, "result": {"result_schema_version": "analysis.generate.v1", "result_json": _worker_result(lease)}}, headers=_worker_auth(worker_token))
     assert stale.status_code == 409
 

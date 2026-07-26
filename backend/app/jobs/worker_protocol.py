@@ -257,6 +257,11 @@ def complete_job(
         )
         _complete_provider_cost_reservation(db, job)
     job.result_schema_version = result.result_schema_version
+    # A retryable attempt can leave a safe error summary on the mutable job row.
+    # The final completed state must describe the successful attempt, while the
+    # immutable attempt ledger retains the earlier failure for operator review.
+    job.error_code = None
+    job.error_summary = None
     job.progress_percent = 100
     job.progress_message = "Worker completed the job."
     transition_job(db, job, "completed", worker_id=identity.worker.id, message="Worker completed the job.")
