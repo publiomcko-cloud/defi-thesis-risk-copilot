@@ -41,11 +41,20 @@ Some work may overlap, but completion labels must respect dependencies.
 
 # V1 Phase 17 — Durable Job Queue and Hybrid Workers
 
-Status: **Planned**
+Status: **Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22.**
+
+Status: **Final corrections required on `agent/v1-phase-17-durable-jobs`**
 
 ## 17.1 Goal
 
 Move heavy, slow, retryable, and provider-dependent work out of the public web process into a durable, observable, tenant-aware job system.
+
+Phase 17A establishes the durable data/state/credential foundation. Phase 17B adds authenticated,
+tenant-scoped job submission, observation, cancellation, idempotency, bounded queue admission,
+and operator replay. It does not yet expose worker claim/execution or asynchronous analysis
+behavior.
+Phase 17C adds the internal authenticated worker protocol and fake queue executor, while keeping
+real analysis execution and provider side effects disabled until later slices.
 
 ## 17.2 Target architecture
 
@@ -54,7 +63,7 @@ Browser
   -> Vercel Next.js BFF
   -> Render FastAPI control plane
      -> PostgreSQL job queue/state
-     -> object-storage references
+  -> durable database result references
 
 Local/cloud worker
   -> outbound authenticated polling or claim
@@ -299,7 +308,7 @@ Frontend requirements:
 - cost controls are enforced;
 - artifacts have durable references;
 - browser job flow passes;
-- docs and runbooks are updated.
+- authenticated job workspace, account export/deletion, retention, docs, and runbooks are updated.
 
 ## 17.16 Out of scope
 

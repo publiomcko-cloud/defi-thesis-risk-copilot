@@ -81,6 +81,41 @@ class Settings(BaseSettings):
     vast_startup_timeout_seconds: int = 600
     vast_poll_interval_seconds: int = 10
     vast_dry_run: bool = True
+    vast_real_rentals_enabled: bool = False
+    vast_reconciliation_profile: str = "unverified"
+    jobs_enabled: bool = False
+    worker_api_enabled: bool = False
+    async_analysis_enabled: bool = False
+    vast_job_enabled: bool = False
+    job_default_max_attempts: int = 3
+    job_lease_seconds: int = 60
+    job_heartbeat_seconds: int = 20
+    job_max_lease_extension_seconds: int = 720
+    analysis_job_max_attempt_runtime_seconds: int = 300
+    job_cleanup_grace_seconds: int = 60
+    vast_reconciliation_grace_seconds: int = 30
+    job_max_queue_age_seconds: int = 3600
+    job_event_retention_days: int = 90
+    job_terminal_retention_days: int = 30
+    job_max_input_bytes: int = 65_536
+    job_max_result_bytes: int = 262_144
+    job_max_progress_message_length: int = 512
+    job_global_pending_limit: int = 100
+    job_global_running_limit: int = 4
+    job_user_pending_limit: int = 10
+    job_user_running_limit: int = 2
+    job_org_pending_limit: int = 50
+    job_org_running_limit: int = 8
+    job_provider_pending_limit: int = 25
+    job_provider_running_limit: int = 4
+    job_daily_cost_budget_microusd: int = 0
+    job_claim_scan_limit: int = 25
+    job_retry_base_seconds: int = 5
+    job_retry_max_seconds: int = 300
+    worker_stale_seconds: int = 120
+    worker_poll_seconds: float = 2.0
+    worker_protocol_version: str = "v1"
+    worker_token_pepper: str = ""
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
@@ -108,6 +143,51 @@ class Settings(BaseSettings):
                 )
         if self.auth_enabled and self.app_env == "production" and not self.bff_audit_secret:
             raise ValueError("BFF_AUDIT_SECRET is required when production authentication is enabled")
+        if self.worker_api_enabled and not self.jobs_enabled:
+            raise ValueError("WORKER_API_ENABLED requires JOBS_ENABLED")
+        if self.async_analysis_enabled and not self.jobs_enabled:
+            raise ValueError("ASYNC_ANALYSIS_ENABLED requires JOBS_ENABLED")
+        if self.vast_job_enabled and not self.jobs_enabled:
+            raise ValueError("VAST_JOB_ENABLED requires JOBS_ENABLED")
+        if self.worker_api_enabled and self.app_env == "production" and not self.worker_token_pepper:
+            raise ValueError("WORKER_TOKEN_PEPPER is required when production worker API is enabled")
+        if self.job_default_max_attempts < 1:
+            raise ValueError("JOB_DEFAULT_MAX_ATTEMPTS must be positive")
+        if self.job_heartbeat_seconds < 1 or self.job_lease_seconds < self.job_heartbeat_seconds:
+            raise ValueError("JOB_LEASE_SECONDS must be at least JOB_HEARTBEAT_SECONDS")
+        if self.job_max_lease_extension_seconds < self.job_lease_seconds:
+            raise ValueError("JOB_MAX_LEASE_EXTENSION_SECONDS must cover one lease")
+        if self.analysis_job_max_attempt_runtime_seconds < self.job_lease_seconds:
+            raise ValueError("ANALYSIS_JOB_MAX_ATTEMPT_RUNTIME_SECONDS must cover one lease")
+        vast_horizon = self.vast_startup_timeout_seconds + self.vast_reconciliation_grace_seconds + self.job_cleanup_grace_seconds
+        if self.job_max_lease_extension_seconds < max(self.analysis_job_max_attempt_runtime_seconds, vast_horizon):
+            raise ValueError("JOB_MAX_LEASE_EXTENSION_SECONDS must cover every registered job horizon")
+        if min(
+            self.job_max_queue_age_seconds,
+            self.job_event_retention_days,
+            self.job_terminal_retention_days,
+            self.job_max_input_bytes,
+            self.job_max_result_bytes,
+            self.job_max_progress_message_length,
+            self.job_global_pending_limit,
+            self.job_global_running_limit,
+            self.job_user_pending_limit,
+            self.job_user_running_limit,
+            self.job_org_pending_limit,
+            self.job_org_running_limit,
+            self.job_provider_pending_limit,
+            self.job_provider_running_limit,
+            self.job_daily_cost_budget_microusd,
+            self.job_claim_scan_limit,
+            self.job_retry_base_seconds,
+            self.job_retry_max_seconds,
+            self.worker_stale_seconds,
+        ) < 0:
+            raise ValueError("Phase 17 job limits cannot be negative")
+        if self.job_claim_scan_limit < 1 or self.job_retry_base_seconds < 1 or self.job_retry_max_seconds < self.job_retry_base_seconds:
+            raise ValueError("Phase 17 worker retry and claim settings are invalid")
+        if self.worker_stale_seconds < self.job_heartbeat_seconds or self.worker_poll_seconds <= 0:
+            raise ValueError("Phase 17 worker freshness settings are invalid")
         return self
 
 

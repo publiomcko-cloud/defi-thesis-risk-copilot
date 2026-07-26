@@ -4,6 +4,28 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 
 ## Unreleased — V1 Product Hardening
 
+### Phase 17 Durable Jobs and Hybrid Workers
+
+- Correction pass completed locally: added supervised long-running heartbeats/cancellation, immutable
+  attempt lease horizons, exact job schemas, recovery maintenance, database report-reference
+  artifacts, completed-only report links, and durable Vast request reconciliation boundaries.
+
+- Added durable tenant-scoped jobs, attempts, events, artifacts, capacity reservations, scoped worker credentials, PostgreSQL-safe leases, retries, cancellation, and retention.
+- Added asynchronous authenticated analysis with idempotent report persistence and a trusted outbound-only worker profile.
+- Added an administrator-only, server-profiled Vast session job with dry-run defaults, cost reservation, session reconciliation, and idempotent cleanup.
+- Added a private jobs workspace with status, progress, event detail, cancellation, safe error guidance, and authorized report links.
+- Added safe job/event/artifact account export and account-deletion handling for job results and incomplete outputs.
+- Added migration, provider fake, lifecycle, browser BFF, Compose, and retention validation. Hosted workers and real provider rentals remain externally unverified.
+- Added cooperative executor cancellation, fixed per-job attempt horizons, side-effect-free recovery dry runs, durable provider-cost reservations, immediate job revocation on organization access loss, and server-owned retry decisions. Real Vast.ai rental remains fail-closed until a verified adapter profile exists.
+
+### Phase 17A Durable Job Foundation
+
+- Added durable PostgreSQL-backed job, attempt, event, worker, worker-credential, and artifact schemas with Phase 16 ownership, tenant, idempotency, cost, and retention constraints.
+- Added the closed job-transition service and ordered, redacted append-only job events.
+- Added audited platform-admin worker registry and one-time worker credential issuance, rotation, revocation, scoped verification, and production fail-closed configuration.
+- Added job/artifact disposal for account and organization deletion plus retention cleanup for terminal jobs, old events, incomplete artifacts, and expired worker credentials.
+- Added SQLite migration evidence, PostgreSQL migration-cycle validation, lifecycle, credential, tenancy, retention, and configuration tests. Queue submission, worker claiming/execution, and async analysis remain later Phase 17 slices.
+
 ### Phase 16 Identity, Ownership, and Quotas
 
 - Added Supabase Auth JWT validation through JWKS with issuer, audience, expiration, subject, email, and signature checks.

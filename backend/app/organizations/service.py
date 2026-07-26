@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.auth.policies import can_manage_members, can_manage_organization
 from app.auth.schemas import UserContext
 from app.auth.service import normalize_email, record_audit_event
+from app.jobs.lifecycle import dispose_jobs_for_organization_deletion, revoke_jobs_for_authorization_change
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 from app.organizations.schemas import (
@@ -108,6 +109,13 @@ def update_organization(
     if request.name is not None:
         org.name = request.name
     if request.status is not None:
+        if request.status != "active":
+            revoke_jobs_for_authorization_change(
+                db,
+                organization_id=org.id,
+                reason="organization_disabled",
+                now=datetime.now(UTC),
+            )
         org.status = request.status
     org.updated_at = datetime.now(UTC)
     db.commit()
@@ -129,6 +137,7 @@ def delete_organization(db: Session, actor: UserContext, organization_id: str) -
         raise HTTPException(status_code=403, detail="Organization admin role required")
     org.deleted_at = datetime.now(UTC)
     org.status = "disabled"
+    dispose_jobs_for_organization_deletion(db, org.id, now=org.deleted_at)
     db.commit()
     db.refresh(org)
     record_audit_event(db, actor.id, "organization.deleted", "organization", org.id)
@@ -231,6 +240,16 @@ def update_member(
             {"organization_id": org.id, "reason": "final_active_owner"},
         )
         raise HTTPException(status_code=409, detail="Cannot remove the final active organization owner")
+    next_role = request.role if request.role is not None else membership.role
+    next_status = request.status if request.status is not None else membership.status
+    if next_status != "active" or next_role not in {"owner", "admin", "member"}:
+        revoke_jobs_for_authorization_change(
+            db,
+            user_id=membership.user_id,
+            organization_id=org.id,
+            reason="organization_membership_revoked",
+            now=datetime.now(UTC),
+        )
     if request.role is not None:
         membership.role = request.role
     if request.status is not None:
@@ -317,6 +336,7 @@ def _get_membership(db: Session, organization_id: str, membership_id: str) -> Or
         select(OrganizationMembershipModel)
         .where(OrganizationMembershipModel.organization_id == organization_id)
         .where(OrganizationMembershipModel.id == membership_id)
+        .with_for_update()
     ).scalars().first()
     if membership is None:
         raise HTTPException(status_code=404, detail="Membership not found")

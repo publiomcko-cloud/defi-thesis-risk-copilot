@@ -206,6 +206,8 @@ def record_audit_event(
     resource_type: str,
     resource_id: str | None = None,
     metadata: dict | None = None,
+    *,
+    commit: bool = True,
 ) -> AccessAuditEventModel:
     event = AccessAuditEventModel(
         id=f"audit_{uuid4().hex[:12]}",
@@ -216,8 +218,9 @@ def record_audit_event(
         metadata_json=sanitize_audit_metadata(metadata or {}),
     )
     db.add(event)
-    db.commit()
-    db.refresh(event)
+    if commit:
+        db.commit()
+        db.refresh(event)
     return event
 
 

@@ -43,6 +43,10 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   if (contentType) {
     headers.set("content-type", contentType);
   }
+  const idempotencyKey = request.headers.get("idempotency-key");
+  if (idempotencyKey) {
+    headers.set("idempotency-key", idempotencyKey);
+  }
   const anonymousCookie = request.cookies.get(ANONYMOUS_COOKIE)?.value;
   if (anonymousCookie) {
     headers.set("cookie", `${ANONYMOUS_COOKIE}=${encodeURIComponent(anonymousCookie)}`);
@@ -85,6 +89,9 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
 
 function isAllowedBackendPath(path: string): boolean {
   if (!path.startsWith("/") || path.includes("..") || path.includes("//")) {
+    return false;
+  }
+  if (path.startsWith("/internal/")) {
     return false;
   }
   return ALLOWED_EXACT_PATHS.includes(path) || ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));

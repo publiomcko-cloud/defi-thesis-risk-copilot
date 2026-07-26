@@ -7,6 +7,7 @@ Detailed implementation requirements live in:
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md) — archived Phase 16 implementation contract and evidence;
 - [`archive/v1_phase_16/phase_16_execution_plan.md`](archive/v1_phase_16/phase_16_execution_plan.md) — archived Phase 16 execution record;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — complete Phase 17–22 contracts;
+- [`phase_17_execution_plan.md`](phase_17_execution_plan.md) — implementation slices and checkpoints for the next planned phase;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
 - [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
 
@@ -315,7 +316,7 @@ Execution sequence:
 
 The complete contracts are in [`future_phase_contracts.md`](future_phase_contracts.md).
 
-## V1 Phase 17 — Durable job queue and hybrid workers — Planned
+## V1 Phase 17 — Durable job queue and hybrid workers — Implementation complete locally
 
 Goal: execute heavy/retryable/provider work outside the public web process.
 
@@ -333,6 +334,15 @@ Core outcomes:
 - concurrency and cost controls.
 
 Phase 17 must preserve Phase 16 ownership, quotas, actor boundaries, and auditability.
+
+V1 Phase 17 — Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22. It provides durable job, attempt, event,
+worker, credential, artifact, and capacity-reservation schemas; closed transitions; tenant-scoped
+submission, idempotency, queue expiry, cancellation, and operator replay; PostgreSQL-safe worker
+leasing/recovery; asynchronous authenticated analysis; a private jobs workspace; retention and
+account export/deletion handling; and an outbound-only trusted worker. The administrator-only Vast
+job uses server-owned settings, cost reservation, idempotent session linkage, and dry-run defaults.
+CI and local validation use fake/dry-run providers only. Hosted workers and real provider rentals
+remain intentionally unverified, are deferred to Phase 22, and are not production claims.
 
 ## V1 Phase 18 — Production RAG and knowledge storage — Planned
 

@@ -434,6 +434,62 @@ Key invariants:
 
 See [`future_phase_contracts.md`](future_phase_contracts.md).
 
+### Phase 17 implemented foundation
+
+PostgreSQL now persists job, attempt, event, worker, worker-credential, and artifact metadata.
+Job transitions are restricted to a closed service, events are append-only and sequenced, and
+worker tokens use a separate hashed credential domain rather than a browser or user token. The
+control plane now exposes authenticated, tenant-filtered job submission, list/detail, events,
+cancellation, and admin linked replay. A unique scoped idempotency boundary and lockable capacity
+reservation rows keep quota, user/organization/global/provider capacity, preallocated report IDs,
+and the initial event transactional. The internal worker protocol now leases jobs with PostgreSQL
+`SKIP LOCKED`, a monotonic lease generation, a hashed per-attempt token, durable attempt rows, and
+bounded heartbeat/retry/cancellation recovery. It is excluded from the browser BFF. The optional
+local worker is outbound-only. For `analysis.generate.v1`, it runs the existing deterministic
+analysis workflow with the preallocated report ID and returns a bounded completion payload; the
+control plane transactionally persists the linked report and analysis request. This trusted
+co-located Compose profile receives the configured database and public-curated knowledge-base
+mount; a remote worker must not receive general production database credentials without an explicit
+least-privilege deployment design. `ASYNC_ANALYSIS_ENABLED` gates authenticated queue use, while
+anonymous public analysis remains synchronous. The separate `vast.session.start.v1` executor is
+available only through a dedicated platform-admin/MFA-gated endpoint, never through ordinary
+analysis or the generic jobs API. It accepts no caller-selected model/image, preallocates and
+uniquely links a `vast_sessions.source_job_id` resource before provider work, reserves the maximum
+configured cost before claim, and reuses that session on a retry after a lost worker response.
+Cancellation and terminal failure request idempotent cleanup. The fake/dry-run provider remains
+the default; a trusted worker receives provider secrets from its runtime configuration, never from
+the job envelope. Administrator aggregate operations show queue depth, active/stale workers,
+dead letters, and provider cleanup failures. Real hosted/provider operation remains a manual
+deployment concern and is not claimed as validated.
+Authenticated users have a tenant-filtered `/jobs` workspace that polls active work and exposes
+only safe status, progress, attempt, event, error, cancellation, and durable result-reference
+data. Account export includes the corresponding safe job/event/artifact projection, never raw
+inputs, event metadata, worker credentials, or provider data. Account/organization deletion
+disposes of terminal job resources, marks incomplete outputs honestly, and leaves running work to
+the cancellation/lease-recovery path. Retention expires job events, terminal jobs with dependent
+attempts/artifacts, credentials, and expired artifacts according to configured policy. Each claim
+also records a fixed maximum lease horizon; execution supervision heartbeats and checks
+cancellation while work is running, and it never submits progress or completion after lease loss.
+Cancellation is cooperative and the local worker waits for the active executor to exit before
+claiming another job. Daily provider cost is persisted as an auditable reservation ledger so active
+reserved cost and completed actual spend remain distinct during recovery. Recovery dry-run does no
+external provider I/O. Real Vast.ai rentals fail closed while the reconciliation profile is
+`unverified`.
+Membership and organization authorization changes are non-destructive and acquire `FOR UPDATE`
+locks on affected active job rows before committing the membership or organization mutation:
+queued/retry jobs fail with `authorization_revoked`, leased/running jobs become
+`cancel_requested`, and terminal organization reports/artifacts remain intact. Recovery
+reconstructs missing global, provider, user, and organization capacity rows from durable jobs;
+the rebuilt global row restores the active budget period and aggregates completed provider spend
+from the durable ledger. Terminal provider accounting releases only work with
+no provider request, records known resource cost, and retains a conservative reservation for an
+uncertain provider outcome.
+Only the central registry accepts the exact `analysis.generate.v1` and
+`vast.session.start.v1` input/result schemas. Successful analysis completion creates an
+`available` database-backed report-reference artifact; binary outputs remain incomplete until
+Phase 18 object storage. Provider startup persists a server-owned request identifier before the
+outbound call and blocks a second rental until an uncertain outcome is reconciled.
+
 ---
 
 ## 17. Phase 18 target — durable RAG/storage

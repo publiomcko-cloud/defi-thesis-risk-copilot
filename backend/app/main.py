@@ -14,6 +14,8 @@ from app.api.routes_discovery import router as discovery_router
 from app.api.routes_documents import router as documents_router
 from app.api.routes_evaluation import router as evaluation_router
 from app.api.routes_health import router as health_router
+from app.api.routes_internal_workers import router as internal_workers_router
+from app.api.routes_jobs import router as jobs_router
 from app.api.routes_knowledge_base import router as knowledge_base_router
 from app.api.routes_market_data import router as market_data_router
 from app.api.routes_monitoring import router as monitoring_router
@@ -87,6 +89,7 @@ def create_app() -> FastAPI:
     app.include_router(deployment_router, prefix="/api")
     app.include_router(admin_router, prefix="/api")
     app.include_router(analysis_router, prefix="/api")
+    app.include_router(jobs_router, prefix="/api")
     app.include_router(reports_router, prefix="/api")
     app.include_router(protocols_router, prefix="/api")
     app.include_router(organizations_router, prefix="/api")
@@ -101,6 +104,7 @@ def create_app() -> FastAPI:
     app.include_router(watchlist_router, prefix="/api")
     app.include_router(options_router, prefix="/api")
     app.include_router(vast_router, prefix="/api")
+    app.include_router(internal_workers_router)
 
     return app
 

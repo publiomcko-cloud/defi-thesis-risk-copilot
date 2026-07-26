@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_actor
@@ -20,5 +20,6 @@ def analyze(
     request: AnalysisRequest,
     db: Session = Depends(get_db),
     actor: UserContext = Depends(require_actor),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ) -> AnalysisResponse:
-    return analyze_strategy(request, db, actor)
+    return analyze_strategy(request, db, actor, idempotency_key)

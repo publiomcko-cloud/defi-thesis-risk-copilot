@@ -7,7 +7,17 @@ from app.schemas.percentages import normalize_percent_style
 
 AnalysisDepth = Literal["quick", "standard", "deep"]
 RiskRating = Literal["Conservative", "Moderate", "Aggressive", "Very Risky"]
-AnalysisStatus = Literal["completed"]
+AnalysisStatus = Literal[
+    "queued",
+    "leased",
+    "running",
+    "retry_wait",
+    "completed",
+    "failed",
+    "cancel_requested",
+    "cancelled",
+    "dead_letter",
+]
 
 
 class ManualInputs(BaseModel):
@@ -54,5 +64,6 @@ class AnalysisRequest(BaseModel):
 class AnalysisResponse(BaseModel):
     report_id: str
     status: AnalysisStatus
-    risk_rating: RiskRating
-    summary: str
+    risk_rating: RiskRating | None = None
+    summary: str | None = None
+    job_id: str | None = None

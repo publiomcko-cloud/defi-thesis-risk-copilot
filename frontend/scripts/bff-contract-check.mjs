@@ -14,4 +14,8 @@ if (!route.includes("ANONYMOUS_COOKIE")) {
   throw new Error("BFF route must intentionally forward only the anonymous backend cookie.");
 }
 
+if (!route.includes('path.startsWith("/internal/")')) {
+  throw new Error("BFF route must explicitly refuse internal worker protocol paths.");
+}
+
 console.log("BFF contract check passed.");

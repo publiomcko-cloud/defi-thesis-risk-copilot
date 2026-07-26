@@ -41,7 +41,12 @@ import type {
   VastSessionActionResponse,
   VastSessionListResponse,
   VastStartSessionRequest,
-  VastTestPromptResponse
+  VastTestPromptResponse,
+  JobResponse,
+  JobSubmissionResponse,
+  JobOperations,
+  JobEventsResponse,
+  JobsResponse
 } from "./types";
 
 export function getApiBaseUrl(): string {
@@ -166,20 +171,67 @@ export async function fetchProtocols(): Promise<ProtocolListResponse> {
 }
 
 export async function analyzeStrategy(
-  payload: AnalysisRequest
+  payload: AnalysisRequest,
+  idempotencyKey?: string
 ): Promise<AnalysisResponse> {
   const response = await fetch(`${getApiBaseUrl()}/api/analyze`, {
     method: "POST",
     headers: {
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
     },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(payload),
+    ...requestInit()
   });
 
   if (!response.ok) {
-    throw new Error(`Analysis failed with status ${response.status}`);
+    throw new Error(await errorDetail(response, `Analysis failed with status ${response.status}`));
   }
 
+  return response.json();
+}
+
+export async function fetchJob(jobId: string): Promise<JobResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/jobs/${jobId}`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Job fetch failed with status ${response.status}`));
+  }
+  return response.json();
+}
+
+export async function fetchJobs(): Promise<JobsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/jobs`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Jobs fetch failed with status ${response.status}`));
+  }
+  return response.json();
+}
+
+export async function fetchJobEvents(jobId: string): Promise<JobEventsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/jobs/${jobId}/events`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Job events fetch failed with status ${response.status}`));
+  }
+  return response.json();
+}
+
+export async function cancelJob(jobId: string): Promise<JobResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/jobs/${jobId}/cancel`, {
+    method: "POST",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Job cancellation failed with status ${response.status}`));
+  }
   return response.json();
 }
 
@@ -456,6 +508,40 @@ export async function startVastSession(
 
   if (!response.ok) {
     throw new Error(await errorDetail(response, `Vast session start failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function queueVastSessionStart(
+  payload: VastStartSessionRequest,
+  idempotencyKey: string
+): Promise<JobSubmissionResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/vast/jobs/start`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+      ...authHeaders()
+    },
+    body: JSON.stringify(payload)
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Vast job submission failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function fetchJobOperations(): Promise<JobOperations> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/jobs/operations`, {
+    cache: "no-store",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Job operations fetch failed with status ${response.status}`));
   }
 
   return response.json();

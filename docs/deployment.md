@@ -55,6 +55,8 @@ LLM_PROVIDER=disabled
 RAG_SEMANTIC_ENABLED=false
 VAST_ENABLED=false
 VAST_DRY_RUN=true
+VAST_REAL_RENTALS_ENABLED=false
+VAST_RECONCILIATION_PROFILE=unverified
 ```
 
 Frontend:
@@ -310,7 +312,8 @@ alembic upgrade head \
 
 The public seed endpoint stays blocked in hosted public mode.
 
-Phase 17 will move heavy work out of this web startup/runtime path. Phase 18 will remove local runtime RAG authority.
+Phase 17 moves authenticated analysis and guarded provider work out of the web request when its
+feature flags and trusted worker are enabled. Phase 18 will remove local runtime RAG authority.
 
 ---
 
@@ -375,6 +378,147 @@ python -m scripts.cleanup_expired_data
 
 Phase 17/20 may schedule cleanup through durable jobs. A scheduler must not be added as an unreliable browser or web-process timer.
 
+### Phase 17 job control-plane configuration
+
+Jobs are disabled by default and do not change public-demo requests. With the worker and async
+flags enabled, authenticated analysis runs through the durable control plane; anonymous public-demo
+analysis remains synchronous. Keep the feature disabled in public deployment unless the worker,
+credential, and rollback procedure are explicitly configured:
+
+```env
+JOBS_ENABLED=false
+WORKER_API_ENABLED=false
+ASYNC_ANALYSIS_ENABLED=false
+VAST_JOB_ENABLED=false
+JOB_GLOBAL_PENDING_LIMIT=100
+JOB_GLOBAL_RUNNING_LIMIT=4
+JOB_USER_PENDING_LIMIT=10
+JOB_USER_RUNNING_LIMIT=2
+JOB_ORG_PENDING_LIMIT=50
+JOB_ORG_RUNNING_LIMIT=8
+JOB_PROVIDER_PENDING_LIMIT=25
+JOB_PROVIDER_RUNNING_LIMIT=4
+WORKER_TOKEN_PEPPER=<server-only secret when WORKER_API_ENABLED=true in production>
+```
+
+`WORKER_TOKEN_PEPPER` hashes worker-only credentials and must never be a browser/session token,
+job payload field, log value, or public environment variable. Production configuration fails
+closed if worker APIs are enabled without it. Administrative worker registration and credential
+issuance reuse the existing platform-admin/MFA boundary when MFA is configured. The browser BFF
+never proxies `/internal/workers/*`. `ASYNC_ANALYSIS_ENABLED=false` is the rollback switch for
+authenticated analysis; existing reports and jobs remain durable for review.
+
+### Phase 17D–17E trusted worker and guarded Vast job
+
+Phase 17D provides an optional trusted co-located analysis worker. Keep it off in the public demo.
+For an authenticated local test only, register a worker and issue its scoped credential through
+the admin API, then configure the backend and start the profile:
+
+```env
+JOBS_ENABLED=true
+WORKER_API_ENABLED=true
+WORKER_TOKEN_PEPPER=<server-only random value>
+WORKER_CREDENTIAL=<issued wrk_ credential, worker container only>
+ASYNC_ANALYSIS_ENABLED=true
+VAST_ENABLED=false
+VAST_DRY_RUN=true
+VAST_JOB_ENABLED=false
+```
+
+```bash
+docker compose --profile worker up -d worker
+```
+
+The worker has no published port and calls only `http://backend:8000/internal/workers/v1/*` using
+its own credential. It can claim only allowlisted job types. The Compose profile shares the local
+PostgreSQL database and public-curated knowledge base so it can run the deterministic analysis
+workflow, but it sends only a bounded completion result to the control plane; the control plane
+persists the report. Do not use this Compose profile as a remote-worker blueprint: hosted workers
+need a separately designed least-privilege data-access path. It never connects wallets, signs, or
+trades. Stop it with `docker compose --profile worker stop worker`; SIGTERM stops new claims and
+releases its active lease for retry.
+
+To test the Phase 17E provider path privately, first register a worker whose credential is scoped
+to `vast.session.start`, configure its `WORKER_CREDENTIAL`, and retain dry-run mode:
+
+```env
+JOBS_ENABLED=true
+WORKER_API_ENABLED=true
+VAST_ENABLED=true
+VAST_DRY_RUN=true
+VAST_JOB_ENABLED=true
+VAST_MODEL=<server-owned model identifier>
+VAST_IMAGE=<server-owned image identifier>
+VAST_MAX_HOURLY_COST_USD=0.50
+VAST_MAX_SESSION_MINUTES=30
+VAST_MAX_ACTIVE_INSTANCES=1
+JOB_DAILY_COST_BUDGET_MICROUSD=500000
+```
+
+Only a platform administrator satisfying configured MFA may submit
+`POST /api/admin/vast/jobs/start`. The job body has only `allow_remote_gpu` and `warm_instance`;
+the model, image, offer, GPU, host verification, cost, runtime, startup timeout, and cleanup
+limits are environment-owned. The generic `/api/jobs` route and public-demo paths reject this job
+type. Use `GET /api/admin/jobs/operations` and the existing sessions endpoint to inspect aggregate
+queue/worker/cleanup state without exposing credentials.
+
+Real rentals are deliberately unavailable in this release. `VAST_DRY_RUN=false` is rejected for a
+normal provider until a future adapter declares verified request idempotency, request
+reconciliation, and idempotent destroy support. Keep `VAST_REAL_RENTALS_ENABLED=false` and
+`VAST_RECONCILIATION_PROFILE=unverified`; no provider credential belongs in job requests, logs, or
+browser variables.
+
+Hosted worker recovery runbook: issue a new scoped credential, deploy it as a worker-only secret,
+restart the outbound-only worker, verify its `last_seen_at` and operations summary, then revoke the
+old credential after the overlap window. To roll back, set `VAST_JOB_ENABLED=false` (and
+`VAST_ENABLED=false` for an immediate hard stop), stop the worker, run the administrator cleanup
+endpoint for any active sessions, and inspect `cleanup_failed` sessions before re-enabling. A
+replayed provider job reconciles its persisted session link; never create a replacement job merely
+because a worker response was lost.
+
+Run durable recovery from an operations scheduler, never a browser or the web-request process:
+
+```bash
+cd backend
+python -m scripts.recover_durable_jobs --dry-run
+python -m scripts.recover_durable_jobs
+```
+
+The command revalidates authorization, expires abandoned leases and queues, marks stale workers,
+finalizes safe cancellations, and reconciles durable capacity and provider-cost ledger counters.
+`--dry-run` makes no provider health, reconciliation, rent, or destroy call and persists no
+database change. Schedule it from a later
+operations runtime. `POST /api/admin/vast/sessions/start` is local dry-run diagnostics only and is
+rejected when durable Vast jobs are enabled or dry-run mode is off; all real startup must use the
+durable job route. Do not enable real rentals until the provider's request-ID reconciliation is
+verified in the deployment environment.
+
+Organization membership changes are safe to apply without deleting completed shared work: they
+revoke active jobs only. Queued/retry work is failed and releases its reservation; leased/running
+work waits for normal worker cancellation acknowledgement. Account deletion, organization deletion,
+and retention cleanup remain the only destructive job-result lifecycle paths.
+
+### Phase 17F user workspace and retention
+
+Authenticated users can review their own authorized jobs at `/jobs`. It exposes state, progress,
+attempts, safe events/errors, cancellation, and report references. Administrators retain the
+separate worker and aggregate operations views. Account export includes safe job, event, and
+artifact metadata; it deliberately excludes job inputs, raw event metadata, provider responses,
+credentials, and worker tokens.
+
+Run retention manually until a later scheduler is approved:
+
+```bash
+cd backend
+python -m scripts.cleanup_expired_data --dry-run
+python -m scripts.cleanup_expired_data
+```
+
+The cleanup removes expired job events, terminal jobs with their attempts/artifacts, expired worker
+credentials, and artifacts whose retention deadline elapsed. It never makes an incomplete local
+output appear as a durable artifact. Before account deletion, users can export this safe projection;
+deletion cancels running work through lease recovery and disposes of terminal results/artifacts.
+
 ---
 
 ## 13. Local Docker
@@ -398,7 +542,7 @@ When running frontend outside Docker, use the reachable local backend URL.
 
 ---
 
-## 14. Phase 16 merge validation
+## 14. Phase 17 branch validation
 
 ### Backend
 

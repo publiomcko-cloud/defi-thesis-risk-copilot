@@ -93,6 +93,7 @@ export type VastConfig = {
   container_port: number;
   startup_timeout_seconds: number;
   poll_interval_seconds: number;
+  job_enabled: boolean;
 };
 
 export type VastSession = {
@@ -129,8 +130,6 @@ export type VastSessionListResponse = {
 };
 
 export type VastStartSessionRequest = {
-  model?: string;
-  image?: string;
   allow_remote_gpu: boolean;
   warm_instance: boolean;
 };
@@ -225,9 +224,72 @@ export type AnalysisRequest = {
 
 export type AnalysisResponse = {
   report_id: string;
-  status: "completed";
-  risk_rating: RiskRating;
-  summary: string;
+  status: JobStatus;
+  risk_rating?: RiskRating | null;
+  summary?: string | null;
+  job_id?: string | null;
+};
+
+export type JobStatus =
+  | "queued"
+  | "leased"
+  | "running"
+  | "retry_wait"
+  | "completed"
+  | "failed"
+  | "cancel_requested"
+  | "cancelled"
+  | "dead_letter";
+
+export type JobResponse = {
+  id: string;
+  job_type: string;
+  status: JobStatus;
+  progress_percent: number;
+  progress_message?: string | null;
+  attempt_count: number;
+  max_attempts: number;
+  result_resource_type?: string | null;
+  result_resource_id?: string | null;
+  error_code?: string | null;
+  error_summary?: string | null;
+  queue_expires_at?: string | null;
+  deadline_at?: string | null;
+  replay_of_job_id?: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type JobSubmissionResponse = {
+  job: JobResponse;
+  idempotent_replay: boolean;
+};
+
+export type JobOperations = {
+  queued_jobs: number;
+  leased_or_running_jobs: number;
+  dead_letter_jobs: number;
+  active_workers: number;
+  stale_workers: number;
+  provider_cleanup_failures: number;
+};
+
+export type JobsResponse = {
+  items: JobResponse[];
+};
+
+export type JobEvent = {
+  id: string;
+  job_id: string;
+  sequence_number: number;
+  event_type: string;
+  message: string;
+  created_at: string;
+};
+
+export type JobEventsResponse = {
+  items: JobEvent[];
+  next_after_sequence?: number | null;
 };
 
 export type Protocol = {

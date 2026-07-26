@@ -9,6 +9,8 @@ from sqlalchemy.orm import Session
 from app.auth.schemas import UserContext
 from app.auth.service import record_audit_event
 from app.core.config import Settings, get_settings
+from app.jobs.cancellation import CancellationContext
+from app.jobs.errors import JobExecutionError
 from app.llm.base import LLMRequest
 from app.llm.vast.client import VastClient, VastClientError, select_offer
 from app.llm.vast.provider import VastEphemeralProvider
@@ -46,49 +48,83 @@ def vast_config_response(settings: Settings | None = None) -> VastConfigResponse
         container_port=settings.vast_container_port,
         startup_timeout_seconds=settings.vast_startup_timeout_seconds,
         poll_interval_seconds=settings.vast_poll_interval_seconds,
+        job_enabled=settings.vast_job_enabled,
     )
 
 
 def start_session(
     db: Session,
     actor: UserContext,
-    model: str | None = None,
-    image: str | None = None,
     allow_remote_gpu: bool = False,
     warm_instance: bool = False,
     client: VastClient | None = None,
+    *,
+    session_id: str | None = None,
+    source_job_id: str | None = None,
+    cancellation: CancellationContext | None = None,
 ) -> VastSessionModel:
     settings = get_settings()
     if not settings.vast_enabled:
         raise HTTPException(status_code=400, detail="Vast.ai provider is disabled")
     if not settings.vast_dry_run and not allow_remote_gpu:
         raise HTTPException(status_code=400, detail="Remote GPU use must be explicitly allowed")
-    if _active_session_count(db) >= settings.vast_max_active_instances:
+    if client is None and not settings.vast_dry_run and (
+        not settings.vast_real_rentals_enabled or settings.vast_reconciliation_profile != "verified_v1"
+    ):
+        raise HTTPException(status_code=503, detail="Real Vast.ai rentals are disabled until reconciliation is verified.")
+    _check_cancellation(cancellation)
+
+    session: VastSessionModel | None = None
+    if session_id:
+        existing = db.get(VastSessionModel, session_id)
+        if existing is not None:
+            if existing.source_job_id != source_job_id:
+                raise HTTPException(status_code=409, detail="Vast session is linked to another job")
+            session = existing
+    if session is None and _active_session_count(db) >= settings.vast_max_active_instances:
         raise HTTPException(status_code=409, detail="Vast.ai max active instance limit reached")
 
-    session = VastSessionModel(
-        id=f"vast_{uuid4().hex[:12]}",
-        status="idle",
-        provider="vast_ai",
-        model=model or settings.vast_model or "dry-run-model",
-        image=image or settings.vast_image or "dry-run-image",
-        max_runtime_minutes=settings.vast_max_session_minutes,
-        container_port=settings.vast_container_port,
-        created_by=actor.id,
-        metadata_json={
-            "dry_run": settings.vast_dry_run,
-            "warm_instance": warm_instance,
-            "auto_destroy": settings.vast_auto_destroy,
-        },
-    )
-    db.add(session)
-    db.commit()
-    db.refresh(session)
-    record_audit_event(db, actor.id, "vast.session_start_requested", "vast_session", session.id)
+    if session is None:
+        session = VastSessionModel(
+            id=session_id or f"vast_{uuid4().hex[:12]}",
+            status="idle",
+            provider="vast_ai",
+            source_job_id=source_job_id,
+            provider_request_id=f"vastreq_{source_job_id or uuid4().hex}",
+            provider_request_state="request_not_submitted",
+            model=settings.vast_model or "dry-run-model",
+            image=settings.vast_image or "dry-run-image",
+            max_runtime_minutes=settings.vast_max_session_minutes,
+            container_port=settings.vast_container_port,
+            created_by=actor.id,
+            metadata_json={
+                "dry_run": settings.vast_dry_run,
+                "warm_instance": warm_instance,
+                "auto_destroy": settings.vast_auto_destroy,
+                "provider_profile": "environment_v1",
+            },
+        )
+        db.add(session)
+        db.commit()
+        db.refresh(session)
+        record_audit_event(db, actor.id, "vast.session_start_requested", "vast_session", session.id)
 
     vast_client = client or _client_from_config(db, settings)
+    if client is None and not settings.vast_dry_run and not (
+        vast_client.supports_verified_request_idempotency
+        and vast_client.supports_request_reconciliation
+        and vast_client.supports_idempotent_destroy
+    ):
+        raise HTTPException(status_code=503, detail="The selected Vast.ai provider profile is not verified for real rentals.")
     try:
+        if session.status == "ready":
+            return session
+        if session.provider_request_state in {"submitted_unknown", "reconciliation_failed"}:
+            _check_cancellation(cancellation)
+            if not _reconcile_provider_request(db, actor, session, vast_client):
+                return session
         _transition(db, session, "searching_offer")
+        _check_cancellation(cancellation)
         offers = vast_client.search_offers()
         offer = select_offer(offers, settings)
         if offer is None:
@@ -108,16 +144,35 @@ def start_session(
             {"offer_id": offer.id, "gpu_name": offer.gpu_name, "hourly_cost_usd": offer.hourly_cost_usd},
         )
 
-        _transition(db, session, "renting_instance")
-        rented = vast_client.rent_instance(offer, session.image, session.model, settings.vast_disk_gb)
-        session.vast_instance_id = str(rented.get("instance_id") or "")
-        session.vast_contract_id = str(rented.get("contract_id") or "")
-        session.public_endpoint_url = rented.get("public_endpoint_url") or offer.public_endpoint_url
-        _merge_metadata(session, {"rent": _safe_metadata(rented)})
-        db.commit()
-        record_audit_event(db, actor.id, "vast.instance_rented", "vast_session", session.id)
+        if not session.vast_instance_id:
+            _check_cancellation(cancellation)
+            _transition(db, session, "renting_instance")
+            # This is committed before outbound provider I/O. A lost response leaves
+            # an explicit uncertain state rather than permitting a duplicate rental.
+            session.provider_request_state = "submitted_unknown"
+            db.commit()
+            rented = vast_client.rent_instance(
+                offer,
+                session.image,
+                session.model,
+                settings.vast_disk_gb,
+                request_id=session.provider_request_id or f"vastreq_{session.id}",
+            )
+            session.vast_instance_id = str(rented.get("instance_id") or "")
+            session.vast_contract_id = str(rented.get("contract_id") or "")
+            session.public_endpoint_url = rented.get("public_endpoint_url") or offer.public_endpoint_url
+            session.provider_request_state = "resource_located" if session.vast_instance_id else "submitted_unknown"
+            _merge_metadata(session, {"rent": _safe_metadata(rented)})
+            db.commit()
+            record_audit_event(db, actor.id, "vast.instance_rented", "vast_session", session.id)
+        if not session.vast_instance_id:
+            session.provider_request_state = "reconciliation_failed"
+            session.last_error = "Provider request outcome is uncertain; reconciliation is required before retry."
+            db.commit()
+            return session
 
-        status = _wait_for_instance_ready(db, actor, session, vast_client, settings)
+        status = _wait_for_instance_ready(db, actor, session, vast_client, settings, cancellation=cancellation)
+        _check_cancellation(cancellation)
         if session.status in {"destroyed", "cleanup_failed"}:
             return session
         _merge_metadata(session, {"instance_status": _safe_metadata(status)})
@@ -132,21 +187,76 @@ def start_session(
             _attempt_cleanup(db, actor, session, vast_client)
             return session
         session.status = "ready"
+        session.provider_request_state = "ready"
         session.ready_at = datetime.now(UTC)
         db.commit()
         db.refresh(session)
         record_audit_event(db, actor.id, "vast.model_health_ready", "vast_session", session.id)
         return session
     except VastClientError as exc:
-        _fail(db, actor, session, "rent_failed", str(exc))
-        _attempt_cleanup(db, actor, session, vast_client)
+        if session.provider_request_state == "submitted_unknown" and "request failed" in str(exc).lower():
+            session.status = "renting_instance"
+            session.provider_request_state = "submitted_unknown"
+            session.last_error = "Provider response was unavailable; reconciliation is required before retry."
+            db.commit()
+        else:
+            _fail(db, actor, session, "rent_failed", str(exc))
+            _attempt_cleanup(db, actor, session, vast_client)
         return session
+    except JobExecutionError:
+        # The worker already lost authority or reached its deadline. Do not mutate
+        # provider/session state from this startup path after that point.
+        raise
     except Exception as exc:
         _fail(db, actor, session, "request_failed", "Vast.ai startup failed")
         _attempt_cleanup(db, actor, session, vast_client)
         _merge_metadata(session, {"startup_exception": exc.__class__.__name__})
         db.commit()
         return session
+
+
+def _reconcile_provider_request(
+    db: Session,
+    actor: UserContext,
+    session: VastSessionModel,
+    client: VastClient,
+) -> bool:
+    """Resolve an uncertain rent before another submission is allowed."""
+
+    request_id = session.provider_request_id
+    if not request_id:
+        session.provider_request_state = "reconciliation_failed"
+        session.last_error = "Provider request identifier is unavailable; a second rental is blocked."
+        db.commit()
+        return False
+    try:
+        located = client.find_instance_by_request_id(request_id)
+    except VastClientError:
+        session.provider_request_state = "reconciliation_failed"
+        session.last_error = "Provider request outcome cannot be reconciled; a second rental is blocked."
+        db.commit()
+        return False
+    if located is None:
+        session.provider_request_state = "request_not_submitted"
+        session.status = "idle"
+        session.last_error = None
+        db.commit()
+        record_audit_event(db, actor.id, "vast.request_reconciled_absent", "vast_session", session.id)
+        return True
+    session.vast_instance_id = str(located.get("instance_id") or located.get("id") or "")
+    session.vast_contract_id = str(located.get("contract_id") or located.get("new_contract") or "")
+    session.public_endpoint_url = located.get("public_endpoint_url") or session.public_endpoint_url
+    if not session.vast_instance_id:
+        session.provider_request_state = "reconciliation_failed"
+        session.last_error = "Provider reconciliation was ambiguous; a second rental is blocked."
+        db.commit()
+        return False
+    session.provider_request_state = "resource_located"
+    session.status = "renting_instance"
+    _merge_metadata(session, {"reconciled_rental": _safe_metadata(located)})
+    db.commit()
+    record_audit_event(db, actor.id, "vast.request_reconciled", "vast_session", session.id)
+    return True
 
 
 def list_sessions(db: Session) -> list[VastSessionModel]:
@@ -345,6 +455,7 @@ def _wait_for_instance_ready(
     session: VastSessionModel,
     client: VastClient,
     settings: Settings,
+    cancellation: CancellationContext | None = None,
 ) -> dict:
     _transition(db, session, "booting")
     if settings.vast_dry_run:
@@ -353,6 +464,7 @@ def _wait_for_instance_ready(
     deadline = datetime.now(UTC) + timedelta(seconds=settings.vast_startup_timeout_seconds)
     last_status: dict = {}
     while datetime.now(UTC) <= deadline:
+        _check_cancellation(cancellation)
         last_status = client.get_instance_status(session.vast_instance_id or "")
         _merge_metadata(session, {"last_polled_status": _safe_metadata(last_status)})
         session.public_endpoint_url = last_status.get("public_endpoint_url") or session.public_endpoint_url
@@ -418,3 +530,8 @@ def _client_from_config(db: Session, settings: Settings) -> VastClient:
         name=settings.vast_credential_name,
     )
     return VastClient(settings, api_key=credential_secret or settings.vast_api_key)
+
+
+def _check_cancellation(cancellation: CancellationContext | None) -> None:
+    if cancellation is not None:
+        cancellation.raise_if_cancelled()

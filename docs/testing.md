@@ -111,7 +111,8 @@ Test bounded export, exclusion of foreign/sensitive data, deletion confirmation,
 
 ### Frontend E2E
 
-Test anonymous demo, login/BFF/refresh/logout, account, thesis CRUD, organizations/memberships, recovery, consent, MFA, mobile layout, keyboard focus, and no private-content flash.
+Test anonymous demo, login/BFF/refresh/logout, account, private jobs workspace, thesis CRUD,
+organizations/memberships, recovery, consent, MFA, mobile layout, keyboard focus, and no private-content flash.
 
 A route-status smoke script is useful but is not full browser E2E coverage.
 
@@ -158,6 +159,52 @@ Phase 16 implementation coverage is complete. Final deployed-provider and qualif
 ## 6. Phase 17 validation
 
 Test atomic job claims, leases, heartbeat, abandoned recovery, retry/dead-letter, idempotency, cancellation, worker authentication, tenant isolation, graceful shutdown, and cost/concurrency limits.
+
+Phase 17A additionally requires migration upgrade/downgrade/upgrade evidence, schema/index and
+constraint tests, closed-transition/event-sequence tests, worker credential issuance/rotation/
+revocation tests, cross-tenant job-visibility denial, lifecycle disposal, retention cleanup, and
+production worker-configuration failure tests. Phase 17B additionally requires authenticated
+submission/list/detail/event/cancel isolation, scoped same-key idempotency and conflict coverage,
+public-demo denial, queue-capacity reservation, linked admin replay, and a PostgreSQL concurrent
+duplicate-submission test. Phase 17D adds authenticated asynchronous analysis submission,
+idempotent replay, transactional source-job report linkage, cancellation-without-report, and the
+feature-flag synchronous fallback. The browser form polls only the authenticated job endpoint;
+the BFF continues to keep user tokens in HttpOnly cookies.
+
+Phase 17C adds internal-worker credential/scope/protocol denial, BFF internal-path denial,
+PostgreSQL `SKIP LOCKED` one-winner claims, lease-generation stale-mutation denial, heartbeat and
+progress bounds, cancellation acknowledgement, expiry recovery, retry/dead-letter, and fake
+executor tests. The local worker remains optional and has no public port. Phase 17D replaces the
+fake executor for `analysis.generate.v1` with deterministic report generation; generic lifecycle
+fixtures remain schema-versioned queue tests. Phase 17E adds fake/dry-run `vast.session.start.v1`
+coverage: admin-only dedicated submission, rejection by the generic jobs route and arbitrary
+profile fields, pre-claim daily cost rejection, unique job-to-session linkage, retry reconciliation
+after a lost completion response, cancellation cleanup, migration upgrade/downgrade coverage, and
+safe aggregate operator state. CI must keep `VAST_DRY_RUN=true`; real rentals are never a test
+dependency.
+
+Phase 17F adds private workspace browser coverage for job status/events/cancellation/result links,
+safe account export of job/event/artifact metadata, account-deletion disposal, incomplete-artifact
+marking, and retention cleanup. The GitHub Actions backend job applies migrations and runs the
+PostgreSQL-enabled suite; frontend CI runs the BFF contracts, production build, browser suite, and
+Compose rendering. No real provider credential or paid rental is used.
+
+The Phase 17 correction suite additionally proves cooperative executor termination/no-overlap execution, repeated execution heartbeats, cancellation and
+lease-loss cleanup, fixed per-attempt lease horizons, exact schema rejection, typed retry versus
+permanent failure handling, organization-role revocation, no-worker queue recovery, durable
+provider-request reconciliation, side-effect-free recovery dry runs, durable provider-cost accounting, immediate organization authorization revocation, real-provider fail-closed configuration, direct-route restriction, database-backed report artifacts, and
+completed-only report links. PostgreSQL CI remains the concurrency evidence; no CI job may rent a
+real provider instance.
+
+The final Phase 17 correction coverage additionally verifies non-destructive membership revocation
+under PostgreSQL job-row locks against claim, completion, and heartbeat mutations,
+environment-controlled analysis lease horizons, and PostgreSQL reconstruction of deleted capacity
+rows for global, provider, user, and organization scopes, including the restored budget period and
+completed provider spend on a rebuilt global row.
+
+`backend/scripts/run_smoke_checks.py` defaults to `http://127.0.0.1:8000`; set
+`SMOKE_BASE_URL` only when validating an isolated local API process. Optional LLM synthesis should
+be disabled for bounded smoke timing unless that provider is the explicit subject of the test.
 
 ## 7. Phase 18 validation
 

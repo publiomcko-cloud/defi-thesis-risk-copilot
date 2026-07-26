@@ -8,12 +8,14 @@ import {
   acknowledgeVastConfig,
   cleanupVastSessions,
   destroyVastSession,
+  fetchJobOperations,
   fetchVastConfig,
   fetchVastSessions,
+  queueVastSessionStart,
   startVastSession,
   testVastPrompt
 } from "@/lib/api";
-import type { VastConfig, VastSession } from "@/lib/types";
+import type { JobOperations, VastConfig, VastSession } from "@/lib/types";
 
 const publicDemoMode = process.env.NEXT_PUBLIC_PUBLIC_DEMO_MODE === "true";
 
@@ -33,6 +35,7 @@ export default function VastAdminPage() {
 function PrivateVastAdminPage() {
   const [config, setConfig] = useState<VastConfig | null>(null);
   const [sessions, setSessions] = useState<VastSession[]>([]);
+  const [operations, setOperations] = useState<JobOperations | null>(null);
   const [promptBySession, setPromptBySession] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -45,12 +48,14 @@ function PrivateVastAdminPage() {
   async function refresh() {
     setError(null);
     try {
-      const [nextConfig, nextSessions] = await Promise.all([
+      const [nextConfig, nextSessions, nextOperations] = await Promise.all([
         fetchVastConfig(),
-        fetchVastSessions()
+        fetchVastSessions(),
+        fetchJobOperations()
       ]);
       setConfig(nextConfig);
       setSessions(nextSessions.items);
+      setOperations(nextOperations);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Vast data failed to load.");
     }
@@ -65,13 +70,14 @@ function PrivateVastAdminPage() {
 
   async function handleStart() {
     await runAction("start", async () => {
-      const result = await startVastSession({
-        model: config?.model || undefined,
-        image: config?.image || undefined,
-        allow_remote_gpu: false,
-        warm_instance: false
-      });
-      setMessage(`Vast session ${result.session.id} reached ${result.session.status}.`);
+      const payload = { allow_remote_gpu: false, warm_instance: false };
+      if (config?.job_enabled) {
+        const result = await queueVastSessionStart(payload, `vast_${crypto.randomUUID()}`);
+        setMessage(`Vast startup job ${result.job.id} is ${result.job.status}.`);
+      } else {
+        const result = await startVastSession(payload);
+        setMessage(`Vast session ${result.session.id} reached ${result.session.status}.`);
+      }
       await refresh();
     });
   }
@@ -138,6 +144,7 @@ function PrivateVastAdminPage() {
               <Metric label="Max cost" value={`$${config.max_hourly_cost_usd}/hr`} />
               <Metric label="Max runtime" value={`${config.max_session_minutes} min`} />
               <Metric label="Max active" value={String(config.max_active_instances)} />
+              <Metric label="Durable jobs" value={config.job_enabled ? "enabled" : "disabled"} />
               <Metric label="GPU allowlist" value={config.gpu_allowlist.join(", ") || "none"} />
               <Metric label="Credential" value={config.credential_name} />
               <Metric label="Environment key" value={config.has_env_api_key ? "configured" : "not configured"} />
@@ -147,7 +154,7 @@ function PrivateVastAdminPage() {
             <button className="secondary-action" disabled={activeId !== null} onClick={refresh} type="button">Refresh</button>
             <button className="secondary-action" disabled={activeId !== null} onClick={handleAcknowledge} type="button">Record Review</button>
             <button className="primary-action" disabled={activeId !== null || !config?.enabled} onClick={handleStart} type="button">
-              {activeId === "start" ? "Starting..." : "Start Dry-Run Session"}
+              {activeId === "start" ? "Submitting..." : config?.job_enabled ? "Queue Dry-Run Session" : "Start Dry-Run Session"}
             </button>
             <button className="secondary-action" disabled={activeId !== null} onClick={handleCleanup} type="button">
               {activeId === "cleanup" ? "Cleaning..." : "Run Cleanup"}
@@ -157,6 +164,20 @@ function PrivateVastAdminPage() {
           {message ? <p className="success">{message}</p> : null}
           {error ? <p className="error">{error}</p> : null}
         </section>
+
+        {operations ? (
+          <section className="panel">
+            <h2>Worker Operations</h2>
+            <div className="meta-grid">
+              <Metric label="Queued" value={String(operations.queued_jobs)} />
+              <Metric label="Leased / Running" value={String(operations.leased_or_running_jobs)} />
+              <Metric label="Dead Letters" value={String(operations.dead_letter_jobs)} />
+              <Metric label="Active Workers" value={String(operations.active_workers)} />
+              <Metric label="Stale Workers" value={String(operations.stale_workers)} />
+              <Metric label="Cleanup Failures" value={String(operations.provider_cleanup_failures)} />
+            </div>
+          </section>
+        ) : null}
 
         <section className="panel">
           <h2>Sessions</h2>

@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 VastSessionStatus = Literal[
@@ -79,6 +79,7 @@ class VastConfigResponse(BaseModel):
     container_port: int
     startup_timeout_seconds: int
     poll_interval_seconds: int
+    job_enabled: bool
 
 
 class VastConfigUpdateRequest(BaseModel):
@@ -86,10 +87,10 @@ class VastConfigUpdateRequest(BaseModel):
 
 
 class VastStartSessionRequest(BaseModel):
-    model: str | None = Field(default=None, max_length=255)
-    image: str | None = Field(default=None, max_length=512)
     allow_remote_gpu: bool = False
     warm_instance: bool = False
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class VastTestPromptRequest(BaseModel):
