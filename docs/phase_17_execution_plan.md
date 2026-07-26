@@ -1,6 +1,8 @@
 # V1 Phase 17 Execution Plan — Durable Jobs and Hybrid Workers
 
-Status: **Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22**
+Status: **Implementation complete locally; the low-volume scheduled GitHub Actions worker is
+documented for production use. Continuously hosted-worker and verified real-provider validation
+remain deferred to Phase 22.**
 
 Branch: `agent/v1-phase-17-durable-jobs`
 
@@ -835,9 +837,12 @@ workers and real provider rentals remain deliberately unverified.
 Production may use the repository's scheduled GitHub Actions worker for low-volume
 `analysis.generate` processing. It is outbound-only, claims one job per manually dispatched or
 five-minute scheduled run, is serialized to avoid overlapping executor claims, and receives only
-a scoped worker credential through the protected `production-worker` environment. It does not run
-on pull requests and has no provider credential or inbound port. This deployment mode has bounded
-queue latency and is not a substitute for a continuously available hosted worker.
+a scoped worker credential plus a dedicated, least-privilege worker database connection through
+the protected `production-worker` environment. That role is restricted to owner/scope lookup and
+market-data cache reads/refreshes; it has no access to jobs, reports, credentials, sessions, audit
+data, or general application tables. It does not run on pull requests and has no provider
+credential or inbound port. This deployment mode has bounded queue latency and is not a substitute
+for a continuously available hosted worker.
 
 Completion checkpoint:
 

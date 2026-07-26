@@ -354,8 +354,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   default; Phase 17F adds a private jobs workspace and safe export/deletion/retention handling. Final corrections add cooperative executor cancellation and no-overlap worker behavior, configured analysis and provider lease horizons, provider-cost ledger reconstruction, non-destructive authorization revocation under PostgreSQL job-row locks, registry-owned retries, and dry-run recovery that never invokes provider cleanup. Membership changes affect active jobs only; completed organization reports and artifacts remain available. Recovery restores the current budget period and completed provider spend when rebuilding a missing global capacity row. Real Vast.ai rentals remain blocked because request reconciliation is unverified.
   No real provider rental is claimed as deployed or externally verified. For low-volume production
   analysis, the branch includes an outbound-only scheduled GitHub Actions worker that processes one
-  scoped job per run without an inbound port; it is intentionally not a continuously available
-  hosted-worker substitute;
+  scoped job per run without an inbound port. Its protected environment uses a dedicated
+  least-privilege database role only for deterministic owner/scope lookup and market-data caching,
+  never the normal application database credential; it is intentionally not a continuously
+  available hosted-worker substitute;
 - Phase 18 — durable tenant RAG and object/vector storage;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;

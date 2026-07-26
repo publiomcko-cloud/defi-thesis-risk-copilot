@@ -452,7 +452,17 @@ Create a protected GitHub environment named `production-worker` and set these en
 ```text
 WORKER_CONTROL_PLANE_URL=https://<production-backend>
 WORKER_CREDENTIAL=<one scoped analysis.generate worker credential>
+WORKER_DATABASE_URL=<one worker-only least-privilege PostgreSQL connection URL>
 ```
+
+`WORKER_DATABASE_URL` is required by the current deterministic executor, but it must **not** be
+the normal application `DATABASE_URL`. Create a dedicated login role with only `CONNECT` and
+`USAGE` on `public`, `SELECT` on `users`, `organizations`, and `organization_memberships`, and
+`SELECT`, `INSERT`, `UPDATE`, and `DELETE` on `market_data_cache`. Do not grant it access to jobs,
+reports, credentials, sessions, audit logs, or any future tables. Keep it only in the protected
+`production-worker` GitHub environment, rotate it with the worker credential, and remove the
+secret before disabling the scheduled worker. This narrowly scoped, outbound-only execution
+profile is the documented exception to the normal remote-worker no-database-access baseline.
 
 The workflow has no pull-request trigger, uses read-only repository permissions, serializes runs,
 checks out `main`, and must never print environment variables or credentials. Keep the credential

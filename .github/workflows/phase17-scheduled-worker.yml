@@ -24,6 +24,10 @@ jobs:
     env:
       WORKER_CONTROL_PLANE_URL: ${{ secrets.WORKER_CONTROL_PLANE_URL }}
       WORKER_CREDENTIAL: ${{ secrets.WORKER_CREDENTIAL }}
+      # This is a worker-only, least-privilege database role. It is not the
+      # application database credential and is needed by the deterministic
+      # analysis executor for owner/scope lookup and market-data caching.
+      DATABASE_URL: ${{ secrets.WORKER_DATABASE_URL }}
       WORKER_PROTOCOL_VERSION: v1
       LLM_SYNTHESIS_ENABLED: "false"
       VAST_ENABLED: "false"
