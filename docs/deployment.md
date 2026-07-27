@@ -708,8 +708,8 @@ SUPABASE_SERVICE_ROLE_KEY=
 `SUPABASE_SERVICE_ROLE_KEY` is backend/worker-only and must never use a
 `NEXT_PUBLIC_` name. Enabling storage in production without `SUPABASE_URL` and
 the service-role credential fails configuration validation. Bucket creation,
-private policies, and a synthetic-tenant object probe are 18B deployment work;
-Alembic never changes Supabase's managed `storage` schema.
+private policies, and a synthetic-tenant object probe are external deployment
+prerequisites; Alembic never changes Supabase's managed `storage` schema.
 
 The API accepts uploads only when `KNOWLEDGE_STORAGE_ENABLED=true` and the
 private bucket/policy has been independently configured. It returns metadata
