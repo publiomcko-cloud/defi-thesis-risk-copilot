@@ -113,7 +113,7 @@ class SupabasePrivateObjectStorage:
 
     def head(self, *, key: str) -> ObjectMetadata:
         key = validate_knowledge_object_key(key)
-        response = self._request("HEAD", self._object_path("object/authenticated", key))
+        response = self._request("HEAD", self._object_path("object/info", key))
         self._raise_for_status(response)
         try:
             size_bytes = int(response.headers.get("content-length", "0"))
@@ -143,8 +143,13 @@ class SupabasePrivateObjectStorage:
             json={"expiresIn": seconds},
         )
         self._raise_for_status(response)
-        signed_path = response.json().get("signedURL")
-        if not isinstance(signed_path, str) or not signed_path.startswith("/"):
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise StorageError("Private storage returned an invalid signed URL") from exc
+        signed_path = payload.get("signedURL") if isinstance(payload, dict) else None
+        expected_prefix = f"/object/sign/{quote(self._bucket, safe='')}/"
+        if not isinstance(signed_path, str) or not signed_path.startswith(expected_prefix):
             raise StorageError("Private storage returned an invalid signed URL")
         return urljoin(self._base_url, signed_path.lstrip("/"))
 
