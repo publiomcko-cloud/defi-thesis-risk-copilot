@@ -94,6 +94,13 @@ AUTH_ENABLED=true
 AUTH_PROVIDER=supabase
 ```
 
+For the production hybrid shell, set `NEXT_PUBLIC_PUBLIC_DEMO_MODE=false` on Vercel. This
+frontend flag controls whether the navigation is rendered as a read-only portfolio shell; it does
+not disable the backend's anonymous demo capability. With the flag set to `false`, anonymous
+visitors see Demo, Login, and Signup, authenticated users see their private workspace, and the
+Admin link is available for platform-administrator testing. Backend actor and role checks remain
+the security boundary for every privileged endpoint.
+
 This is the completed Phase 16 implementation target. Commercial enablement and the final deployed validation are V1 Phase 22 requirements:
 
 - actor-based route policies are validated on deployed domains;

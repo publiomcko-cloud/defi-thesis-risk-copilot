@@ -332,6 +332,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 - Render may cold-start;
 - several market adapters remain partial/manual fallbacks;
 - monitoring/discovery are manually initiated;
+- the production hybrid frontend exposes public demo/login routes alongside authenticated workspace
+  navigation; platform-admin APIs remain role-protected by the backend rather than by hidden URLs;
 - production observability, WAF, backups, restore drills, and incident operations are later phases;
 - billing, notifications, and commercial support workflows are not implemented;
 - model/research expansion remains later-phase work;
