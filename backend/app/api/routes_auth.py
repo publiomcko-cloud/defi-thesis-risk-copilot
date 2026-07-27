@@ -28,6 +28,7 @@ from app.models.job import JobEventModel, JobModel
 from app.models.report import ReportModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.user import UserModel
+from app.knowledge.service import tombstone_knowledge_for_account
 from app.models.watchlist_item import WatchlistItemModel
 from app.quotas.service import usage_summary
 from app.core.config import get_settings
@@ -260,6 +261,7 @@ def delete_account(
     user.deleted_at = now
     user.email = f"deleted-{user.id}@deleted.local"
     user.updated_at = now
+    tombstone_knowledge_for_account(db, current_user.id, now=now)
     dispose_jobs_for_account_deletion(db, current_user.id, now=now)
     db.commit()
     record_audit_event(db, current_user.id, "account.deletion_requested", "user", current_user.id)

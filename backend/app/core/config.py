@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     knowledge_storage_enabled: bool = False
     supabase_storage_bucket: str = "private-knowledge"
     supabase_storage_timeout_seconds: float = 20.0
+    knowledge_upload_max_bytes: int = 10 * 1024 * 1024
+    knowledge_upload_chunk_bytes: int = 64 * 1024
     session_cookie_name: str = "defi_copilot_session"
     anonymous_session_cookie_name: str = "defi_copilot_anon"
     cookie_secure: bool = True
@@ -165,6 +167,12 @@ class Settings(BaseSettings):
                 or self.supabase_storage_timeout_seconds <= 0
             ):
                 raise ValueError("Private knowledge storage configuration is invalid")
+        if (
+            self.knowledge_upload_max_bytes < 1
+            or self.knowledge_upload_chunk_bytes < 1024
+            or self.knowledge_upload_chunk_bytes > self.knowledge_upload_max_bytes
+        ):
+            raise ValueError("Knowledge upload limits are invalid")
         if self.worker_api_enabled and not self.jobs_enabled:
             raise ValueError("WORKER_API_ENABLED requires JOBS_ENABLED")
         if self.async_analysis_enabled and not self.jobs_enabled:
