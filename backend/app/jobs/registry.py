@@ -139,7 +139,7 @@ JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
         result_schema_versions=frozenset({"document.ingest.v1"}),
         input_validator=_document_ingest_input,
         result_validator=_document_ingest_result,
-        executor_name="document_ingest_disabled",
+        executor_name="document_ingest",
         cost_estimator_name="deterministic_zero_cost",
         retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
         accepted_failure_categories=frozenset(
@@ -189,4 +189,8 @@ def executor_for_job_type(job_type: str):
         from app.jobs.vast_executor import VastJobExecutor
 
         return VastJobExecutor()
+    if spec.executor_name == "document_ingest":
+        from app.knowledge.ingestion_executor import DocumentIngestJobExecutor
+
+        return DocumentIngestJobExecutor()
     raise HTTPException(status_code=422, detail="No durable executor is registered for this job type.")

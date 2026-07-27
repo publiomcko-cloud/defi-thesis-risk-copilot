@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_authenticated_user
@@ -22,6 +22,9 @@ from app.knowledge.service import (
     list_sources,
     update_source,
 )
+from app.knowledge.ingestion_service import submit_document_ingestion
+from app.jobs.control_service import job_response
+from app.jobs.schemas import JobSubmissionResponse
 
 
 router = APIRouter(tags=["knowledge"])
@@ -116,3 +119,18 @@ async def post_knowledge_document_version(
     actor: UserContext = Depends(require_authenticated_user),
 ) -> KnowledgeDocumentResponse:
     return await create_document_version_upload(db, actor, document_id, file, checksum)
+
+
+@router.post(
+    "/knowledge/document-versions/{version_id}/ingest",
+    response_model=JobSubmissionResponse,
+    status_code=202,
+)
+def post_knowledge_document_ingestion(
+    version_id: str,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+) -> JobSubmissionResponse:
+    job, replayed = submit_document_ingestion(db, actor, version_id, idempotency_key)
+    return JobSubmissionResponse(job=job_response(job), idempotent_replay=replayed)

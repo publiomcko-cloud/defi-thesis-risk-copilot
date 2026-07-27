@@ -518,18 +518,20 @@ server; a platform administrator has no organization-content bypass.
 The private-storage protocol has a deterministic lineage-based key builder,
 create-only writes, bounded reads, idempotent deletion, a memory test backend,
 and a fail-closed Supabase adapter. It is disabled by default.
-`document.ingest.v1` has exact input/result schemas but no enabled submission
-path or executor. The current public JSON path remains active retrieval and
-rollback authority until worker ingestion, pgvector shadow evaluation, and
-citation gates pass. See
+`document.ingest.v1` has exact input/result schemas, a server-owned submission
+path, and a feature-gated Phase 17 worker executor. It validates private object
+metadata/checksums, supports bounded text/Markdown, HTML, and PDF extraction,
+persists incomplete chunks, and atomically activates only a validated approved
+version. The current public JSON path remains active retrieval and rollback
+authority until pgvector shadow evaluation and citation gates pass. See
 [`phase_18_execution_plan.md`](phase_18_execution_plan.md).
 Phase 18B is complete locally: authenticated source/document APIs derive scope
 and object lineage server-side, accept only bounded allowlisted uploads, record
 approval/upload audit events, and compensate a written object if the database
 commit fails. Responses never expose a storage key or object URL. Account and
 organization deletion tombstone knowledge descendants; physical object cleanup
-remains a later retention slice. Phase 18B does not enable storage by default,
-ingestion, or retrieval.
+remains a later retention slice. Phase 18C keeps storage and ingestion disabled
+by default and does not enable embeddings or retrieval.
 
 ---
 

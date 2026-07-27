@@ -674,6 +674,8 @@ Implementation notes:
 
 Dependencies: 18B and a trusted worker data/storage access profile.
 
+Status: **Complete locally on the Phase 18 branch.**
+
 Deliver:
 
 - enabled server-owned submission path;
@@ -690,6 +692,24 @@ Gate:
 - retry creates no duplicate version or chunks;
 - cancellation/failure never activates partial content;
 - web requests do not perform heavy extraction.
+
+Implementation notes:
+
+- only `POST /api/knowledge/document-versions/{version_id}/ingest` may submit
+  the exact `document.ingest.v1` job. Generic `/api/jobs` submission remains
+  blocked for this job type; source scope, version lineage, result resource,
+  and idempotency are derived by the server;
+- `DOCUMENT_INGEST_ENABLED=false` remains the default and additionally
+  requires jobs, worker API, and private storage to be enabled. The API only
+  queues work; extraction always runs through a Phase 17 worker;
+- the executor performs bounded private-object verification, UTF-8 text/
+  Markdown, HTML-without-script/style, and bounded PDF extraction; it records
+  deterministic parser/chunker versions and persists incomplete chunks before
+  control-plane completion validates and atomically activates a version;
+- retries delete partial chunks and reuse the same immutable version. Failure,
+  cancellation, authorization revocation, and lease recovery remove partial
+  chunks and never activate them. Embeddings remain zero and explicitly marked
+  as not configured until Phase 18D.
 
 ### Phase 18D — pgvector embeddings
 

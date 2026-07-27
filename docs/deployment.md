@@ -702,6 +702,11 @@ SUPABASE_STORAGE_BUCKET=private-knowledge
 SUPABASE_STORAGE_TIMEOUT_SECONDS=20
 KNOWLEDGE_UPLOAD_MAX_BYTES=10485760
 KNOWLEDGE_UPLOAD_CHUNK_BYTES=65536
+DOCUMENT_INGEST_ENABLED=false
+KNOWLEDGE_INGEST_MAX_BYTES=10485760
+KNOWLEDGE_INGEST_MAX_TEXT_BYTES=2097152
+KNOWLEDGE_INGEST_MAX_PDF_PAGES=100
+KNOWLEDGE_CHUNK_MAX_CHARACTERS=2000
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
@@ -715,9 +720,11 @@ The API accepts uploads only when `KNOWLEDGE_STORAGE_ENABLED=true` and the
 private bucket/policy has been independently configured. It returns metadata
 only, never a public object URL. Do not enable the flag in production until a
 synthetic-tenant private-bucket probe and access-policy review are recorded.
-Keep ingestion submission and durable retrieval disabled. Runtime JSON remains
-the production retrieval fallback until shadow evaluation and rollback gates
-pass.
+`DOCUMENT_INGEST_ENABLED=true` additionally requires `JOBS_ENABLED=true`,
+`WORKER_API_ENABLED=true`, and a scoped trusted worker credential. Do not enable
+it until the private bucket policy/probe is validated. Keep durable retrieval
+disabled. Runtime JSON remains the production retrieval fallback until shadow
+evaluation and rollback gates pass.
 
 ### Phase 19
 

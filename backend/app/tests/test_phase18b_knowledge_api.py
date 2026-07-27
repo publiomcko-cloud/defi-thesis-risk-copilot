@@ -210,8 +210,8 @@ def test_source_approval_is_audited_and_ingestion_is_not_available(knowledge_api
     assert forbidden_state.status_code == 422
     assert client.post(
         "/api/knowledge/document-versions/kver_unknown/ingest",
-        headers=_auth("owner-token"),
-    ).status_code == 404
+        headers={**_auth("owner-token"), "Idempotency-Key": "phase18b-disabled-key"},
+    ).status_code == 503
     with Session() as db:
         source = db.get(KnowledgeSourceModel, source_id)
         assert source is not None

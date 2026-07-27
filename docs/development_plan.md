@@ -364,11 +364,12 @@ The ordered implementation authority is
 [`phase_18_execution_plan.md`](phase_18_execution_plan.md). The first slice is
 implemented additively: four durable knowledge tables, a private Supabase
 Storage abstraction, server-derived tenant authorization, the exact but
-disabled `document.ingest.v1` registry contract, authenticated source/document
-APIs, bounded private-upload handling, audit events, and lifecycle tombstones.
-The local JSON public retrieval path remains authoritative. Slices 18A–18B are
-complete locally; storage, ingestion, and retrieval remain disabled by default,
-and Slices 18C–18H remain.
+feature-gated `document.ingest.v1` registry contract, authenticated
+source/document APIs, bounded private-upload handling, audit events, lifecycle
+tombstones, and the server-owned worker ingestion path.
+The local JSON public retrieval path remains authoritative. Slices 18A–18C are
+complete locally; source-scoped durable ingestion is implemented but disabled
+by default, and embeddings/retrieval remain later work in Slices 18D–18H.
 
 ## V1 Phase 19 — Production operations and security — Planned
 

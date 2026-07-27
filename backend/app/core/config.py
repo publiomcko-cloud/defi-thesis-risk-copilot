@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     supabase_storage_timeout_seconds: float = 20.0
     knowledge_upload_max_bytes: int = 10 * 1024 * 1024
     knowledge_upload_chunk_bytes: int = 64 * 1024
+    document_ingest_enabled: bool = False
+    knowledge_ingest_max_bytes: int = 10 * 1024 * 1024
+    knowledge_ingest_max_text_bytes: int = 2 * 1024 * 1024
+    knowledge_ingest_max_pdf_pages: int = 100
+    knowledge_chunk_max_characters: int = 2_000
     session_cookie_name: str = "defi_copilot_session"
     anonymous_session_cookie_name: str = "defi_copilot_anon"
     cookie_secure: bool = True
@@ -173,6 +178,20 @@ class Settings(BaseSettings):
             or self.knowledge_upload_chunk_bytes > self.knowledge_upload_max_bytes
         ):
             raise ValueError("Knowledge upload limits are invalid")
+        if (
+            self.knowledge_ingest_max_bytes < 1
+            or self.knowledge_ingest_max_bytes > self.knowledge_upload_max_bytes
+            or self.knowledge_ingest_max_text_bytes < 1
+            or self.knowledge_ingest_max_pdf_pages < 1
+            or self.knowledge_chunk_max_characters < 256
+        ):
+            raise ValueError("Knowledge ingestion limits are invalid")
+        if self.document_ingest_enabled and (
+            not self.jobs_enabled or not self.worker_api_enabled or not self.knowledge_storage_enabled
+        ):
+            raise ValueError(
+                "DOCUMENT_INGEST_ENABLED requires JOBS_ENABLED, WORKER_API_ENABLED, and KNOWLEDGE_STORAGE_ENABLED"
+            )
         if self.worker_api_enabled and not self.jobs_enabled:
             raise ValueError("WORKER_API_ENABLED requires JOBS_ENABLED")
         if self.async_analysis_enabled and not self.jobs_enabled:

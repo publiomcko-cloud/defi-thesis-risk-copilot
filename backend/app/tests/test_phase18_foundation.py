@@ -364,16 +364,18 @@ def test_private_storage_config_is_disabled_by_default_and_fails_closed() -> Non
             knowledge_storage_enabled=True,
             supabase_storage_bucket="../public",
         )
+    with pytest.raises(ValueError, match="DOCUMENT_INGEST_ENABLED requires"):
+        Settings(_env_file=None, document_ingest_enabled=True)
 
 
-def test_document_ingest_registry_contract_is_exact_and_has_no_executor() -> None:
+def test_document_ingest_registry_contract_is_exact_and_executor_is_feature_gated() -> None:
     valid_input = {"document_version_id": "kver_contract_123"}
     spec = validate_submission_schema(
         "document.ingest",
         "document.ingest.v1",
         valid_input,
     )
-    assert spec.executor_name == "document_ingest_disabled"
+    assert spec.executor_name == "document_ingest"
 
     with pytest.raises(HTTPException) as extra_input:
         validate_submission_schema(
@@ -410,8 +412,7 @@ def test_document_ingest_registry_contract_is_exact_and_has_no_executor() -> Non
             ),
         )
     assert extra_result.value.status_code == 422
-    with pytest.raises(HTTPException, match="No durable executor"):
-        executor_for_job_type("document.ingest")
+    assert executor_for_job_type("document.ingest").__class__.__name__ == "DocumentIngestJobExecutor"
 
 
 def test_document_ingest_submission_remains_disabled(

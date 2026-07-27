@@ -31,6 +31,17 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
   tombstones for durable knowledge records. Storage, ingestion, and retrieval
   remain disabled by default; Phase 18 is not complete.
 
+### Phase 18C Durable Ingestion Executor
+
+- Added server-owned, feature-gated `document.ingest.v1` submission and Phase 17
+  worker execution for approved immutable document versions.
+- Added bounded text/Markdown, HTML, and PDF extraction, deterministic
+  normalization/chunking, checksum verification, retry-safe partial cleanup,
+  and transactional version activation.
+- Generic durable-job submission cannot queue ingestion. Storage, ingestion,
+  embeddings, and retrieval remain disabled by default until deployment and
+  later Phase 18 gates are completed.
+
 ### Phase 17 Durable Jobs and Hybrid Workers
 
 - Correction pass completed on `main`: added supervised long-running heartbeats/cancellation, immutable

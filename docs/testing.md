@@ -214,10 +214,11 @@ Follow [`phase_18_execution_plan.md`](phase_18_execution_plan.md) slice gates.
 The implemented foundation must prove reversible additive migrations, immutable
 version relationships, private object-key construction, disabled-by-default
 storage, exact `document.ingest.v1` registry schemas, server-derived public,
-private, and organization authorization, and compensated bounded upload
-handling. It must preserve the public JSON retriever as a rollback path.
+private, and organization authorization, compensated bounded upload handling,
+and feature-gated durable ingestion cleanup/activation. It must preserve the
+public JSON retriever as a rollback path.
 
-Implemented 18A–18B evidence:
+Implemented 18A–18C evidence:
 
 - `test_phase18_foundation.py` covers ownership, anonymous denial, active
   organization membership, non-member platform-admin denial, trusted-public
@@ -236,9 +237,13 @@ Implemented 18A–18B evidence:
   upload isolation, manager-only mutation, allowlist/checksum validation,
   storage-disabled failure, database-failure object compensation, approval audit
   records, no object URL/key exposure, and account/organization tombstones.
+- `test_phase18c_ingestion.py` covers server-owned/idempotent ingestion
+  submission, approved-source enforcement, generic-job blocking, allowlisted
+  parser behavior, Phase 17 worker execution, retry/cancellation partial-chunk
+  cleanup, and atomic version activation.
 
-Later slices test worker ingestion, pgvector retrieval with tenant predicates
-applied before ranking, citation lineage, physical deletion/retention,
+Later slices test pgvector retrieval with tenant predicates applied before
+ranking, citation lineage, physical deletion/retention,
 re-embedding migration, rollback, and retrieval evaluation.
 PostgreSQL tests are required for tenant isolation, vector filtering, concurrent
 version creation, job idempotency, and migration safety.
