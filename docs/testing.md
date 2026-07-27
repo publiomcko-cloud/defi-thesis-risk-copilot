@@ -218,7 +218,7 @@ private, and organization authorization, compensated bounded upload handling,
 and feature-gated durable ingestion cleanup/activation. It must preserve the
 public JSON retriever as a rollback path.
 
-Implemented 18A–18C evidence:
+Implemented 18A–18D evidence:
 
 - `test_phase18_foundation.py` covers ownership, anonymous denial, active
   organization membership, non-member platform-admin denial, trusted-public
@@ -241,9 +241,13 @@ Implemented 18A–18C evidence:
   submission, approved-source enforcement, generic-job blocking, allowlisted
   parser behavior, Phase 17 worker execution, retry/cancellation partial-chunk
   cleanup, and atomic version activation.
+- `test_phase18d_embeddings.py` covers local-only provider configuration,
+  server-owned/idempotent embedding jobs, worker completion, dimension mismatch,
+  and partial-vector cleanup. PostgreSQL integration verifies the `vector`
+  extension, `vector(384)` column, HNSW cosine index, and similarity operation.
 
-Later slices test pgvector retrieval with tenant predicates applied before
-ranking, citation lineage, physical deletion/retention,
+Later slices test tenant-filtered pgvector retrieval with predicates applied
+before ranking, citation lineage, physical deletion/retention,
 re-embedding migration, rollback, and retrieval evaluation.
 PostgreSQL tests are required for tenant isolation, vector filtering, concurrent
 version creation, job idempotency, and migration safety.

@@ -4,7 +4,7 @@ import os
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
@@ -151,3 +151,38 @@ def test_postgres_knowledge_scope_constraints_and_organization_isolation(
                 )
             )
             db.commit()
+
+
+def test_postgres_pgvector_extension_and_embedding_index_are_present(
+    postgres_sessions: sessionmaker,
+) -> None:
+    with postgres_sessions() as db:
+        extension = db.execute(
+            text("SELECT extname FROM pg_extension WHERE extname = 'vector'")
+        ).scalar_one_or_none()
+        assert extension == "vector"
+        vector_column = db.execute(
+            text(
+                "SELECT format_type(a.atttypid, a.atttypmod) "
+                "FROM pg_attribute a "
+                "JOIN pg_class c ON c.oid = a.attrelid "
+                "WHERE c.relname = 'knowledge_chunk_embeddings' "
+                "AND a.attname = 'embedding_vector' AND a.attnum > 0"
+            )
+        ).scalar_one()
+        assert vector_column == "vector(384)"
+        index_definition = db.execute(
+            text(
+                "SELECT indexdef FROM pg_indexes "
+                "WHERE tablename = 'knowledge_chunk_embeddings' "
+                "AND indexname = 'ix_knowledge_chunk_embeddings_vector_hnsw'"
+            )
+        ).scalar_one()
+        assert "USING hnsw" in index_definition
+        assert "vector_cosine_ops" in index_definition
+        vector = "[1" + ",0" * 383 + "]"
+        distance = db.execute(
+            text("SELECT CAST(:left AS vector) <=> CAST(:right AS vector)"),
+            {"left": vector, "right": vector},
+        ).scalar_one()
+        assert distance == 0

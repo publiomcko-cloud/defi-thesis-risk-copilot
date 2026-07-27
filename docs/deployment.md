@@ -693,8 +693,9 @@ GitHub Actions worker path, job observability, and provider cost controls.
 
 ### Phase 18
 
-The 18A–18B schema, adapter, and authenticated upload API are present but
-disabled by default. Configuration defaults:
+The 18A–18D schema, adapter, authenticated upload API, ingestion worker, and
+local-only pgvector embedding path are present but disabled by default.
+Configuration defaults:
 
 ```env
 KNOWLEDGE_STORAGE_ENABLED=false
@@ -707,6 +708,11 @@ KNOWLEDGE_INGEST_MAX_BYTES=10485760
 KNOWLEDGE_INGEST_MAX_TEXT_BYTES=2097152
 KNOWLEDGE_INGEST_MAX_PDF_PAGES=100
 KNOWLEDGE_CHUNK_MAX_CHARACTERS=2000
+KNOWLEDGE_EMBEDDINGS_ENABLED=false
+KNOWLEDGE_EMBEDDING_PROFILE_ID=kembprof_local_hash_384_v1
+KNOWLEDGE_EMBEDDING_PROVIDER=local_deterministic
+KNOWLEDGE_EMBEDDING_MODEL=local-hash-384-v1
+KNOWLEDGE_EMBEDDING_DIMENSIONS=384
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
@@ -725,6 +731,12 @@ synthetic-tenant private-bucket probe and access-policy review are recorded.
 it until the private bucket policy/probe is validated. Keep durable retrieval
 disabled. Runtime JSON remains the production retrieval fallback until shadow
 evaluation and rollback gates pass.
+`KNOWLEDGE_EMBEDDINGS_ENABLED=true` requires `JOBS_ENABLED=true` and
+`WORKER_API_ENABLED=true`; it accepts only the local deterministic 384-dimension
+profile and therefore does not need an external provider key. PostgreSQL must
+provide the `vector` extension; local/CI Compose uses `pgvector/pgvector:pg16`.
+Do not enable it before the private-storage/worker deployment gate and pgvector
+readiness probe are recorded.
 
 ### Phase 19
 

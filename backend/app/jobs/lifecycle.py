@@ -85,7 +85,7 @@ def revoke_jobs_for_authorization_change(
             )
             job.error_code = "authorization_revoked"
             job.error_summary = "Job authorization was revoked before worker execution."
-            _cleanup_document_ingest(db, job, retryable=False, terminal=True)
+            _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
             mark_job_artifacts_incomplete(db, job.id, now=timestamp)
             from app.jobs.control_service import _release_capacity
 
@@ -122,7 +122,7 @@ def _dispose_jobs(db: Session, statement, *, reason: str, now: datetime | None) 
             if target == "failed":
                 job.error_code = "authorization_revoked"
                 job.error_summary = "Job access was revoked before execution."
-                _cleanup_document_ingest(db, job, retryable=False, terminal=True)
+                _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
                 from app.jobs.control_service import _release_capacity
 
                 _release_capacity(db, job)
@@ -152,15 +152,19 @@ def mark_job_artifacts_incomplete(db: Session, job_id: str, *, now: datetime | N
         artifact.updated_at = timestamp
 
 
-def _cleanup_document_ingest(db: Session, job: JobModel, *, retryable: bool, terminal: bool) -> None:
-    if job.job_type != "document.ingest":
-        return
-    version_id = job.input_json.get("request", {}).get("document_version_id")
-    if not isinstance(version_id, str):
-        return
-    from app.knowledge.ingestion_executor import cleanup_document_ingest_outputs
+def _cleanup_knowledge_job_outputs(db: Session, job: JobModel, *, retryable: bool, terminal: bool) -> None:
+    if job.job_type == "document.ingest":
+        version_id = job.input_json.get("request", {}).get("document_version_id")
+        if isinstance(version_id, str):
+            from app.knowledge.ingestion_executor import cleanup_document_ingest_outputs
 
-    cleanup_document_ingest_outputs(db, version_id, retryable=retryable, terminal=terminal)
+            cleanup_document_ingest_outputs(db, version_id, retryable=retryable, terminal=terminal)
+    elif job.job_type == "document.embed":
+        generation_id = job.input_json.get("_server_context", {}).get("embedding_generation_id")
+        if isinstance(generation_id, str):
+            from app.knowledge.embedding_executor import cleanup_document_embedding_outputs
+
+            cleanup_document_embedding_outputs(db, generation_id, retryable=retryable, terminal=terminal)
 
 
 def _dispose_job_artifacts(db: Session, job_id: str, timestamp: datetime) -> None:

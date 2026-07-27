@@ -261,7 +261,7 @@ def complete_job(
         try:
             finalize_document_ingestion(db, job, result.result_json)
         except JobExecutionError as exc:
-            _cleanup_document_ingest_for_job(db, job, retryable=False, terminal=True)
+            _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
             job.error_code = exc.code
             job.error_summary = exc.safe_summary
             attempt.error_code = exc.code
@@ -283,6 +283,36 @@ def complete_job(
         job.result_json = {
             "document_version_id": result.result_json["document_version_id"],
             "chunk_count": result.result_json["chunk_count"],
+            "embedding_count": result.result_json["embedding_count"],
+        }
+    elif job.job_type == "document.embed":
+        from app.knowledge.embedding_executor import finalize_document_embedding
+        try:
+            finalize_document_embedding(db, job, result.result_json)
+        except JobExecutionError as exc:
+            _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
+            job.error_code = exc.code
+            job.error_summary = exc.safe_summary
+            attempt.error_code = exc.code
+            attempt.error_summary = exc.safe_summary
+            attempt.ended_at = datetime.now(UTC)
+            attempt.outcome = "dead_letter"
+            transition_job(
+                db,
+                job,
+                "dead_letter",
+                worker_id=identity.worker.id,
+                message="Document embedding completion validation failed.",
+                metadata={"error_code": exc.code},
+            )
+            _clear_lease(job)
+            release_running_capacity(db, job)
+            db.commit()
+            return _mutation(job)
+        job.result_json = {
+            "document_version_id": result.result_json["document_version_id"],
+            "embedding_profile_id": result.result_json["embedding_profile_id"],
+            "embedding_generation_id": result.result_json["embedding_generation_id"],
             "embedding_count": result.result_json["embedding_count"],
         }
     job.result_schema_version = result.result_schema_version
@@ -325,7 +355,7 @@ def fail_job(
     should_reconcile = category == JobErrorCategory.UNCERTAIN_EXTERNAL_SIDE_EFFECT
     should_retry = category in spec.retryable_categories
     if (should_retry or should_reconcile) and job.attempt_count < job.max_attempts and _deadline_allows_retry(job):
-        _cleanup_document_ingest_for_job(db, job, retryable=True, terminal=False)
+        _cleanup_knowledge_job_outputs(db, job, retryable=True, terminal=False)
         transition_job(
             db,
             job,
@@ -340,7 +370,7 @@ def fail_job(
         move_running_capacity_to_pending(db, job)
         job.available_at = datetime.now(UTC) + timedelta(seconds=_retry_delay_seconds(job.attempt_count, job.id))
     else:
-        _cleanup_document_ingest_for_job(db, job, retryable=False, terminal=True)
+        _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
         mark_job_artifacts_incomplete(db, job.id)
         _cleanup_provider_for_terminal_job(db, job)
         _finalize_provider_cost(db, job)
@@ -419,7 +449,7 @@ def recover_expired_jobs(
             )
         elif job.attempt_count >= job.max_attempts or not _deadline_allows_retry(job, timestamp):
             attempt = _attempt_for_lease(db, job)
-            _cleanup_document_ingest_for_job(db, job, retryable=False, terminal=True)
+            _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
             mark_job_artifacts_incomplete(db, job.id, now=timestamp)
             _cleanup_provider_for_terminal_job(db, job, perform_external_cleanup=perform_external_cleanup)
             _finalize_provider_cost(db, job)
@@ -431,7 +461,7 @@ def recover_expired_jobs(
             _clear_lease(job)
         else:
             attempt = _attempt_for_lease(db, job)
-            _cleanup_document_ingest_for_job(db, job, retryable=True, terminal=False)
+            _cleanup_knowledge_job_outputs(db, job, retryable=True, terminal=False)
             transition_job(db, job, "retry_wait", message="Worker lease expired; job is scheduled for retry.")
             if attempt:
                 attempt.ended_at = timestamp
@@ -606,7 +636,7 @@ def _fail_revoked_job(db: Session, job: JobModel) -> None:
     )
     job.error_code = "authorization_revoked"
     job.error_summary = "Job authorization was revoked before worker execution."
-    _cleanup_document_ingest_for_job(db, job, retryable=False, terminal=True)
+    _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
     _release_capacity(db, job)
 
 
@@ -637,7 +667,7 @@ def _fail_unsupported_schema_job(db: Session, job: JobModel) -> None:
 
 
 def _expire_queued_job(db: Session, job: JobModel) -> None:
-    _cleanup_document_ingest_for_job(db, job, retryable=False, terminal=True)
+    _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
     transition_job(db, job, "failed", message="Job queue deadline elapsed before worker execution.")
     job.error_code = "queue_expired"
     job.error_summary = "No eligible worker accepted the job before its queue deadline."
@@ -653,7 +683,7 @@ def _cancel_leased_job(
     commit: bool = True,
     perform_external_cleanup: bool = True,
 ) -> WorkerMutationResponse:
-    _cleanup_document_ingest_for_job(db, job, retryable=False, terminal=False)
+    _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=False)
     mark_job_artifacts_incomplete(db, job.id)
     _cleanup_provider_for_terminal_job(db, job, perform_external_cleanup=perform_external_cleanup)
     _finalize_provider_cost(db, job)
@@ -668,15 +698,19 @@ def _cancel_leased_job(
     return _mutation(job)
 
 
-def _cleanup_document_ingest_for_job(db: Session, job: JobModel, *, retryable: bool, terminal: bool) -> None:
-    if job.job_type != "document.ingest":
-        return
-    version_id = job.input_json.get("request", {}).get("document_version_id")
-    if not isinstance(version_id, str):
-        return
-    from app.knowledge.ingestion_executor import cleanup_document_ingest_outputs
+def _cleanup_knowledge_job_outputs(db: Session, job: JobModel, *, retryable: bool, terminal: bool) -> None:
+    if job.job_type == "document.ingest":
+        version_id = job.input_json.get("request", {}).get("document_version_id")
+        if isinstance(version_id, str):
+            from app.knowledge.ingestion_executor import cleanup_document_ingest_outputs
 
-    cleanup_document_ingest_outputs(db, version_id, retryable=retryable, terminal=terminal)
+            cleanup_document_ingest_outputs(db, version_id, retryable=retryable, terminal=terminal)
+    elif job.job_type == "document.embed":
+        generation_id = job.input_json.get("_server_context", {}).get("embedding_generation_id")
+        if isinstance(generation_id, str):
+            from app.knowledge.embedding_executor import cleanup_document_embedding_outputs
+
+            cleanup_document_embedding_outputs(db, generation_id, retryable=retryable, terminal=terminal)
 
 
 def _attempt_for_lease(db: Session, job: JobModel) -> JobAttemptModel | None:

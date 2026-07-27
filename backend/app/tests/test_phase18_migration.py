@@ -62,6 +62,9 @@ def test_phase18_upgrade_downgrade_preserves_phase17_and_json_rag_metadata(
         "knowledge_documents",
         "knowledge_document_versions",
         "knowledge_chunks",
+        "knowledge_embedding_profiles",
+        "knowledge_embedding_generations",
+        "knowledge_chunk_embeddings",
     }.issubset(tables)
     assert connection.execute(
         "SELECT title FROM document_sources WHERE id = ?",
@@ -83,6 +86,18 @@ def test_phase18_upgrade_downgrade_preserves_phase17_and_json_rag_metadata(
         connection,
         "knowledge_chunks",
     )
+    assert connection.execute(
+        "SELECT model, dimensions FROM knowledge_embedding_profiles WHERE id = ?",
+        ("kembprof_local_hash_384_v1",),
+    ).fetchone() == ("local-hash-384-v1", 384)
+    assert frozenset({"document_version_id", "embedding_profile_id"}) in _unique_column_sets(
+        connection,
+        "knowledge_embedding_generations",
+    )
+    assert frozenset({"knowledge_chunk_id", "embedding_profile_id"}) in _unique_column_sets(
+        connection,
+        "knowledge_chunk_embeddings",
+    )
     connection.close()
 
     _alembic(database_path, "downgrade", PHASE17_HEAD)
@@ -92,6 +107,9 @@ def test_phase18_upgrade_downgrade_preserves_phase17_and_json_rag_metadata(
         "knowledge_documents",
         "knowledge_document_versions",
         "knowledge_chunks",
+        "knowledge_embedding_profiles",
+        "knowledge_embedding_generations",
+        "knowledge_chunk_embeddings",
     } & _tables(connection)
     assert connection.execute(
         "SELECT title FROM document_sources WHERE id = ?",

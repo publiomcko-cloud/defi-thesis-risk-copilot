@@ -366,6 +366,8 @@ def test_private_storage_config_is_disabled_by_default_and_fails_closed() -> Non
         )
     with pytest.raises(ValueError, match="DOCUMENT_INGEST_ENABLED requires"):
         Settings(_env_file=None, document_ingest_enabled=True)
+    with pytest.raises(ValueError, match="KNOWLEDGE_EMBEDDINGS_ENABLED requires"):
+        Settings(_env_file=None, knowledge_embeddings_enabled=True)
 
 
 def test_document_ingest_registry_contract_is_exact_and_executor_is_feature_gated() -> None:
@@ -413,6 +415,41 @@ def test_document_ingest_registry_contract_is_exact_and_executor_is_feature_gate
         )
     assert extra_result.value.status_code == 422
     assert executor_for_job_type("document.ingest").__class__.__name__ == "DocumentIngestJobExecutor"
+
+
+def test_document_embed_registry_contract_is_exact_and_executor_is_feature_gated() -> None:
+    valid_input = {
+        "document_version_id": "kver_contract_123",
+        "embedding_profile_id": "kembprof_local_hash_384_v1",
+    }
+    spec = validate_submission_schema("document.embed", "document.embed.v1", valid_input)
+    assert spec.executor_name == "document_embed"
+    valid_result = {
+        "document_version_id": valid_input["document_version_id"],
+        "embedding_profile_id": valid_input["embedding_profile_id"],
+        "embedding_generation_id": "kembgen_contract_123",
+        "embedding_count": 2,
+        "content_checksum": "a" * 64,
+        "embedding_model": "local-hash-384-v1",
+        "embedding_dimensions": 384,
+        "embedding_algorithm_version": "phase18d.local-hash.v1",
+    }
+    validate_result_schema(
+        "document.embed",
+        "document.embed.v1",
+        JobResultEnvelope(result_schema_version="document.embed.v1", result_json=valid_result),
+    )
+    with pytest.raises(HTTPException) as extra_result:
+        validate_result_schema(
+            "document.embed",
+            "document.embed.v1",
+            JobResultEnvelope(
+                result_schema_version="document.embed.v1",
+                result_json={**valid_result, "risk_rating": "low"},
+            ),
+        )
+    assert extra_result.value.status_code == 422
+    assert executor_for_job_type("document.embed").__class__.__name__ == "DocumentEmbedJobExecutor"
 
 
 def test_document_ingest_submission_remains_disabled(

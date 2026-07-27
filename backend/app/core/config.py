@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     knowledge_ingest_max_text_bytes: int = 2 * 1024 * 1024
     knowledge_ingest_max_pdf_pages: int = 100
     knowledge_chunk_max_characters: int = 2_000
+    knowledge_embeddings_enabled: bool = False
+    knowledge_embedding_profile_id: str = "kembprof_local_hash_384_v1"
+    knowledge_embedding_provider: str = "local_deterministic"
+    knowledge_embedding_model: str = "local-hash-384-v1"
+    knowledge_embedding_dimensions: int = 384
     session_cookie_name: str = "defi_copilot_session"
     anonymous_session_cookie_name: str = "defi_copilot_anon"
     cookie_secure: bool = True
@@ -191,6 +196,21 @@ class Settings(BaseSettings):
         ):
             raise ValueError(
                 "DOCUMENT_INGEST_ENABLED requires JOBS_ENABLED, WORKER_API_ENABLED, and KNOWLEDGE_STORAGE_ENABLED"
+            )
+        if self.knowledge_embeddings_enabled and (
+            not self.jobs_enabled or not self.worker_api_enabled
+        ):
+            raise ValueError(
+                "KNOWLEDGE_EMBEDDINGS_ENABLED requires JOBS_ENABLED and WORKER_API_ENABLED"
+            )
+        if (
+            not self.knowledge_embedding_profile_id.startswith("kembprof_")
+            or self.knowledge_embedding_provider != "local_deterministic"
+            or self.knowledge_embedding_model != "local-hash-384-v1"
+            or self.knowledge_embedding_dimensions != 384
+        ):
+            raise ValueError(
+                "Only the approved local deterministic 384-dimension embedding profile is supported"
             )
         if self.worker_api_enabled and not self.jobs_enabled:
             raise ValueError("WORKER_API_ENABLED requires JOBS_ENABLED")

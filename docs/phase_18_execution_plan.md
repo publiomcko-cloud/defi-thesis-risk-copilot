@@ -715,6 +715,8 @@ Implementation notes:
 
 Dependencies: 18C and selected embedding model/dimensions.
 
+Status: **Complete locally on the Phase 18 branch.**
+
 Deliver:
 
 - PostgreSQL `vector` extension migration;
@@ -722,6 +724,23 @@ Deliver:
 - versioned embedding provider contract;
 - partial backfill and re-embedding jobs;
 - active embedding profile configuration.
+
+Implementation notes:
+
+- `20260727_0018` installs the PostgreSQL `vector` extension, adds profile,
+  generation, and chunk-embedding records, preserves a portable JSON vector
+  representation for SQLite tests, and creates a partial HNSW cosine index on
+  PostgreSQL. Downgrade removes only Phase 18D objects and retains the shared
+  extension for other database consumers;
+- the only supported provider is `local_deterministic` / `local-hash-384-v1`
+  at 384 dimensions. It runs inside the trusted worker and is the only provider
+  configuration accepted by settings, so private text is never sent to an
+  unapproved external embedding service;
+- only the source-scoped `/embed` endpoint can queue `document.embed.v1`.
+  Generation output is validated and activated by the Phase 17 control plane;
+  incomplete vectors are removed on cancellation, failure, authorization
+  revocation, or lease recovery. Old profile rows/generations remain in place
+  for a later explicit re-embedding promotion/rollback workflow.
 
 Gate:
 
@@ -896,7 +915,7 @@ rental.
 
 ## 18. Phase status rule
 
-After Phases 18A–18B, report:
+After Phases 18A–18D, report:
 
 ```text
 Phase 18 — Implemented Foundation

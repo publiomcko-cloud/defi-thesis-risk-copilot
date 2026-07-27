@@ -42,6 +42,17 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
   embeddings, and retrieval remain disabled by default until deployment and
   later Phase 18 gates are completed.
 
+### Phase 18D Versioned pgvector Embeddings
+
+- Added a reversible pgvector migration with a local deterministic 384-dimension
+  profile, immutable generation records, portable vector metadata, and a
+  PostgreSQL HNSW cosine index.
+- Added server-owned `document.embed.v1` worker jobs for approved ready document
+  versions, including idempotency, dimension/model validation, retry/cancel
+  cleanup, and atomic generation activation.
+- No external embedding provider is supported, so private content remains in the
+  controlled worker process. Embeddings and retrieval stay disabled by default.
+
 ### Phase 17 Durable Jobs and Hybrid Workers
 
 - Correction pass completed on `main`: added supervised long-running heartbeats/cancellation, immutable

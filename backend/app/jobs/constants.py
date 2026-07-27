@@ -18,7 +18,7 @@ TERMINAL_JOB_STATUSES: Final[frozenset[str]] = frozenset(
     {"completed", "failed", "cancelled", "dead_letter"}
 )
 SUPPORTED_JOB_TYPES: Final[frozenset[str]] = frozenset(
-    {"analysis.generate", "document.ingest", "vast.session.start"}
+    {"analysis.generate", "document.embed", "document.ingest", "vast.session.start"}
 )
 JOB_TRANSITIONS: Final[dict[str, frozenset[str]]] = {
     "queued": frozenset({"leased", "cancel_requested", "failed", "dead_letter"}),

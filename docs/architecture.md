@@ -531,7 +531,10 @@ approval/upload audit events, and compensate a written object if the database
 commit fails. Responses never expose a storage key or object URL. Account and
 organization deletion tombstone knowledge descendants; physical object cleanup
 remains a later retention slice. Phase 18C keeps storage and ingestion disabled
-by default and does not enable embeddings or retrieval.
+by default. Phase 18D adds local-only 384-dimension pgvector embedding profiles,
+generations, and a PostgreSQL HNSW cosine index through a separate Phase 17
+worker job. Incomplete vectors never activate, external embedding providers are
+rejected, and retrieval remains disabled pending Phase 18E.
 
 ---
 

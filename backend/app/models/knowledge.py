@@ -236,3 +236,67 @@ class KnowledgeChunkModel(Base):
         nullable=False,
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class KnowledgeEmbeddingProfileModel(Base):
+    __tablename__ = "knowledge_embedding_profiles"
+    __table_args__ = (
+        CheckConstraint("provider = 'local_deterministic'", name="ck_knowledge_embedding_profiles_provider"),
+        CheckConstraint("dimensions = 384", name="ck_knowledge_embedding_profiles_dimensions"),
+        CheckConstraint("status IN ('active', 'retired')", name="ck_knowledge_embedding_profiles_status"),
+        Index("ix_knowledge_embedding_profiles_active", "is_active", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    provider: Mapped[str] = mapped_column(String(64), nullable=False)
+    model: Mapped[str] = mapped_column(String(255), nullable=False)
+    dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="active", nullable=False)
+    is_active: Mapped[bool] = mapped_column(default=False, nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    retired_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class KnowledgeEmbeddingGenerationModel(Base):
+    __tablename__ = "knowledge_embedding_generations"
+    __table_args__ = (
+        CheckConstraint("status IN ('pending', 'processing', 'completed', 'failed', 'cancelled')", name="ck_knowledge_embedding_generations_status"),
+        UniqueConstraint("document_version_id", "embedding_profile_id", name="uq_knowledge_embedding_generations_version_profile"),
+        Index("ix_knowledge_embedding_generations_profile_status", "embedding_profile_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    document_version_id: Mapped[str] = mapped_column(ForeignKey("knowledge_document_versions.id", ondelete="CASCADE"), nullable=False, index=True)
+    embedding_profile_id: Mapped[str] = mapped_column(ForeignKey("knowledge_embedding_profiles.id", ondelete="RESTRICT"), nullable=False, index=True)
+    created_by_job_id: Mapped[str | None] = mapped_column(ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
+    expected_chunk_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    completed_chunk_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    content_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class KnowledgeChunkEmbeddingModel(Base):
+    __tablename__ = "knowledge_chunk_embeddings"
+    __table_args__ = (
+        CheckConstraint("dimensions = 384", name="ck_knowledge_chunk_embeddings_dimensions"),
+        CheckConstraint("status IN ('pending', 'completed', 'failed', 'deleted')", name="ck_knowledge_chunk_embeddings_status"),
+        UniqueConstraint("knowledge_chunk_id", "embedding_profile_id", name="uq_knowledge_chunk_embeddings_chunk_profile"),
+        Index("ix_knowledge_chunk_embeddings_profile_status", "embedding_profile_id", "status", "deleted_at"),
+        Index("ix_knowledge_chunk_embeddings_generation", "embedding_generation_id", "deleted_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    knowledge_chunk_id: Mapped[str] = mapped_column(ForeignKey("knowledge_chunks.id", ondelete="CASCADE"), nullable=False, index=True)
+    embedding_profile_id: Mapped[str] = mapped_column(ForeignKey("knowledge_embedding_profiles.id", ondelete="RESTRICT"), nullable=False, index=True)
+    embedding_generation_id: Mapped[str] = mapped_column(ForeignKey("knowledge_embedding_generations.id", ondelete="CASCADE"), nullable=False, index=True)
+    content_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
+    # Canonical portable representation. PostgreSQL also receives an indexed
+    # pgvector column in the Phase 18D migration for future shadow retrieval.
+    embedding_json: Mapped[list[float]] = mapped_column(JSON, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

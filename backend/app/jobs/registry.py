@@ -105,6 +105,56 @@ def _document_ingest_result(value: dict) -> None:
         raise HTTPException(status_code=422, detail="document.ingest result values are invalid.")
 
 
+def _document_embed_input(value: dict) -> None:
+    if set(value) != {"document_version_id", "embedding_profile_id"}:
+        raise HTTPException(status_code=422, detail="document.embed input shape is invalid.")
+    if (
+        not isinstance(value["document_version_id"], str)
+        or not value["document_version_id"].startswith("kver_")
+        or len(value["document_version_id"]) > 64
+        or not isinstance(value["embedding_profile_id"], str)
+        or not value["embedding_profile_id"].startswith("kembprof_")
+        or len(value["embedding_profile_id"]) > 64
+    ):
+        raise HTTPException(status_code=422, detail="document.embed input values are invalid.")
+
+
+def _document_embed_result(value: dict) -> None:
+    required = {
+        "document_version_id",
+        "embedding_profile_id",
+        "embedding_generation_id",
+        "embedding_count",
+        "content_checksum",
+        "embedding_model",
+        "embedding_dimensions",
+        "embedding_algorithm_version",
+    }
+    if set(value) != required:
+        raise HTTPException(status_code=422, detail="document.embed result shape is invalid.")
+    if (
+        not isinstance(value["document_version_id"], str)
+        or not value["document_version_id"].startswith("kver_")
+        or not isinstance(value["embedding_profile_id"], str)
+        or not value["embedding_profile_id"].startswith("kembprof_")
+        or not isinstance(value["embedding_generation_id"], str)
+        or not value["embedding_generation_id"].startswith("kembgen_")
+        or not isinstance(value["embedding_count"], int)
+        or isinstance(value["embedding_count"], bool)
+        or value["embedding_count"] < 1
+        or not isinstance(value["embedding_dimensions"], int)
+        or value["embedding_dimensions"] != 384
+        or not isinstance(value["content_checksum"], str)
+        or len(value["content_checksum"]) != 64
+        or any(character not in "0123456789abcdef" for character in value["content_checksum"])
+        or any(
+            not isinstance(value[field], str) or not value[field] or len(value[field]) > 255
+            for field in ("embedding_model", "embedding_algorithm_version")
+        )
+    ):
+        raise HTTPException(status_code=422, detail="document.embed result values are invalid.")
+
+
 JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
     "analysis.generate": JobTypeSpec(
         job_type="analysis.generate",
@@ -140,6 +190,24 @@ JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
         input_validator=_document_ingest_input,
         result_validator=_document_ingest_result,
         executor_name="document_ingest",
+        cost_estimator_name="deterministic_zero_cost",
+        retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
+        accepted_failure_categories=frozenset(
+            {
+                JobErrorCategory.PERMANENT_INPUT,
+                JobErrorCategory.PERMANENT_AUTHORIZATION,
+                JobErrorCategory.RETRYABLE_INFRASTRUCTURE,
+            }
+        ),
+        requires_provider=False,
+    ),
+    "document.embed": JobTypeSpec(
+        job_type="document.embed",
+        input_schema_versions=frozenset({"document.embed.v1"}),
+        result_schema_versions=frozenset({"document.embed.v1"}),
+        input_validator=_document_embed_input,
+        result_validator=_document_embed_result,
+        executor_name="document_embed",
         cost_estimator_name="deterministic_zero_cost",
         retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
         accepted_failure_categories=frozenset(
@@ -193,4 +261,8 @@ def executor_for_job_type(job_type: str):
         from app.knowledge.ingestion_executor import DocumentIngestJobExecutor
 
         return DocumentIngestJobExecutor()
+    if spec.executor_name == "document_embed":
+        from app.knowledge.embedding_executor import DocumentEmbedJobExecutor
+
+        return DocumentEmbedJobExecutor()
     raise HTTPException(status_code=422, detail="No durable executor is registered for this job type.")
