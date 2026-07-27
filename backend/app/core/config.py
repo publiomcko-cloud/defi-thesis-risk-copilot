@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     supabase_jwt_issuer: str = ""
     supabase_jwt_audience: str = "authenticated"
     supabase_service_role_key: str = ""
+    knowledge_storage_enabled: bool = False
+    supabase_storage_bucket: str = "private-knowledge"
+    supabase_storage_timeout_seconds: float = 20.0
     session_cookie_name: str = "defi_copilot_session"
     anonymous_session_cookie_name: str = "defi_copilot_anon"
     cookie_secure: bool = True
@@ -143,6 +146,21 @@ class Settings(BaseSettings):
                 )
         if self.auth_enabled and self.app_env == "production" and not self.bff_audit_secret:
             raise ValueError("BFF_AUDIT_SECRET is required when production authentication is enabled")
+        if self.knowledge_storage_enabled:
+            if self.app_env == "production" and (
+                not self.supabase_url or not self.supabase_service_role_key
+            ):
+                raise ValueError(
+                    "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required when "
+                    "production knowledge storage is enabled"
+                )
+            if (
+                not self.supabase_storage_bucket
+                or "/" in self.supabase_storage_bucket
+                or len(self.supabase_storage_bucket) > 128
+                or self.supabase_storage_timeout_seconds <= 0
+            ):
+                raise ValueError("Private knowledge storage configuration is invalid")
         if self.worker_api_enabled and not self.jobs_enabled:
             raise ValueError("WORKER_API_ENABLED requires JOBS_ENABLED")
         if self.async_analysis_enabled and not self.jobs_enabled:

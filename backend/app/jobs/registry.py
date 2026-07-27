@@ -57,6 +57,54 @@ def _vast_result(value: dict) -> None:
         raise HTTPException(status_code=422, detail="vast.session.start result is invalid.")
 
 
+def _document_ingest_input(value: dict) -> None:
+    if set(value) != {"document_version_id"}:
+        raise HTTPException(
+            status_code=422,
+            detail="document.ingest input must contain only document_version_id.",
+        )
+    document_version_id = value["document_version_id"]
+    if (
+        not isinstance(document_version_id, str)
+        or not document_version_id.startswith("kver_")
+        or len(document_version_id) > 64
+    ):
+        raise HTTPException(status_code=422, detail="document.ingest document version is invalid.")
+
+
+def _document_ingest_result(value: dict) -> None:
+    required = {
+        "document_version_id",
+        "content_checksum",
+        "chunk_count",
+        "embedding_count",
+        "parser_version",
+        "chunker_version",
+        "embedding_model",
+    }
+    if set(value) != required:
+        raise HTTPException(status_code=422, detail="document.ingest result shape is invalid.")
+    if (
+        not isinstance(value["document_version_id"], str)
+        or not value["document_version_id"].startswith("kver_")
+        or len(value["document_version_id"]) > 64
+        or not isinstance(value["content_checksum"], str)
+        or len(value["content_checksum"]) != 64
+        or any(character not in "0123456789abcdef" for character in value["content_checksum"])
+        or not isinstance(value["chunk_count"], int)
+        or isinstance(value["chunk_count"], bool)
+        or value["chunk_count"] < 1
+        or not isinstance(value["embedding_count"], int)
+        or isinstance(value["embedding_count"], bool)
+        or value["embedding_count"] < 0
+        or any(
+            not isinstance(value[field], str) or not value[field] or len(value[field]) > 255
+            for field in ("parser_version", "chunker_version", "embedding_model")
+        )
+    ):
+        raise HTTPException(status_code=422, detail="document.ingest result values are invalid.")
+
+
 JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
     "analysis.generate": JobTypeSpec(
         job_type="analysis.generate",
@@ -84,6 +132,24 @@ JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
         retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE, JobErrorCategory.RETRYABLE_PROVIDER}),
         accepted_failure_categories=frozenset({JobErrorCategory.PERMANENT_INPUT, JobErrorCategory.PERMANENT_AUTHORIZATION, JobErrorCategory.RETRYABLE_INFRASTRUCTURE, JobErrorCategory.RETRYABLE_PROVIDER, JobErrorCategory.UNCERTAIN_EXTERNAL_SIDE_EFFECT}),
         requires_provider=True,
+    ),
+    "document.ingest": JobTypeSpec(
+        job_type="document.ingest",
+        input_schema_versions=frozenset({"document.ingest.v1"}),
+        result_schema_versions=frozenset({"document.ingest.v1"}),
+        input_validator=_document_ingest_input,
+        result_validator=_document_ingest_result,
+        executor_name="document_ingest_disabled",
+        cost_estimator_name="deterministic_zero_cost",
+        retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
+        accepted_failure_categories=frozenset(
+            {
+                JobErrorCategory.PERMANENT_INPUT,
+                JobErrorCategory.PERMANENT_AUTHORIZATION,
+                JobErrorCategory.RETRYABLE_INFRASTRUCTURE,
+            }
+        ),
+        requires_provider=False,
     ),
 }
 

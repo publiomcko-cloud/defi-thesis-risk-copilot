@@ -26,7 +26,7 @@ ArtifactStatus = Literal["pending_storage", "incomplete", "available", "deleted"
 
 
 class JobInputEnvelope(BaseModel):
-    job_type: Literal["analysis.generate", "vast.session.start"]
+    job_type: Literal["analysis.generate", "document.ingest", "vast.session.start"]
     input_schema_version: str = Field(min_length=1, max_length=32)
     input_json: dict = Field(default_factory=dict)
 

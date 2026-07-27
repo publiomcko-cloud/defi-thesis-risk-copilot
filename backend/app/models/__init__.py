@@ -11,6 +11,12 @@ from app.models.evaluation_result import EvaluationResultModel
 from app.models.job import JobAttemptModel, JobCapacityReservationModel, JobEventModel, JobModel, ProviderCostReservationModel
 from app.models.market_data_cache import MarketDataCacheModel
 from app.models.knowledge_base_ingestion import KnowledgeBaseIngestionModel
+from app.models.knowledge import (
+    KnowledgeChunkModel,
+    KnowledgeDocumentModel,
+    KnowledgeDocumentVersionModel,
+    KnowledgeSourceModel,
+)
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.organization_knowledge_source import OrganizationKnowledgeSourceModel
 from app.models.report import ReportModel
@@ -41,6 +47,10 @@ __all__ = [
     "ProviderCostReservationModel",
     "MarketDataCacheModel",
     "KnowledgeBaseIngestionModel",
+    "KnowledgeChunkModel",
+    "KnowledgeDocumentModel",
+    "KnowledgeDocumentVersionModel",
+    "KnowledgeSourceModel",
     "OrganizationMembershipModel",
     "OrganizationModel",
     "OrganizationKnowledgeSourceModel",
