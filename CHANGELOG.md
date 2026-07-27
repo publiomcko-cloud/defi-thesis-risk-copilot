@@ -21,6 +21,16 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
   Phase 18A is complete; Phase 18 remains an implemented foundation, not
   complete.
 
+### Phase 18B Source/Document API and Private Upload
+
+- Added authenticated, server-scoped knowledge source/document/version APIs and
+  bounded multipart uploads for allowlisted text, Markdown, HTML, and PDF files.
+- Added checksum, media-type, filename, and size validation; create-only private
+  object writes; metadata-only responses; and database-failure object compensation.
+- Added source approval/upload audit events plus account and organization
+  tombstones for durable knowledge records. Storage, ingestion, and retrieval
+  remain disabled by default; Phase 18 is not complete.
+
 ### Phase 17 Durable Jobs and Hybrid Workers
 
 - Correction pass completed on `main`: added supervised long-running heartbeats/cancellation, immutable

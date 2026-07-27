@@ -523,8 +523,13 @@ path or executor. The current public JSON path remains active retrieval and
 rollback authority until worker ingestion, pgvector shadow evaluation, and
 citation gates pass. See
 [`phase_18_execution_plan.md`](phase_18_execution_plan.md).
-Phase 18B may add source/document APIs and private upload handling; it does not
-inherit permission to enable retrieval or ingestion.
+Phase 18B is complete locally: authenticated source/document APIs derive scope
+and object lineage server-side, accept only bounded allowlisted uploads, record
+approval/upload audit events, and compensate a written object if the database
+commit fails. Responses never expose a storage key or object URL. Account and
+organization deletion tombstone knowledge descendants; physical object cleanup
+remains a later retention slice. Phase 18B does not enable storage by default,
+ingestion, or retrieval.
 
 ---
 

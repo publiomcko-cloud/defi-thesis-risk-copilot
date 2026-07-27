@@ -48,7 +48,7 @@ Current status:
 ```text
 V1 Phase 16 — Complete
 V1 Phase 17 — Complete
-V1 Phase 18 — Implemented Foundation on agent/v1-phase-18-production-rag
+V1 Phase 18 — Implemented Foundation (18A–18B complete locally) on agent/v1-phase-18-production-rag
 V1 Phases 19–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -68,8 +68,8 @@ Historical Phase 16 evidence remains in its archive.
 - Frontend: Next.js App Router, React, TypeScript, Vercel
 - Backend: FastAPI, Pydantic, SQLAlchemy, Alembic, Render
 - Database: Supabase PostgreSQL hosted; PostgreSQL/SQLite local support
-- RAG: active curated Markdown/local JSON path plus disabled Phase 18 durable
-  source/document/version/chunk and private-storage foundations
+- RAG: active curated Markdown/local JSON path plus disabled-by-default Phase 18
+  durable source/document/version/chunk storage and authenticated upload APIs
 - Public data adapters: manual, Pendle, Morpho, Aave, DefiLlama, CoinGecko foundations
 - Testing: pytest, PostgreSQL CI migration path, TypeScript/build checks, smoke scripts, Compose validation
 - Optional synthesis: Ollama, OpenAI-compatible APIs, admin-controlled Vast.ai foundation
@@ -334,8 +334,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 - public rate limiting is still in-process, not distributed;
 - current report retrieval remains local JSON and intentionally public-curated
-  only; the additive Phase 18 records and private-storage adapter have no
-  upload API, ingestion executor, embeddings, or retrieval authority yet;
+  only; Phase 18 has authenticated metadata/upload APIs but private storage is
+  disabled by default, and it has no ingestion executor, embeddings, or
+  retrieval authority yet;
 - durable jobs, private workspace, retention, export, and account-deletion behavior are complete
   on `main`; Vast provider jobs remain disabled/dry-run by default, and real-provider operation is
   unverified;
@@ -357,10 +358,12 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   [`archive/v1_phase_17/`](archive/v1_phase_17/). Real Vast.ai rental and continuously hosted
   worker validation remain Phase 22 gates;
 - Phase 18 — Implemented Foundation on `agent/v1-phase-18-production-rag`;
-  Slice 18A is complete: it adds additive durable knowledge metadata,
-  private-storage interfaces, tenant boundaries, and a disabled
-  `document.ingest.v1` job contract while preserving the public JSON fallback.
-  Slice 18B is ready to start; slices 18C–18H remain;
+  Slices 18A–18B are locally complete: additive durable knowledge metadata,
+  private-storage interfaces, tenant boundaries, authenticated source/document
+  APIs, bounded upload handling, approval audit events, and lifecycle
+  tombstones preserve the public JSON fallback. Storage, ingestion submission,
+  executor, embeddings, and durable retrieval remain disabled by default;
+  slices 18C–18H remain;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.

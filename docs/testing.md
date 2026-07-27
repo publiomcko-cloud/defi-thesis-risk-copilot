@@ -211,13 +211,13 @@ be disabled for bounded smoke timing unless that provider is the explicit subjec
 ## 7. Phase 18 validation
 
 Follow [`phase_18_execution_plan.md`](phase_18_execution_plan.md) slice gates.
-The first foundation slice must prove reversible additive migrations, immutable
+The implemented foundation must prove reversible additive migrations, immutable
 version relationships, private object-key construction, disabled-by-default
-storage, exact `document.ingest.v1` registry schemas, and server-derived public,
-private, and organization authorization. It must preserve the public JSON
-retriever as a rollback path.
+storage, exact `document.ingest.v1` registry schemas, server-derived public,
+private, and organization authorization, and compensated bounded upload
+handling. It must preserve the public JSON retriever as a rollback path.
 
-Implemented 18A evidence:
+Implemented 18A–18B evidence:
 
 - `test_phase18_foundation.py` covers ownership, anonymous denial, active
   organization membership, non-member platform-admin denial, trusted-public
@@ -232,10 +232,14 @@ Implemented 18A evidence:
 - `test_phase18_storage_adapter.py` verifies the private Supabase metadata
   route and rejects malformed or cross-key signed download responses without
   exposing provider details.
+- `test_phase18b_knowledge_api.py` covers authenticated private and organization
+  upload isolation, manager-only mutation, allowlist/checksum validation,
+  storage-disabled failure, database-failure object compensation, approval audit
+  records, no object URL/key exposure, and account/organization tombstones.
 
-Later slices test durable upload and objects, worker ingestion, pgvector
-retrieval with tenant predicates applied before ranking, citation lineage,
-deletion/tombstones, re-embedding migration, rollback, and retrieval evaluation.
+Later slices test worker ingestion, pgvector retrieval with tenant predicates
+applied before ranking, citation lineage, physical deletion/retention,
+re-embedding migration, rollback, and retrieval evaluation.
 PostgreSQL tests are required for tenant isolation, vector filtering, concurrent
 version creation, job idempotency, and migration safety.
 

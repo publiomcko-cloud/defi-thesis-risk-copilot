@@ -693,12 +693,15 @@ GitHub Actions worker path, job observability, and provider cost controls.
 
 ### Phase 18
 
-The 18A schema and adapter are present but disabled. Configuration defaults:
+The 18A–18B schema, adapter, and authenticated upload API are present but
+disabled by default. Configuration defaults:
 
 ```env
 KNOWLEDGE_STORAGE_ENABLED=false
 SUPABASE_STORAGE_BUCKET=private-knowledge
 SUPABASE_STORAGE_TIMEOUT_SECONDS=20
+KNOWLEDGE_UPLOAD_MAX_BYTES=10485760
+KNOWLEDGE_UPLOAD_CHUNK_BYTES=65536
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
@@ -708,11 +711,13 @@ the service-role credential fails configuration validation. Bucket creation,
 private policies, and a synthetic-tenant object probe are 18B deployment work;
 Alembic never changes Supabase's managed `storage` schema.
 
-Continue private object storage and tenant-aware vector storage according to
-[`phase_18_execution_plan.md`](phase_18_execution_plan.md). Keep storage,
-ingestion submission, and durable retrieval disabled through the first
-foundation slice. Runtime JSON remains the production retrieval fallback until
-shadow evaluation and rollback gates pass.
+The API accepts uploads only when `KNOWLEDGE_STORAGE_ENABLED=true` and the
+private bucket/policy has been independently configured. It returns metadata
+only, never a public object URL. Do not enable the flag in production until a
+synthetic-tenant private-bucket probe and access-policy review are recorded.
+Keep ingestion submission and durable retrieval disabled. Runtime JSON remains
+the production retrieval fallback until shadow evaluation and rollback gates
+pass.
 
 ### Phase 19
 

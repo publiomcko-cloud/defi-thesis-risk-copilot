@@ -604,9 +604,9 @@ Dependencies: completed Phases 16 and 17.
 
 Implementation: **Complete on the Phase 18 branch.**
 
-Completion gate: **Passed.** Phase 18B is ready to start; it must not enable
-uploads, storage, or ingestion until its own API, compensation, and browser
-isolation tests are implemented.
+Completion gate: **Passed.** Phase 18B may add authenticated API/upload handling
+without enabling ingestion, vector retrieval, or a production storage bucket by
+default.
 
 Deliver:
 
@@ -633,7 +633,7 @@ Gate:
 
 Dependencies: 18A.
 
-Status: **Ready to start.**
+Status: **Complete on the Phase 18 branch.**
 
 Deliver:
 
@@ -646,10 +646,29 @@ Deliver:
 
 Gate:
 
-- browser and API isolation tests pass;
+- authenticated API isolation tests pass; the existing Phase 16 browser/BFF
+  boundary remains unchanged;
 - no public bucket/object URL exists;
 - failed upload leaves no trusted version;
 - only approved sources can become ingestion-pending.
+
+Implementation notes:
+
+- `POST /api/knowledge/sources/{source_id}/documents` and document-version
+  uploads read multipart input in bounded chunks, accept only text, Markdown,
+  HTML, and PDF media types with matching filenames, validate optional SHA-256
+  checksums, and never accept a caller-selected object key;
+- uploads return metadata only: no service credential, storage key, public
+  object URL, or signed URL reaches a browser response;
+- object creation is create-only. A failed database commit triggers a best-effort
+  object delete and leaves no document/version record; storage-disabled or
+  storage-failed uploads return a sanitized failure before trusted/ingestion
+  state can be reached;
+- source approval changes and uploads create sanitized audit events. Account
+  and organization deletion tombstone their durable knowledge descendants;
+  object retention/physical disposal remains the Phase 18G responsibility;
+- source approval does not enable ingestion. The exact `document.ingest.v1`
+  job contract and executor remain disabled until Phase 18C.
 
 ### Phase 18C — Durable ingestion executor
 
@@ -857,7 +876,7 @@ rental.
 
 ## 18. Phase status rule
 
-After Phase 18A, report:
+After Phases 18A–18B, report:
 
 ```text
 Phase 18 — Implemented Foundation

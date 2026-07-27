@@ -363,10 +363,12 @@ agent/v1-phase-18-production-rag
 The ordered implementation authority is
 [`phase_18_execution_plan.md`](phase_18_execution_plan.md). The first slice is
 implemented additively: four durable knowledge tables, a private Supabase
-Storage abstraction, server-derived tenant authorization, and the exact but
-disabled `document.ingest.v1` registry contract. The local JSON public
-retrieval path remains authoritative. Slice 18A is complete; Slice 18B is
-ready to start, and Slices 18C–18H remain.
+Storage abstraction, server-derived tenant authorization, the exact but
+disabled `document.ingest.v1` registry contract, authenticated source/document
+APIs, bounded private-upload handling, audit events, and lifecycle tombstones.
+The local JSON public retrieval path remains authoritative. Slices 18A–18B are
+complete locally; storage, ingestion, and retrieval remain disabled by default,
+and Slices 18C–18H remain.
 
 ## V1 Phase 19 — Production operations and security — Planned
 
