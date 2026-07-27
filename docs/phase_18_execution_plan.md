@@ -1,6 +1,6 @@
 # V1 Phase 18 Execution Plan — Production RAG and Knowledge Storage
 
-Status: **In Progress**
+Status: **Implemented Foundation**
 
 Branch: `agent/v1-phase-18-production-rag`
 
@@ -601,6 +601,8 @@ Frontend workspace:
 ### Phase 18A — Schema, storage, scope, and job contract
 
 Dependencies: completed Phases 16 and 17.
+
+Implementation: **Complete on the Phase 18 branch.**
 
 Deliver:
 

@@ -48,7 +48,7 @@ Current status:
 ```text
 V1 Phase 16 — Complete
 V1 Phase 17 — Complete
-V1 Phase 18 — In Progress on agent/v1-phase-18-production-rag
+V1 Phase 18 — Implemented Foundation on agent/v1-phase-18-production-rag
 V1 Phases 19–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -68,7 +68,8 @@ Historical Phase 16 evidence remains in its archive.
 - Frontend: Next.js App Router, React, TypeScript, Vercel
 - Backend: FastAPI, Pydantic, SQLAlchemy, Alembic, Render
 - Database: Supabase PostgreSQL hosted; PostgreSQL/SQLite local support
-- RAG: curated Markdown, heading-aware chunking, deterministic local embeddings, local JSON index
+- RAG: active curated Markdown/local JSON path plus disabled Phase 18 durable
+  source/document/version/chunk and private-storage foundations
 - Public data adapters: manual, Pendle, Morpho, Aave, DefiLlama, CoinGecko foundations
 - Testing: pytest, PostgreSQL CI migration path, TypeScript/build checks, smoke scripts, Compose validation
 - Optional synthesis: Ollama, OpenAI-compatible APIs, admin-controlled Vast.ai foundation
@@ -218,12 +219,18 @@ The following foundations are complete on `main`.
 
 ## 6. Deferred final release validation — V1 Phase 22
 
-Phase 16's implementation is merge-ready. Its remaining external launch gates are intentionally tracked in V1 Phase 22, not silently treated as complete:
+Phase 16 is complete on `main`. Its remaining external launch gates are
+intentionally tracked in V1 Phase 22, not silently treated as complete:
 
 1. deployed Supabase custom SMTP, signup verification, recovery/reset, authenticated-browser refresh/logout, and administrator MFA validation with disposable real accounts;
 2. qualified legal review of terms, privacy, retention, consent, and public launch claims.
 
-The credentialed Phase 16 Vercel/Render preview passed automated BFF, anonymous-isolation, CORS, readiness, and safe-status checks. Its historical evidence is preserved in [`archive/v1_phase_16/phase_16_deployed_verification.md`](archive/v1_phase_16/phase_16_deployed_verification.md). The merged branch must not be described as commercially production-ready until Phase 22 completes.
+The credentialed Phase 16 Vercel/Render preview passed automated BFF,
+anonymous-isolation, CORS, readiness, and safe-status checks. Its historical
+evidence is preserved in
+[`archive/v1_phase_16/phase_16_deployed_verification.md`](archive/v1_phase_16/phase_16_deployed_verification.md).
+The product must not be described as commercially production-ready until Phase
+22 completes.
 
 ---
 
@@ -267,12 +274,12 @@ The project can:
 - enforce human approval before trusted ingestion;
 - optionally synthesize wording without replacing deterministic fields;
 - prepare ML/retrieval/HPC workspaces;
-- provide Phase 16 multi-user foundations on the active branch;
+- provide the merged Phase 16 multi-user foundations;
 - run authenticated asynchronous analysis through durable jobs and review private job history.
 
 ---
 
-## 9. Phase 16 merge validation
+## 9. Completed Phase 16 validation
 
 Backend:
 
@@ -326,7 +333,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 ## 10. Known platform limitations
 
 - public rate limiting is still in-process, not distributed;
-- current RAG index is local JSON and intentionally public-curated only; organization metadata is not document/vector storage;
+- current report retrieval remains local JSON and intentionally public-curated
+  only; the additive Phase 18 records and private-storage adapter have no
+  upload API, ingestion executor, embeddings, or retrieval authority yet;
 - durable jobs, private workspace, retention, export, and account-deletion behavior are complete
   on `main`; Vast provider jobs remain disabled/dry-run by default, and real-provider operation is
   unverified;
@@ -347,9 +356,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 - Phase 17 — Complete on `main`; archived implementation and correction evidence is in
   [`archive/v1_phase_17/`](archive/v1_phase_17/). Real Vast.ai rental and continuously hosted
   worker validation remain Phase 22 gates;
-- Phase 18 — In Progress on `agent/v1-phase-18-production-rag`; the first slice adds additive
-  durable knowledge metadata, private-storage interfaces, tenant boundaries, and a disabled
-  `document.ingest` job contract while preserving the public JSON fallback;
+- Phase 18 — Implemented Foundation on `agent/v1-phase-18-production-rag`;
+  Slice 18A adds additive durable knowledge metadata, private-storage
+  interfaces, tenant boundaries, and a disabled `document.ingest.v1` job
+  contract while preserving the public JSON fallback. Slices 18B–18H remain;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.

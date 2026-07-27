@@ -27,7 +27,17 @@ class SupabasePrivateObjectStorage:
         timeout_seconds: float,
         client: httpx.Client | None = None,
     ) -> None:
-        if not supabase_url.startswith("https://") or not service_role_key or not bucket:
+        if (
+            not supabase_url.startswith("https://")
+            or not service_role_key
+            or not bucket
+            or len(bucket) > 128
+            or any(
+                character not in "abcdefghijklmnopqrstuvwxyz0123456789._-"
+                for character in bucket
+            )
+            or timeout_seconds <= 0
+        ):
             raise StorageConfigurationError("Private Supabase Storage is not configured")
         self._base_url = f"{supabase_url.rstrip('/')}/storage/v1/"
         self._bucket = bucket
@@ -64,16 +74,38 @@ class SupabasePrivateObjectStorage:
         if max_bytes < 0:
             raise StorageError("Private object download limit is invalid")
         key = validate_knowledge_object_key(key)
-        response = self._request("GET", self._object_path("object/authenticated", key))
-        self._raise_for_status(response)
-        content = response.content
-        if len(content) > max_bytes:
-            raise StorageError("Private object exceeds the allowed download size")
+        try:
+            with self._client.stream(
+                "GET",
+                urljoin(
+                    self._base_url,
+                    self._object_path("object/authenticated", key),
+                ),
+                headers=self._authorization_headers(),
+            ) as response:
+                self._raise_for_status(response)
+                content_length = response.headers.get("content-length")
+                if content_length is not None and int(content_length) > max_bytes:
+                    raise StorageError("Private object exceeds the allowed download size")
+                buffer = bytearray()
+                for chunk in response.iter_bytes():
+                    if len(buffer) + len(chunk) > max_bytes:
+                        raise StorageError("Private object exceeds the allowed download size")
+                    buffer.extend(chunk)
+                content_type = response.headers.get(
+                    "content-type",
+                    "application/octet-stream",
+                )
+        except StorageError:
+            raise
+        except (httpx.HTTPError, ValueError) as exc:
+            raise StorageError("Private storage request failed") from exc
+        content = bytes(buffer)
         return ObjectPayload(
             metadata=ObjectMetadata(
                 key=key,
                 size_bytes=len(content),
-                content_type=response.headers.get("content-type", "application/octet-stream"),
+                content_type=content_type,
                 checksum=sha256(content).hexdigest(),
             ),
             content=content,
@@ -121,11 +153,7 @@ class SupabasePrivateObjectStorage:
         return f"{endpoint}/{quote(self._bucket, safe='')}/{encoded_key}"
 
     def _request(self, method: str, path: str, **kwargs) -> httpx.Response:
-        headers = {
-            "authorization": f"Bearer {self._service_role_key}",
-            "apikey": self._service_role_key,
-            **kwargs.pop("headers", {}),
-        }
+        headers = self._authorization_headers(**kwargs.pop("headers", {}))
         try:
             return self._client.request(
                 method,
@@ -135,6 +163,13 @@ class SupabasePrivateObjectStorage:
             )
         except httpx.HTTPError as exc:
             raise StorageError("Private storage request failed") from exc
+
+    def _authorization_headers(self, **headers: str) -> dict[str, str]:
+        return {
+            "authorization": f"Bearer {self._service_role_key}",
+            "apikey": self._service_role_key,
+            **headers,
+        }
 
     @staticmethod
     def _raise_for_status(response: httpx.Response) -> None:

@@ -495,7 +495,7 @@ outbound call and blocks a second rental until an uncertain outcome is reconcile
 
 ---
 
-## 17. Phase 18 active — durable RAG/storage
+## 17. Phase 18 implemented foundation — durable RAG/storage
 
 ```text
 approved source/upload
@@ -509,11 +509,19 @@ approved source/upload
 
 Runtime filesystem and global JSON indexes stop being authoritative.
 
-Phase 18 begins additively. Its first slice creates durable source, document,
-version, and chunk foundations; a private object-storage interface;
-server-derived tenant scope; and a disabled `document.ingest.v1` registry
-contract. The current public JSON path remains the active retrieval and
-rollback path until pgvector shadow evaluation and citation gates pass. See
+Phase 18A is additive. `knowledge_sources`, `knowledge_documents`,
+`knowledge_document_versions`, and `knowledge_chunks` preserve immutable
+lineage without changing the current RAG tables. Public, private, and
+organization access predicates derive owner and active membership scope on the
+server; a platform administrator has no organization-content bypass.
+
+The private-storage protocol has a deterministic lineage-based key builder,
+create-only writes, bounded reads, idempotent deletion, a memory test backend,
+and a fail-closed Supabase adapter. It is disabled by default.
+`document.ingest.v1` has exact input/result schemas but no enabled submission
+path or executor. The current public JSON path remains active retrieval and
+rollback authority until worker ingestion, pgvector shadow evaluation, and
+citation gates pass. See
 [`phase_18_execution_plan.md`](phase_18_execution_plan.md).
 
 ---

@@ -4,9 +4,24 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 
 ## Unreleased — V1 Product Hardening
 
+### Phase 18A Production RAG Foundation
+
+- Added reversible durable source, document, immutable version, and chunk
+  tables while preserving the existing public JSON RAG metadata and runtime
+  path.
+- Added a disabled-by-default private Supabase Storage abstraction with
+  server-derived lineage keys, create-only writes, bounded reads, idempotent
+  deletion, sanitized failures, and an in-memory test backend.
+- Added server-derived public/private/organization knowledge authorization
+  without a platform-admin organization bypass.
+- Registered the exact `document.ingest.v1` job contract while keeping normal
+  submission and execution disabled until the worker-ingestion slice.
+- Added SQLite rollback/data-preservation and PostgreSQL tenant-isolation
+  coverage. Phase 18 remains an implemented foundation, not complete.
+
 ### Phase 17 Durable Jobs and Hybrid Workers
 
-- Correction pass completed locally: added supervised long-running heartbeats/cancellation, immutable
+- Correction pass completed on `main`: added supervised long-running heartbeats/cancellation, immutable
   attempt lease horizons, exact job schemas, recovery maintenance, database report-reference
   artifacts, completed-only report links, and durable Vast request reconciliation boundaries.
 
@@ -47,7 +62,7 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 - Completed Phase 16D local lifecycle/security audit hardening with bounded redaction, organization/account/consent/MFA events, administrator-only audit access, and a server-only BFF MFA audit channel.
 - Completed Phase 16E PostgreSQL quota/resource concurrency validation and Phase 15 migrated public API regression coverage; CI now enables the guarded PostgreSQL integration suite, and development demo ownership now respects the production foreign-key contract.
 
-Phase 16 is **Complete and merge-ready**. Its implementation record is archived in `docs/archive/v1_phase_16/`; deferred deployed-provider and qualified legal release validation is tracked as final V1 Phase 22 work.
+Phase 16 is **Complete on main**. Its implementation record is archived in `docs/archive/v1_phase_16/`; deferred deployed-provider and qualified legal release validation is tracked as final V1 Phase 22 work.
 
 ### Security
 

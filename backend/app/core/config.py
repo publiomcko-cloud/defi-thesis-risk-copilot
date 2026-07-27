@@ -158,6 +158,10 @@ class Settings(BaseSettings):
                 not self.supabase_storage_bucket
                 or "/" in self.supabase_storage_bucket
                 or len(self.supabase_storage_bucket) > 128
+                or any(
+                    character not in "abcdefghijklmnopqrstuvwxyz0123456789._-"
+                    for character in self.supabase_storage_bucket
+                )
                 or self.supabase_storage_timeout_seconds <= 0
             ):
                 raise ValueError("Private knowledge storage configuration is invalid")

@@ -217,6 +217,19 @@ storage, exact `document.ingest.v1` registry schemas, and server-derived public,
 private, and organization authorization. It must preserve the public JSON
 retriever as a rollback path.
 
+Implemented 18A evidence:
+
+- `test_phase18_foundation.py` covers ownership, anonymous denial, active
+  organization membership, non-member platform-admin denial, trusted-public
+  separation, key traversal, bounded/create-only storage, redacted Supabase
+  failures, fail-closed configuration, exact job schemas, and disabled
+  submission;
+- `test_phase18_migration.py` upgrades from the Phase 17 head, preserves
+  existing `document_sources`, verifies indexes/uniqueness, downgrades, and
+  re-upgrades;
+- `test_phase18_postgres_foundation.py` verifies PostgreSQL scope constraints,
+  organization isolation, and immediate removed-member denial.
+
 Later slices test durable upload and objects, worker ingestion, pgvector
 retrieval with tenant predicates applied before ranking, citation lineage,
 deletion/tombstones, re-embedding migration, rollback, and retrieval evaluation.

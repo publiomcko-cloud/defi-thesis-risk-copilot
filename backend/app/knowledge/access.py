@@ -179,6 +179,8 @@ def _derive_creation_scope(
     visibility: KnowledgeVisibility,
     organization_id: str | None,
 ) -> tuple[str | None, str | None]:
+    if not actor.is_active or (not actor.auth_enabled and not actor.is_admin):
+        raise HTTPException(status_code=403, detail="Authentication required")
     if visibility == "public":
         if organization_id is not None or not actor.is_admin:
             raise HTTPException(status_code=403, detail="Platform administrator role required")

@@ -291,12 +291,12 @@ The implementation, migration, automated browser, PostgreSQL, Compose, CI, and h
 Execution sequence:
 
 ```text
-16A Admin MFA usable workflow — complete locally
-16B Organization knowledge metadata and retrieval boundary — complete locally
-16C Migration, foreign-key, and index review — complete locally
-16D Audit coverage and security event logging — complete locally
-16E PostgreSQL concurrency and Phase 15 data validation — complete locally and in CI configuration
-16F Full browser E2E for Phase 16 workflows — complete locally and in CI configuration
+16A Admin MFA usable workflow — complete on main
+16B Organization knowledge metadata and retrieval boundary — complete on main
+16C Migration, foreign-key, and index review — complete on main
+16D Audit coverage and security event logging — complete on main
+16E PostgreSQL concurrency and Phase 15 data validation — complete on main and in CI
+16F Full browser E2E for Phase 16 workflows — complete on main and in CI
 16G Hosted configuration and automated validation — complete; archived evidence records the remaining manual provider checks
 16H Documentation and merge preparation — complete; final provider/legal launch approval moved to Phase 22
 ```
@@ -337,7 +337,7 @@ operations validation remain Phase 22 gates and are not production claims.
 Historical implementation and correction evidence is archived in
 [`archive/v1_phase_17/`](archive/v1_phase_17/).
 
-## V1 Phase 18 — Production RAG and knowledge storage — In Progress
+## V1 Phase 18 — Production RAG and knowledge storage — Implemented Foundation
 
 Goal: eliminate runtime-filesystem authority and support durable, versioned, tenant-filtered knowledge.
 
@@ -362,7 +362,10 @@ agent/v1-phase-18-production-rag
 
 The ordered implementation authority is
 [`phase_18_execution_plan.md`](phase_18_execution_plan.md). The first slice is
-additive and preserves the local JSON public retrieval path.
+implemented additively: four durable knowledge tables, a private Supabase
+Storage abstraction, server-derived tenant authorization, and the exact but
+disabled `document.ingest.v1` registry contract. The local JSON public
+retrieval path remains authoritative. Slices 18B–18H remain.
 
 ## V1 Phase 19 — Production operations and security — Planned
 
