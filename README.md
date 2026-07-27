@@ -6,7 +6,7 @@ A full-stack DeFi research and risk-analysis product that turns a strategy thesi
 
 The application demonstrates applied AI engineering without connecting wallets, signing transactions, holding funds, executing trades, allocating capital, or presenting personalized financial advice.
 
-## Live Phase 15 Product
+## Live Product
 
 - Frontend: https://defi-thesis-risk-copilot.vercel.app
 - Guided demo: https://defi-thesis-risk-copilot.vercel.app/demo
@@ -22,17 +22,22 @@ The Render free-tier backend may cold-start after inactivity.
 
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–17
-In progress: None
-Planned:   V1 Phases 18–22
+In progress: V1 Phase 18
+Planned:   V1 Phases 19–22
 ```
 
-The Phase 16 merge branch is:
+Phases 16 and 17 are complete on `main`. Phase 16 delivers managed identity,
+BFF, ownership, organization, quota, account, consent, retention, and frontend
+foundations. Phase 17 adds durable jobs, internal workers, asynchronous
+authenticated analysis, a private jobs workspace, and the administrator-only
+server-profiled Vast job. Their implementation records are archived in
+[`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/) and
+[`docs/archive/v1_phase_17/`](docs/archive/v1_phase_17/).
 
-```text
-agent/v1-phase-16-identity-ownership
-```
-
-Phase 16 delivers managed identity, BFF, ownership, organization, quota, account, consent, retention, and frontend foundations. Its detailed implementation record is archived in [`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/). V1 Phase 17 — Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22. It hardens durable jobs, internal workers, asynchronous authenticated analysis, a private jobs workspace, and the administrator-only server-profiled Vast job. Jobs and real provider startup remain disabled by default.
+Phase 18 is active on `agent/v1-phase-18-production-rag`; see the
+[`Phase 18 execution plan`](docs/phase_18_execution_plan.md). Verified
+real-provider and final deployed identity checks remain Phase 22 work. Real
+Vast rentals remain disabled.
 
 ## Product Capabilities
 
@@ -51,7 +56,7 @@ Phase 16 delivers managed identity, BFF, ownership, organization, quota, account
 - optional local/OpenAI-compatible synthesis;
 - admin-controlled Vast.ai dry-run/manual warm-up;
 - retrieval, ML, and HPC groundwork;
-- Phase 16 user, organization, thesis, quota, anonymous-session, and account foundations on the merge branch.
+- user, organization, thesis, quota, anonymous-session, account, and durable-job foundations.
 
 ## Public Deployment Safety
 
@@ -74,7 +79,7 @@ Do not submit sensitive personal, wallet, credential, private-position, or confi
 
 ## Architecture
 
-Phase 15 deployment:
+Current deployment:
 
 ```text
 Browser
@@ -83,7 +88,7 @@ Browser
   -> Supabase PostgreSQL
 ```
 
-Phase 16 target:
+Authenticated architecture:
 
 ```text
 Browser
@@ -93,7 +98,8 @@ Browser
   -> Supabase PostgreSQL ownership and quota data
 ```
 
-Later phases add durable jobs/workers, object/vector storage, operations/security, commercial workflows, and evaluated model intelligence.
+Phase 18 adds private object/vector storage and durable ingestion. Later phases
+add operations/security, commercial workflows, and evaluated model intelligence.
 
 See [`docs/architecture.md`](docs/architecture.md).
 
@@ -235,6 +241,11 @@ Phase 16 foundations:
 - `/api/usage`
 - `/api/consents`
 
+Phase 17 foundations:
+
+- `/api/jobs*`
+- `/internal/workers/*` (trusted workers only; blocked by the browser BFF)
+
 Controlled research/admin routes remain explicitly protected.
 
 ## Authoritative Documentation
@@ -242,7 +253,9 @@ Controlled research/admin routes remain explicitly protected.
 - [Current state](docs/current_state.md) — deployed versus branch reality
 - [Development plan](docs/development_plan.md) — roadmap and phase status
 - [Archived Phase 16 records](docs/archive/v1_phase_16/) — implementation contract, execution plan, and deployment evidence
-- [Future phase contracts](docs/future_phase_contracts.md) — full Phases 17–22 requirements
+- [Archived Phase 17 records](docs/archive/v1_phase_17/) — execution and validation evidence
+- [Phase 18 execution plan](docs/phase_18_execution_plan.md) — active implementation authority
+- [Future phase contracts](docs/future_phase_contracts.md) — full Phases 18–22 requirements
 - [Agent execution guide](docs/agent_execution_guide.md) — short-prompt workflow
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)

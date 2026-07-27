@@ -6,7 +6,9 @@ Authoritative references:
 
 - [`development_plan.md`](development_plan.md) — phase history and roadmap;
 - [`archive/v1_phase_16/`](archive/v1_phase_16/) — archived Phase 16 contract, execution plan, and deployment evidence;
-- [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22;
+- [`archive/v1_phase_17/`](archive/v1_phase_17/) — archived Phase 17 plan, corrections, and validation evidence;
+- [`phase_18_execution_plan.md`](phase_18_execution_plan.md) — active Phase 18 implementation plan;
+- [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22 contract;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
 ---
@@ -21,7 +23,9 @@ Authoritative references:
 - Deployment status: `https://defi-thesis-risk-copilot.onrender.com/api/deployment/status`
 - API docs: `https://defi-thesis-risk-copilot.onrender.com/docs`
 
-The live production branch is `main`. It currently represents the completed Phase 15 public-safe demo baseline unless a later branch has been explicitly merged and deployed.
+The live production branch is `main`. It contains the completed Phase 15
+public-safety baseline, Phase 16 managed identity/ownership, and Phase 17
+durable jobs and worker control plane.
 
 Render free-tier cold starts may delay the first request after inactivity.
 
@@ -35,20 +39,17 @@ Completed on `main`:
 - Post-MVP Phases 1–12;
 - Final Phase 13 demo/report package;
 - Final Phase 14 public deployment;
-- V1 Phase 15 product hardening and public-safe UX.
-
-Phase 17 implementation branch:
-
-```text
-agent/v1-phase-17-durable-jobs
-```
+- V1 Phase 15 product hardening and public-safe UX;
+- V1 Phase 16 production identity, ownership, organizations, and quotas;
+- V1 Phase 17 durable jobs, workers, async analysis, and job workspace.
 
 Current status:
 
 ```text
-V1 Phase 16 — Complete and merge-ready
-V1 Phase 17 — Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22
-V1 Phases 18–21 — Planned implementation work
+V1 Phase 16 — Complete
+V1 Phase 17 — Complete
+V1 Phase 18 — In Progress on agent/v1-phase-18-production-rag
+V1 Phases 19–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -58,7 +59,7 @@ Reviewed Phase 16 correction commit:
 bf1b9ddc6153e02f2018c4a43ba20bb634e82709
 ```
 
-Documentation-hardening commits follow that correction on the same branch.
+Historical Phase 16 evidence remains in its archive.
 
 ---
 
@@ -124,9 +125,9 @@ This behavior is the regression baseline for every later phase.
 
 ---
 
-## 5. Phase 16 merge branch — verified implementation foundation
+## 5. Phase 16 completed identity foundation
 
-The active branch currently contains the following foundations.
+The following foundations are complete on `main`.
 
 ### Managed identity
 
@@ -326,9 +327,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 - public rate limiting is still in-process, not distributed;
 - current RAG index is local JSON and intentionally public-curated only; organization metadata is not document/vector storage;
-- durable jobs, private workspace, retention, export, and account-deletion behavior exist on the
-  Phase 17 branch behind disabled-by-default worker and async-analysis flags; Vast provider jobs
-  remain disabled/dry-run by default, and real hosted-worker/provider operation is unverified;
+- durable jobs, private workspace, retention, export, and account-deletion behavior are complete
+  on `main`; Vast provider jobs remain disabled/dry-run by default, and real-provider operation is
+  unverified;
 - Render may cold-start;
 - several market adapters remain partial/manual fallbacks;
 - monitoring/discovery are manually initiated;
@@ -341,26 +342,14 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 ---
 
-## 11. Next phases
+## 11. Active and next phases
 
-- Phase 17 — Implementation complete locally on the branch. Phase 17A provides durable job/attempt/event/worker/credential/artifact
-  schemas, lifecycle/retention hooks, and admin worker-credential management. Phase 17B adds
-  authenticated tenant-scoped job submission, list/detail/event/cancel APIs, idempotency,
-  capacity reservation, queue expiry, and linked operator replay. Phase 17C adds an internal
-  credential-authenticated worker protocol. Phase 17D migrates authenticated analysis behind
-  `ASYNC_ANALYSIS_ENABLED`, with immutable inputs, preallocated report IDs, transactional
-  completion, source-job uniqueness, progress/cancellation UX, and synchronous anonymous fallback.
-  Phase 17E adds an administrator/MFA-gated, server-profiled `vast.session.start` worker job with
-  source-job/session uniqueness, pre-claim cost reservation, reconciliation after a lost completion
-  response, idempotent cleanup, and aggregate operator status. It remains disabled and dry-run by
-  default; Phase 17F adds a private jobs workspace and safe export/deletion/retention handling. Final corrections add cooperative executor cancellation and no-overlap worker behavior, configured analysis and provider lease horizons, provider-cost ledger reconstruction, non-destructive authorization revocation under PostgreSQL job-row locks, registry-owned retries, and dry-run recovery that never invokes provider cleanup. Membership changes affect active jobs only; completed organization reports and artifacts remain available. Recovery restores the current budget period and completed provider spend when rebuilding a missing global capacity row. Real Vast.ai rentals remain blocked because request reconciliation is unverified.
-  No real provider rental is claimed as deployed or externally verified. For low-volume production
-  analysis, the branch includes an outbound-only scheduled GitHub Actions worker that processes one
-  scoped job per run without an inbound port. Its protected environment uses a dedicated
-  least-privilege database role only for deterministic owner/scope lookup and market-data caching,
-  never the normal application database credential; it is intentionally not a continuously
-  available hosted-worker substitute;
-- Phase 18 — durable tenant RAG and object/vector storage;
+- Phase 17 — Complete on `main`; archived implementation and correction evidence is in
+  [`archive/v1_phase_17/`](archive/v1_phase_17/). Real Vast.ai rental and continuously hosted
+  worker validation remain Phase 22 gates;
+- Phase 18 — In Progress on `agent/v1-phase-18-production-rag`; the first slice adds additive
+  durable knowledge metadata, private-storage interfaces, tenant boundaries, and a disabled
+  `document.ingest` job contract while preserving the public JSON fallback;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.

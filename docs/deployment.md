@@ -5,6 +5,8 @@ This document defines deployment modes, environment variables, trust boundaries,
 Related contracts:
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_17/`](archive/v1_phase_17/)
+- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -21,7 +23,7 @@ Browser
   -> Supabase PostgreSQL
 ```
 
-Live Phase 15 services:
+Live services:
 
 - frontend: `https://defi-thesis-risk-copilot.vercel.app`;
 - demo: `https://defi-thesis-risk-copilot.vercel.app/demo`;
@@ -31,7 +33,10 @@ Live Phase 15 services:
 - deployment status: `/api/deployment/status`;
 - OpenAPI: `/docs`.
 
-The live deployment follows `main`. Phase 16 is merge-ready; the final deployed-provider and legal launch checks are now V1 Phase 22 work.
+The live deployment follows `main`; Phases 16 and 17 are complete there.
+Phase 18 is active on its implementation branch and is not enabled in
+production by this first slice. Final deployed-provider and legal launch checks
+remain V1 Phase 22 work.
 
 ---
 
@@ -582,7 +587,7 @@ When running frontend outside Docker, use the reachable local backend URL.
 
 ---
 
-## 14. Phase 17 branch validation
+## 14. Completed Phase 17 baseline validation
 
 ### Backend
 
@@ -669,9 +674,13 @@ In hybrid mode, anonymous denial must not globally block authenticated user oper
 - [ ] documentation matches deployment;
 - [ ] V1 Phase 22 final provider/legal release validation is complete before commercial launch.
 
-### Archived Phase 16G Record
+### Archived Phase 16G record
 
-The current live domains remain the Phase 15 public-demo deployment. On 2026-07-21, Vercel returned `404` for `/login` and `/api/auth/session`, and Render reported `portfolio_demo` with `auth_enabled=false`; public privileged-mutation probes returned controlled `403` responses. This confirms the baseline remains safe but cannot satisfy managed-identity verification. The exact preview configuration and manual verification matrix are archived in [`archive/v1_phase_16/phase_16_deployed_verification.md`](archive/v1_phase_16/phase_16_deployed_verification.md); final provider validation is V1 Phase 22 work.
+On 2026-07-21, the then-current Phase 15 deployment returned `404` for
+`/login` and `/api/auth/session`; that historical evidence is preserved in
+[`archive/v1_phase_16/phase_16_deployed_verification.md`](archive/v1_phase_16/phase_16_deployed_verification.md).
+It does not describe the current hybrid deployment. Final provider validation
+remains V1 Phase 22 work.
 
 ---
 
@@ -679,11 +688,16 @@ The current live domains remain the Phase 15 public-demo deployment. On 2026-07-
 
 ### Phase 17
 
-Deploy worker identities, queue schema, local/cloud workers, job observability, and cost controls.
+Completed on `main`. Preserve worker identities, queue schema, the trusted
+GitHub Actions worker path, job observability, and provider cost controls.
 
 ### Phase 18
 
-Deploy object storage and tenant-aware vector storage. Stop treating runtime filesystem as authoritative.
+Implement private object storage and tenant-aware vector storage according to
+[`phase_18_execution_plan.md`](phase_18_execution_plan.md). Keep storage,
+ingestion submission, and durable retrieval disabled through the first
+foundation slice. Runtime JSON remains the production retrieval fallback until
+shadow evaluation and rollback gates pass.
 
 ### Phase 19
 

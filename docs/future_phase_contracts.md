@@ -1,12 +1,15 @@
 # V1 Future Phase Contracts — Phases 17–22
 
-This document is the authoritative implementation contract for the product phases after the completed V1 Phase 16 implementation.
+This document is the authoritative implementation contract for V1 Phases
+17–22. Phases 16 and 17 are complete on `main`; Phase 18 is active.
 
 Future implementation prompts should reference this file, [`development_plan.md`](development_plan.md), [`current_state.md`](current_state.md), and the selected phase section instead of restating the entire scope.
 
 Related documents:
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_17/`](archive/v1_phase_17/)
+- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
 - [`agent_execution_guide.md`](agent_execution_guide.md)
 - [`architecture.md`](architecture.md)
 - [`deployment.md`](deployment.md)
@@ -41,9 +44,11 @@ Some work may overlap, but completion labels must respect dependencies.
 
 # V1 Phase 17 — Durable Job Queue and Hybrid Workers
 
-Status: **Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22.**
+Status: **Complete on `main`. Real-provider and final deployed operations
+validation remain Phase 22 gates.**
 
-Status: **Final corrections required on `agent/v1-phase-17-durable-jobs`**
+Historical planning and correction evidence is archived in
+[`archive/v1_phase_17/`](archive/v1_phase_17/).
 
 ## 17.1 Goal
 
@@ -322,7 +327,10 @@ Frontend requirements:
 
 # V1 Phase 18 — Production RAG and Knowledge Storage
 
-Status: **Planned**
+Status: **In Progress**
+
+The ordered implementation slices and first-slice boundary are defined in
+[`phase_18_execution_plan.md`](phase_18_execution_plan.md).
 
 ## 18.1 Goal
 

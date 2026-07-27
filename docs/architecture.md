@@ -3,6 +3,8 @@
 This document defines the system architecture and permanent trust boundaries. Phase-specific requirements live in:
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_17/`](archive/v1_phase_17/)
+- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -44,7 +46,7 @@ The application must not implicitly:
 
 ---
 
-## 3. Deployed Phase 15 architecture
+## 3. Deployed V1 foundation
 
 ```text
 Browser
@@ -59,7 +61,8 @@ Render startup
   -> Uvicorn
 ```
 
-The deployed `main` branch currently represents the Phase 15 public-safe baseline unless a later phase is explicitly merged and deployed.
+The deployed `main` branch includes the Phase 15 public-safe baseline, Phase
+16 identity/ownership, and Phase 17 durable job control plane.
 
 Live endpoints:
 
@@ -72,7 +75,7 @@ Live endpoints:
 
 ---
 
-## 4. Phase 16 target architecture
+## 4. Phase 16 implemented identity architecture
 
 ```text
 Browser
@@ -412,7 +415,7 @@ Market data may be delayed, partial, cached, simulated, or manually supplied and
 
 ---
 
-## 16. Phase 17 target — jobs and workers
+## 16. Phase 17 implemented — jobs and workers
 
 ```text
 API/control plane
@@ -492,7 +495,7 @@ outbound call and blocks a second rental until an uncertain outcome is reconcile
 
 ---
 
-## 17. Phase 18 target — durable RAG/storage
+## 17. Phase 18 active — durable RAG/storage
 
 ```text
 approved source/upload
@@ -505,6 +508,13 @@ approved source/upload
 ```
 
 Runtime filesystem and global JSON indexes stop being authoritative.
+
+Phase 18 begins additively. Its first slice creates durable source, document,
+version, and chunk foundations; a private object-storage interface;
+server-derived tenant scope; and a disabled `document.ingest.v1` registry
+contract. The current public JSON path remains the active retrieval and
+rollback path until pgvector shadow evaluation and citation gates pass. See
+[`phase_18_execution_plan.md`](phase_18_execution_plan.md).
 
 ---
 

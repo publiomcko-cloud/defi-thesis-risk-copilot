@@ -3,6 +3,8 @@
 This file is the validation index. Detailed acceptance tests are defined in:
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_17/`](archive/v1_phase_17/)
+- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`agent_execution_guide.md`](agent_execution_guide.md)
 
@@ -116,7 +118,7 @@ organizations/memberships, recovery, consent, MFA, mobile layout, keyboard focus
 
 A route-status smoke script is useful but is not full browser E2E coverage.
 
-## 5. Current Phase 16 branch coverage
+## 5. Completed Phase 16 coverage
 
 Present:
 
@@ -208,7 +210,18 @@ be disabled for bounded smoke timing unless that provider is the explicit subjec
 
 ## 7. Phase 18 validation
 
-Test durable objects, document versions, worker ingestion, tenant-filtered retrieval, citation lineage, deletion/tombstones, re-embedding migration, rollback, and retrieval evaluation.
+Follow [`phase_18_execution_plan.md`](phase_18_execution_plan.md) slice gates.
+The first foundation slice must prove reversible additive migrations, immutable
+version relationships, private object-key construction, disabled-by-default
+storage, exact `document.ingest.v1` registry schemas, and server-derived public,
+private, and organization authorization. It must preserve the public JSON
+retriever as a rollback path.
+
+Later slices test durable upload and objects, worker ingestion, pgvector
+retrieval with tenant predicates applied before ranking, citation lineage,
+deletion/tombstones, re-embedding migration, rollback, and retrieval evaluation.
+PostgreSQL tests are required for tenant isolation, vector filtering, concurrent
+version creation, job idempotency, and migration safety.
 
 ## 8. Phase 19 validation
 
