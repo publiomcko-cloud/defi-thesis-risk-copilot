@@ -17,7 +17,9 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 - Registered the exact `document.ingest.v1` job contract while keeping normal
   submission and execution disabled until the worker-ingestion slice.
 - Added SQLite rollback/data-preservation and PostgreSQL tenant-isolation
-  coverage. Phase 18 remains an implemented foundation, not complete.
+  coverage, plus Supabase Storage metadata and signed-path contract coverage.
+  Phase 18A is complete; Phase 18 remains an implemented foundation, not
+  complete.
 
 ### Phase 17 Durable Jobs and Hybrid Workers
 

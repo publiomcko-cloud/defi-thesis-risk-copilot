@@ -370,7 +370,7 @@ Client-visible request input contains only:
 
 ```json
 {
-  "document_version_id": "kdv_..."
+  "document_version_id": "kver_..."
 }
 ```
 
@@ -382,7 +382,7 @@ Result fields are bounded and deterministic:
 
 ```json
 {
-  "document_version_id": "kdv_...",
+  "document_version_id": "kver_...",
   "content_checksum": "...",
   "chunk_count": 0,
   "embedding_count": 0,
@@ -604,6 +604,10 @@ Dependencies: completed Phases 16 and 17.
 
 Implementation: **Complete on the Phase 18 branch.**
 
+Completion gate: **Passed.** Phase 18B is ready to start; it must not enable
+uploads, storage, or ingestion until its own API, compensation, and browser
+isolation tests are implemented.
+
 Deliver:
 
 - additive source/document/version/chunk models;
@@ -628,6 +632,8 @@ Gate:
 ### Phase 18B — Source/document API and private upload
 
 Dependencies: 18A.
+
+Status: **Ready to start.**
 
 Deliver:
 

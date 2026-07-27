@@ -357,9 +357,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   [`archive/v1_phase_17/`](archive/v1_phase_17/). Real Vast.ai rental and continuously hosted
   worker validation remain Phase 22 gates;
 - Phase 18 — Implemented Foundation on `agent/v1-phase-18-production-rag`;
-  Slice 18A adds additive durable knowledge metadata, private-storage
-  interfaces, tenant boundaries, and a disabled `document.ingest.v1` job
-  contract while preserving the public JSON fallback. Slices 18B–18H remain;
+  Slice 18A is complete: it adds additive durable knowledge metadata,
+  private-storage interfaces, tenant boundaries, and a disabled
+  `document.ingest.v1` job contract while preserving the public JSON fallback.
+  Slice 18B is ready to start; slices 18C–18H remain;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.

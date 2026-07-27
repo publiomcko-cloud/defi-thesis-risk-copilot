@@ -509,7 +509,7 @@ approved source/upload
 
 Runtime filesystem and global JSON indexes stop being authoritative.
 
-Phase 18A is additive. `knowledge_sources`, `knowledge_documents`,
+Phase 18A is complete and additive. `knowledge_sources`, `knowledge_documents`,
 `knowledge_document_versions`, and `knowledge_chunks` preserve immutable
 lineage without changing the current RAG tables. Public, private, and
 organization access predicates derive owner and active membership scope on the
@@ -523,6 +523,8 @@ path or executor. The current public JSON path remains active retrieval and
 rollback authority until worker ingestion, pgvector shadow evaluation, and
 citation gates pass. See
 [`phase_18_execution_plan.md`](phase_18_execution_plan.md).
+Phase 18B may add source/document APIs and private upload handling; it does not
+inherit permission to enable retrieval or ingestion.
 
 ---
 

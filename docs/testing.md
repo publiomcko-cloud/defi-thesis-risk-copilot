@@ -229,6 +229,9 @@ Implemented 18A evidence:
   re-upgrades;
 - `test_phase18_postgres_foundation.py` verifies PostgreSQL scope constraints,
   organization isolation, and immediate removed-member denial.
+- `test_phase18_storage_adapter.py` verifies the private Supabase metadata
+  route and rejects malformed or cross-key signed download responses without
+  exposing provider details.
 
 Later slices test durable upload and objects, worker ingestion, pgvector
 retrieval with tenant predicates applied before ranking, citation lineage,

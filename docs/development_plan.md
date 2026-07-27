@@ -365,7 +365,8 @@ The ordered implementation authority is
 implemented additively: four durable knowledge tables, a private Supabase
 Storage abstraction, server-derived tenant authorization, and the exact but
 disabled `document.ingest.v1` registry contract. The local JSON public
-retrieval path remains authoritative. Slices 18B–18H remain.
+retrieval path remains authoritative. Slice 18A is complete; Slice 18B is
+ready to start, and Slices 18C–18H remain.
 
 ## V1 Phase 19 — Production operations and security — Planned
 
