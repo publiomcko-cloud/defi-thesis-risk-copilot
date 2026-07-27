@@ -1,5 +1,10 @@
 # V1 Phase 17 Execution Plan — Durable Jobs and Hybrid Workers
 
+> **Archived execution record.** Phase 17 was merged into `main` by
+> `7d934d6` (`Agent/v1 phase 17 durable jobs (#3)`). Later production-worker
+> hardening is recorded in this archive's validation summary. References to
+> the original implementation branch below are historical.
+
 Status: **Implementation complete locally; the low-volume scheduled GitHub Actions worker is
 documented for production use. Continuously hosted-worker and verified real-provider validation
 remain deferred to Phase 22.**
