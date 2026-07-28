@@ -6,7 +6,7 @@ Related contracts:
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
-- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
+- [`archive/v1_phase_18/`](archive/v1_phase_18/)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -33,10 +33,12 @@ Live services:
 - deployment status: `/api/deployment/status`;
 - OpenAPI: `/docs`.
 
-The live deployment follows `main`; Phases 16 and 17 are complete there.
-Phase 18 is active on its implementation branch and is not enabled in
-production by this first slice. Final deployed-provider and legal launch checks
-remain V1 Phase 22 work.
+The live deployment follows `main`; Phases 16–18 are complete there. Phase 18
+durable knowledge capabilities are merged but remain feature-gated while JSON
+RAG remains the production fallback. Phase 19 may run controlled readiness and
+shadow-mode validation without enabling all durable knowledge flags. Final
+deployed-provider, storage-policy, and legal launch checks remain V1 Phase 22
+work.
 
 ---
 

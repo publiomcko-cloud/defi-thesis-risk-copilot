@@ -1,7 +1,7 @@
 # V1 Future Phase Contracts — Phases 17–22
 
 This document is the authoritative implementation contract for V1 Phases
-17–22. Phases 16 and 17 are complete on `main`; Phase 18 is active.
+17–22. Phases 16–18 are complete on `main`; Phase 19 is active.
 
 Future implementation prompts should reference this file, [`development_plan.md`](development_plan.md), [`current_state.md`](current_state.md), and the selected phase section instead of restating the entire scope.
 
@@ -9,7 +9,7 @@ Related documents:
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
-- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
+- [`archive/v1_phase_18/`](archive/v1_phase_18/)
 - [`agent_execution_guide.md`](agent_execution_guide.md)
 - [`architecture.md`](architecture.md)
 - [`deployment.md`](deployment.md)
@@ -327,10 +327,11 @@ Frontend requirements:
 
 # V1 Phase 18 — Production RAG and Knowledge Storage
 
-Status: **Implemented Foundation**
+Status: **Complete on `main`; production activation remains feature-gated**
 
-The ordered implementation slices and first-slice boundary are defined in
-[`phase_18_execution_plan.md`](phase_18_execution_plan.md).
+The ordered implementation slices, correction history, validation, migration,
+and cutover limitations are preserved in
+[`archive/v1_phase_18/`](archive/v1_phase_18/).
 
 ## 18.1 Goal
 
@@ -581,7 +582,7 @@ Metrics:
 
 # V1 Phase 19 — Production Operations and Security
 
-Status: **Planned**
+Status: **Active — planning and first operations/security slice pending implementation**
 
 ## 19.1 Goal
 
@@ -1225,7 +1226,8 @@ run all required checks, update the docs, commit logically, and do not merge.
 For a correction pass:
 
 ```text
-Audit the current Phase 18 branch against the complete Phase 18 contract in
-docs/future_phase_contracts.md. Fix every blocker, run the required validation,
-update current-state documentation, commit the changes, and do not merge.
+Audit the merged Phase 18 implementation against its archived record and the
+Phase 18 contract in docs/future_phase_contracts.md. Fix every blocker, run the
+required validation, update current-state documentation, commit the changes,
+and do not merge.
 ```

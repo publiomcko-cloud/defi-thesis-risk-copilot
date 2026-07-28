@@ -1,13 +1,13 @@
 # Current State — DeFi Thesis & Risk Copilot
 
-This document describes what is deployed on `main`, active V1 implementation branches, and the remaining roadmap.
+This document describes what is deployed on `main`, the active V1 implementation phase, and the remaining roadmap.
 
 Authoritative references:
 
 - [`development_plan.md`](development_plan.md) — phase history and roadmap;
 - [`archive/v1_phase_16/`](archive/v1_phase_16/) — archived Phase 16 contract, execution plan, and deployment evidence;
 - [`archive/v1_phase_17/`](archive/v1_phase_17/) — archived Phase 17 plan, corrections, and validation evidence;
-- [`phase_18_execution_plan.md`](phase_18_execution_plan.md) — active Phase 18 implementation plan;
+- [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 plan, validation, correction, migration, and cutover evidence;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22 contract;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -24,8 +24,8 @@ Authoritative references:
 - API docs: `https://defi-thesis-risk-copilot.onrender.com/docs`
 
 The live production branch is `main`. It contains the completed Phase 15
-public-safety baseline, Phase 16 managed identity/ownership, and Phase 17
-durable jobs and worker control plane.
+public-safety baseline, Phase 16 managed identity/ownership, Phase 17 durable
+jobs and worker control plane, and Phase 18 durable knowledge/retrieval code.
 
 Render free-tier cold starts may delay the first request after inactivity.
 
@@ -42,14 +42,16 @@ Completed on `main`:
 - V1 Phase 15 product hardening and public-safe UX;
 - V1 Phase 16 production identity, ownership, organizations, and quotas;
 - V1 Phase 17 durable jobs, workers, async analysis, and job workspace.
+- V1 Phase 18 production RAG and knowledge storage.
 
 Current status:
 
 ```text
 V1 Phase 16 — Complete
 V1 Phase 17 — Complete
-V1 Phase 18 — Implemented locally (18A–18H code complete) on agent/v1-phase-18-production-rag
-V1 Phases 19–21 — Planned implementation work
+V1 Phase 18 — Complete and merged into main; production features remain feature-gated
+V1 Phase 19 — Active implementation phase
+V1 Phases 20–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -367,27 +369,18 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 - Phase 17 — Complete on `main`; archived implementation and correction evidence is in
   [`archive/v1_phase_17/`](archive/v1_phase_17/). Real Vast.ai rental and continuously hosted
   worker validation remain Phase 22 gates;
-- Phase 18 — Implemented Foundation on `agent/v1-phase-18-production-rag`;
-  Slices 18A–18H are locally complete: additive durable knowledge metadata,
-  private-storage interfaces, tenant boundaries, authenticated source/document
-  APIs, bounded upload handling, approval audit events, lifecycle tombstones,
-  feature-gated durable ingestion, generation-specific local-only pgvector
-  embeddings, and a checksum-bound tenant-safe retriever preserve the public
-  JSON fallback. Phase 18G adds a convergent checked-in-Markdown-only importer,
-  whole-import object compensation with race-safe ownership tracking and
-  operator commit coverage, fail-closed collision protection, deterministic
-  chunk/vector repair, declared-lineage expected-empty retrieval evaluation,
-  and a guarded report path that derives public,
-  private, and active-organization scope server-side for authenticated users;
-  anonymous analysis stays public-only. Phase 18H adds the authenticated
-  Knowledge workspace, durable citation lineage in reports, safe admin readiness
-  metrics, an explicit storage probe, and safe private-knowledge export metadata.
-  Storage, ingestion, embeddings, shadow retrieval, corpus import, and the
-  durable primary flag remain disabled by default. Live Supabase policy
-  verification and primary-path activation remain Phase 22 external gates. The
-  local top-1 retrieval gate has seven cases and reports 100% precision/recall
-  with zero citation issues; it is not production cutover evidence;
-- Phase 19 — production operations and security;
+- Phase 18 — Complete on `main`; implementation, correction, validation,
+  migration, and cutover evidence is archived in
+  [`archive/v1_phase_18/`](archive/v1_phase_18/). It provides durable
+  tenant-safe knowledge storage, bounded source/document workflows, worker
+  ingestion, embeddings, citations, lifecycle controls, curated corpus import,
+  and the Knowledge workspace. The complete code remains feature-gated; JSON
+  RAG remains the production fallback. The local top-1 retrieval gate has seven
+  cases with 100% precision/recall and zero citation issues, but is not
+  production cutover evidence. Controlled deployment can occur during Phase 19;
+  final storage-policy, cutover, and launch approval remain Phase 22 gates;
+- Phase 19 — Active: production operations and security, beginning with
+  observability, readiness checks, and controlled shadow-mode validation;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
