@@ -411,6 +411,13 @@ contract. The scanner fails closed and production knowledge storage cannot be
 enabled without it. WAF/bot policy, scanner/quarantine deployment, final origin
 evidence, CSP reporting, and HSTS approval remain pending.
 
+Phase 19D is implemented locally: an aggregate-only administrator monitoring
+snapshot covers queue/worker/retrieval/provider and fallback state; local alert
+candidates are deduplicated and have no delivery channel. The private operations
+page and fixed-path synthetic CLI are disabled by default. Telemetry/pager/status
+provider selection, dashboard RBAC, safe synthetic identity, alert escalation,
+and SLO/error-budget evidence remain deployment work.
+
 Core outcomes:
 
 - threat model;

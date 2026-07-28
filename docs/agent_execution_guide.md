@@ -81,6 +81,8 @@ For every change, inspect:
 - request size and schema bounds;
 - exact browser origins, BFF upstream allowlists, redirect handling, and CORS;
 - upload media/signature validation and scanner failure behavior before storage;
+- telemetry, alert, synthetic, and dashboard paths for aggregate-only output,
+  ownership, redaction, delivery failure, and feature-gated rollout;
 - concurrency and idempotency;
 - deletion and retention;
 - logging and audit redaction;

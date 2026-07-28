@@ -1,6 +1,6 @@
 # V1 Phase 19 Execution Plan — Production Operations and Security
 
-Status: **In Progress — 19A, 19B, and 19C implemented locally; deployment evidence pending**
+Status: **In Progress — 19A through 19D implemented locally; deployment evidence pending**
 
 This plan implements the [Phase 19 contract](future_phase_contracts.md#v1-phase-19--production-operations-and-security). Read it with [current state](current_state.md), [architecture](architecture.md), [deployment](deployment.md), [testing](testing.md), and the [Phase 18 archive](archive/v1_phase_18/).
 
@@ -97,6 +97,16 @@ production-origin evidence remain pending.
 | Rollout gate | Define SLIs, SLOs, error budgets, severity, owner, and runbook link for each page-worthy alert. Test alerts route to a non-production receiver before paging. |
 | Rollback | Mute a faulty rule through an audited change, retain health checks and evidence for tuning, and never disable all detection for a dependency. |
 | Completion | Actionable uptime, queue, worker, storage, retrieval, auth, quota/rate-limit, and provider signals with tested escalation and documented SLOs. |
+
+Implementation status: **implemented locally, feature-gated.** The new
+aggregate-only snapshot measures database/JSON-fallback readiness, queue depth
+and age, job/worker state, provider cleanup failures, and bounded retrieval
+event latency/empty rate. It returns local candidate alerts with stable keys and
+runbook IDs only; it has no webhook, pager, status page, exporter, tenant
+identifier, query, or source content. The private administrator view and the
+`run_synthetic_checks` command are disabled by default. External telemetry,
+alert delivery, dashboard RBAC, safe synthetic-tenant deployment, error-budget
+evidence, and storage/pgvector probes remain required rollout work.
 
 ### 19E — Backup, restore, retention, and secret operations
 

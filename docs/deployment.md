@@ -126,6 +126,29 @@ failure rejects the upload before object storage. Do not activate storage until
 scanner, quarantine, WAF/bot, and synthetic two-tenant policy evidence are
 recorded. There is no scanner credential in browser configuration.
 
+## Phase 19D monitoring and synthetic rollout
+
+Local monitoring is disabled by default and never sends an alert:
+
+```env
+OPERATIONS_MONITORING_ENABLED=false
+OPERATIONS_ALERT_EVALUATION_ENABLED=false
+OPERATIONS_SYNTHETIC_CHECKS_ENABLED=false
+OPERATIONS_SYNTHETIC_ALLOWED_ORIGINS=
+```
+
+In a private preview, enable local aggregate inspection first. The
+administrator-only `/api/admin/operations/monitoring` endpoint and
+`/admin/operations` page expose only counts, ages, booleans, retrieval metrics,
+and stable candidate keys. They must continue to return
+`alert_delivery=not_implemented` until a later approved delivery adapter exists.
+
+Use [`operations/monitoring_and_alerting.md`](operations/monitoring_and_alerting.md)
+for SLO targets, synthetic command rules, owners, escalation, and rollout gates.
+Do not configure a browser-visible telemetry key, pager token, or synthetic
+credential. Do not run authenticated synthetics until a dedicated least-privilege
+synthetic user and revocation procedure are documented.
+
 ---
 
 ## 2. Supported deployment modes

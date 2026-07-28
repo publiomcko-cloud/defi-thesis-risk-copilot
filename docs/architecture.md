@@ -612,6 +612,13 @@ operator-configured scanner must return `clean` before bytes reach storage;
 scanner failure rejects the upload. JSON RAG remains the fallback and no
 Phase 18 feature flag is activated by these controls.
 
+Phase 19D adds a separate, administrator-only aggregate monitoring projection.
+It reads durable job/worker state and privacy-safe retrieval events without
+returning tenant, job, worker, query, source, or credential detail. Local alert
+candidates remain inside the application and are not pager delivery. The
+synthetic runner can only use fixed health/readiness/demo paths until a later
+operator-owned authenticated synthetic deployment is approved.
+
 ---
 
 ## 19. Phase 20 target — commercial product

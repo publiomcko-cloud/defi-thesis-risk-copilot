@@ -19,6 +19,10 @@
   redirect checks, and a required-scanner contract that fails uploads closed.
   WAF/bot rules, scanner/quarantine deployment, CSP-report evidence, final
   origins, and HSTS approval remain pending.
+- Implemented 19D locally with aggregate-only operational monitoring, stable
+  local alert candidates, a private admin operations view, and an opt-in safe
+  synthetic runner. No telemetry exporter, pager, status provider, dashboard
+  destination, or synthetic identity is configured.
 
 ## Phase 18 — Merged
 

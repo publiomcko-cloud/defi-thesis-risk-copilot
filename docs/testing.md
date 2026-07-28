@@ -373,6 +373,28 @@ rejection, safe backend-base validation, and required scanner clean/failure
 behavior. They do not prove a deployed WAF, bot policy, scanner/quarantine
 service, CSP report collection, final production origin list, or HSTS scope.
 
+### Phase 19D implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19d_monitoring.py
+OPERATIONS_MONITORING_ENABLED=true OPERATIONS_SYNTHETIC_CHECKS_ENABLED=true \
+  OPERATIONS_SYNTHETIC_ALLOWED_ORIGINS=https://approved-synthetic-target.example \\
+  python -m scripts.run_synthetic_checks --base-url https://approved-synthetic-target.example
+
+cd ../frontend
+npm run lint
+npm run build
+```
+
+The automated coverage proves aggregate-only queue/worker/retrieval signals,
+candidate deduplication, admin authorization, configuration gates, and fixed
+synthetic paths with no response-body or token output. The CLI example requires
+an operator-owned target and is not run against production customer data. Pager,
+telemetry, dashboard, authenticated synthetic, escalation, and SLO evidence are
+external rollout work.
+
 ## 9. Phase 20 validation
 
 Test analytics consent, notification preferences, signed webhooks, delivery retry, schedules/timezones, entitlements, billing event idempotency, organization seats, and data export/deletion integration.
