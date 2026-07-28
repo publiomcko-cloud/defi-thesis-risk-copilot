@@ -13,7 +13,7 @@ Status legend: `implemented locally`, `planned`, or `external evidence required`
 | CSP, HSTS, CORS, CSRF, SSRF, upload scanning | planned | 19C | Existing BFF allowlist and storage controls stay active. |
 | Alerting, synthetics, SLOs, status integration | planned | 19D | No paging or synthetic tenant has been enabled. |
 | Backup/restore, secret rotation, incident response | planned | 19E/19G | Existing cleanup/recovery commands remain unchanged. |
-| CI security scanning and protected branch rules | planned | 19F | Existing CI remains required. |
+| CI security scanning and protected branch rules | planned, blocker recorded | `npm audit --omit=dev` on 2026-07-28 reports three high-severity production advisories: `next` (direct), `postcss`, and `sharp` (transitive). | Phase 19F must remediate or approve time-bounded exceptions before Phase 19 can complete; existing CI remains required. |
 | Load, worker-loss, provider-failure exercises | planned | 19H | Real Vast rentals remain disabled. |
 | Controlled Phase 18 deployment evidence | external evidence required | 19I, Phase 18 archive, Phase 22 | `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=false`; JSON RAG remains fallback. |
 

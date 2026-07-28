@@ -13,7 +13,7 @@ This is the living threat model for V1 Phase 19. It records no credentials, cust
 | Object/vector storage and RAG | Tenant leakage, poisoned source, corrupt vector, broad cutover | Phase 18 server-derived filters and JSON fallback remain unchanged; pgvector primary stays disabled. | Upload scanning, deployed policy checks, controlled shadow evidence: 19C/19I and final approval in Phase 22. |
 | Identity and administration | Account takeover, recovery/MFA abuse, privileged misuse, audit tampering | Existing Phase 16 authentication, role, MFA, and audit boundaries are preserved; operational endpoint requires platform admin. | Deployed two-user/MFA evidence and incident exercises: 19G/Phase 22. |
 | Public compute and providers | Rate-limit bypass, DoS, provider-cost abuse, secret exposure | Existing in-process limiter and Phase 17 reservation/fail-closed Vast controls are unchanged; real Vast rentals remain disabled. | Shared rate limiting: 19B; provider failure and cost exercises: 19H. |
-| Supply chain and recovery | Compromised dependency, database/object outage, failed migration | Existing CI and migration checks remain required. | Scanning/protected branches: 19F; backup/restore: 19E; incident runbooks: 19G. |
+| Supply chain and recovery | Compromised dependency, database/object outage, failed migration | Existing CI and migration checks remain required. The 2026-07-28 production dependency audit reports three high-severity advisories: direct `next` and transitive `postcss`/`sharp`. | Dependency remediation and protected-branch scan policy: 19F. The open high-severity advisories block Phase 19 completion. Backup/restore: 19E; incident runbooks: 19G. |
 
 ## 19A acceptance evidence
 
