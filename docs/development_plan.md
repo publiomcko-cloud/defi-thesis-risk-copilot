@@ -404,6 +404,13 @@ limiter protects bounded compute and durable-job admission with burst/sustained
 windows, salted scope hashes, and shadow/enforce modes. Preview proxy-policy,
 alert, and staged-enforcement evidence remain pending.
 
+Phase 19C is implemented locally: explicit FastAPI CORS/browser-origin and
+declared request-size controls, report-only CSP and baseline headers, BFF exact
+origin/backend-target/redirect checks, and an opt-in required upload-scanner
+contract. The scanner fails closed and production knowledge storage cannot be
+enabled without it. WAF/bot policy, scanner/quarantine deployment, final origin
+evidence, CSP reporting, and HSTS approval remain pending.
+
 Core outcomes:
 
 - threat model;

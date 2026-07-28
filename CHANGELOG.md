@@ -14,6 +14,11 @@
   for bounded compute and durable-job admission. It uses salted scope hashes,
   trusted-proxy CIDR controls, burst/sustained windows, and shadow/enforce
   rollout modes; production proxy and alert evidence remain pending.
+- Implemented 19C locally with explicit CORS/origin/body-size controls,
+  report-only CSP and baseline browser/API security headers, BFF origin/target/
+  redirect checks, and a required-scanner contract that fails uploads closed.
+  WAF/bot rules, scanner/quarantine deployment, CSP-report evidence, final
+  origins, and HSTS approval remain pending.
 
 ## Phase 18 — Merged
 

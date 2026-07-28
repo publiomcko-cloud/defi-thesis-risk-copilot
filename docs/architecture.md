@@ -603,6 +603,15 @@ Adds:
 - incident response;
 - load/failure/browser/PostgreSQL testing.
 
+Phase 19C is locally implemented as a feature-gated edge boundary: Next.js
+emits a report-only CSP and minimum browser headers, FastAPI accepts exact CORS
+origins and rejects browser mutations from other origins, and the BFF keeps a
+fixed backend origin/path allowlist while rejecting redirects. Private source
+storage remains disabled. When production storage is eventually enabled, an
+operator-configured scanner must return `clean` before bytes reach storage;
+scanner failure rejects the upload. JSON RAG remains the fallback and no
+Phase 18 feature flag is activated by these controls.
+
 ---
 
 ## 19. Phase 20 target — commercial product

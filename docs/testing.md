@@ -352,6 +352,27 @@ shadow-mode checks. It must retain JSON RAG as the fallback and must not claim
 Phase 18 production activation until the deployed policy and cutover gates are
 evidenced in Phase 22.
 
+### Phase 19C implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19c_security.py app/tests/test_phase18b_knowledge_api.py app/tests/test_health.py
+
+cd ../frontend
+npm run test:bff
+npm run test:security
+npm run build
+npm run test:mfa:routes
+npm run test:e2e
+```
+
+These checks cover exact CORS preflight/mutation origins, request-size rejection,
+browser/API baseline headers, HSTS configuration, BFF origin/target/redirect
+rejection, safe backend-base validation, and required scanner clean/failure
+behavior. They do not prove a deployed WAF, bot policy, scanner/quarantine
+service, CSP report collection, final production origin list, or HSTS scope.
+
 ## 9. Phase 20 validation
 
 Test analytics consent, notification preferences, signed webhooks, delivery retry, schedules/timezones, entitlements, billing event idempotency, organization seats, and data export/deletion integration.

@@ -1,6 +1,6 @@
 # V1 Phase 19 Execution Plan — Production Operations and Security
 
-Status: **In Progress — 19A and 19B implemented locally; preview/deployment evidence pending**
+Status: **In Progress — 19A, 19B, and 19C implemented locally; deployment evidence pending**
 
 This plan implements the [Phase 19 contract](future_phase_contracts.md#v1-phase-19--production-operations-and-security). Read it with [current state](current_state.md), [architecture](architecture.md), [deployment](deployment.md), [testing](testing.md), and the [Phase 18 archive](archive/v1_phase_18/).
 
@@ -69,6 +69,20 @@ Implementation status: **implemented locally, feature-gated.** The selected shar
 | Rollout gate | Report-only CSP before enforcement where appropriate. Enable HSTS only after all production subdomains are HTTPS-safe. Require scanning before private-source activation. |
 | Rollback | Revert a faulty CSP directive through controlled config while retaining minimum safe headers; keep unscanned objects quarantined. |
 | Completion | Approved policy matrix and automated browser/API negative coverage. |
+
+Implementation status: **implemented locally, feature-gated.** The frontend now
+ships baseline MIME, frame, referrer, permissions, and opener policies plus a
+report-only CSP by default. HSTS is disabled until the operator confirms every
+covered domain is HTTPS-safe. The API accepts exact configured CORS origins,
+uses explicit request methods/headers, rejects browser mutations from other
+origins, and bounds declared request bodies. The BFF verifies mutating browser
+origins, accepts only an origin-only backend configuration, keeps its path
+allowlist, and rejects upstream redirects. Private storage is still disabled;
+when production storage is deliberately enabled, scanning must be required and
+a configured scanner must return a bounded `{\"status\": \"clean\"}` response
+before object storage is called. Scanner failure fails closed. WAF/bot rules,
+scanner/quarantine deployment evidence, CSP reports, HSTS approval, and final
+production-origin evidence remain pending.
 
 ### 19D — Centralized monitoring, synthetics, SLOs, and alerting
 
@@ -166,6 +180,6 @@ No validation uses production customer data, browser-accessible secrets, real pr
 
 ## 5. Proposed first implementation task
 
-Initial implementation began with **19A only**: a redacted structured-log/correlation contract and a non-mutating operational readiness checker. The next completed local slice is **19B**, the feature-gated PostgreSQL shared limiter. Neither slice enables Phase 18 durable flags or alters production retrieval authority.
+Initial implementation began with **19A**: a redacted structured-log/correlation contract and a non-mutating operational readiness checker. The next completed local slices are **19B**, the feature-gated PostgreSQL shared limiter, and **19C**, feature-gated edge/BFF/API/upload hardening. These slices do not enable Phase 18 durable flags or alter production retrieval authority.
 
 19A status: **implemented locally.** External telemetry export is intentionally not implemented. Preview evidence, retention/access policy approval, dashboard ownership, and alerting remain later Phase 19D/19E operational work.

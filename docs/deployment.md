@@ -87,6 +87,45 @@ Do not place the pepper in Vercel browser variables, committed `.env` files,
 client logs, or the frontend. To roll back, set `RATE_LIMITING_ENABLED=false`.
 The legacy public-demo in-process limiter remains active in that disabled mode.
 
+## Phase 19C edge and upload-security rollout
+
+Keep the 19C controls in their safe defaults until the production operator has
+recorded final Vercel/Render origins, a CSP report review, and the HTTPS scope:
+
+```env
+FRONTEND_ORIGIN=https://defi-thesis-risk-copilot.vercel.app
+BFF_ALLOWED_ORIGINS=https://defi-thesis-risk-copilot.vercel.app
+API_MAX_REQUEST_BYTES=1048576
+SECURITY_CSP_MODE=report_only
+SECURITY_CSP_REPORT_URI=
+SECURITY_HSTS_ENABLED=false
+KNOWLEDGE_STORAGE_ENABLED=false
+KNOWLEDGE_UPLOAD_SCANNING_REQUIRED=false
+```
+
+`FRONTEND_ORIGIN` is the exact backend CORS allowlist. `BFF_ALLOWED_ORIGINS`
+is the exact same-origin browser allowlist for BFF mutations and must not be a
+wildcard. The BFF does not accept a path, credentials, redirect, or
+request-selected upstream target. Keep CSP report-only while reviewing browser
+compatibility. Set `SECURITY_HSTS_ENABLED=true` only after every included
+subdomain is HTTPS-safe; rollback a bad policy by setting it back to `false`.
+
+Private knowledge storage remains disabled. Before a production private-source
+activation, configure a trusted internal scanner and require it:
+
+```env
+KNOWLEDGE_STORAGE_ENABLED=true
+KNOWLEDGE_UPLOAD_SCANNING_REQUIRED=true
+KNOWLEDGE_UPLOAD_SCANNER_URL=https://scanner.internal.example/scan
+KNOWLEDGE_UPLOAD_SCANNER_TIMEOUT_SECONDS=10
+```
+
+The scanner endpoint is server-only, must be HTTPS (or an approved internal
+transport), must return a bounded JSON `{\"status\": \"clean\"}`, and any
+failure rejects the upload before object storage. Do not activate storage until
+scanner, quarantine, WAF/bot, and synthetic two-tenant policy evidence are
+recorded. There is no scanner credential in browser configuration.
+
 ---
 
 ## 2. Supported deployment modes

@@ -79,6 +79,8 @@ For every change, inspect:
 - secret/token/cookie exposure;
 - SSRF and proxy destination control;
 - request size and schema bounds;
+- exact browser origins, BFF upstream allowlists, redirect handling, and CORS;
+- upload media/signature validation and scanner failure behavior before storage;
 - concurrency and idempotency;
 - deletion and retention;
 - logging and audit redaction;
