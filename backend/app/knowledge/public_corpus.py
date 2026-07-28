@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from hashlib import sha256
 from pathlib import Path
 
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
@@ -38,7 +38,12 @@ from app.models.knowledge import (
 from app.rag.chunking import chunk_markdown_document
 from app.rag.ingest import DEFAULT_KNOWLEDGE_BASE
 from app.rag.loaders import LoadedDocument, load_markdown_documents
-from app.storage.base import ObjectConflictError, PrivateObjectStorage, StorageError
+from app.storage.base import (
+    ObjectConflictError,
+    ObjectNotFoundError,
+    PrivateObjectStorage,
+    StorageError,
+)
 from app.storage.keys import build_version_object_key
 
 
@@ -125,151 +130,307 @@ def _import_document(
     document_id = _stable_id("kdoc_pub_", relative_path)
     version_id = _stable_id("kver_pub_", f"{relative_path}:{checksum}")
 
-    existing_version = db.get(KnowledgeDocumentVersionModel, version_id)
-    if existing_version is not None:
-        return PublicCorpusImportSummary(1, 0, 1, 0, 0, dry_run)
-
     source = db.get(KnowledgeSourceModel, source_id)
     document = db.get(KnowledgeDocumentModel, document_id)
     if dry_run:
-        return PublicCorpusImportSummary(1, 1 if document is None else 0, 0, 1, len(chunk_markdown_document(loaded)), True)
+        existing_version = db.get(KnowledgeDocumentVersionModel, version_id)
+        return PublicCorpusImportSummary(
+            1,
+            1 if document is None else 0,
+            1 if existing_version is not None else 0,
+            0 if existing_version is not None else 1,
+            0 if existing_version is not None else len(chunk_markdown_document(loaded)),
+            True,
+        )
 
     now = datetime.now(UTC)
-    if source is None:
-        source = KnowledgeSourceModel(
-            id=source_id,
-            owner_user_id=None,
-            organization_id=None,
-            visibility="public",
-            source_type=CURATED_SOURCE_TYPE,
-            source_uri=relative_path,
-            canonical_uri=relative_path,
-            title=loaded.title,
-            protocol=loaded.protocol.lower(),
-            status="ingested",
-            trust_state="approved_for_rag",
-            approved_at=now,
-            created_at=now,
-            updated_at=now,
+    profile_id = _required_profile_id(profile_id)
+    source = _repair_source(source, source_id, relative_path, loaded, now)
+    document, documents_created = _repair_document(document, document_id, source, loaded, now)
+    db.add(source)
+    db.flush()
+    db.add(document)
+    db.flush()
+    version, version_created = _repair_version(
+        db, version_id, document, source, checksum, len(content), profile_id, now
+    )
+    db.add(version)
+    # These intentionally relationship-free models are portable across SQLite
+    # and PostgreSQL. Flush their immutable parent lineage in dependency order
+    # before inserting chunks so PostgreSQL enforces the production contract.
+    db.flush()
+    object_created = False
+    try:
+        version.storage_key = build_version_object_key(source, document, version)
+        object_created = _ensure_curated_object(storage, version.storage_key, content, checksum)
+        chunks = _ensure_curated_chunks(db, version, loaded, relative_path, now)
+        generation = _ensure_curated_generation(db, version, profile_id, chunks, now)
+        embeddings_created = _ensure_curated_embeddings(
+            db, version, generation, profile_id, chunks, now
         )
-        db.add(source)
+        _activate_curated_version(
+            db, document, source, version, profile_id, generation.id, now
+        )
         db.flush()
-    elif (
-        source.visibility != "public"
-        or source.source_type != CURATED_SOURCE_TYPE
-        or source.trust_state != "approved_for_rag"
-        or source.deleted_at is not None
-    ):
-        raise RuntimeError("Existing curated public source has an unsafe state")
+    except Exception:
+        if object_created:
+            try:
+                storage.delete(key=version.storage_key)
+            except StorageError:
+                # The database exception remains authoritative. A later
+                # operator run can safely reconcile an orphaned immutable key.
+                pass
+        raise
+    return PublicCorpusImportSummary(
+        1,
+        documents_created,
+        0 if version_created else 1,
+        1 if version_created else 0,
+        embeddings_created,
+        False,
+    )
 
+
+def _repair_source(
+    source: KnowledgeSourceModel | None,
+    source_id: str,
+    relative_path: str,
+    loaded: LoadedDocument,
+    now: datetime,
+) -> KnowledgeSourceModel:
+    if source is None:
+        source = KnowledgeSourceModel(id=source_id, created_at=now)
+    source.owner_user_id = None
+    source.organization_id = None
+    source.visibility = "public"
+    source.source_type = CURATED_SOURCE_TYPE
+    source.source_uri = relative_path
+    source.canonical_uri = relative_path
+    source.title = loaded.title
+    source.protocol = loaded.protocol.lower()
+    source.status = "ingested"
+    source.trust_state = "approved_for_rag"
+    source.approved_at = source.approved_at or now
+    source.deleted_at = None
+    source.updated_at = now
+    return source
+
+
+def _repair_document(
+    document: KnowledgeDocumentModel | None,
+    document_id: str,
+    source: KnowledgeSourceModel,
+    loaded: LoadedDocument,
+    now: datetime,
+) -> tuple[KnowledgeDocumentModel, int]:
     if document is None:
         document = KnowledgeDocumentModel(
             id=document_id,
-            knowledge_source_id=source_id,
+            knowledge_source_id=source.id,
             filename=loaded.path.name,
             media_type="text/markdown",
             status="ready",
             created_at=now,
             updated_at=now,
         )
-        db.add(document)
-        db.flush()
-        version_number = 1
-        documents_created = 1
-    else:
-        if document.knowledge_source_id != source_id or document.deleted_at is not None:
-            raise RuntimeError("Existing curated public document has an unsafe lineage")
-        version_number = (
+        return document, 1
+    if document.knowledge_source_id != source.id:
+        raise RuntimeError("Existing curated public document has an unsafe lineage")
+    document.filename = loaded.path.name
+    document.media_type = "text/markdown"
+    document.status = "ready"
+    document.deleted_at = None
+    document.updated_at = now
+    return document, 0
+
+
+def _repair_version(
+    db: Session,
+    version_id: str,
+    document: KnowledgeDocumentModel,
+    source: KnowledgeSourceModel,
+    checksum: str,
+    size_bytes: int,
+    profile_id: str,
+    now: datetime,
+) -> tuple[KnowledgeDocumentVersionModel, bool]:
+    version = db.get(KnowledgeDocumentVersionModel, version_id)
+    if version is None:
+        next_number = (
             db.execute(
                 select(KnowledgeDocumentVersionModel.version_number)
-                .where(KnowledgeDocumentVersionModel.document_id == document_id)
+                .where(KnowledgeDocumentVersionModel.document_id == document.id)
                 .order_by(KnowledgeDocumentVersionModel.version_number.desc())
                 .limit(1)
             ).scalar_one_or_none()
             or 0
         ) + 1
-        documents_created = 0
+        version = KnowledgeDocumentVersionModel(
+            id=version_id,
+            document_id=document.id,
+            version_number=next_number,
+            storage_key="pending",
+            created_at=now,
+        )
+        created = True
+    else:
+        if version.document_id != document.id:
+            raise RuntimeError("Existing curated public version has an unsafe lineage")
+        created = False
+    version.checksum = checksum
+    version.size_bytes = size_bytes
+    version.parser_version = CURATED_PARSER_VERSION
+    version.chunker_version = CURATED_CHUNKER_VERSION
+    version.embedding_model = LOCAL_EMBEDDING_MODEL
+    version.embedding_dimensions = LOCAL_EMBEDDING_DIMENSIONS
+    version.active_embedding_profile_id = profile_id
+    version.status = "ready"
+    version.superseded_at = None
+    version.deleted_at = None
+    return version, created
 
-    version = KnowledgeDocumentVersionModel(
-        id=version_id,
-        document_id=document_id,
-        version_number=version_number,
-        storage_key="pending",
-        checksum=checksum,
-        size_bytes=len(content),
-        parser_version=CURATED_PARSER_VERSION,
-        chunker_version=CURATED_CHUNKER_VERSION,
-        embedding_model=LOCAL_EMBEDDING_MODEL,
-        embedding_dimensions=LOCAL_EMBEDDING_DIMENSIONS,
-        active_embedding_profile_id=profile_id,
-        status="ready",
-        created_at=now,
+
+def _ensure_curated_chunks(
+    db: Session,
+    version: KnowledgeDocumentVersionModel,
+    loaded: LoadedDocument,
+    relative_path: str,
+    now: datetime,
+) -> list[KnowledgeChunkModel]:
+    expected = chunk_markdown_document(loaded)
+    expected_ids = [
+        _stable_id("kchunk_pub_", f"{version.id}:{index}:{chunk.id}")
+        for index, chunk in enumerate(expected)
+    ]
+    existing = db.execute(
+        select(KnowledgeChunkModel)
+        .where(KnowledgeChunkModel.document_version_id == version.id)
+        .order_by(KnowledgeChunkModel.chunk_index)
+    ).scalars().all()
+    expected_checksums = [sha256(chunk.text.encode("utf-8")).hexdigest() for chunk in expected]
+    valid = (
+        len(existing) == len(expected)
+        and [item.id for item in existing] == expected_ids
+        and [item.content_checksum for item in existing] == expected_checksums
+        and all(item.deleted_at is None for item in existing)
     )
-    version.storage_key = build_version_object_key(source, document, version)
-    _store_curated_object(storage, version.storage_key, content, checksum)
-    db.add(version)
-    db.flush()
-
-    if document.current_version_id and document.current_version_id != version.id:
-        previous = db.get(KnowledgeDocumentVersionModel, document.current_version_id)
-        if previous is not None and previous.status == "ready":
-            previous.status = "superseded"
-            previous.superseded_at = now
-    document.current_version_id = version.id
-    document.status = "ready"
-    document.updated_at = now
-    source.status = "ingested"
-    source.updated_at = now
-
-    chunks = chunk_markdown_document(loaded)
-    generation = KnowledgeEmbeddingGenerationModel(
-        id=_stable_id("kembgen_pub_", f"{version_id}:{profile_id}"),
-        document_version_id=version.id,
-        embedding_profile_id=profile_id or "",
-        status="completed",
-        expected_chunk_count=len(chunks),
-        completed_chunk_count=len(chunks),
-        content_checksum=_generation_checksum(chunks),
-        created_at=now,
-        completed_at=now,
-    )
-    db.add(generation)
-    db.flush()
-    embedder = LocalDeterministicEmbeddingProvider()
-    cancellation = CancellationContext()
-    for index, chunk in enumerate(chunks):
-        chunk_model = KnowledgeChunkModel(
-            id=_stable_id("kchunk_pub_", f"{version_id}:{index}:{chunk.id}"),
+    if valid:
+        return existing
+    if existing:
+        chunk_ids = [item.id for item in existing]
+        db.execute(
+            delete(KnowledgeChunkEmbeddingModel).where(
+                KnowledgeChunkEmbeddingModel.knowledge_chunk_id.in_(chunk_ids)
+            )
+        )
+        db.execute(
+            delete(KnowledgeChunkModel).where(KnowledgeChunkModel.id.in_(chunk_ids))
+        )
+    rebuilt: list[KnowledgeChunkModel] = []
+    for index, chunk in enumerate(expected):
+        item = KnowledgeChunkModel(
+            id=expected_ids[index],
             document_version_id=version.id,
             chunk_index=index,
             heading_path=[str(chunk.metadata["section_title"])],
             content=chunk.text,
-            content_checksum=sha256(chunk.text.encode("utf-8")).hexdigest(),
+            content_checksum=expected_checksums[index],
             token_count=len(chunk.text.split()),
             metadata_json={**chunk.metadata, "curated_relative_path": relative_path},
             created_at=now,
         )
+        db.add(item)
+        rebuilt.append(item)
+    db.flush()
+    return rebuilt
+
+
+def _ensure_curated_generation(
+    db: Session,
+    version: KnowledgeDocumentVersionModel,
+    profile_id: str,
+    chunks: list[KnowledgeChunkModel],
+    now: datetime,
+) -> KnowledgeEmbeddingGenerationModel:
+    generation_id = _stable_id("kembgen_pub_", f"{version.id}:{profile_id}")
+    generation = db.get(KnowledgeEmbeddingGenerationModel, generation_id)
+    if generation is None:
+        generation = KnowledgeEmbeddingGenerationModel(
+            id=generation_id,
+            document_version_id=version.id,
+            embedding_profile_id=profile_id,
+            created_at=now,
+        )
+        db.add(generation)
+    elif (
+        generation.document_version_id != version.id
+        or generation.embedding_profile_id != profile_id
+    ):
+        raise RuntimeError("Existing curated embedding generation has an unsafe lineage")
+    generation.status = "completed"
+    generation.expected_chunk_count = len(chunks)
+    generation.completed_chunk_count = len(chunks)
+    generation.content_checksum = _generation_checksum_from_models(chunks)
+    generation.completed_at = now
+    generation.deleted_at = None
+    db.flush()
+    return generation
+
+
+def _ensure_curated_embeddings(
+    db: Session,
+    version: KnowledgeDocumentVersionModel,
+    generation: KnowledgeEmbeddingGenerationModel,
+    profile_id: str,
+    chunks: list[KnowledgeChunkModel],
+    now: datetime,
+) -> int:
+    existing = db.execute(
+        select(KnowledgeChunkEmbeddingModel)
+        .where(KnowledgeChunkEmbeddingModel.embedding_generation_id == generation.id)
+    ).scalars().all()
+    expected_ids = {
+        _stable_id("kemb_pub_", f"{generation.id}:{chunk.id}") for chunk in chunks
+    }
+    valid = (
+        len(existing) == len(chunks)
+        and {item.id for item in existing} == expected_ids
+        and all(
+            item.knowledge_chunk_id in {chunk.id for chunk in chunks}
+            and item.embedding_profile_id == profile_id
+            and item.content_checksum == next(
+                chunk.content_checksum for chunk in chunks if chunk.id == item.knowledge_chunk_id
+            )
+            and item.status == "completed"
+            and item.deleted_at is None
+            for item in existing
+        )
+    )
+    if valid:
+        return 0
+    if existing:
+        db.execute(
+            delete(KnowledgeChunkEmbeddingModel).where(
+                KnowledgeChunkEmbeddingModel.embedding_generation_id == generation.id
+            )
+        )
+    embedder = LocalDeterministicEmbeddingProvider()
+    cancellation = CancellationContext()
+    for chunk in chunks:
         embedding = KnowledgeChunkEmbeddingModel(
-            id=_stable_id("kemb_pub_", f"{generation.id}:{chunk_model.id}"),
-            knowledge_chunk_id=chunk_model.id,
-            embedding_profile_id=profile_id or "",
+            id=_stable_id("kemb_pub_", f"{generation.id}:{chunk.id}"),
+            knowledge_chunk_id=chunk.id,
+            embedding_profile_id=profile_id,
             embedding_generation_id=generation.id,
-            content_checksum=chunk_model.content_checksum,
+            content_checksum=chunk.content_checksum,
             dimensions=LOCAL_EMBEDDING_DIMENSIONS,
-            embedding_json=embedder.embed(chunk.text, cancellation),
+            embedding_json=embedder.embed(chunk.content, cancellation),
             status="completed",
             created_at=now,
         )
-        # These models intentionally have no ORM relationships so they are
-        # flushed in FK order rather than relying on unit-of-work inference.
-        db.add(chunk_model)
-        db.flush()
         db.add(embedding)
-        # The portable JSON representation is used by SQLite. PostgreSQL also
-        # needs its indexed pgvector column populated for the real cutover
-        # ordering path; the ORM model intentionally stays cross-dialect.
+        db.flush()
         if db.bind is not None and db.bind.dialect.name == "postgresql":
-            db.flush()
             db.execute(
                 text(
                     "UPDATE knowledge_chunk_embeddings "
@@ -277,7 +438,49 @@ def _import_document(
                 ),
                 {"embedding": vector_literal(embedding.embedding_json), "embedding_id": embedding.id},
             )
-    return PublicCorpusImportSummary(1, documents_created, 0, 1, len(chunks), False)
+    return len(chunks)
+
+
+def _activate_curated_version(
+    db: Session,
+    document: KnowledgeDocumentModel,
+    source: KnowledgeSourceModel,
+    version: KnowledgeDocumentVersionModel,
+    profile_id: str,
+    generation_id: str,
+    now: datetime,
+) -> None:
+    if document.current_version_id and document.current_version_id != version.id:
+        previous = db.get(KnowledgeDocumentVersionModel, document.current_version_id)
+        if previous is not None and previous.status == "ready":
+            previous.status = "superseded"
+            previous.superseded_at = now
+    document.current_version_id = version.id
+    document.status = "ready"
+    document.deleted_at = None
+    document.updated_at = now
+    source.status = "ingested"
+    source.trust_state = "approved_for_rag"
+    source.deleted_at = None
+    source.updated_at = now
+    version.active_embedding_profile_id = profile_id
+    version.active_embedding_generation_id = generation_id
+
+
+def _ensure_curated_object(
+    storage: PrivateObjectStorage,
+    key: str,
+    content: bytes,
+    checksum: str,
+) -> bool:
+    try:
+        existing = storage.head(key=key)
+    except ObjectNotFoundError:
+        _store_curated_object(storage, key, content, checksum)
+        return True
+    if existing.checksum != checksum:
+        raise StorageError("Curated object checksum does not match immutable version")
+    return False
 
 
 def _store_curated_object(storage: PrivateObjectStorage, key: str, content: bytes, checksum: str) -> None:
@@ -292,6 +495,12 @@ def _store_curated_object(storage: PrivateObjectStorage, key: str, content: byte
         existing = storage.head(key=key)
         if existing.checksum != checksum:
             raise StorageError("Curated object checksum does not match immutable version")
+
+
+def _required_profile_id(profile_id: str | None) -> str:
+    if not profile_id:
+        raise RuntimeError("Curated corpus import requires an embedding profile")
+    return profile_id
 
 
 def _relative_source_path(path: Path, knowledge_base_path: Path) -> str:
@@ -309,3 +518,7 @@ def _generation_checksum(chunks) -> str:
     return sha256(
         "|".join(sha256(chunk.text.encode("utf-8")).hexdigest() for chunk in chunks).encode("utf-8")
     ).hexdigest()
+
+
+def _generation_checksum_from_models(chunks: list[KnowledgeChunkModel]) -> str:
+    return sha256("|".join(chunk.content_checksum for chunk in chunks).encode("utf-8")).hexdigest()

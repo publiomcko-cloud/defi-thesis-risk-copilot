@@ -1,5 +1,17 @@
 # Changelog
 
+## Phase 18 Final Hardening
+
+- Added generation-specific embedding rows, exact active-generation retrieval,
+  same-profile rollback, and a reversible migration.
+- Connected guarded durable retrieval to authenticated analysis with server-derived
+  public/private/organization scope; anonymous analysis remains public-only and
+  JSON remains the fallback.
+- Made curated corpus import convergent and compensating, added retrieval quality
+  metrics, pgvector preflight, and safe private knowledge metadata in account export.
+- Phase 18 remains locally complete only; deployed storage-policy and cutover
+  evidence remain Phase 22 work.
+
 All notable changes to DeFi Thesis & Risk Copilot are documented here.
 
 ## Unreleased — V1 Product Hardening

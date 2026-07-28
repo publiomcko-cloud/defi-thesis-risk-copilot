@@ -194,6 +194,7 @@ def _seed_versioned_document(db, *, two_profiles: bool = False):
         status="superseded",
         superseded_at=datetime.now(UTC),
         active_embedding_profile_id="kembprof_lifecycle_primary",
+        active_embedding_generation_id="kembgen_lifecycle_primary",
     )
     current_version = KnowledgeDocumentVersionModel(
         id="kver_lifecycle_current",
@@ -204,6 +205,7 @@ def _seed_versioned_document(db, *, two_profiles: bool = False):
         size_bytes=20,
         status="ready",
         active_embedding_profile_id="kembprof_lifecycle_primary",
+        active_embedding_generation_id="kembgen_lifecycle_current",
     )
     primary = KnowledgeEmbeddingProfileModel(
         id="kembprof_lifecycle_primary",

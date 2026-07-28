@@ -18,7 +18,6 @@ from sqlalchemy import and_, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import UserContext
-from app.core.config import get_settings
 from app.jobs.cancellation import CancellationContext
 from app.knowledge.access import derive_knowledge_access_scope
 from app.knowledge.embedding import LocalDeterministicEmbeddingProvider
@@ -36,10 +35,12 @@ from app.models.knowledge import (
     KnowledgeRetrievalEventModel,
     KnowledgeSourceModel,
 )
+from app.rag.retriever import RetrievalResult
 
 
 SHADOW_RETRIEVER_VERSION = "phase18e.pgvector-shadow.v1"
 _MAX_EXCERPT_CHARACTERS = 700
+_MAX_CANDIDATES = 80
 
 
 @dataclass(frozen=True)
@@ -86,7 +87,7 @@ def retrieve_shadow_knowledge(
         actor,
         protocol_filter=normalized_protocols,
         query_embedding=query_embedding,
-        top_k=requested_top_k,
+        top_k=_candidate_limit(requested_top_k),
     )
     results = [
         result
@@ -97,7 +98,7 @@ def retrieve_shadow_knowledge(
     # by the pgvector ORDER BY in _eligible_embeddings before this stable score.
     if db.bind is None or db.bind.dialect.name != "postgresql":
         results.sort(key=lambda item: item.score, reverse=True)
-        results = results[:requested_top_k]
+    results = results[:requested_top_k]
 
     items = [
         ShadowRetrievalItemResponse(
@@ -135,9 +136,71 @@ def retrieve_shadow_knowledge(
     )
 
 
+def retrieve_durable_analysis_context(
+    db: Session,
+    actor: UserContext | None,
+    *,
+    query: str,
+    protocols: list[str] | None = None,
+    top_k: int = 4,
+) -> list[RetrievalResult]:
+    """Return tenant-safe durable report context with exact lineage.
+
+    ``actor`` is a server-authenticated identity, never browser scope data.
+    A missing or anonymous actor intentionally receives public rows only.
+    """
+
+    normalized_query = query.strip()
+    if not normalized_query:
+        return []
+    requested_top_k = max(1, min(top_k, 20))
+    protocol_filter = sorted(
+        {item.strip().lower() for item in protocols or [] if item.strip()}
+    )
+    query_embedding = LocalDeterministicEmbeddingProvider().embed(
+        normalized_query, CancellationContext()
+    )
+    rows = _eligible_embeddings(
+        db,
+        actor,
+        protocol_filter=protocol_filter,
+        query_embedding=query_embedding,
+        top_k=_candidate_limit(requested_top_k),
+    )
+    results = [
+        item
+        for row in rows
+        if (item := _to_retrieved_chunk(row, query_embedding)) is not None
+    ]
+    if db.bind is None or db.bind.dialect.name != "postgresql":
+        results.sort(key=lambda item: item.score, reverse=True)
+    results = results[:requested_top_k]
+    return [
+        RetrievalResult(
+            chunk_id=item.chunk.id,
+            text=item.chunk.content,
+            metadata={
+                **item.chunk.metadata_json,
+                "protocol": item.source.protocol or "unknown",
+                "source_url": item.source.canonical_uri
+                or item.source.source_uri
+                or "knowledge_base/README.md",
+                "document_title": item.source.title,
+                "section_title": item.chunk.heading_path[-1]
+                if item.chunk.heading_path
+                else item.source.title,
+                "knowledge_scope": item.source.visibility,
+                "citation_lineage": _citation_for(item).model_dump(),
+            },
+            similarity_score=item.score,
+        )
+        for item in results
+    ]
+
+
 def _eligible_embeddings(
     db: Session,
-    actor: UserContext,
+    actor: UserContext | None,
     *,
     protocol_filter: list[str],
     query_embedding: list[float],
@@ -145,19 +208,23 @@ def _eligible_embeddings(
 ) -> list[tuple[KnowledgeSourceModel, KnowledgeDocumentModel, KnowledgeDocumentVersionModel, KnowledgeChunkModel, KnowledgeChunkEmbeddingModel]]:
     """Apply trust, lifecycle, current-version, and tenant filters before ranking."""
 
-    settings = get_settings()
-    scope = derive_knowledge_access_scope(db, actor)
-    visibility_filter = or_(
-        KnowledgeSourceModel.visibility == "public",
-        and_(
-            KnowledgeSourceModel.visibility == "private",
-            KnowledgeSourceModel.owner_user_id == scope.user_id,
-        ),
-        and_(
-            KnowledgeSourceModel.visibility == "organization",
-            KnowledgeSourceModel.organization_id.in_(scope.organization_ids),
-        ),
-    )
+    if actor is None or actor.anonymous_session_id or (
+        not actor.auth_enabled and not actor.is_admin
+    ):
+        visibility_filter = KnowledgeSourceModel.visibility == "public"
+    else:
+        scope = derive_knowledge_access_scope(db, actor)
+        visibility_filter = or_(
+            KnowledgeSourceModel.visibility == "public",
+            and_(
+                KnowledgeSourceModel.visibility == "private",
+                KnowledgeSourceModel.owner_user_id == scope.user_id,
+            ),
+            and_(
+                KnowledgeSourceModel.visibility == "organization",
+                KnowledgeSourceModel.organization_id.in_(scope.organization_ids),
+            ),
+        )
     statement = (
         select(
             KnowledgeSourceModel,
@@ -197,8 +264,8 @@ def _eligible_embeddings(
         .where(KnowledgeDocumentVersionModel.deleted_at.is_(None))
         .where(KnowledgeChunkModel.deleted_at.is_(None))
         .where(
-            KnowledgeChunkEmbeddingModel.embedding_profile_id
-            == KnowledgeDocumentVersionModel.active_embedding_profile_id
+            KnowledgeChunkEmbeddingModel.embedding_generation_id
+            == KnowledgeDocumentVersionModel.active_embedding_generation_id
         )
         .where(KnowledgeChunkEmbeddingModel.status == "completed")
         .where(KnowledgeChunkEmbeddingModel.deleted_at.is_(None))
@@ -213,6 +280,12 @@ def _eligible_embeddings(
         ).limit(top_k)
         return list(db.execute(statement, {"query_vector": vector_literal}).all())
     return list(db.execute(statement).all())
+
+
+def _candidate_limit(top_k: int) -> int:
+    """Bound ranking work while allowing corrupt lineage to be discarded."""
+
+    return min(_MAX_CANDIDATES, max(top_k, top_k * 4))
 
 
 def _to_retrieved_chunk(

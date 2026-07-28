@@ -182,6 +182,12 @@ class KnowledgeDocumentVersionModel(Base):
     embedding_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     embedding_dimensions: Mapped[int | None] = mapped_column(Integer, nullable=True)
     active_embedding_profile_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    # Kept application-validated rather than a foreign key because generations
+    # already reference their immutable document version.  Retrieval must bind
+    # this exact completed generation, never merely the reusable profile.
+    active_embedding_generation_id: Mapped[str | None] = mapped_column(
+        String(64), nullable=True, index=True
+    )
     status: Mapped[str] = mapped_column(
         String(32),
         default="pending_upload",
@@ -262,7 +268,12 @@ class KnowledgeEmbeddingGenerationModel(Base):
     __tablename__ = "knowledge_embedding_generations"
     __table_args__ = (
         CheckConstraint("status IN ('pending', 'processing', 'completed', 'failed', 'cancelled')", name="ck_knowledge_embedding_generations_status"),
-        UniqueConstraint("document_version_id", "embedding_profile_id", name="uq_knowledge_embedding_generations_version_profile"),
+        Index(
+            "ix_knowledge_embedding_generations_version_profile_status",
+            "document_version_id",
+            "embedding_profile_id",
+            "status",
+        ),
         Index("ix_knowledge_embedding_generations_profile_status", "embedding_profile_id", "status"),
     )
 
@@ -284,7 +295,11 @@ class KnowledgeChunkEmbeddingModel(Base):
     __table_args__ = (
         CheckConstraint("dimensions = 384", name="ck_knowledge_chunk_embeddings_dimensions"),
         CheckConstraint("status IN ('pending', 'completed', 'failed', 'deleted')", name="ck_knowledge_chunk_embeddings_status"),
-        UniqueConstraint("knowledge_chunk_id", "embedding_profile_id", name="uq_knowledge_chunk_embeddings_chunk_profile"),
+        UniqueConstraint(
+            "knowledge_chunk_id",
+            "embedding_generation_id",
+            name="uq_knowledge_chunk_embeddings_chunk_generation",
+        ),
         Index("ix_knowledge_chunk_embeddings_profile_status", "embedding_profile_id", "status", "deleted_at"),
         Index("ix_knowledge_chunk_embeddings_generation", "embedding_generation_id", "deleted_at"),
     )

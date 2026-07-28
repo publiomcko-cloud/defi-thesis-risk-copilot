@@ -371,14 +371,17 @@ The local JSON public retrieval path remains authoritative by default. Slices 18
 complete locally; source-scoped durable ingestion, local-only versioned pgvector
 embeddings, and an authenticated tenant-safe shadow retriever are implemented
 but disabled by default. Shadow retrieval records privacy-safe events and exact
-citation lineage but does not feed report generation. Atomic version rollback,
-embedding-generation promotion/rollback, and retryable tombstone cleanup are
-implemented. Phase 18G supplies the controlled curated-corpus importer,
-evaluation/weekly CI evidence, and an opt-in public durable path that falls
-back to JSON. Phase 18H supplies the authenticated source/document/version
-workspace, report citation lineage UI, safe readiness metrics, and the live
-storage verification runbook. Phase 18 code is complete locally; the actual
-private-bucket policy probe and production activation remain Phase 22 gates.
+citation lineage. The guarded primary report path derives approved public,
+caller-owned private, and active-organization scope server-side for
+authenticated users while anonymous analysis remains public-only; JSON stays
+the fallback. Atomic version rollback, generation-specific same-profile
+embedding promotion/rollback, and retryable tombstone cleanup are implemented.
+Phase 18G supplies the convergent curated-corpus importer, evaluation/weekly CI
+evidence, and durable fallback behavior. Phase 18H supplies the authenticated
+source/document/version workspace, report citation lineage UI, safe readiness
+metrics, private-knowledge export metadata, and the live storage verification
+runbook. Phase 18 code is complete locally; the actual private-bucket policy
+probe and production activation remain Phase 22 gates.
 
 ## V1 Phase 19 — Production operations and security — Planned
 

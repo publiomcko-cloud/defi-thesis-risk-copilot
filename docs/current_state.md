@@ -340,10 +340,13 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 ## 10. Known platform limitations
 
 - public rate limiting is still in-process, not distributed;
-- current report retrieval remains local JSON and intentionally public-curated
-  only; Phase 18 has authenticated metadata/upload APIs and a durable ingestion
-  executor plus versioned local-only embeddings, but private storage/ingestion/
-  embeddings are disabled by default and it has no retrieval authority yet;
+- local JSON remains the default public-curated retrieval path and the explicit
+  rollback fallback. When the guarded Phase 18 primary flag is enabled,
+  authenticated analysis can retrieve approved public, caller-owned private,
+  and active-organization durable knowledge through server-derived filters;
+  anonymous analysis remains public-only. Storage, ingestion, embeddings,
+  shadow retrieval, and the primary flag remain disabled by default pending
+  production storage-policy and cutover evidence;
 - durable jobs, private workspace, retention, export, and account-deletion behavior are complete
   on `main`; Vast provider jobs remain disabled/dry-run by default, and real-provider operation is
   unverified;
@@ -368,14 +371,16 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   Slices 18A–18H are locally complete: additive durable knowledge metadata,
   private-storage interfaces, tenant boundaries, authenticated source/document
   APIs, bounded upload handling, approval audit events, lifecycle tombstones,
-  feature-gated durable ingestion, versioned local-only pgvector embeddings,
-  and a checksum-bound tenant-safe shadow retriever preserve the public JSON
-  fallback. Phase 18G adds a checked-in-Markdown-only importer, durable public
-  retrieval evaluation, and an opt-in pgvector public report path that falls
-  back to JSON. Phase 18H adds the authenticated Knowledge workspace, durable
-  citation lineage in reports, safe admin readiness metrics, and an explicit
-  storage probe. Storage, ingestion, embeddings, shadow retrieval, corpus import,
-  and the durable primary flag remain disabled by default. Live Supabase policy
+  feature-gated durable ingestion, generation-specific local-only pgvector
+  embeddings, and a checksum-bound tenant-safe retriever preserve the public
+  JSON fallback. Phase 18G adds a convergent checked-in-Markdown-only importer,
+  durable retrieval evaluation, and a guarded report path that derives public,
+  private, and active-organization scope server-side for authenticated users;
+  anonymous analysis stays public-only. Phase 18H adds the authenticated
+  Knowledge workspace, durable citation lineage in reports, safe admin readiness
+  metrics, an explicit storage probe, and safe private-knowledge export metadata.
+  Storage, ingestion, embeddings, shadow retrieval, corpus import, and the
+  durable primary flag remain disabled by default. Live Supabase policy
   verification and primary-path activation remain Phase 22 external gates;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;

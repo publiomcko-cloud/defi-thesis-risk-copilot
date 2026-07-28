@@ -20,7 +20,9 @@ from app.knowledge.access import create_knowledge_source
 from app.knowledge.embedding_executor import (
     DocumentEmbedJobExecutor,
     cleanup_document_embedding_outputs,
+    finalize_document_embedding,
 )
+from app.knowledge.lifecycle_service import promote_document_embedding_generation
 from app.knowledge.embedding_service import submit_document_embedding
 from app.models.job import JobModel
 from app.models.knowledge import (
@@ -90,8 +92,40 @@ def test_document_embedding_is_server_owned_idempotent_and_activates_through_wor
         assert version is not None and version.embedding_model == "local-hash-384-v1"
         assert version.embedding_dimensions == 384
         assert generation is not None and generation.status == "completed"
+        first_generation_id = generation.id
         assert len(embeddings) == result.result_json["embedding_count"]
         assert all(item.status == "completed" and len(item.embedding_json) == 384 for item in embeddings)
+
+        second_job, replayed = submit_document_embedding(
+            db, user_context(db.get(UserModel, owner_id)), version_id, "phase18d-embed-second-key"
+        )
+        assert replayed is False
+        second_generation = db.get(KnowledgeEmbeddingGenerationModel, second_job.result_resource_id)
+        assert second_generation is not None and second_generation.id != first_generation_id
+        assert generation.status == "completed"
+        second_job_id = second_job.id
+        db.commit()
+
+    with Session() as db:
+        second_job = db.get(JobModel, second_job_id)
+        assert second_job is not None
+        second_claim = _claimed_job(second_job)
+    second_result = DocumentEmbedJobExecutor(session_factory=Session).execute(second_claim)
+    with Session() as db:
+        second_job = db.get(JobModel, second_job_id)
+        assert second_job is not None
+        finalize_document_embedding(db, second_job, second_result.result_json)
+        db.commit()
+        version = db.get(KnowledgeDocumentVersionModel, version_id)
+        assert version is not None
+        assert version.active_embedding_generation_id == second_result.result_json["embedding_generation_id"]
+        assert db.get(KnowledgeEmbeddingGenerationModel, first_generation_id).status == "completed"
+        assert len(db.execute(select(KnowledgeChunkEmbeddingModel)).scalars().all()) == 4
+
+        owner = db.get(UserModel, owner_id)
+        assert owner is not None
+        reverted = promote_document_embedding_generation(db, user_context(owner), version_id, first_generation_id)
+        assert reverted.active_embedding_generation_id == first_generation_id
 
 
 def test_embedding_cleanup_and_dimension_mismatch_never_activate_partial_vectors(

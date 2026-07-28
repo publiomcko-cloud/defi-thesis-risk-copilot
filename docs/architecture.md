@@ -214,7 +214,7 @@ discovery
   -> retrieval index
 ```
 
-Current global ingestion may generate curated Markdown and refresh the public-curated local index. Phase 16 organization sources persist provenance and approval metadata only. The analysis service derives retrieval scope from authenticated membership, but organization-tagged chunks remain blocked because tenant storage is disabled. Phase 18 replaces runtime/local authority with object storage, versioned documents/chunks, and tenant-filtered vector retrieval.
+Current global ingestion may generate curated Markdown and refresh the public-curated local index. Phase 18 adds a guarded durable path: authenticated analysis derives approved public, caller-owned private, and active-organization scope from its server-side actor, while anonymous analysis remains public-only. The local JSON index remains the default and rollback fallback until live storage-policy and cutover gates are completed.
 
 No automatically discovered content becomes trusted without explicit approval.
 
@@ -535,11 +535,12 @@ by default. Phase 18D adds local-only 384-dimension pgvector embedding profiles,
 generations, and a PostgreSQL HNSW cosine index through a separate Phase 17
 worker job. Incomplete vectors never activate, external embedding providers are
 rejected. Phase 18E adds an authenticated, disabled-by-default pgvector shadow
-retriever. It applies source approval, lifecycle, current-version, and
-server-derived tenant filters before ranking, records only privacy-safe
-retrieval telemetry, and returns checksum-bound citations. It is deliberately
-not wired into analysis reports: curated JSON retrieval remains the report and
-rollback authority until later evaluation/cutover gates pass.
+retriever. It applies source approval, lifecycle, current-version, exact active
+embedding-generation, and server-derived tenant filters before ranking, records
+only privacy-safe retrieval telemetry, and returns checksum-bound citations.
+When the separately guarded primary flag is enabled, authenticated analysis uses
+the same server-derived public/private/organization boundary; anonymous analysis
+remains public-only and curated JSON remains the rollback fallback.
 Phase 18F adds immutable-version rollback, manager-scoped embedding-generation
 selection, and a two-stage deletion lifecycle. Database tombstones revoke
 durable retrieval before a bounded, retryable cleanup script deletes private
@@ -548,20 +549,22 @@ retained only as non-serving audit lineage.
 
 Phase 18G adds an operator-only importer for the repository's curated Markdown
 corpus. It creates approved public immutable source/document/version/chunk/
-embedding lineage, never imports discovered or tenant material, and is disabled
-by default. The guarded report retriever can query only this approved public
-lineage, never accepts a tenant filter, and falls back to the local JSON index
-on an empty or unavailable durable result. Scheduled evaluation compares the
-durable corpus against the existing JSON fallback before an operator enables
-the primary flag.
+embedding lineage, repairs deterministic partial state on rerun, never imports
+discovered or tenant material, and is disabled by default. The guarded report
+retriever derives tenant scope only from the actor and falls back to the local
+JSON index on an empty or unavailable durable result. Scheduled evaluation
+compares the durable corpus against the existing JSON fallback before an
+operator enables the primary flag.
 
 Phase 18H adds an authenticated source/document/version workspace and preserves
 exact durable source/document/version/chunk checksums in report-source data
-when the guarded public durable retriever is used. The workspace receives only
+when the guarded durable retriever is used. The workspace receives only
 metadata; it never receives an object key, bucket path, or storage credential.
 An administrator-only readiness endpoint exposes aggregate state and feature
 flags without tenant content. A separate operator probe can make and delete one
 synthetic object and confirms it is not publicly readable before activation.
+Private account exports include only source/document/version metadata and never
+include document content, embeddings, storage keys, or signed URLs.
 
 ---
 

@@ -78,7 +78,7 @@ class DocumentEmbedJobExecutor:
                         "The embedding profile dimensions are incompatible with the local provider.",
                     )
                 record = KnowledgeChunkEmbeddingModel(
-                    id=f"kemb_{sha256(f'{chunk.id}:{profile.id}:{chunk.content_checksum}'.encode()).hexdigest()[:20]}",
+                    id=f"kemb_{sha256(f'{chunk.id}:{generation.id}:{chunk.content_checksum}'.encode()).hexdigest()[:20]}",
                     knowledge_chunk_id=chunk.id,
                     embedding_profile_id=profile.id,
                     embedding_generation_id=generation.id,
@@ -187,6 +187,7 @@ def finalize_document_embedding(db: Session, job, result: dict) -> None:
     version.embedding_model = profile.model
     version.embedding_dimensions = profile.dimensions
     version.active_embedding_profile_id = profile.id
+    version.active_embedding_generation_id = generation.id
 
 
 def _load_lineage(db: Session, version_id: str, *, lock: bool = False):

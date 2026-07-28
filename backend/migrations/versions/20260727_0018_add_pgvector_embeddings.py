@@ -24,9 +24,17 @@ def upgrade() -> None:
     bind = op.get_bind()
     is_postgres = bind.dialect.name == "postgresql"
     if is_postgres:
-        # Fail closed when the deployment does not provide pgvector. A JSON-only
-        # fallback here would silently violate the Phase 18D storage contract.
-        op.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        # Provisioning the extension is an infrastructure responsibility. The
+        # application migration role must not be assumed to hold CREATE
+        # EXTENSION privileges in Supabase or another managed PostgreSQL host.
+        has_vector = bind.execute(
+            sa.text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')")
+        ).scalar()
+        if not has_vector:
+            raise RuntimeError(
+                "pgvector extension is not installed. A database administrator must run "
+                "CREATE EXTENSION vector before applying Phase 18 migrations."
+            )
 
     op.create_table(
         "knowledge_embedding_profiles",

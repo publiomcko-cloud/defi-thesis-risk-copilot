@@ -36,6 +36,7 @@ def retrieve_public_durable_context(
     if not normalized_query:
         return []
     requested_top_k = max(1, min(top_k, 20))
+    candidate_limit = min(80, max(requested_top_k, requested_top_k * 4))
     protocol_filter = sorted({item.strip().lower() for item in protocols or [] if item.strip()})
     query_embedding = LocalDeterministicEmbeddingProvider().embed(
         normalized_query, CancellationContext()
@@ -64,7 +65,10 @@ def retrieve_public_durable_context(
         .where(KnowledgeDocumentVersionModel.status == "ready")
         .where(KnowledgeDocumentVersionModel.deleted_at.is_(None))
         .where(KnowledgeChunkModel.deleted_at.is_(None))
-        .where(KnowledgeChunkEmbeddingModel.embedding_profile_id == KnowledgeDocumentVersionModel.active_embedding_profile_id)
+        .where(
+            KnowledgeChunkEmbeddingModel.embedding_generation_id
+            == KnowledgeDocumentVersionModel.active_embedding_generation_id
+        )
         .where(KnowledgeChunkEmbeddingModel.status == "completed")
         .where(KnowledgeChunkEmbeddingModel.deleted_at.is_(None))
         .where(KnowledgeEmbeddingProfileModel.status == "active")
@@ -75,7 +79,7 @@ def retrieve_public_durable_context(
         vector_literal = "[" + ",".join(f"{value:.12g}" for value in query_embedding) + "]"
         statement = statement.order_by(
             text("knowledge_chunk_embeddings.embedding_vector <=> CAST(:query_vector AS vector)")
-        ).limit(requested_top_k)
+        ).limit(candidate_limit)
         rows = db.execute(statement, {"query_vector": vector_literal}).all()
     else:
         rows = db.execute(statement).all()
@@ -87,7 +91,7 @@ def retrieve_public_durable_context(
     ]
     if db.bind is None or db.bind.dialect.name != "postgresql":
         durable_results.sort(key=lambda item: item.score, reverse=True)
-        durable_results = durable_results[:requested_top_k]
+    durable_results = durable_results[:requested_top_k]
     return [
         RetrievalResult(
             chunk_id=item.chunk.id,

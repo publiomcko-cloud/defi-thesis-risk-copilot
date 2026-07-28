@@ -20,6 +20,8 @@ class DurablePublicRetrievalSummary:
     pass_rate: float
     citation_issue_count: int
     source_coverage: float
+    precision_at_k: float
+    recall: float
     cases: list[dict]
 
 
@@ -36,6 +38,9 @@ def evaluate_durable_public_retrieval(
     passed = sum(item["passed"] for item in results)
     citation_issues = sum(len(item["citation_issues"]) for item in results)
     source_coverage = sum(bool(item["top_chunk_id"]) for item in results) / len(results) if results else 0.0
+    retrieved_cases = sum(bool(item["top_chunk_id"]) for item in results)
+    precision_at_k = passed / retrieved_cases if retrieved_cases else 0.0
+    recall = passed / len(results) if results else 0.0
     return DurablePublicRetrievalSummary(
         retriever="durable_public_pgvector",
         total_cases=len(results),
@@ -43,6 +48,8 @@ def evaluate_durable_public_retrieval(
         pass_rate=passed / len(results) if results else 0.0,
         citation_issue_count=citation_issues,
         source_coverage=source_coverage,
+        precision_at_k=precision_at_k,
+        recall=recall,
         cases=results,
     )
 
@@ -77,6 +84,8 @@ def compare_public_retrievers(
         "durable_public": asdict(durable_summary),
         "cutover_gate_passed": (
             durable_summary.pass_rate >= 0.8
+            and durable_summary.precision_at_k >= 0.8
+            and durable_summary.recall >= 0.8
             and durable_summary.citation_issue_count == 0
             and durable_summary.source_coverage == 1.0
         ),

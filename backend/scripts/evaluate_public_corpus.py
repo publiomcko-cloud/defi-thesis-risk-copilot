@@ -52,7 +52,8 @@ def main() -> int:
     durable = comparison["durable_public"]
     print(
         f"durable public retrieval: {durable['passed_cases']}/{durable['total_cases']} "
-        f"({durable['pass_rate']:.0%}); citation issues={durable['citation_issue_count']}; "
+        f"({durable['pass_rate']:.0%}); precision@k={durable['precision_at_k']:.0%}; "
+        f"recall={durable['recall']:.0%}; citation issues={durable['citation_issue_count']}; "
         f"cutover_gate_passed={comparison['cutover_gate_passed']}"
     )
     return 0 if comparison["cutover_gate_passed"] else 1

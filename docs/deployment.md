@@ -740,6 +740,17 @@ evaluation and rollback gates pass.
 `WORKER_API_ENABLED=true`; it accepts only the local deterministic 384-dimension
 profile and therefore does not need an external provider key. PostgreSQL must
 provide the `vector` extension; local/CI Compose uses `pgvector/pgvector:pg16`.
+Provision `vector` through a database administrator or Supabase before running
+application migrations, then verify it with:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m scripts.preflight_pgvector
+alembic upgrade head
+```
+
+The Alembic application role intentionally does not attempt `CREATE EXTENSION`.
 Do not enable it before the private-storage/worker deployment gate and pgvector
 readiness probe are recorded.
 `KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED=true` requires embeddings to be enabled and
@@ -763,15 +774,16 @@ approved public immutable lineage, and is not an API or browser upload path.
 Apply it only after the private bucket and worker/pgvector deployment checks
 are recorded. `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true` additionally requires
 shadow retrieval and should be enabled only after the comparison command passes.
-It queries approved public curated material only and automatically reverts an
-empty or unavailable durable lookup to the existing JSON index. Turn the flag
-back to `false` for an immediate report-path rollback; no data migration is
-required.
+For authenticated analysis it queries approved public, caller-owned private,
+and active-organization durable material through server-derived scope; anonymous
+analysis remains public-only. It automatically reverts an empty or unavailable
+durable lookup to the existing JSON index. Turn the flag back to `false` for an
+immediate report-path rollback; no data migration is required.
 
 Phase 18H adds the authenticated `/knowledge` workspace for source ownership,
 upload, immutable document versions, ingestion/embedding submission, version
 restore, deletion, and safe status inspection. Report sources display exact
-durable lineage only where durable public retrieval supplied it. The admin view
+durable lineage only where guarded durable retrieval supplied it. The admin view
 shows aggregate readiness only; it never returns a private object key, bucket
 name, source content, or credential.
 

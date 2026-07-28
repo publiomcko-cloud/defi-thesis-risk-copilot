@@ -92,11 +92,7 @@ def test_phase18_upgrade_downgrade_preserves_phase17_and_json_rag_metadata(
         "SELECT model, dimensions FROM knowledge_embedding_profiles WHERE id = ?",
         ("kembprof_local_hash_384_v1",),
     ).fetchone() == ("local-hash-384-v1", 384)
-    assert frozenset({"document_version_id", "embedding_profile_id"}) in _unique_column_sets(
-        connection,
-        "knowledge_embedding_generations",
-    )
-    assert frozenset({"knowledge_chunk_id", "embedding_profile_id"}) in _unique_column_sets(
+    assert frozenset({"knowledge_chunk_id", "embedding_generation_id"}) in _unique_column_sets(
         connection,
         "knowledge_chunk_embeddings",
     )
@@ -110,6 +106,13 @@ def test_phase18_upgrade_downgrade_preserves_phase17_and_json_rag_metadata(
     assert "active_embedding_profile_id" in {
         row[1] for row in connection.execute("PRAGMA table_info(knowledge_document_versions)")
     }
+    assert "active_embedding_generation_id" in {
+        row[1] for row in connection.execute("PRAGMA table_info(knowledge_document_versions)")
+    }
+    assert "ix_knowledge_embedding_generations_version_profile_status" in _indexes(
+        connection,
+        "knowledge_embedding_generations",
+    )
     connection.close()
 
     _alembic(database_path, "downgrade", PHASE17_HEAD)

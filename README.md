@@ -39,20 +39,21 @@ Phase 18 is active on `agent/v1-phase-18-production-rag`; see the
 real-provider and final deployed identity checks remain Phase 22 work. Real
 Vast rentals remain disabled.
 
-Its first seven slices are implemented but production storage remains disabled by default:
+Its eight slices are implemented locally but production storage remains disabled by default:
 durable knowledge metadata, private-storage interfaces, tenant authorization,
 authenticated source/document APIs, bounded upload handling, and the
 feature-gated `document.ingest.v1` worker path are present. Versioned local-only
 pgvector embedding generations and an authenticated tenant-safe shadow
 retrieval/citation diagnostic are also implemented but disabled by default.
-Phase 18G adds an operator-only, idempotent importer for the checked-in curated
-Markdown corpus, a public-only durable retrieval path, and scheduled comparison
-metrics. The durable report path is still disabled by default and falls back to
-the curated JSON index whenever it has no eligible result. Phases 18A–18G are
-complete locally. Phase 18H adds the authenticated Knowledge workspace,
-document/version lifecycle controls, exact report-citation lineage display, and
-administrator-only safe readiness metrics. Live private-bucket policy and
-production cutover verification remain controlled Phase 22 deployment gates.
+Phase 18G adds an operator-only, convergent importer for the checked-in curated
+Markdown corpus, scheduled precision/recall/citation evaluation, and a guarded
+durable report path. When explicitly enabled, authenticated analysis derives
+approved public, caller-owned private, and active-organization scope server-side;
+anonymous analysis remains public-only. JSON remains the automatic fallback.
+Phase 18H adds the authenticated Knowledge workspace, document/version lifecycle
+controls, exact report-citation lineage display, safe private-knowledge export
+metadata, and administrator-only readiness metrics. Live private-bucket policy
+and production cutover verification remain controlled Phase 22 deployment gates.
 Durable source versions
 support atomic rollback and queued cleanup after tombstoning; those lifecycle
 controls remain inactive until private storage is deliberately enabled.

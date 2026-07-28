@@ -42,30 +42,33 @@ def submit_document_embedding(
     if source.trust_state != "approved_for_rag" or version.status != "ready":
         raise HTTPException(status_code=409, detail="An approved ready document version is required for embedding.")
     profile = get_configured_embedding_profile(db, create=True)
-    generation = db.execute(
+    active_generation = db.execute(
         select(KnowledgeEmbeddingGenerationModel)
         .where(KnowledgeEmbeddingGenerationModel.document_version_id == version.id)
         .where(KnowledgeEmbeddingGenerationModel.embedding_profile_id == profile.id)
+        .where(KnowledgeEmbeddingGenerationModel.status.in_({"pending", "processing"}))
+        .where(KnowledgeEmbeddingGenerationModel.deleted_at.is_(None))
+        .order_by(KnowledgeEmbeddingGenerationModel.created_at.desc())
         .with_for_update()
     ).scalars().one_or_none()
-    if generation is not None and generation.created_by_job_id:
-        existing = db.get(JobModel, generation.created_by_job_id)
+    if active_generation is not None and active_generation.created_by_job_id:
+        existing = db.get(JobModel, active_generation.created_by_job_id)
         if existing is not None and existing.status not in {"completed", "failed", "cancelled", "dead_letter"}:
             if existing.idempotency_key == idempotency_key:
                 return existing, True
             raise HTTPException(status_code=409, detail="Document version already has an active embedding job.")
-    if generation is None:
-        generation = KnowledgeEmbeddingGenerationModel(
-            id=f"kembgen_{uuid4().hex[:12]}",
-            document_version_id=version.id,
-            embedding_profile_id=profile.id,
-            status="pending",
-            created_at=datetime.now(UTC),
-        )
-        db.add(generation)
-        db.flush()
-    elif generation.status == "completed":
-        raise HTTPException(status_code=409, detail="Document version already has completed embeddings for the active profile.")
+    # A completed generation is immutable evidence and remains available for
+    # rollback. Each new embedding request therefore receives a fresh
+    # generation even when it uses the same reusable profile.
+    generation = KnowledgeEmbeddingGenerationModel(
+        id=f"kembgen_{uuid4().hex[:12]}",
+        document_version_id=version.id,
+        embedding_profile_id=profile.id,
+        status="pending",
+        created_at=datetime.now(UTC),
+    )
+    db.add(generation)
+    db.flush()
 
     def mark_pending(job: JobModel) -> None:
         generation.created_by_job_id = job.id

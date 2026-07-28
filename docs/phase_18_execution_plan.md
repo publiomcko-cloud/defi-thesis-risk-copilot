@@ -184,6 +184,8 @@ parser_version
 chunker_version
 embedding_model
 embedding_dimensions
+active_embedding_profile_id
+active_embedding_generation_id
 status
 created_by_job_id
 created_at
@@ -222,8 +224,8 @@ Added when the embedding contract is implemented:
 ```text
 id
 chunk_id
-embedding_model
-embedding_version
+embedding_profile_id
+embedding_generation_id
 dimensions
 embedding vector
 status
@@ -232,7 +234,9 @@ created_at
 deleted_at
 ```
 
-An embedding is unique by chunk, model, and version. pgvector is enabled in
+An embedding is unique by chunk and immutable generation. Multiple completed
+generations may use the same model/profile for one version; the document version
+stores the exact active generation pointer used by retrieval. pgvector is enabled in
 Supabase PostgreSQL. SQLite tests use contract fakes rather than pretending a
 JSON value is a production vector.
 
@@ -727,7 +731,8 @@ Deliver:
 
 Implementation notes:
 
-- `20260727_0018` installs the PostgreSQL `vector` extension, adds profile,
+- `20260727_0018` verifies the PostgreSQL `vector` extension is already
+  installed, then adds profile,
   generation, and chunk-embedding records, preserves a portable JSON vector
   representation for SQLite tests, and creates a partial HNSW cosine index on
   PostgreSQL. Downgrade removes only Phase 18D objects and retains the shared
@@ -746,7 +751,8 @@ Gate:
 
 - PostgreSQL similarity/index tests pass;
 - dimension/model mismatch fails safely;
-- old embedding generation remains rollback-capable;
+- same-profile generations remain rollback-capable through an exact active
+  generation pointer;
 - no private content is sent to an unapproved provider.
 
 ### Phase 18E — Tenant-safe durable retrieval and citations
@@ -783,9 +789,10 @@ Implementation notes:
   pointer in SQL before pgvector ranking;
 - every returned citation carries immutable source/document/version/chunk IDs
   and the exact version and chunk checksums. Invalid lineage is excluded rather
-  than rendered. The diagnostic endpoint is not connected to analysis reports:
-  the existing curated JSON index remains the sole report-producing retrieval
-  path and rollback fallback.
+  than rendered. When `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true`, authenticated
+  analysis derives public, caller-owned private, and active-organization scope
+  from the server actor before ranking; anonymous analysis is public-only.
+  Empty or unavailable durable retrieval falls back to the curated JSON path.
 
 Gate: **Passed locally.** SQLite coverage proves owner/organization/public
 isolation, membership removal, tombstone/current-version exclusion, event
@@ -869,18 +876,20 @@ Implementation notes:
   run is side-effect free; `--apply` requires
   `KNOWLEDGE_PUBLIC_CORPUS_IMPORT_ENABLED=true` and private storage. It accepts
   only repository `knowledge_base/**/*.md`, creates stable `ksrc_pub_`,
-  `kdoc_pub_`, `kver_pub_`, chunk, and embedding lineage, and rejects an unsafe
-  pre-existing source state. Discovery, private, and organization sources are
-  not inputs to this importer.
+  `kdoc_pub_`, `kver_pub_`, chunk, and embedding lineage, and repairs/re-activates
+  deterministic partial state on rerun, including `A -> B -> A`. Object writes
+  are compensated when a following database write fails. Discovery, private,
+  and organization sources are not inputs to this importer.
 - `scripts/evaluate_public_corpus.py` uses the existing curated evaluation
   dataset to compare JSON fallback with an in-transaction durable public
   bootstrap. The bootstrap rolls back and uses in-memory objects, so evaluation
   does not mutate a deployed corpus. CI runs the gate and a weekly workflow
   stores comparison evidence.
 - `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=false` is the default. It requires shadow
-  retrieval to be configured, queries only approved/current public curated
-  durable rows, and returns to JSON automatically on an empty or unavailable
-  durable result. Disabling the flag is an immediate report-path rollback.
+  retrieval to be configured. Authenticated analysis queries only approved/current
+  public, caller-owned private, and active-organization durable rows; anonymous
+  analysis is public-only. It returns to JSON automatically on an empty or
+  unavailable durable result. Disabling the flag is an immediate report-path rollback.
 
 Gate: **Passed locally.** The six curated public cases pass in both retrieval
 paths with zero citation issues and full coverage. Phase 18H may begin; Phase
@@ -955,14 +964,16 @@ object deletion, embedding generation, or corpus import.
 
 Rollout order:
 
-1. schema with all Phase 18 feature flags disabled;
-2. private bucket and policies;
-3. upload/source API for a synthetic test tenant;
-4. ingestion worker;
-5. pgvector shadow retrieval;
-6. lifecycle and evaluation;
-7. approved public corpus migration;
-8. primary retrieval cutover.
+1. a database administrator installs `vector`, then `python -m
+   scripts.preflight_pgvector` confirms it before application-role migrations;
+2. schema with all Phase 18 feature flags disabled;
+3. private bucket and policies;
+4. upload/source API for a synthetic test tenant;
+5. ingestion worker;
+6. pgvector shadow retrieval;
+7. lifecycle and evaluation;
+8. approved public corpus migration;
+9. primary retrieval cutover.
 
 Rollback disables durable submission/retrieval flags first, keeps database and
 objects intact for diagnosis, and returns analysis to the local JSON public

@@ -3,7 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, delete, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -13,7 +14,12 @@ from app.db.base import Base
 from app.knowledge.public_corpus import import_curated_public_corpus, require_public_corpus_import_enabled
 from app.knowledge.retrieval_evaluation import evaluate_durable_public_retrieval
 from app.knowledge.public_retriever import retrieve_public_durable_context
-from app.models.knowledge import KnowledgeDocumentVersionModel, KnowledgeSourceModel
+from app.models.knowledge import (
+    KnowledgeChunkEmbeddingModel,
+    KnowledgeDocumentModel,
+    KnowledgeDocumentVersionModel,
+    KnowledgeSourceModel,
+)
 from app.rag.retriever import RetrievalResult
 from app.storage.memory import InMemoryPrivateObjectStorage
 
@@ -84,6 +90,93 @@ def test_curated_import_creates_immutable_reingestion_version_and_durable_result
     assert results[0].metadata["source_url"].endswith("README.md")
 
 
+def test_curated_import_converges_after_a_to_b_to_a_and_repairs_partial_state(
+    public_corpus_session,
+    tmp_path: Path,
+) -> None:
+    root = _curated_root(tmp_path, "## Safety\nOriginal oracle controls.")
+    storage = InMemoryPrivateObjectStorage()
+    with public_corpus_session() as db:
+        import_curated_public_corpus(db, storage, knowledge_base_path=root)
+        db.commit()
+        original = db.execute(select(KnowledgeDocumentVersionModel)).scalar_one()
+
+        _curated_root(tmp_path, "## Safety\nReplacement liquidation controls.")
+        import_curated_public_corpus(db, storage, knowledge_base_path=root)
+        db.commit()
+        replacement = db.execute(
+            select(KnowledgeDocumentVersionModel).where(
+                KnowledgeDocumentVersionModel.id != original.id
+            )
+        ).scalar_one()
+
+        # Simulate an interrupted retention/embedding operation before a
+        # deterministic rerun returns the repository corpus to A.
+        source = db.execute(select(KnowledgeSourceModel)).scalar_one()
+        source.status = "deleted"
+        source.deleted_at = source.created_at
+        original.status = "deleted"
+        original.deleted_at = original.created_at
+        storage.delete(key=original.storage_key)
+        db.execute(
+            delete(KnowledgeChunkEmbeddingModel).where(
+                KnowledgeChunkEmbeddingModel.embedding_generation_id
+                == original.active_embedding_generation_id
+            )
+        )
+        db.commit()
+
+        _curated_root(tmp_path, "## Safety\nOriginal oracle controls.")
+        summary = import_curated_public_corpus(db, storage, knowledge_base_path=root)
+        db.commit()
+        document = db.execute(select(KnowledgeDocumentModel)).scalar_one()
+        repaired = db.get(KnowledgeDocumentVersionModel, original.id)
+        assert repaired is not None
+        assert summary.document_versions_created == 0
+        assert source.status == "ingested" and source.deleted_at is None
+        assert document.current_version_id == original.id
+        assert repaired.status == "ready" and repaired.deleted_at is None
+        assert repaired.active_embedding_generation_id
+        assert replacement.status == "superseded"
+        assert storage.head(key=repaired.storage_key).checksum == repaired.checksum
+        assert db.execute(
+            select(KnowledgeChunkEmbeddingModel).where(
+                KnowledgeChunkEmbeddingModel.embedding_generation_id
+                == repaired.active_embedding_generation_id
+            )
+        ).scalars().all()
+
+
+def test_curated_import_compensates_a_new_object_when_database_write_fails(
+    public_corpus_session,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _curated_root(tmp_path)
+    storage = InMemoryPrivateObjectStorage()
+    with public_corpus_session() as db:
+        from app.knowledge.embedding_service import get_configured_embedding_profile
+
+        get_configured_embedding_profile(db, create=True)
+        db.commit()
+
+        original_flush = db.flush
+        flush_count = 0
+
+        def fail_flush() -> None:
+            nonlocal flush_count
+            flush_count += 1
+            if flush_count >= 4:
+                raise SQLAlchemyError("forced durable database failure")
+            original_flush()
+
+        monkeypatch.setattr(db, "flush", fail_flush)
+        with pytest.raises(SQLAlchemyError, match="forced durable database failure"):
+            import_curated_public_corpus(db, storage, knowledge_base_path=root)
+        assert storage._objects == {}
+        db.rollback()
+
+
 def test_public_durable_retriever_never_surfaces_noncurated_or_unapproved_rows(public_corpus_session, tmp_path: Path) -> None:
     root = _curated_root(tmp_path)
     storage = InMemoryPrivateObjectStorage()
@@ -152,4 +245,6 @@ def test_durable_public_evaluation_reports_citation_coverage(public_corpus_sessi
 
     assert summary.pass_rate == 1.0
     assert summary.source_coverage == 1.0
+    assert summary.precision_at_k == 1.0
+    assert summary.recall == 1.0
     assert summary.citation_issue_count == 0

@@ -147,6 +147,31 @@ def test_source_document_list_and_admin_readiness_preserve_tenant_and_secret_bou
     assert "secret" not in str(payload).lower()
 
 
+def test_account_export_includes_only_safe_private_knowledge_metadata(
+    knowledge_api_client,
+) -> None:
+    client, _, _ = knowledge_api_client
+    source_id = _create_private_source(client)
+    uploaded = client.post(
+        f"/api/knowledge/sources/{source_id}/documents",
+        headers=_auth("owner-token"),
+        files={"file": ("account-export.md", b"# private content", "text/markdown")},
+    ).json()
+
+    exported = client.get("/api/account/export", headers=_auth("owner-token"))
+    assert exported.status_code == 200
+    payload = exported.json()
+    assert payload["format_version"] == "phase17.account_export.v2"
+    assert payload["knowledge_sources"][0]["id"] == source_id
+    assert payload["knowledge_documents"][0]["id"] == uploaded["id"]
+    assert payload["knowledge_document_versions"][0]["id"].startswith("kver_")
+    rendered = str(payload)
+    assert "storage_key" not in rendered
+    assert "signed" not in rendered.lower()
+    assert "private content" not in rendered
+    assert "embedding_json" not in rendered
+
+
 def test_upload_validation_and_disabled_storage_leave_no_document(knowledge_api_client, monkeypatch) -> None:
     client, Session, _ = knowledge_api_client
     source_id = _create_private_source(client)

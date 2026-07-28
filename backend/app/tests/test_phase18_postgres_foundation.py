@@ -20,7 +20,7 @@ from app.jobs.cancellation import CancellationContext
 from app.knowledge.embedding import LocalDeterministicEmbeddingProvider, vector_literal
 from app.knowledge.public_corpus import import_curated_public_corpus
 from app.knowledge.public_retriever import retrieve_public_durable_context
-from app.knowledge.shadow_retriever import retrieve_shadow_knowledge
+from app.knowledge.shadow_retriever import _eligible_embeddings, retrieve_shadow_knowledge
 from app.models.knowledge import (
     KnowledgeChunkEmbeddingModel,
     KnowledgeChunkModel,
@@ -306,6 +306,134 @@ def test_postgres_curated_import_populates_pgvector_and_retrieves_public_only(
             db.rollback()
 
 
+def test_postgres_generation_pointer_supports_same_profile_rollback_and_exact_retrieval(
+    postgres_sessions: sessionmaker,
+) -> None:
+    suffix = uuid4().hex[:10]
+    owner_id = ""
+    try:
+        with postgres_sessions() as db:
+            owner = create_user(db, f"phase18-generation-{suffix}@example.test")
+            owner_id = owner.id
+            _add_pgvector_document(
+                db,
+                suffix,
+                "private",
+                owner.id,
+                None,
+                "generation rollback oracle controls",
+            )
+            version_id = f"kver_phase18e_pg_{suffix}_private"
+            chunk_id = f"kchunk_phase18e_pg_{suffix}_private"
+            active_generation_id = f"kgen_phase18e_pg_{suffix}_private"
+            second_generation_id = f"kgen_phase18e_pg_{suffix}_private_second"
+            version = db.get(KnowledgeDocumentVersionModel, version_id)
+            chunk = db.get(KnowledgeChunkModel, chunk_id)
+            assert version is not None and chunk is not None
+            values = LocalDeterministicEmbeddingProvider().embed(
+                chunk.content, CancellationContext()
+            )
+            second_generation = KnowledgeEmbeddingGenerationModel(
+                id=second_generation_id,
+                document_version_id=version_id,
+                embedding_profile_id="kembprof_local_hash_384_v1",
+                status="completed",
+                expected_chunk_count=1,
+                completed_chunk_count=1,
+                content_checksum=chunk.content_checksum,
+            )
+            second_embedding = KnowledgeChunkEmbeddingModel(
+                id=f"kembed_phase18e_pg_{suffix}_private_second",
+                knowledge_chunk_id=chunk_id,
+                embedding_profile_id="kembprof_local_hash_384_v1",
+                embedding_generation_id=second_generation_id,
+                content_checksum=chunk.content_checksum,
+                dimensions=384,
+                embedding_json=values,
+                status="completed",
+            )
+            db.add(second_generation)
+            db.flush()
+            db.add(second_embedding)
+            db.flush()
+            db.execute(
+                text(
+                    "UPDATE knowledge_chunk_embeddings SET embedding_vector = "
+                    "CAST(:vector AS vector) WHERE id = :id"
+                ),
+                {"vector": vector_literal(values), "id": second_embedding.id},
+            )
+            version.active_embedding_generation_id = second_generation_id
+            db.commit()
+
+        with postgres_sessions() as db:
+            owner = db.get(UserModel, owner_id)
+            assert owner is not None
+            query_embedding = LocalDeterministicEmbeddingProvider().embed(
+                "generation rollback oracle controls", CancellationContext()
+            )
+            active_rows = _eligible_embeddings(
+                db,
+                user_context(owner),
+                protocol_filter=["aave"],
+                query_embedding=query_embedding,
+                top_k=4,
+            )
+            assert [row[4].embedding_generation_id for row in active_rows] == [
+                second_generation_id
+            ]
+            version = db.get(KnowledgeDocumentVersionModel, version_id)
+            assert version is not None
+            version.active_embedding_generation_id = active_generation_id
+            db.commit()
+
+            reverted_rows = _eligible_embeddings(
+                db,
+                user_context(owner),
+                protocol_filter=["aave"],
+                query_embedding=query_embedding,
+                top_k=4,
+            )
+            assert [row[4].embedding_generation_id for row in reverted_rows] == [
+                active_generation_id
+            ]
+    finally:
+        with postgres_sessions() as db:
+            db.execute(
+                delete(KnowledgeChunkEmbeddingModel).where(
+                    KnowledgeChunkEmbeddingModel.id.like(f"kembed_phase18e_pg_{suffix}%")
+                )
+            )
+            db.execute(
+                delete(KnowledgeEmbeddingGenerationModel).where(
+                    KnowledgeEmbeddingGenerationModel.id.like(f"kgen_phase18e_pg_{suffix}%")
+                )
+            )
+            db.execute(
+                delete(KnowledgeChunkModel).where(
+                    KnowledgeChunkModel.id.like(f"kchunk_phase18e_pg_{suffix}%")
+                )
+            )
+            db.execute(
+                delete(KnowledgeDocumentVersionModel).where(
+                    KnowledgeDocumentVersionModel.id.like(f"kver_phase18e_pg_{suffix}%")
+                )
+            )
+            db.execute(
+                delete(KnowledgeDocumentModel).where(
+                    KnowledgeDocumentModel.id.like(f"kdoc_phase18e_pg_{suffix}%")
+                )
+            )
+            db.execute(
+                delete(KnowledgeSourceModel).where(
+                    KnowledgeSourceModel.id.like(f"ksrc_phase18e_pg_{suffix}%")
+                )
+            )
+            if owner_id:
+                db.execute(delete(UserModel).where(UserModel.id == owner_id))
+            db.commit()
+
+
 def _add_pgvector_document(
     db,
     suffix: str,
@@ -338,7 +466,7 @@ def _add_pgvector_document(
         created_by_user_id=owner_id,
     )
     document = KnowledgeDocumentModel(id=document_id, knowledge_source_id=source_id, current_version_id=version_id, filename="source.md", media_type="text/markdown", status="ready")
-    version = KnowledgeDocumentVersionModel(id=version_id, document_id=document_id, version_number=1, storage_key=f"knowledge/{suffix}/{kind}", checksum="a" * 64, size_bytes=len(content), status="ready", active_embedding_profile_id="kembprof_local_hash_384_v1")
+    version = KnowledgeDocumentVersionModel(id=version_id, document_id=document_id, version_number=1, storage_key=f"knowledge/{suffix}/{kind}", checksum="a" * 64, size_bytes=len(content), status="ready", active_embedding_profile_id="kembprof_local_hash_384_v1", active_embedding_generation_id=generation_id)
     chunk = KnowledgeChunkModel(id=chunk_id, document_version_id=version_id, chunk_index=0, heading_path=[kind], content=content, content_checksum=checksum, token_count=len(content.split()))
     generation = KnowledgeEmbeddingGenerationModel(id=generation_id, document_version_id=version_id, embedding_profile_id="kembprof_local_hash_384_v1", status="completed", expected_chunk_count=1, completed_chunk_count=1, content_checksum=checksum)
     values = LocalDeterministicEmbeddingProvider().embed(content, CancellationContext())

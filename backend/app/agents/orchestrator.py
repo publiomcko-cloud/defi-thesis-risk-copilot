@@ -42,6 +42,7 @@ def run_analysis_workflow(
         parsed_strategy.protocols,
         scope=derive_retrieval_scope(db, actor),
         db=db,
+        actor=actor,
     )
     _check_cancelled(cancellation)
     market_data = fetch_strategy_market_data(parsed_strategy, db)

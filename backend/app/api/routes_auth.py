@@ -28,6 +28,11 @@ from app.models.job import JobEventModel, JobModel
 from app.models.report import ReportModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.user import UserModel
+from app.models.knowledge import (
+    KnowledgeDocumentModel,
+    KnowledgeDocumentVersionModel,
+    KnowledgeSourceModel,
+)
 from app.knowledge.service import tombstone_knowledge_for_account
 from app.models.watchlist_item import WatchlistItemModel
 from app.quotas.service import usage_summary
@@ -129,6 +134,39 @@ def export_account(
     memberships = db.execute(
         select(OrganizationMembershipModel).where(OrganizationMembershipModel.user_id == current_user.id)
     ).scalars().all()
+    knowledge_sources = db.execute(
+        select(KnowledgeSourceModel)
+        .where(KnowledgeSourceModel.owner_user_id == current_user.id)
+        .where(KnowledgeSourceModel.visibility == "private")
+        .order_by(KnowledgeSourceModel.created_at.desc())
+    ).scalars().all()
+    knowledge_documents = db.execute(
+        select(KnowledgeDocumentModel)
+        .join(
+            KnowledgeSourceModel,
+            KnowledgeSourceModel.id == KnowledgeDocumentModel.knowledge_source_id,
+        )
+        .where(KnowledgeSourceModel.owner_user_id == current_user.id)
+        .where(KnowledgeSourceModel.visibility == "private")
+        .order_by(KnowledgeDocumentModel.created_at.desc())
+    ).scalars().all()
+    knowledge_document_versions = db.execute(
+        select(KnowledgeDocumentVersionModel)
+        .join(
+            KnowledgeDocumentModel,
+            KnowledgeDocumentModel.id == KnowledgeDocumentVersionModel.document_id,
+        )
+        .join(
+            KnowledgeSourceModel,
+            KnowledgeSourceModel.id == KnowledgeDocumentModel.knowledge_source_id,
+        )
+        .where(KnowledgeSourceModel.owner_user_id == current_user.id)
+        .where(KnowledgeSourceModel.visibility == "private")
+        .order_by(
+            KnowledgeDocumentVersionModel.document_id,
+            KnowledgeDocumentVersionModel.version_number,
+        )
+    ).scalars().all()
     response = AccountExportResponse(
         exported_at=datetime.now(UTC),
         profile=user_response(user).model_dump(mode="json"),
@@ -216,6 +254,56 @@ def export_account(
                 "created_at": item.created_at,
             }
             for item in audits
+        ],
+        knowledge_sources=[
+            {
+                "id": item.id,
+                "title": item.title,
+                "visibility": item.visibility,
+                "source_type": item.source_type,
+                "protocol": item.protocol,
+                "chain": item.chain,
+                "status": item.status,
+                "trust_state": item.trust_state,
+                "created_at": item.created_at,
+                "updated_at": item.updated_at,
+                "deleted_at": item.deleted_at,
+            }
+            for item in knowledge_sources
+        ],
+        knowledge_documents=[
+            {
+                "id": item.id,
+                "knowledge_source_id": item.knowledge_source_id,
+                "filename": item.filename,
+                "media_type": item.media_type,
+                "current_version_id": item.current_version_id,
+                "status": item.status,
+                "created_at": item.created_at,
+                "updated_at": item.updated_at,
+                "deleted_at": item.deleted_at,
+            }
+            for item in knowledge_documents
+        ],
+        knowledge_document_versions=[
+            {
+                "id": item.id,
+                "document_id": item.document_id,
+                "version_number": item.version_number,
+                "checksum": item.checksum,
+                "size_bytes": item.size_bytes,
+                "parser_version": item.parser_version,
+                "chunker_version": item.chunker_version,
+                "embedding_model": item.embedding_model,
+                "embedding_dimensions": item.embedding_dimensions,
+                "active_embedding_profile_id": item.active_embedding_profile_id,
+                "active_embedding_generation_id": item.active_embedding_generation_id,
+                "status": item.status,
+                "created_at": item.created_at,
+                "superseded_at": item.superseded_at,
+                "deleted_at": item.deleted_at,
+            }
+            for item in knowledge_document_versions
         ],
     )
     record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)

@@ -243,7 +243,7 @@ Implemented 18A–18H evidence:
   cleanup, and atomic version activation.
 - `test_phase18d_embeddings.py` covers local-only provider configuration,
   server-owned/idempotent embedding jobs, worker completion, dimension mismatch,
-  and partial-vector cleanup. PostgreSQL integration verifies the `vector`
+  same-profile generation selection/rollback, and partial-vector cleanup. PostgreSQL integration verifies the `vector`
   extension, `vector(384)` column, HNSW cosine index, and similarity operation.
 - `test_phase18e_shadow_retrieval.py` covers pre-ranking public/private/
   organization filtering, active-membership removal, source tombstones,
@@ -256,7 +256,8 @@ Implemented 18A–18H evidence:
   derived-content cleanup, and safe historical retrieval-event identifiers.
 - `test_phase18g_public_corpus.py` covers idempotent checked-in-Markdown
   migration, immutable re-ingestion versions, approved-public-only retrieval,
-  citation coverage, disabled-by-default import/cutover flags, and automatic
+  convergent partial-state repair including `A -> B -> A`, object-write
+  compensation, citation coverage, disabled-by-default import/cutover flags, and automatic
   JSON fallback when the durable public corpus is absent.
 - `test_phase18_postgres_foundation.py` additionally proves the curated importer
   populates PostgreSQL's indexed `vector(384)` column before public ranking.
@@ -266,9 +267,18 @@ Implemented 18A–18H evidence:
   ownership, administrator-only aggregate readiness, and redaction of private
   storage details. Browser E2E covers the authenticated Knowledge workspace
   source registration and document upload flow through the BFF.
+- `test_phase18_final_retrieval.py` proves guarded report-path durable retrieval
+  for public/private/organization sources, anonymous public-only behavior,
+  citation isolation, deletion/supersession/stale-generation exclusion, explicit
+  no-answer protocol filtering, and bounded overfetch after corrupt lineage.
+- `test_phase18_postgres_foundation.py` additionally proves exact active-generation
+  selection and same-profile rollback on PostgreSQL. `scripts/preflight_pgvector.py`
+  verifies a provisioned `vector` extension before Alembic; migrations never
+  assume the application role can install extensions.
 
 `python -m scripts.evaluate_public_corpus` compares the JSON fallback and an
-in-transaction durable public bootstrap against `retrieval_eval_dataset.json`.
+in-transaction durable public bootstrap against `retrieval_eval_dataset.json`,
+enforcing pass rate, precision@k, recall, source coverage, and citation integrity.
 It rolls the bootstrap back, writes no private object, and requires 80% pass
 rate, full source coverage, and zero citation issues. CI runs it on pull
 requests; `retrieval-evaluation.yml` repeats it weekly and stores the metrics

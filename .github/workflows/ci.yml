@@ -52,6 +52,14 @@ jobs:
       - name: Compile Python modules
         run: python -m compileall app scripts
 
+      - name: Provision pgvector for integration database
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d defi_copilot_test -c "CREATE EXTENSION IF NOT EXISTS vector"
+
+      - name: Verify pgvector preflight
+        run: python -m scripts.preflight_pgvector
+
       - name: Apply PostgreSQL migrations
         run: alembic upgrade head
 

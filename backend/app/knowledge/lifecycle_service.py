@@ -115,8 +115,9 @@ def promote_document_embedding_generation(
     ).scalars().all()
     if len(embeddings) != generation.expected_chunk_count or not embeddings:
         raise HTTPException(status_code=409, detail="Embedding generation is incomplete")
-    previous_profile_id = version.active_embedding_profile_id
+    previous_generation_id = version.active_embedding_generation_id
     version.active_embedding_profile_id = profile.id
+    version.active_embedding_generation_id = generation.id
     version.embedding_model = profile.model
     version.embedding_dimensions = profile.dimensions
     record_audit_event(
@@ -127,8 +128,9 @@ def promote_document_embedding_generation(
         version.id,
         {
             "embedding_generation_id": generation.id,
-            "from_profile_id": previous_profile_id,
+            "from_generation_id": previous_generation_id,
             "to_profile_id": profile.id,
+            "to_generation_id": generation.id,
         },
         commit=False,
     )
