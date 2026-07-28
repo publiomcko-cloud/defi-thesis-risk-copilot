@@ -737,6 +737,10 @@ Implementation notes:
   representation for SQLite tests, and creates a partial HNSW cosine index on
   PostgreSQL. Downgrade removes only Phase 18D objects and retains the shared
   extension for other database consumers;
+- `20260728_0021` adds the exact active-generation pointer and generation-scoped
+  embedding uniqueness. Its downgrade deliberately fails closed once multiple
+  generations exist for a version/profile; after live activation, feature flags
+  return reports to JSON without discarding generation history;
 - the only supported provider is `local_deterministic` / `local-hash-384-v1`
   at 384 dimensions. It runs inside the trusted worker and is the only provider
   configuration accepted by settings, so private text is never sent to an
@@ -877,22 +881,29 @@ Implementation notes:
   `KNOWLEDGE_PUBLIC_CORPUS_IMPORT_ENABLED=true` and private storage. It accepts
   only repository `knowledge_base/**/*.md`, creates stable `ksrc_pub_`,
   `kdoc_pub_`, `kver_pub_`, chunk, and embedding lineage, and repairs/re-activates
-  deterministic partial state on rerun, including `A -> B -> A`. Object writes
-  are compensated when a following database write fails. Discovery, private,
-  and organization sources are not inputs to this importer.
+  deterministic partial state on rerun, including `A -> B -> A`. It verifies
+  Supabase objects by bounded authenticated read when HEAD has no checksum, and
+  compensates every object created by a failed whole-corpus transaction. An ID
+  collision is repairable only for the expected ownerless public curated lineage;
+  private, organization, discovered, mismatched-type, and mismatched-path rows
+  fail closed. Discovery, private, and organization sources are not inputs.
 - `scripts/evaluate_public_corpus.py` uses the existing curated evaluation
   dataset to compare JSON fallback with an in-transaction durable public
   bootstrap. The bootstrap rolls back and uses in-memory objects, so evaluation
-  does not mutate a deployed corpus. CI runs the gate and a weekly workflow
-  stores comparison evidence.
+  does not mutate a deployed corpus. Cases define immutable relevant source and
+  chunk IDs, include an irrelevant expected-empty query, and do not turn the
+  expected protocol into a retrieval filter unless the case explicitly requests
+  one. CI runs the top-1 gate and a weekly workflow stores comparison evidence.
 - `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=false` is the default. It requires shadow
   retrieval to be configured. Authenticated analysis queries only approved/current
   public, caller-owned private, and active-organization durable rows; anonymous
   analysis is public-only. It returns to JSON automatically on an empty or
   unavailable durable result. Disabling the flag is an immediate report-path rollback.
 
-Gate: **Passed locally.** The six curated public cases pass in both retrieval
-paths with zero citation issues and full coverage. Phase 18H may begin; Phase
+Gate: **Passed locally.** The seven checked-in cases, including one expected-empty
+query, pass at top-1 with 100% item precision@1, 100% recall, zero citation
+issues, and zero tenant leakage in PostgreSQL coverage. This is local quality
+evidence, not a production cutover claim. Phase 18H may begin; Phase
 18 remains incomplete until frontend, deployment, and production-readiness
 gates are complete.
 

@@ -1,5 +1,5 @@
 import json
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from app.rag.citations import validate_retrieval_citations
@@ -16,9 +16,12 @@ DEFAULT_EVAL_RESULTS_PATH = Path(__file__).resolve().parents[2] / "retrieval_eva
 class RetrievalEvalCase:
     id: str
     query: str
-    expected_protocol: str
+    expected_protocol: str | None
     expected_terms: list[str]
     metadata_filters: dict[str, str] | None = None
+    relevant_source_ids: list[str] = field(default_factory=list)
+    relevant_chunk_ids: list[str] = field(default_factory=list)
+    expect_empty: bool = False
 
 
 @dataclass(frozen=True)
@@ -30,6 +33,7 @@ class RetrievalEvalCaseResult:
     top_protocol: str | None
     matched_expected_terms: list[str]
     citation_issues: list[str]
+    expect_empty: bool = False
 
 
 @dataclass(frozen=True)
@@ -44,12 +48,39 @@ class RetrievalEvalSummary:
 
 def default_eval_cases() -> list[RetrievalEvalCase]:
     return [
-        RetrievalEvalCase("pendle_pt", "What is a Pendle PT?", "pendle", ["principal token", "pt"]),
-        RetrievalEvalCase("pendle_maturity", "What is maturity risk?", "pendle", ["maturity"]),
-        RetrievalEvalCase("morpho_lltv", "What is LLTV in Morpho?", "morpho", ["lltv"]),
-        RetrievalEvalCase("aave_health_factor", "What is Health Factor?", "aave", ["health factor"]),
-        RetrievalEvalCase("oracle_risk", "What is oracle risk?", "chainlink", ["oracle"]),
-        RetrievalEvalCase("liquidation_risk", "What is liquidation risk?", "internal_notes", ["liquidation"]),
+        RetrievalEvalCase(
+            "pendle_pt", "What is a Pendle PT?", "pendle", ["principal token", "pt"],
+            relevant_source_ids=["ksrc_pub_a1da37ff088089e679ef"],
+            relevant_chunk_ids=["kchunk_pub_f2bd825dac767963c577"],
+        ),
+        RetrievalEvalCase(
+            "pendle_maturity", "What is maturity risk?", "pendle", ["maturity"],
+            relevant_source_ids=["ksrc_pub_a1da37ff088089e679ef"],
+            relevant_chunk_ids=["kchunk_pub_b0061bed5ca98cb8509e"],
+        ),
+        RetrievalEvalCase(
+            "morpho_lltv", "What is LLTV in Morpho?", "morpho", ["lltv"],
+            relevant_source_ids=["ksrc_pub_b731019df5bc97b0e572"],
+            relevant_chunk_ids=["kchunk_pub_edeceb532eed80d5d5aa"],
+        ),
+        RetrievalEvalCase(
+            "aave_health_factor", "What is Health Factor?", "aave", ["health factor"],
+            relevant_source_ids=["ksrc_pub_b024f4b882c2dfe9a317"],
+            relevant_chunk_ids=["kchunk_pub_8bad75b61af4c0ef3657"],
+        ),
+        RetrievalEvalCase(
+            "oracle_risk", "What is oracle risk?", "chainlink", ["oracle"],
+            relevant_source_ids=["ksrc_pub_6f512f98508809c459d5"],
+            relevant_chunk_ids=["kchunk_pub_11029256a78a363519fd"],
+        ),
+        RetrievalEvalCase(
+            "liquidation_risk", "What is liquidation risk?", "internal_notes", ["liquidation"],
+            relevant_source_ids=["ksrc_pub_7101b1f4894761eee339"],
+            relevant_chunk_ids=["kchunk_pub_5b5ff2d0e9e664ec1a02"],
+        ),
+        RetrievalEvalCase(
+            "irrelevant_no_answer", "quantum satellite manufacturing", None, [], expect_empty=True,
+        ),
     ]
 
 
@@ -70,9 +101,12 @@ def load_eval_dataset(path: Path = DEFAULT_EVAL_DATASET_PATH) -> list[RetrievalE
         RetrievalEvalCase(
             id=item["id"],
             query=item["query"],
-            expected_protocol=item["expected_protocol"],
-            expected_terms=item["expected_terms"],
+            expected_protocol=item.get("expected_protocol"),
+            expected_terms=item.get("expected_terms", []),
             metadata_filters=item.get("metadata_filters"),
+            relevant_source_ids=item.get("relevant_source_ids", []),
+            relevant_chunk_ids=item.get("relevant_chunk_ids", []),
+            expect_empty=bool(item.get("expect_empty", False)),
         )
         for item in payload
     ]
@@ -135,11 +169,15 @@ def _evaluate_case(
     top = retrieved[0] if retrieved else None
     matched_terms = _matched_terms(case.expected_terms, retrieved)
     citation_issues = validate_retrieval_citations(retrieved)
-    passed = bool(
-        top
-        and top.metadata.get("protocol") == case.expected_protocol
-        and matched_terms
-        and not citation_issues
+    passed = (
+        not retrieved and not citation_issues
+        if case.expect_empty
+        else bool(
+            top
+            and top.metadata.get("protocol") == case.expected_protocol
+            and matched_terms
+            and not citation_issues
+        )
     )
     return RetrievalEvalCaseResult(
         id=case.id,
@@ -149,6 +187,7 @@ def _evaluate_case(
         top_protocol=top.metadata.get("protocol") if top else None,
         matched_expected_terms=matched_terms,
         citation_issues=citation_issues,
+        expect_empty=case.expect_empty,
     )
 
 

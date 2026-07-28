@@ -46,6 +46,8 @@ class HybridRetriever:
         metadata_filters: dict[str, Any] | None = None,
         scope: RetrievalScope | None = None,
     ) -> list[RetrievalResult]:
+        if not TOKEN_PATTERN.findall(query.lower()):
+            return []
         keyword_query = self.keyword_provider.embed(query)
         semantic_query = self.semantic_provider.embed(query) if self.semantic_enabled else {}
         protocol_filter = {protocol.lower() for protocol in protocols or []}
@@ -71,6 +73,14 @@ class HybridRetriever:
                 vector_score = cosine_similarity(semantic_query, semantic_embedding)
 
             metadata_score = _metadata_retrieval_score(query, metadata)
+            if (
+                keyword_score <= 0
+                and vector_score <= 0
+                and not _has_query_metadata_signal(query, metadata)
+            ):
+                # Source quality and freshness can rerank a relevant result,
+                # but must never manufacture an answer for an unrelated query.
+                continue
             score = (
                 keyword_score * self.weights.keyword
                 + vector_score * self.weights.vector
@@ -131,3 +141,10 @@ def _metadata_retrieval_score(query: str, metadata: dict) -> float:
     score += source_quality_score(metadata) * 0.35
     score += freshness_score(metadata) * 0.25
     return score
+
+
+def _has_query_metadata_signal(query: str, metadata: dict) -> bool:
+    query_tokens = set(TOKEN_PATTERN.findall(query.lower()))
+    section_tokens = set(TOKEN_PATTERN.findall(str(metadata.get("section_title", "")).lower()))
+    risk_category = str(metadata.get("risk_category", "")).lower()
+    return bool(query_tokens & section_tokens) or risk_category in query_tokens

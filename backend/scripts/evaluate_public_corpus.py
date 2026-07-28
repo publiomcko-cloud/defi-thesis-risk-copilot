@@ -28,7 +28,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Compare public JSON and durable retrieval quality.")
     parser.add_argument("--dataset", type=Path, default=DEFAULT_EVAL_DATASET_PATH)
     parser.add_argument("--output", type=Path, default=None)
-    parser.add_argument("--top-k", type=int, default=3)
+    parser.add_argument("--top-k", type=int, default=1)
     args = parser.parse_args()
     output_path = args.output or Path(tempfile.gettempdir()) / "phase18g_public_retrieval_eval.json"
     json_output = output_path.with_name(output_path.stem + ".json-fallback.json")
@@ -52,7 +52,7 @@ def main() -> int:
     durable = comparison["durable_public"]
     print(
         f"durable public retrieval: {durable['passed_cases']}/{durable['total_cases']} "
-        f"({durable['pass_rate']:.0%}); precision@k={durable['precision_at_k']:.0%}; "
+        f"({durable['pass_rate']:.0%}); precision@{args.top_k}={durable['precision_at_k']:.0%}; "
         f"recall={durable['recall']:.0%}; citation issues={durable['citation_issue_count']}; "
         f"cutover_gate_passed={comparison['cutover_gate_passed']}"
     )

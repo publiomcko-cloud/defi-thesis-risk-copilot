@@ -18,6 +18,7 @@ from sqlalchemy import and_, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import UserContext
+from app.core.config import get_settings
 from app.jobs.cancellation import CancellationContext
 from app.knowledge.access import derive_knowledge_access_scope
 from app.knowledge.embedding import LocalDeterministicEmbeddingProvider

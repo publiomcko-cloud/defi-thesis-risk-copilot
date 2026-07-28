@@ -376,8 +376,10 @@ caller-owned private, and active-organization scope server-side for
 authenticated users while anonymous analysis remains public-only; JSON stays
 the fallback. Atomic version rollback, generation-specific same-profile
 embedding promotion/rollback, and retryable tombstone cleanup are implemented.
-Phase 18G supplies the convergent curated-corpus importer, evaluation/weekly CI
-evidence, and durable fallback behavior. Phase 18H supplies the authenticated
+Phase 18G supplies the convergent curated-corpus importer with whole-attempt
+object compensation and fail-closed ID collision handling, declared-lineage
+expected-empty evaluation/weekly CI evidence, and durable fallback behavior.
+Phase 18H supplies the authenticated
 source/document/version workspace, report citation lineage UI, safe readiness
 metrics, private-knowledge export metadata, and the live storage verification
 runbook. Phase 18 code is complete locally; the actual private-bucket policy

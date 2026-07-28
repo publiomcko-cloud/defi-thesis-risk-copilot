@@ -550,11 +550,15 @@ retained only as non-serving audit lineage.
 Phase 18G adds an operator-only importer for the repository's curated Markdown
 corpus. It creates approved public immutable source/document/version/chunk/
 embedding lineage, repairs deterministic partial state on rerun, never imports
-discovered or tenant material, and is disabled by default. The guarded report
+discovered or tenant material, and is disabled by default. It verifies
+checksum-free Supabase object metadata by bounded authenticated read, compensates
+every object created by a failed whole-corpus attempt, and fails closed on an
+unsafe deterministic-ID collision. The guarded report
 retriever derives tenant scope only from the actor and falls back to the local
 JSON index on an empty or unavailable durable result. Scheduled evaluation
-compares the durable corpus against the existing JSON fallback before an
-operator enables the primary flag.
+compares the durable corpus against the existing JSON fallback using declared
+immutable chunk/source relevance and an expected-empty case before an operator
+enables the primary flag.
 
 Phase 18H adds an authenticated source/document/version workspace and preserves
 exact durable source/document/version/chunk checksums in report-source data

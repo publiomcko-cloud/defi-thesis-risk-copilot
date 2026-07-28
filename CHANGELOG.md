@@ -9,6 +9,12 @@
   JSON remains the fallback.
 - Made curated corpus import convergent and compensating, added retrieval quality
   metrics, pgvector preflight, and safe private knowledge metadata in account export.
+- Hardened curated-object verification for checksum-free Supabase HEAD responses,
+  made compensation corpus-transaction-wide, rejected unsafe deterministic-ID
+  collisions, and added declared-lineage expected-empty retrieval evaluation.
+- Documented that migration `0021` downgrades fail closed after multi-generation
+  data exists; production rollback after activation uses feature flags, not a
+  destructive schema downgrade.
 - Phase 18 remains locally complete only; deployed storage-policy and cutover
   evidence remain Phase 22 work.
 

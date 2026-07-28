@@ -753,6 +753,11 @@ alembic upgrade head
 The Alembic application role intentionally does not attempt `CREATE EXTENSION`.
 Do not enable it before the private-storage/worker deployment gate and pgvector
 readiness probe are recorded.
+Migration `20260728_0021` can downgrade only before multiple completed
+generations exist for the same version/profile; it fails closed rather than
+discarding historical embedding rows. After activation, the supported production
+rollback is to disable `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED` and retain durable
+data while reports return to JSON.
 `KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED=true` requires embeddings to be enabled and
 exposes only the authenticated diagnostic endpoint. It must not be enabled for
 ordinary traffic until a synthetic tenant-isolation probe, pgvector readiness
@@ -770,7 +775,11 @@ python -m scripts.evaluate_public_corpus
 ```
 
 The import command accepts only checked-in `knowledge_base/**/*.md`, creates
-approved public immutable lineage, and is not an API or browser upload path.
+approved public immutable lineage, verifies Supabase objects by bounded
+authenticated read when checksum metadata is unavailable, and is not an API or
+browser upload path. A failed corpus transaction compensates all objects it
+created; unsafe deterministic-ID collisions fail closed rather than changing
+tenant/discovered content.
 Apply it only after the private bucket and worker/pgvector deployment checks
 are recorded. `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true` additionally requires
 shadow retrieval and should be enabled only after the comparison command passes.
@@ -817,7 +826,9 @@ Before any live storage activation, perform this recorded deployment runbook:
 6. Enable the trusted ingestion worker, then embeddings and shadow retrieval;
    record the worker claim/heartbeat/completion and tenant-isolation evidence.
 7. Run `python -m scripts.import_public_corpus --apply` with the explicit import
-   flag, then `python -m scripts.evaluate_public_corpus`. Enable
+   flag, then `python -m scripts.evaluate_public_corpus` (the local quality gate
+   currently evaluates seven cases, including one expected-empty query, at
+   top-1). Enable
    `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true` only after its quality gate passes.
 8. Keep JSON rollback active for the documented window. To roll back, set the
    primary flag to `false` first; do not delete durable rows or private objects.

@@ -374,14 +374,17 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   feature-gated durable ingestion, generation-specific local-only pgvector
   embeddings, and a checksum-bound tenant-safe retriever preserve the public
   JSON fallback. Phase 18G adds a convergent checked-in-Markdown-only importer,
-  durable retrieval evaluation, and a guarded report path that derives public,
+  whole-import object compensation, fail-closed collision protection, declared-
+  lineage expected-empty retrieval evaluation, and a guarded report path that derives public,
   private, and active-organization scope server-side for authenticated users;
   anonymous analysis stays public-only. Phase 18H adds the authenticated
   Knowledge workspace, durable citation lineage in reports, safe admin readiness
   metrics, an explicit storage probe, and safe private-knowledge export metadata.
   Storage, ingestion, embeddings, shadow retrieval, corpus import, and the
   durable primary flag remain disabled by default. Live Supabase policy
-  verification and primary-path activation remain Phase 22 external gates;
+  verification and primary-path activation remain Phase 22 external gates. The
+  local top-1 retrieval gate has seven cases and reports 100% precision/recall
+  with zero citation issues; it is not production cutover evidence;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.

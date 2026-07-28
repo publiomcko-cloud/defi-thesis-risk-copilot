@@ -9,17 +9,24 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.agents.protocol_research_agent import retrieve_protocol_context
+from app.auth.service import create_user
 from app.core.config import Settings, get_settings
 from app.db.base import Base
-from app.knowledge.public_corpus import import_curated_public_corpus, require_public_corpus_import_enabled
+from app.knowledge.public_corpus import (
+    _stable_id,
+    import_curated_public_corpus,
+    require_public_corpus_import_enabled,
+)
 from app.knowledge.retrieval_evaluation import evaluate_durable_public_retrieval
 from app.knowledge.public_retriever import retrieve_public_durable_context
 from app.models.knowledge import (
     KnowledgeChunkEmbeddingModel,
+    KnowledgeChunkModel,
     KnowledgeDocumentModel,
     KnowledgeDocumentVersionModel,
     KnowledgeSourceModel,
 )
+from app.models.organization import OrganizationModel
 from app.rag.retriever import RetrievalResult
 from app.storage.memory import InMemoryPrivateObjectStorage
 
@@ -41,6 +48,17 @@ def _curated_root(tmp_path: Path, content: str = "## Oracle Safety\nOracle safeg
     protocol = root / "aave"
     protocol.mkdir(parents=True, exist_ok=True)
     (protocol / "README.md").write_text(f"# Aave Curated Notes\n\n{content}\n", encoding="utf-8")
+    return root
+
+
+def _two_document_root(tmp_path: Path) -> Path:
+    root = _curated_root(tmp_path)
+    pendle = root / "pendle"
+    pendle.mkdir(parents=True)
+    (pendle / "README.md").write_text(
+        "# Pendle Curated Notes\n\n## Maturity\nMaturity controls are documented.\n",
+        encoding="utf-8",
+    )
     return root
 
 
@@ -177,6 +195,100 @@ def test_curated_import_compensates_a_new_object_when_database_write_fails(
         db.rollback()
 
 
+def test_curated_import_compensates_every_object_when_the_second_document_fails(
+    public_corpus_session,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _two_document_root(tmp_path)
+    storage = InMemoryPrivateObjectStorage()
+    from app.knowledge import public_corpus
+
+    original = public_corpus._ensure_curated_embeddings
+    calls = 0
+
+    def fail_second(*args, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise SQLAlchemyError("forced second document failure")
+        return original(*args, **kwargs)
+
+    monkeypatch.setattr(public_corpus, "_ensure_curated_embeddings", fail_second)
+    with public_corpus_session() as db:
+        with pytest.raises(SQLAlchemyError, match="second document"):
+            import_curated_public_corpus(db, storage, knowledge_base_path=root)
+        assert storage._objects == {}
+        assert db.execute(select(KnowledgeSourceModel)).scalars().all() == []
+        assert db.execute(select(KnowledgeDocumentModel)).scalars().all() == []
+
+
+@pytest.mark.parametrize(
+    "collision",
+    ["private", "organization", "discovered", "different_type", "mismatched_path"],
+)
+def test_curated_import_fails_closed_for_deterministic_source_id_collisions(
+    public_corpus_session,
+    tmp_path: Path,
+    collision: str,
+) -> None:
+    root = _curated_root(tmp_path)
+    relative_path = "aave/README.md"
+    source_id = _stable_id("ksrc_pub_", relative_path)
+    storage = InMemoryPrivateObjectStorage()
+    with public_corpus_session() as db:
+        owner = create_user(db, f"phase18-collision-{collision}@example.test")
+        organization = OrganizationModel(
+            id=f"org_phase18_collision_{collision}",
+            name=f"Phase 18 {collision}",
+            slug=f"phase18-{collision}",
+            status="active",
+            created_by_user_id=owner.id,
+        )
+        if collision == "organization":
+            db.add(organization)
+            visibility, owner_id, organization_id = "organization", owner.id, organization.id
+            source_type, source_uri, canonical_uri = "upload", relative_path, relative_path
+        elif collision == "private":
+            visibility, owner_id, organization_id = "private", owner.id, None
+            source_type, source_uri, canonical_uri = "upload", relative_path, relative_path
+        elif collision == "discovered":
+            visibility, owner_id, organization_id = "public", None, None
+            source_type, source_uri, canonical_uri = "discovered", relative_path, relative_path
+        elif collision == "different_type":
+            visibility, owner_id, organization_id = "public", None, None
+            source_type, source_uri, canonical_uri = "upload", relative_path, relative_path
+        else:
+            visibility, owner_id, organization_id = "public", None, None
+            source_type, source_uri, canonical_uri = "curated_markdown", "other/README.md", "other/README.md"
+        source = KnowledgeSourceModel(
+            id=source_id,
+            owner_user_id=owner_id,
+            organization_id=organization_id,
+            visibility=visibility,
+            source_type=source_type,
+            source_uri=source_uri,
+            canonical_uri=canonical_uri,
+            title="Collision source",
+            protocol="aave",
+            status="registered",
+            trust_state="discovered",
+            created_by_user_id=owner.id if collision in {"private", "organization"} else None,
+        )
+        db.add(source)
+        db.commit()
+
+        with pytest.raises(RuntimeError, match="unsafe lineage"):
+            import_curated_public_corpus(db, storage, knowledge_base_path=root)
+
+        unchanged = db.get(KnowledgeSourceModel, source_id)
+        assert unchanged is not None
+        assert unchanged.visibility == visibility
+        assert unchanged.source_type == source_type
+        assert unchanged.source_uri == source_uri
+        assert storage._objects == {}
+
+
 def test_public_durable_retriever_never_surfaces_noncurated_or_unapproved_rows(public_corpus_session, tmp_path: Path) -> None:
     root = _curated_root(tmp_path)
     storage = InMemoryPrivateObjectStorage()
@@ -248,3 +360,52 @@ def test_durable_public_evaluation_reports_citation_coverage(public_corpus_sessi
     assert summary.precision_at_k == 1.0
     assert summary.recall == 1.0
     assert summary.citation_issue_count == 0
+
+
+def test_durable_evaluation_uses_declared_lineage_without_an_expected_protocol_filter(
+    public_corpus_session,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root = _curated_root(tmp_path, "## Oracle Safety\nOracle safeguards protect liquidation calculations.")
+    dataset = tmp_path / "eval.json"
+    with public_corpus_session() as db:
+        import_curated_public_corpus(db, InMemoryPrivateObjectStorage(), knowledge_base_path=root)
+        source = db.execute(select(KnowledgeSourceModel)).scalar_one()
+        chunk = db.execute(select(KnowledgeChunkModel)).scalar_one()
+        dataset.write_text(
+            (
+                "["
+                '{"id":"oracle","query":"oracle safeguards","expected_protocol":"wrong",'
+                '"expected_terms":["oracle"],"metadata_filters":null,'
+                f'"relevant_source_ids":["{source.id}"],"relevant_chunk_ids":["{chunk.id}"],'
+                '"expect_empty":false},'
+                '{"id":"no-answer","query":"quantum satellite manufacturing",'
+                '"expected_protocol":null,"expected_terms":[],"metadata_filters":null,'
+                '"relevant_source_ids":[],"relevant_chunk_ids":[],"expect_empty":true}'
+                "]"
+            ),
+            encoding="utf-8",
+        )
+        from app.knowledge import retrieval_evaluation
+
+        original = retrieval_evaluation.retrieve_public_durable_context
+
+        def assert_unfiltered(session, query, *, protocols=None, top_k=3):
+            assert protocols is None
+            return original(session, query, protocols=protocols, top_k=top_k)
+
+        monkeypatch.setattr(
+            retrieval_evaluation,
+            "retrieve_public_durable_context",
+            assert_unfiltered,
+        )
+        summary = evaluate_durable_public_retrieval(db, dataset_path=dataset)
+
+    assert summary.pass_rate == 1.0
+    assert summary.precision_at_k == 1.0
+    assert summary.recall == 1.0
+    assert summary.expected_empty_cases == summary.correct_empty_cases == 1
+    assert summary.cases[0]["top_protocol"] == "aave"
+    assert summary.cases[0]["matched_reference_ids"]
+    assert summary.cases[1]["retrieved_chunk_ids"] == []

@@ -6,6 +6,8 @@ knowledge remain on the authenticated shadow/tenant path until later gates.
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
@@ -21,6 +23,10 @@ from app.models.knowledge import (
     KnowledgeSourceModel,
 )
 from app.rag.retriever import RetrievalResult
+from app.rag.embeddings import TOKEN_PATTERN
+
+
+_MIN_RELEVANT_SIMILARITY = 0.1
 
 
 def retrieve_public_durable_context(
@@ -85,12 +91,15 @@ def retrieve_public_durable_context(
         rows = db.execute(statement).all()
 
     durable_results = [
-        item
+        _with_query_heading_score(item, normalized_query)
         for row in rows
         if (item := _to_retrieved_chunk(row, query_embedding)) is not None
     ]
-    if db.bind is None or db.bind.dialect.name != "postgresql":
-        durable_results.sort(key=lambda item: item.score, reverse=True)
+    durable_results = [item for item in durable_results if item.score >= _MIN_RELEVANT_SIMILARITY]
+    # PostgreSQL narrows candidates with pgvector first. Re-sort that bounded
+    # set after applying the explicit heading signal so SQLite and PostgreSQL
+    # use the same final ranking contract.
+    durable_results.sort(key=lambda item: item.score, reverse=True)
     durable_results = durable_results[:requested_top_k]
     return [
         RetrievalResult(
@@ -109,3 +118,13 @@ def retrieve_public_durable_context(
         )
         for item in durable_results
     ]
+
+
+def _with_query_heading_score(item, query: str):
+    """Use explicit section overlap as a small, inspectable ranking signal."""
+
+    query_tokens = set(TOKEN_PATTERN.findall(query.lower()))
+    heading_tokens = set(
+        TOKEN_PATTERN.findall(" ".join(item.chunk.heading_path).lower())
+    )
+    return replace(item, score=item.score + 0.25 * len(query_tokens & heading_tokens))

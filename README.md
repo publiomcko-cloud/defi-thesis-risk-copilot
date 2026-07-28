@@ -46,7 +46,10 @@ feature-gated `document.ingest.v1` worker path are present. Versioned local-only
 pgvector embedding generations and an authenticated tenant-safe shadow
 retrieval/citation diagnostic are also implemented but disabled by default.
 Phase 18G adds an operator-only, convergent importer for the checked-in curated
-Markdown corpus, scheduled precision/recall/citation evaluation, and a guarded
+Markdown corpus, whole-import object compensation, fail-closed collision checks,
+and scheduled declared-lineage precision/recall/citation evaluation. The local
+top-1 gate includes an expected-empty case; it is quality evidence only, not a
+production cutover. It also adds a guarded
 durable report path. When explicitly enabled, authenticated analysis derives
 approved public, caller-owned private, and active-organization scope server-side;
 anonymous analysis remains public-only. JSON remains the automatic fallback.

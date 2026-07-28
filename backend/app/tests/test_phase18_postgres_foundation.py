@@ -20,7 +20,11 @@ from app.jobs.cancellation import CancellationContext
 from app.knowledge.embedding import LocalDeterministicEmbeddingProvider, vector_literal
 from app.knowledge.public_corpus import import_curated_public_corpus
 from app.knowledge.public_retriever import retrieve_public_durable_context
-from app.knowledge.shadow_retriever import _eligible_embeddings, retrieve_shadow_knowledge
+from app.knowledge.shadow_retriever import (
+    _eligible_embeddings,
+    retrieve_durable_analysis_context,
+    retrieve_shadow_knowledge,
+)
 from app.models.knowledge import (
     KnowledgeChunkEmbeddingModel,
     KnowledgeChunkModel,
@@ -254,6 +258,18 @@ def test_postgres_shadow_retrieval_filters_tenants_before_pgvector_ranking(
                 db, user_context(outsider), query="health factor", top_k=10, protocols=[], request_id=f"pg-outsider-{suffix}"
             )
             assert {item.citation.source_id for item in outsider_result.items} == {f"ksrc_phase18e_pg_{suffix}_public"}
+            # The analysis-facing retriever uses the same SQL tenant predicate,
+            # so prove pgvector ranking cannot leak organization rows there.
+            outsider_analysis = retrieve_durable_analysis_context(
+                db,
+                user_context(outsider),
+                query="health factor",
+                top_k=10,
+            )
+            assert {
+                item.metadata["citation_lineage"]["source_id"]
+                for item in outsider_analysis
+            } == {f"ksrc_phase18e_pg_{suffix}_public"}
             membership = db.get(OrganizationMembershipModel, f"mbr_phase18e_pg_{suffix}")
             assert membership is not None
             membership.status = "removed"

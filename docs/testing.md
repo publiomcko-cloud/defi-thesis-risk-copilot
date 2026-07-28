@@ -231,8 +231,9 @@ Implemented 18A–18H evidence:
 - `test_phase18_postgres_foundation.py` verifies PostgreSQL scope constraints,
   organization isolation, and immediate removed-member denial.
 - `test_phase18_storage_adapter.py` verifies the private Supabase metadata
-  route and rejects malformed or cross-key signed download responses without
-  exposing provider details.
+  route, bounded authenticated checksum fallback when object-info lacks one,
+  and rejects malformed or cross-key signed download responses without exposing
+  provider details.
 - `test_phase18b_knowledge_api.py` covers authenticated private and organization
   upload isolation, manager-only mutation, allowlist/checksum validation,
   storage-disabled failure, database-failure object compensation, approval audit
@@ -257,8 +258,10 @@ Implemented 18A–18H evidence:
 - `test_phase18g_public_corpus.py` covers idempotent checked-in-Markdown
   migration, immutable re-ingestion versions, approved-public-only retrieval,
   convergent partial-state repair including `A -> B -> A`, object-write
-  compensation, citation coverage, disabled-by-default import/cutover flags, and automatic
-  JSON fallback when the durable public corpus is absent.
+  compensation across a two-document transaction, fail-closed deterministic-ID
+  collision handling, declared-lineage/expected-empty evaluation, citation
+  coverage, disabled-by-default import/cutover flags, and automatic JSON fallback
+  when the durable public corpus is absent.
 - `test_phase18_postgres_foundation.py` additionally proves the curated importer
   populates PostgreSQL's indexed `vector(384)` column before public ranking.
 - `test_phase18h_citation_lineage.py` proves a durable chunk's exact citation
@@ -272,13 +275,18 @@ Implemented 18A–18H evidence:
   citation isolation, deletion/supersession/stale-generation exclusion, explicit
   no-answer protocol filtering, and bounded overfetch after corrupt lineage.
 - `test_phase18_postgres_foundation.py` additionally proves exact active-generation
-  selection and same-profile rollback on PostgreSQL. `scripts/preflight_pgvector.py`
+  selection and same-profile rollback on PostgreSQL plus direct analysis-facing
+  pgvector tenant isolation. `scripts/preflight_pgvector.py`
   verifies a provisioned `vector` extension before Alembic; migrations never
   assume the application role can install extensions.
 
 `python -m scripts.evaluate_public_corpus` compares the JSON fallback and an
 in-transaction durable public bootstrap against `retrieval_eval_dataset.json`,
-enforcing pass rate, precision@k, recall, source coverage, and citation integrity.
+enforcing item-level precision@k, recall, source coverage, citation integrity,
+and expected-empty behavior. The checked-in gate runs at top-1 and currently has
+seven cases, including an irrelevant no-answer query; the recorded result is
+7/7 with 100% precision@1/recall and zero citation issues. This is local/CI
+quality evidence, not deployed storage-policy or cutover evidence.
 It rolls the bootstrap back, writes no private object, and requires 80% pass
 rate, full source coverage, and zero citation issues. CI runs it on pull
 requests; `retrieval-evaluation.yml` repeats it weekly and stores the metrics

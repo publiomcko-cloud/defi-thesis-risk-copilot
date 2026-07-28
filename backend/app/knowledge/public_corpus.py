@@ -50,6 +50,7 @@ from app.storage.keys import build_version_object_key
 CURATED_SOURCE_TYPE = "curated_markdown"
 CURATED_PARSER_VERSION = "phase18g.curated-markdown.v1"
 CURATED_CHUNKER_VERSION = "phase18g.curated-sections.v1"
+CURATED_MEDIA_TYPE = "text/markdown"
 
 
 @dataclass(frozen=True)
@@ -81,24 +82,37 @@ def import_curated_public_corpus(
     unchanged_documents = 0
     created_versions = 0
     created_chunks = 0
-    profile = None if dry_run else get_configured_embedding_profile(db, create=True)
+    created_object_keys: set[str] = set()
 
-    for loaded in documents:
-        result = _import_document(
-            db,
-            storage,
-            loaded,
-            knowledge_base_path=knowledge_base_path,
-            dry_run=dry_run,
-            profile_id=profile.id if profile else None,
-        )
-        created_documents += result.documents_created
-        unchanged_documents += result.documents_unchanged
-        created_versions += result.document_versions_created
-        created_chunks += result.chunks_created
+    try:
+        # A savepoint makes the complete corpus attempt atomic without taking
+        # ownership of a caller's surrounding transaction. Objects are outside
+        # the database transaction, so every newly-created key is compensated
+        # if any later document fails.
+        with db.begin_nested():
+            profile = None if dry_run else get_configured_embedding_profile(db, create=True)
+            for loaded in documents:
+                result = _import_document(
+                    db,
+                    storage,
+                    loaded,
+                    knowledge_base_path=knowledge_base_path,
+                    dry_run=dry_run,
+                    profile_id=profile.id if profile else None,
+                    created_object_keys=created_object_keys,
+                )
+                created_documents += result.documents_created
+                unchanged_documents += result.documents_unchanged
+                created_versions += result.document_versions_created
+                created_chunks += result.chunks_created
 
-    if not dry_run:
-        db.flush()
+            if not dry_run:
+                db.flush()
+    except Exception:
+        if not dry_run:
+            _compensate_created_objects(storage, created_object_keys)
+        raise
+
     return PublicCorpusImportSummary(
         documents_seen=len(documents),
         documents_created=created_documents,
@@ -122,6 +136,7 @@ def _import_document(
     knowledge_base_path: Path,
     dry_run: bool,
     profile_id: str | None,
+    created_object_keys: set[str],
 ) -> PublicCorpusImportSummary:
     relative_path = _relative_source_path(loaded.path, knowledge_base_path)
     content = loaded.content.encode("utf-8")
@@ -159,28 +174,17 @@ def _import_document(
     # and PostgreSQL. Flush their immutable parent lineage in dependency order
     # before inserting chunks so PostgreSQL enforces the production contract.
     db.flush()
-    object_created = False
-    try:
-        version.storage_key = build_version_object_key(source, document, version)
-        object_created = _ensure_curated_object(storage, version.storage_key, content, checksum)
-        chunks = _ensure_curated_chunks(db, version, loaded, relative_path, now)
-        generation = _ensure_curated_generation(db, version, profile_id, chunks, now)
-        embeddings_created = _ensure_curated_embeddings(
-            db, version, generation, profile_id, chunks, now
-        )
-        _activate_curated_version(
-            db, document, source, version, profile_id, generation.id, now
-        )
-        db.flush()
-    except Exception:
-        if object_created:
-            try:
-                storage.delete(key=version.storage_key)
-            except StorageError:
-                # The database exception remains authoritative. A later
-                # operator run can safely reconcile an orphaned immutable key.
-                pass
-        raise
+    if _ensure_curated_object(storage, version.storage_key, content, checksum):
+        created_object_keys.add(version.storage_key)
+    chunks = _ensure_curated_chunks(db, version, loaded, relative_path, now)
+    generation = _ensure_curated_generation(db, version, profile_id, chunks, now)
+    embeddings_created = _ensure_curated_embeddings(
+        db, version, generation, profile_id, chunks, now
+    )
+    _activate_curated_version(
+        db, document, source, version, profile_id, generation.id, now
+    )
+    db.flush()
     return PublicCorpusImportSummary(
         1,
         documents_created,
@@ -200,6 +204,8 @@ def _repair_source(
 ) -> KnowledgeSourceModel:
     if source is None:
         source = KnowledgeSourceModel(id=source_id, created_at=now)
+    elif not _is_expected_curated_source(source, relative_path, loaded):
+        raise RuntimeError("Existing curated public source has an unsafe lineage")
     source.owner_user_id = None
     source.organization_id = None
     source.visibility = "public"
@@ -214,6 +220,25 @@ def _repair_source(
     source.deleted_at = None
     source.updated_at = now
     return source
+
+
+def _is_expected_curated_source(
+    source: KnowledgeSourceModel,
+    relative_path: str,
+    loaded: LoadedDocument,
+) -> bool:
+    """Reject ID collisions before mutable repair can change their scope."""
+
+    return bool(
+        source.owner_user_id is None
+        and source.organization_id is None
+        and source.created_by_user_id is None
+        and source.visibility == "public"
+        and source.source_type == CURATED_SOURCE_TYPE
+        and source.source_uri == relative_path
+        and source.canonical_uri == relative_path
+        and source.protocol == loaded.protocol.lower()
+    )
 
 
 def _repair_document(
@@ -234,10 +259,12 @@ def _repair_document(
             updated_at=now,
         )
         return document, 1
-    if document.knowledge_source_id != source.id:
+    if (
+        document.knowledge_source_id != source.id
+        or document.filename != loaded.path.name
+        or document.media_type != CURATED_MEDIA_TYPE
+    ):
         raise RuntimeError("Existing curated public document has an unsafe lineage")
-    document.filename = loaded.path.name
-    document.media_type = "text/markdown"
     document.status = "ready"
     document.deleted_at = None
     document.updated_at = now
@@ -274,9 +301,17 @@ def _repair_version(
         )
         created = True
     else:
-        if version.document_id != document.id:
+        if (
+            version.document_id != document.id
+            or (version.checksum is not None and version.checksum != checksum)
+            or (version.size_bytes not in {0, size_bytes})
+        ):
             raise RuntimeError("Existing curated public version has an unsafe lineage")
         created = False
+    expected_storage_key = build_version_object_key(source, document, version)
+    if not created and version.storage_key not in {"pending", expected_storage_key}:
+        raise RuntimeError("Existing curated public version has an unsafe lineage")
+    version.storage_key = expected_storage_key
     version.checksum = checksum
     version.size_bytes = size_bytes
     version.parser_version = CURATED_PARSER_VERSION
@@ -298,8 +333,12 @@ def _ensure_curated_chunks(
     now: datetime,
 ) -> list[KnowledgeChunkModel]:
     expected = chunk_markdown_document(loaded)
+    expected_checksums = [sha256(chunk.text.encode("utf-8")).hexdigest() for chunk in expected]
     expected_ids = [
-        _stable_id("kchunk_pub_", f"{version.id}:{index}:{chunk.id}")
+        _stable_id(
+            "kchunk_pub_",
+            f"{version.id}:{index}:{chunk.metadata['section_title']}:{expected_checksums[index]}",
+        )
         for index, chunk in enumerate(expected)
     ]
     existing = db.execute(
@@ -307,7 +346,6 @@ def _ensure_curated_chunks(
         .where(KnowledgeChunkModel.document_version_id == version.id)
         .order_by(KnowledgeChunkModel.chunk_index)
     ).scalars().all()
-    expected_checksums = [sha256(chunk.text.encode("utf-8")).hexdigest() for chunk in expected]
     valid = (
         len(existing) == len(expected)
         and [item.id for item in existing] == expected_ids
@@ -477,9 +515,9 @@ def _ensure_curated_object(
         existing = storage.head(key=key)
     except ObjectNotFoundError:
         _store_curated_object(storage, key, content, checksum)
+        _verify_curated_object(storage, key, content, checksum)
         return True
-    if existing.checksum != checksum:
-        raise StorageError("Curated object checksum does not match immutable version")
+    _verify_curated_object(storage, key, content, checksum, existing=existing)
     return False
 
 
@@ -493,8 +531,62 @@ def _store_curated_object(storage: PrivateObjectStorage, key: str, content: byte
         )
     except ObjectConflictError:
         existing = storage.head(key=key)
-        if existing.checksum != checksum:
+        _verify_curated_object(storage, key, content, checksum, existing=existing)
+
+
+def _verify_curated_object(
+    storage: PrivateObjectStorage,
+    key: str,
+    content: bytes,
+    checksum: str,
+    *,
+    existing=None,
+) -> None:
+    """Verify immutable object facts without trusting provider HEAD checksums.
+
+    Supabase's authenticated object-info HEAD response does not expose a stable
+    checksum. A bounded authenticated download is therefore the authority when
+    that metadata is absent. Providers that do expose a checksum still receive
+    strict size and media-type validation from HEAD.
+    """
+
+    metadata = existing or storage.head(key=key)
+    expected_size = len(content)
+    if metadata.size_bytes not in {0, expected_size}:
+        raise StorageError("Curated object size does not match immutable version")
+    if _normalized_media_type(metadata.content_type) not in {
+        CURATED_MEDIA_TYPE,
+        "application/octet-stream",
+    }:
+        raise StorageError("Curated object media type does not match immutable version")
+    if metadata.checksum is not None:
+        if metadata.checksum != checksum:
             raise StorageError("Curated object checksum does not match immutable version")
+        if _normalized_media_type(metadata.content_type) != CURATED_MEDIA_TYPE:
+            raise StorageError("Curated object media type does not match immutable version")
+        return
+
+    payload = storage.get_bounded(key=key, max_bytes=expected_size)
+    if payload.metadata.size_bytes != expected_size:
+        raise StorageError("Curated object size does not match immutable version")
+    if _normalized_media_type(payload.metadata.content_type) != CURATED_MEDIA_TYPE:
+        raise StorageError("Curated object media type does not match immutable version")
+    if sha256(payload.content).hexdigest() != checksum:
+        raise StorageError("Curated object checksum does not match immutable version")
+
+
+def _normalized_media_type(value: str) -> str:
+    return value.split(";", 1)[0].strip().lower()
+
+
+def _compensate_created_objects(storage: PrivateObjectStorage, keys: set[str]) -> None:
+    for key in sorted(keys, reverse=True):
+        try:
+            storage.delete(key=key)
+        except StorageError:
+            # Preserve the database/import failure. Immutable orphan keys stay
+            # unreachable and can be reconciled by the explicit operator path.
+            pass
 
 
 def _required_profile_id(profile_id: str | None) -> str:

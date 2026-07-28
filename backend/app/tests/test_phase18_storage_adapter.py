@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from datetime import timedelta
+from hashlib import sha256
 
 import httpx
 import pytest
 
 from app.storage.base import StorageError
+from app.knowledge.public_corpus import _ensure_curated_object
 from app.storage.supabase import SupabasePrivateObjectStorage
 
 
@@ -85,4 +87,52 @@ def test_supabase_signed_url_sanitizes_malformed_provider_response() -> None:
         _adapter(handler).signed_download_url(
             key=OBJECT_KEY,
             expires_in=timedelta(minutes=5),
+        )
+
+
+def test_curated_verification_uses_authenticated_read_when_supabase_head_has_no_checksum() -> None:
+    content = b"# Curated\n\nVerified public Markdown.\n"
+    requests: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        if request.method == "HEAD":
+            # Supabase object-info does not provide a trusted checksum.
+            return httpx.Response(
+                200,
+                headers={"content-length": str(len(content)), "content-type": "text/markdown"},
+            )
+        assert request.method == "GET"
+        assert request.url.path.endswith("/object/authenticated/private-knowledge/" + OBJECT_KEY)
+        assert request.headers["authorization"] == "Bearer phase18-storage-secret"
+        return httpx.Response(200, content=content, headers={"content-type": "text/markdown"})
+
+    created = _ensure_curated_object(
+        _adapter(handler),
+        OBJECT_KEY,
+        content,
+        sha256(content).hexdigest(),
+    )
+
+    assert created is False
+    assert [request.method for request in requests] == ["HEAD", "GET"]
+
+
+def test_curated_verification_rejects_supabase_read_with_wrong_content_type_or_checksum() -> None:
+    content = b"# Curated\n"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "HEAD":
+            return httpx.Response(
+                200,
+                headers={"content-length": str(len(content)), "content-type": "text/markdown"},
+            )
+        return httpx.Response(200, content=b"tampered", headers={"content-type": "text/plain"})
+
+    with pytest.raises(StorageError, match="size|media type|checksum"):
+        _ensure_curated_object(
+            _adapter(handler),
+            OBJECT_KEY,
+            content,
+            sha256(content).hexdigest(),
         )
