@@ -212,6 +212,7 @@ def _add_retrievable_document(
         size_bytes=len(content),
         status="ready" if current else "superseded",
         superseded_at=None if current else now,
+        active_embedding_profile_id="kembprof_local_hash_384_v1",
     )
     chunk_checksum = sha256(content.encode("utf-8")).hexdigest()
     chunk = KnowledgeChunkModel(

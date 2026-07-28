@@ -186,6 +186,7 @@ def finalize_document_embedding(db: Session, job, result: dict) -> None:
     generation.completed_at = datetime.now(UTC)
     version.embedding_model = profile.model
     version.embedding_dimensions = profile.dimensions
+    version.active_embedding_profile_id = profile.id
 
 
 def _load_lineage(db: Session, version_id: str, *, lock: bool = False):

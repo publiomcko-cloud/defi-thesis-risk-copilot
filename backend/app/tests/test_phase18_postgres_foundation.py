@@ -307,7 +307,7 @@ def _add_pgvector_document(
         created_by_user_id=owner_id,
     )
     document = KnowledgeDocumentModel(id=document_id, knowledge_source_id=source_id, current_version_id=version_id, filename="source.md", media_type="text/markdown", status="ready")
-    version = KnowledgeDocumentVersionModel(id=version_id, document_id=document_id, version_number=1, storage_key=f"knowledge/{suffix}/{kind}", checksum="a" * 64, size_bytes=len(content), status="ready")
+    version = KnowledgeDocumentVersionModel(id=version_id, document_id=document_id, version_number=1, storage_key=f"knowledge/{suffix}/{kind}", checksum="a" * 64, size_bytes=len(content), status="ready", active_embedding_profile_id="kembprof_local_hash_384_v1")
     chunk = KnowledgeChunkModel(id=chunk_id, document_version_id=version_id, chunk_index=0, heading_path=[kind], content=content, content_checksum=checksum, token_count=len(content.split()))
     generation = KnowledgeEmbeddingGenerationModel(id=generation_id, document_version_id=version_id, embedding_profile_id="kembprof_local_hash_384_v1", status="completed", expected_chunk_count=1, completed_chunk_count=1, content_checksum=checksum)
     values = LocalDeterministicEmbeddingProvider().embed(content, CancellationContext())

@@ -6,6 +6,9 @@ from app.auth.schemas import UserContext
 from app.db.session import get_db
 from app.knowledge.schemas import (
     KnowledgeDocumentResponse,
+    KnowledgeDocumentRollbackRequest,
+    KnowledgeDocumentVersionResponse,
+    KnowledgeEmbeddingPromotionRequest,
     KnowledgeSourceCreateRequest,
     KnowledgeSourceResponse,
     KnowledgeSourcesResponse,
@@ -22,10 +25,15 @@ from app.knowledge.service import (
     get_document,
     get_source,
     list_sources,
+    knowledge_document_version_response,
     update_source,
 )
 from app.knowledge.ingestion_service import submit_document_ingestion
 from app.knowledge.embedding_service import submit_document_embedding
+from app.knowledge.lifecycle_service import (
+    promote_document_embedding_generation,
+    rollback_document_version,
+)
 from app.knowledge.shadow_retriever import retrieve_shadow_knowledge
 from app.jobs.control_service import job_response
 from app.jobs.schemas import JobSubmissionResponse
@@ -153,6 +161,36 @@ def post_knowledge_document_embedding(
 ) -> JobSubmissionResponse:
     job, replayed = submit_document_embedding(db, actor, version_id, idempotency_key)
     return JobSubmissionResponse(job=job_response(job), idempotent_replay=replayed)
+
+
+@router.post(
+    "/knowledge/documents/{document_id}/rollback",
+    response_model=KnowledgeDocumentResponse,
+)
+def post_knowledge_document_rollback(
+    document_id: str,
+    payload: KnowledgeDocumentRollbackRequest,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> KnowledgeDocumentResponse:
+    document = rollback_document_version(db, actor, document_id, payload.version_id)
+    return get_document(db, actor, document.id)
+
+
+@router.post(
+    "/knowledge/document-versions/{version_id}/embedding-generations/promote",
+    response_model=KnowledgeDocumentVersionResponse,
+)
+def post_knowledge_embedding_promotion(
+    version_id: str,
+    payload: KnowledgeEmbeddingPromotionRequest,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> KnowledgeDocumentVersionResponse:
+    version = promote_document_embedding_generation(
+        db, actor, version_id, payload.embedding_generation_id
+    )
+    return knowledge_document_version_response(version)
 
 
 @router.post(

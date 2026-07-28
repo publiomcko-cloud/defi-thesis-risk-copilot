@@ -1,6 +1,6 @@
 # V1 Phase 18 Execution Plan — Production RAG and Knowledge Storage
 
-Status: **Implemented Foundation (18A–18E complete locally)**
+Status: **Implemented Foundation (18A–18F complete locally)**
 
 Branch: `agent/v1-phase-18-production-rag`
 
@@ -813,6 +813,35 @@ Gate:
 - cleanup dry-run is side-effect free;
 - historical citation identifiers remain safe and non-serving.
 
+Implementation: **Complete locally on the Phase 18 branch.**
+
+Implementation notes:
+
+- re-ingestion remains immutable: the existing upload-version endpoint creates
+  a new version under a document lock and Phase 18C activation leaves the old
+  current version intact until validation succeeds;
+- `POST /api/knowledge/documents/{document_id}/rollback` atomically selects a
+  ready or superseded version owned by the same managed document, supersedes
+  the prior current version, records an audit event, and never rewrites
+  historical version identifiers or checksums;
+- completed embedding generations can be selected through the manager-only
+  promotion endpoint. A prior completed generation remains available for an
+  explicit rollback; version-level active-profile metadata keeps the shadow
+  retriever bound to the promoted generation rather than a browser-supplied
+  profile;
+- deletion immediately tombstones source/document/version state and queues one
+  idempotent cleanup task per version. `scripts/cleanup_knowledge_tombstones.py`
+  supports bounded dry-run and retryable physical removal of private originals,
+  chunks, embeddings, and generation outputs. It does no work when storage is
+  disabled; failed provider deletes remain retryable and no object key is put
+  in the task record.
+
+Gate: **Passed locally.** Lifecycle tests prove atomic rollback, promotion and
+rollback of completed generations, retrieval revocation before cleanup,
+side-effect-free dry run, idempotent physical cleanup, and retained historical
+retrieval-event identifiers. Phase 18G may begin; Phase 18 remains incomplete
+until public migration, evaluation, frontend, and cutover gates pass.
+
 ### Phase 18G — Public corpus migration and cutover
 
 Dependencies: 18F.
@@ -940,7 +969,7 @@ rental.
 
 ## 18. Phase status rule
 
-After Phases 18A–18E, report:
+After Phases 18A–18F, report:
 
 ```text
 Phase 18 — Implemented Foundation

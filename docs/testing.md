@@ -218,7 +218,7 @@ private, and organization authorization, compensated bounded upload handling,
 and feature-gated durable ingestion cleanup/activation. It must preserve the
 public JSON retriever as a rollback path.
 
-Implemented 18A–18E evidence:
+Implemented 18A–18F evidence:
 
 - `test_phase18_foundation.py` covers ownership, anonymous denial, active
   organization membership, non-member platform-admin denial, trusted-public
@@ -250,9 +250,13 @@ Implemented 18A–18E evidence:
   non-current versions, checksum-bound citation lineage, and privacy-safe
   retrieval-event metadata. PostgreSQL integration covers tenant-filtered
   pgvector ordering.
+- `test_phase18f_lifecycle.py` covers atomic immutable-version rollback,
+  manager-scoped embedding generation promotion and rollback, immediate
+  tombstone revocation, side-effect-free cleanup dry run, retryable object and
+  derived-content cleanup, and safe historical retrieval-event identifiers.
 
-Later slices test physical deletion/retention, re-embedding migration, rollback,
-evaluation datasets, and public cutover quality evidence.
+Later slices test public corpus migration, evaluation datasets, frontend lineage,
+and public cutover quality evidence.
 PostgreSQL tests are required for tenant isolation, vector filtering, concurrent
 version creation, job idempotency, and migration safety.
 

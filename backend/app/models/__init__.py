@@ -14,6 +14,7 @@ from app.models.knowledge_base_ingestion import KnowledgeBaseIngestionModel
 from app.models.knowledge import (
     KnowledgeChunkModel,
     KnowledgeChunkEmbeddingModel,
+    KnowledgeCleanupTaskModel,
     KnowledgeDocumentModel,
     KnowledgeDocumentVersionModel,
     KnowledgeEmbeddingGenerationModel,
@@ -53,6 +54,7 @@ __all__ = [
     "KnowledgeBaseIngestionModel",
     "KnowledgeChunkModel",
     "KnowledgeChunkEmbeddingModel",
+    "KnowledgeCleanupTaskModel",
     "KnowledgeDocumentModel",
     "KnowledgeDocumentVersionModel",
     "KnowledgeEmbeddingGenerationModel",

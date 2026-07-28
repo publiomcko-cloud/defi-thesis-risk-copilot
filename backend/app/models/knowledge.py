@@ -181,6 +181,7 @@ class KnowledgeDocumentVersionModel(Base):
     chunker_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     embedding_model: Mapped[str | None] = mapped_column(String(255), nullable=True)
     embedding_dimensions: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    active_embedding_profile_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     status: Mapped[str] = mapped_column(
         String(32),
         default="pending_upload",
@@ -329,3 +330,33 @@ class KnowledgeRetrievalEventModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
     )
+
+
+class KnowledgeCleanupTaskModel(Base):
+    """Retryable physical cleanup after a durable version is tombstoned."""
+
+    __tablename__ = "knowledge_cleanup_tasks"
+    __table_args__ = (
+        CheckConstraint(
+            "status IN ('pending', 'processing', 'failed', 'completed')",
+            name="ck_knowledge_cleanup_tasks_status",
+        ),
+        CheckConstraint("attempt_count >= 0", name="ck_knowledge_cleanup_tasks_attempt_count"),
+        UniqueConstraint("document_version_id", name="uq_knowledge_cleanup_tasks_version"),
+        Index("ix_knowledge_cleanup_tasks_status_next", "status", "next_attempt_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    document_version_id: Mapped[str] = mapped_column(
+        ForeignKey("knowledge_document_versions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    last_error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )
+    next_attempt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

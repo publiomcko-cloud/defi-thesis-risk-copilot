@@ -64,6 +64,14 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
   metadata without raw query or chunk-content logging. Analysis reports still
   use the curated JSON RAG path; no durable retrieval cutover has occurred.
 
+### Phase 18F Knowledge Lifecycle Operations
+
+- Added atomic document-version rollback, completed embedding-generation
+  promotion/rollback, and version-level active embedding-profile metadata.
+- Added immediate tombstone revocation with idempotent, retryable physical
+  cleanup tasks for private originals and derived chunks/vectors, plus a bounded
+  cleanup CLI with dry-run support.
+
 ### Phase 17 Durable Jobs and Hybrid Workers
 
 - Correction pass completed on `main`: added supervised long-running heartbeats/cancellation, immutable

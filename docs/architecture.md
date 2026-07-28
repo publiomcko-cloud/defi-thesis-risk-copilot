@@ -540,6 +540,11 @@ server-derived tenant filters before ranking, records only privacy-safe
 retrieval telemetry, and returns checksum-bound citations. It is deliberately
 not wired into analysis reports: curated JSON retrieval remains the report and
 rollback authority until later evaluation/cutover gates pass.
+Phase 18F adds immutable-version rollback, manager-scoped embedding-generation
+selection, and a two-stage deletion lifecycle. Database tombstones revoke
+durable retrieval before a bounded, retryable cleanup script deletes private
+objects and derived chunks/vectors; historical retrieval event identifiers are
+retained only as non-serving audit lineage.
 
 ---
 

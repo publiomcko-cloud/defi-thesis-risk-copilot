@@ -693,9 +693,9 @@ GitHub Actions worker path, job observability, and provider cost controls.
 
 ### Phase 18
 
-The 18A–18E schema, adapter, authenticated upload API, ingestion worker,
-local-only pgvector embedding path, and shadow retrieval diagnostic are present
-but disabled by default.
+The 18A–18F schema, adapter, authenticated upload API, ingestion worker,
+local-only pgvector embedding path, shadow retrieval diagnostic, and lifecycle
+rollback/cleanup controls are present but disabled by default.
 Configuration defaults:
 
 ```env
@@ -745,6 +745,19 @@ exposes only the authenticated diagnostic endpoint. It must not be enabled for
 ordinary traffic until a synthetic tenant-isolation probe, pgvector readiness
 probe, and retrieval-event review are recorded. It never replaces JSON report
 retrieval in this slice.
+
+Phase 18F adds a controlled retention command:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m scripts.cleanup_knowledge_tombstones --dry-run
+```
+
+Run the dry run before any real cleanup. A real run requires the private storage
+configuration and deletes only versions already tombstoned in a committed
+database transaction. Provider failures leave a retryable cleanup task; they
+never restore retrieval visibility or expose an object key.
 
 ### Phase 19
 

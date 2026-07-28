@@ -196,11 +196,13 @@ def _eligible_embeddings(
         .where(KnowledgeDocumentVersionModel.status == "ready")
         .where(KnowledgeDocumentVersionModel.deleted_at.is_(None))
         .where(KnowledgeChunkModel.deleted_at.is_(None))
-        .where(KnowledgeChunkEmbeddingModel.embedding_profile_id == settings.knowledge_embedding_profile_id)
+        .where(
+            KnowledgeChunkEmbeddingModel.embedding_profile_id
+            == KnowledgeDocumentVersionModel.active_embedding_profile_id
+        )
         .where(KnowledgeChunkEmbeddingModel.status == "completed")
         .where(KnowledgeChunkEmbeddingModel.deleted_at.is_(None))
         .where(KnowledgeEmbeddingProfileModel.status == "active")
-        .where(KnowledgeEmbeddingProfileModel.is_active.is_(True))
     )
     if protocol_filter:
         statement = statement.where(KnowledgeSourceModel.protocol.in_(protocol_filter))

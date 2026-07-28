@@ -21,6 +21,7 @@ from app.knowledge.access import (
     get_visible_knowledge_source,
     list_visible_knowledge_sources,
 )
+from app.knowledge.lifecycle_service import schedule_version_cleanup
 from app.knowledge.schemas import (
     KnowledgeDocumentResponse,
     KnowledgeDocumentVersionResponse,
@@ -466,6 +467,7 @@ def _tombstone_document(db: Session, document: KnowledgeDocumentModel, now: date
     for version in versions:
         version.status = "deleted"
         version.deleted_at = now
+        schedule_version_cleanup(db, version, now=now)
 
 
 def knowledge_source_response(source: KnowledgeSourceModel) -> KnowledgeSourceResponse:

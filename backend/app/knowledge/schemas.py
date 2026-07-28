@@ -89,6 +89,18 @@ class KnowledgeDocumentResponse(BaseModel):
     versions: list[KnowledgeDocumentVersionResponse] = Field(default_factory=list)
 
 
+class KnowledgeDocumentRollbackRequest(BaseModel):
+    version_id: str = Field(min_length=1, max_length=64)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class KnowledgeEmbeddingPromotionRequest(BaseModel):
+    embedding_generation_id: str = Field(min_length=1, max_length=64)
+
+    model_config = ConfigDict(extra="forbid")
+
+
 class ShadowRetrievalRequest(BaseModel):
     query: str = Field(min_length=1, max_length=2000)
     top_k: int | None = Field(default=None, ge=1, le=20)
