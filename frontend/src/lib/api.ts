@@ -45,6 +45,7 @@ import type {
   JobResponse,
   JobSubmissionResponse,
   JobOperations,
+  OperationsMonitoring,
   JobEventsResponse,
   JobsResponse,
   KnowledgeDocument,
@@ -708,6 +709,19 @@ export async function fetchJobOperations(): Promise<JobOperations> {
 
   if (!response.ok) {
     throw new Error(await errorDetail(response, `Job operations fetch failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function fetchOperationsMonitoring(): Promise<OperationsMonitoring> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/operations/monitoring`, {
+    cache: "no-store",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Operations monitoring fetch failed with status ${response.status}`));
   }
 
   return response.json();

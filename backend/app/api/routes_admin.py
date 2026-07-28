@@ -8,6 +8,8 @@ from app.auth.schemas import AuditEventsResponse, UserContext
 from app.auth.service import audit_event_response
 from app.core.config import get_settings
 from app.core.observability import operational_readiness
+from app.operations.monitoring import operations_monitoring_snapshot
+from app.operations.schemas import OperationsMonitoringResponse
 from app.rate_limits.service import rate_limit_summary
 from app.db.session import get_db
 from app.models.access_audit_event import AccessAuditEventModel
@@ -167,6 +169,18 @@ def get_operational_readiness(
     """Return safe, non-mutating Phase 19A readiness information."""
 
     return OperationalReadinessResponse(**operational_readiness(db))
+
+
+@router.get("/admin/operations/monitoring", response_model=OperationsMonitoringResponse)
+def get_operations_monitoring(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> OperationsMonitoringResponse:
+    """Expose aggregate-only Phase 19D signals to platform administrators."""
+
+    if not get_settings().operations_monitoring_enabled:
+        raise HTTPException(status_code=503, detail="Operations monitoring is disabled")
+    return operations_monitoring_snapshot(db)
 
 
 @router.get("/admin/operations/rate-limits", response_model=RateLimitSummaryResponse)

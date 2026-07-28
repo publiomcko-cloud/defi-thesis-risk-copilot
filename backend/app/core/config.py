@@ -17,6 +17,18 @@ class Settings(BaseSettings):
     observability_export_timeout_seconds: float = 2.0
     observability_export_queue_size: int = 100
     observability_clock_timezone: str = "UTC"
+    operations_monitoring_enabled: bool = False
+    operations_alert_evaluation_enabled: bool = False
+    operations_synthetic_checks_enabled: bool = False
+    operations_synthetic_allowed_origins: str = ""
+    operations_monitoring_window_hours: int = 24
+    operations_monitoring_event_limit: int = 1_000
+    operations_alert_queue_depth: int = 25
+    operations_alert_queue_age_seconds: int = 900
+    operations_alert_dead_letter_count: int = 1
+    operations_alert_stale_worker_count: int = 1
+    operations_alert_retrieval_empty_rate_percent: float = 80.0
+    operations_alert_retrieval_latency_ms: int = 5_000
     public_compute_rate_limit_per_minute: int = 20
     rate_limiting_enabled: bool = False
     rate_limiting_mode: str = "shadow"
@@ -189,6 +201,22 @@ class Settings(BaseSettings):
             raise ValueError("OBSERVABILITY_EXPORT_QUEUE_SIZE must be between 1 and 10000")
         if self.observability_clock_timezone != "UTC":
             raise ValueError("OBSERVABILITY_CLOCK_TIMEZONE must be UTC")
+        if self.operations_alert_evaluation_enabled and not self.operations_monitoring_enabled:
+            raise ValueError("OPERATIONS_ALERT_EVALUATION_ENABLED requires OPERATIONS_MONITORING_ENABLED")
+        if self.operations_synthetic_checks_enabled and not self.operations_monitoring_enabled:
+            raise ValueError("OPERATIONS_SYNTHETIC_CHECKS_ENABLED requires OPERATIONS_MONITORING_ENABLED")
+        if min(
+            self.operations_monitoring_window_hours,
+            self.operations_monitoring_event_limit,
+            self.operations_alert_queue_depth,
+            self.operations_alert_queue_age_seconds,
+            self.operations_alert_dead_letter_count,
+            self.operations_alert_stale_worker_count,
+            self.operations_alert_retrieval_latency_ms,
+        ) < 1:
+            raise ValueError("Phase 19 operations monitoring thresholds must be positive")
+        if not 0 <= self.operations_alert_retrieval_empty_rate_percent <= 100:
+            raise ValueError("OPERATIONS_ALERT_RETRIEVAL_EMPTY_RATE_PERCENT must be between 0 and 100")
         if len(self.observability_release_id) > 128:
             raise ValueError("OBSERVABILITY_RELEASE_ID must not exceed 128 characters")
         if self.rate_limiting_mode not in {"shadow", "enforce"}:
