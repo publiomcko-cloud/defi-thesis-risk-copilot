@@ -362,7 +362,7 @@ Persistent per-period limits for analysis, simulation, options, market data, and
 
 ### Network rate limits
 
-Request-frequency protection. Current Phase 15 limiter is in-process; Phase 19 supplies distributed enforcement.
+Request-frequency protection is distinct from persistent product quotas. Phase 19B provides a disabled-by-default PostgreSQL shared limiter with two fixed windows per action for burst and sustained protection. It derives IP scope from the direct peer unless that peer belongs to an explicit trusted-proxy CIDR, then combines it with an anonymous session or authenticated user scope. Durable job admission adds an organization scope only after server-side membership validation. The database stores salted HMAC scope hashes, never raw IP addresses or session identifiers. The legacy Phase 15 in-process public-demo limiter remains only as the documented rollback fallback while shared limiting is disabled.
 
 Quota check/increment must be atomic. A row lock cannot protect a missing first-use row; PostgreSQL upsert or retry logic is required.
 

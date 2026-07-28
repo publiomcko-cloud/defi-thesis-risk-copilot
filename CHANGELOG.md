@@ -10,6 +10,10 @@
   browser/BFF/API/jobs/workers, and a read-only operational readiness check.
   External telemetry export, dashboards, retention/access policy, and alerting
   are not enabled.
+- Implemented 19B locally with a disabled-by-default PostgreSQL shared limiter
+  for bounded compute and durable-job admission. It uses salted scope hashes,
+  trusted-proxy CIDR controls, burst/sustained windows, and shadow/enforce
+  rollout modes; production proxy and alert evidence remain pending.
 
 ## Phase 18 — Merged
 

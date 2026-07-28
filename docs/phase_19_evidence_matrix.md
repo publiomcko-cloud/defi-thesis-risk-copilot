@@ -9,7 +9,7 @@ Status legend: `implemented locally`, `planned`, or `external evidence required`
 | API to job to worker correlation | implemented locally | Server-owned job context and worker header forwarding | Existing job schema/tenant authorization unchanged. |
 | Non-mutating readiness | implemented locally | Admin endpoint and `scripts/check_operational_readiness.py` | Read-only metadata; no provider, storage, or tenant action. |
 | Centralized logs, errors, traces, metrics, retention, dashboard RBAC | planned | 19D/19E | No exporter endpoint or credential is accepted in 19A. |
-| Shared distributed rate limiting | planned | 19B | Existing documented in-process limiter remains temporary low-risk protection only. |
+| Shared distributed rate limiting | implemented locally, deployment evidence pending | PostgreSQL `rate_limit_buckets`, `app/rate_limits/service.py`, rate-limit tests, cleanup integration, and aggregate admin diagnostics | Disabled by default. Preview must set a server-only pepper and exact trusted proxy CIDRs, use `shadow` first, then explicitly select `enforce`. Public-demo in-process limiting remains the rollback fallback only while shared limiting is disabled. |
 | CSP, HSTS, CORS, CSRF, SSRF, upload scanning | planned | 19C | Existing BFF allowlist and storage controls stay active. |
 | Alerting, synthetics, SLOs, status integration | planned | 19D | No paging or synthetic tenant has been enabled. |
 | Backup/restore, secret rotation, incident response | planned | 19E/19G | Existing cleanup/recovery commands remain unchanged. |

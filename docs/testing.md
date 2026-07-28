@@ -328,6 +328,25 @@ server-owned job/worker propagation, admin-only metadata readiness, disabled
 export behavior, and no response/log secret values. They do not claim an
 external telemetry, tracing, dashboard, or alert deployment.
 
+### Phase 19B implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19_rate_limits.py
+RUN_POSTGRES_INTEGRATION=true python -m pytest -q -m postgres_integration
+alembic upgrade head
+alembic downgrade -1
+alembic upgrade head
+python -m scripts.cleanup_expired_data --dry-run
+```
+
+The suite proves enforced and shadow behavior, fixed-window retry metadata,
+proxy-header trust, salted bucket storage, product-quota separation,
+server-validated organization scope, database-outage policy, cleanup reporting,
+and PostgreSQL concurrent one-winner admission. It does not claim deployed
+proxy CIDR correctness, alert delivery, or a completed staged rollout.
+
 Phase 19 begins with non-mutating observability/readiness and controlled
 shadow-mode checks. It must retain JSON RAG as the fallback and must not claim
 Phase 18 production activation until the deployed policy and cutover gates are

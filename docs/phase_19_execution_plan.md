@@ -1,6 +1,6 @@
 # V1 Phase 19 Execution Plan — Production Operations and Security
 
-Status: **In Progress — 19A implemented locally; preview/deployment evidence pending**
+Status: **In Progress — 19A and 19B implemented locally; preview/deployment evidence pending**
 
 This plan implements the [Phase 19 contract](future_phase_contracts.md#v1-phase-19--production-operations-and-security). Read it with [current state](current_state.md), [architecture](architecture.md), [deployment](deployment.md), [testing](testing.md), and the [Phase 18 archive](archive/v1_phase_18/).
 
@@ -53,6 +53,8 @@ Every slice updates the threat model, documentation, deployment runbook, evidenc
 | Rollout gate | Shadow counters, then low-risk reads, then bounded compute. Privileged or cost-bearing mutations cannot silently fail open. |
 | Rollback | Use platform/WAF throttling and reduced route capacity as the safe degraded mode. Sensitive and cost-bearing actions remain fail-closed. The current in-process limiter may be used only as a documented temporary fallback for low-risk traffic where a single-instance boundary is explicit; it must not be represented as equivalent shared enforcement. |
 | Completion | Shared limits active for documented route classes, observed burst/sustained behavior, tested provider-outage policy, and no hybrid-auth regression. |
+
+Implementation status: **implemented locally, feature-gated.** The selected shared store is the existing PostgreSQL/Supabase database, using a privacy-preserving fixed-window table rather than a new paid Redis service. The limiter applies IP plus anonymous-session or authenticated-user scopes to bounded compute, and IP/user/verified-organization scopes to durable-job admission. It supports burst and sustained windows, `shadow` and `enforce` modes, `429` retry metadata, aggregate administrator diagnostics, expiry cleanup, and PostgreSQL contention tests. It remains disabled by default. A preview must first configure a server-only pepper and exact trusted proxy CIDRs, run `shadow` mode, inspect aggregate signals, define an alert owner, and only then enable `enforce` mode for low-risk bounded compute. Cost-bearing job submission fails closed when the enabled limiter database path is unavailable.
 
 ### 19C — Edge, BFF, API, and malicious-upload security
 
@@ -164,6 +166,6 @@ No validation uses production customer data, browser-accessible secrets, real pr
 
 ## 5. Proposed first implementation task
 
-Implement **19A only**: a redacted structured-log/correlation contract and a non-mutating operational readiness checker. Its first deployment gate is a preview proving correlation from browser request through BFF/API and, when applicable, job/worker/retrieval activity. It does not add distributed rate limits, enable Phase 18 durable flags, or alter production retrieval authority.
+Initial implementation began with **19A only**: a redacted structured-log/correlation contract and a non-mutating operational readiness checker. The next completed local slice is **19B**, the feature-gated PostgreSQL shared limiter. Neither slice enables Phase 18 durable flags or alters production retrieval authority.
 
-Implementation status: **implemented locally.** External telemetry export is intentionally not implemented. Preview evidence, retention/access policy approval, dashboard ownership, and alerting remain later Phase 19D/19E operational work.
+19A status: **implemented locally.** External telemetry export is intentionally not implemented. Preview evidence, retention/access policy approval, dashboard ownership, and alerting remain later Phase 19D/19E operational work.

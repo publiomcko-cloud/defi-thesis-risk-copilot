@@ -399,6 +399,11 @@ approval yet. The evidence matrix and threat model are
 [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) and
 [`phase_19_threat_model.md`](phase_19_threat_model.md).
 
+Phase 19B is implemented locally: a disabled-by-default PostgreSQL shared
+limiter protects bounded compute and durable-job admission with burst/sustained
+windows, salted scope hashes, and shadow/enforce modes. Preview proxy-policy,
+alert, and staged-enforcement evidence remain pending.
+
 Core outcomes:
 
 - threat model;

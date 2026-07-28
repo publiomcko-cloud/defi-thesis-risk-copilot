@@ -582,7 +582,7 @@ Metrics:
 
 # V1 Phase 19 — Production Operations and Security
 
-Status: **In Progress — 19A local observability and readiness foundation implemented; all later gates remain pending**
+Status: **In Progress — 19A observability/readiness and 19B shared-limiter foundations implemented locally; all deployment and later gates remain pending**
 
 ## 19.1 Goal
 

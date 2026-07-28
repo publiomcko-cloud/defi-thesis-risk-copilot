@@ -9,7 +9,7 @@ Authoritative references:
 - [`archive/v1_phase_17/`](archive/v1_phase_17/) — archived Phase 17 plan, corrections, and validation evidence;
 - [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 plan, validation, correction, migration, and cutover evidence;
 - [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — active Phase 19 implementation plan;
-- [`phase_19_threat_model.md`](phase_19_threat_model.md) and [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) — Phase 19A risk and evidence record;
+- [`phase_19_threat_model.md`](phase_19_threat_model.md) and [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) — Phase 19A/19B risk and evidence record;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22 contract;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -52,7 +52,7 @@ Current status:
 V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
-V1 Phase 19 — In progress; 19A local observability and readiness foundation implemented
+V1 Phase 19 — In progress; 19A observability/readiness and 19B shared-limiter foundations implemented locally
 V1 Phases 20–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -343,7 +343,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 ## 10. Known platform limitations
 
-- public rate limiting is still in-process, not distributed;
+- the new PostgreSQL shared limiter is implemented but disabled by default; the legacy in-process public-demo limiter remains the rollback fallback until preview shadow and proxy-policy evidence exists;
 - local JSON remains the default public-curated retrieval path and the explicit
   rollback fallback. When the guarded Phase 18 primary flag is enabled,
   authenticated analysis can retrieve approved public, caller-owned private,
@@ -383,8 +383,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   final storage-policy, cutover, and launch approval remain Phase 22 gates;
 - Phase 19 — In Progress: 19A locally implements redacted structured logging,
   browser/BFF/API/job/worker correlation IDs, and non-mutating operational
-  readiness. External telemetry export, retention/access approval, dashboards,
-  alerts, shared rate limiting, and all other Phase 19 gates remain pending;
+  readiness. 19B adds a disabled-by-default PostgreSQL shared limiter for
+  bounded compute and durable job admission. External telemetry export,
+  alerting, production proxy configuration, preview shadow evidence, security
+  headers, backup/restore, and all other Phase 19 gates remain pending;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.

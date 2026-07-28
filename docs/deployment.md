@@ -62,6 +62,31 @@ printing secrets. `GET /api/admin/operations/readiness` exposes the same
 metadata only to platform administrators. It does not prove deployed alerting,
 storage policy, worker availability, or a Phase 18 cutover.
 
+## Phase 19B shared rate-limiter rollout
+
+Phase 19B uses the existing PostgreSQL/Supabase database, so it does not add a
+Redis service or browser credential. It is disabled by default and must not be
+enabled until the deployment operator knows the exact proxy CIDRs that are
+permitted to supply `X-Forwarded-For`.
+
+```env
+RATE_LIMITING_ENABLED=false
+RATE_LIMITING_MODE=shadow
+RATE_LIMIT_KEY_PEPPER=<server-only-long-random-value>
+RATE_LIMIT_TRUSTED_PROXY_CIDRS=<comma-separated-proxy-cidrs>
+```
+
+The rollout order is: apply migration `20260728_0022`; set the pepper and proxy
+CIDRs in a preview environment; enable `RATE_LIMITING_ENABLED=true` with
+`RATE_LIMITING_MODE=shadow`; inspect only the aggregate administrator endpoint
+`/api/admin/operations/rate-limits`; define the alert owner; then explicitly
+switch to `enforce` for bounded compute. Job submission is cost-bearing and
+fails closed if the enabled shared-limiter database path is unavailable.
+
+Do not place the pepper in Vercel browser variables, committed `.env` files,
+client logs, or the frontend. To roll back, set `RATE_LIMITING_ENABLED=false`.
+The legacy public-demo in-process limiter remains active in that disabled mode.
+
 ---
 
 ## 2. Supported deployment modes

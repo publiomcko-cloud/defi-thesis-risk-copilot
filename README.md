@@ -22,7 +22,7 @@ The Render free-tier backend may cold-start after inactivity.
 
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–18
-In progress: V1 Phase 19 (19A local observability and readiness foundation)
+In progress: V1 Phase 19 (19A observability/readiness and 19B shared-limiter foundations)
 Planned:   V1 Phases 20–22
 ```
 
