@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
 
 import { ANONYMOUS_COOKIE, backendApiBaseUrl, getValidAccessToken } from "@/lib/server-auth";
 
 const ALLOWED_EXACT_PATHS = ["/health", "/ready"];
 const ALLOWED_PREFIXES = ["/api/"];
-const SAFE_RESPONSE_HEADERS = ["content-type", "x-request-id"];
+const SAFE_RESPONSE_HEADERS = ["content-type", "x-request-id", "x-correlation-id"];
+const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 
 export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   return forward(request, context);
@@ -39,6 +41,9 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   target.search = request.nextUrl.search;
 
   const headers = new Headers();
+  const correlationId = normalizeCorrelationId(request.headers.get("x-correlation-id"));
+  headers.set("x-correlation-id", correlationId);
+  headers.set("x-request-id", correlationId);
   const contentType = request.headers.get("content-type");
   if (contentType) {
     headers.set("content-type", contentType);
@@ -95,4 +100,9 @@ function isAllowedBackendPath(path: string): boolean {
     return false;
   }
   return ALLOWED_EXACT_PATHS.includes(path) || ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+function normalizeCorrelationId(value: string | null): string {
+  const candidate = value?.trim() ?? "";
+  return CORRELATION_ID_PATTERN.test(candidate) ? candidate : `bff_${randomUUID().replaceAll("-", "")}`;
 }

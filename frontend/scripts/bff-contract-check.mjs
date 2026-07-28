@@ -18,4 +18,8 @@ if (!route.includes('path.startsWith("/internal/")')) {
   throw new Error("BFF route must explicitly refuse internal worker protocol paths.");
 }
 
+if (!route.includes('headers.set("x-correlation-id", correlationId)') || !route.includes('"x-correlation-id"')) {
+  throw new Error("BFF route must normalize and forward a correlation ID without forwarding arbitrary headers.");
+}
+
 console.log("BFF contract check passed.");

@@ -10,6 +10,12 @@ class Settings(BaseSettings):
     public_demo_mode: bool = False
     app_version: str = "0.1.0"
     deployment_commit: str = ""
+    observability_enabled: bool = False
+    observability_release_id: str = ""
+    observability_sampling_rate: float = 1.0
+    observability_export_timeout_seconds: float = 2.0
+    observability_export_queue_size: int = 100
+    observability_clock_timezone: str = "UTC"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     frontend_origin: str = "http://127.0.0.1:3000"
@@ -140,6 +146,16 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_auth_configuration(self) -> "Settings":
+        if not 0 <= self.observability_sampling_rate <= 1:
+            raise ValueError("OBSERVABILITY_SAMPLING_RATE must be between 0 and 1")
+        if not 0 < self.observability_export_timeout_seconds <= 30:
+            raise ValueError("OBSERVABILITY_EXPORT_TIMEOUT_SECONDS must be between 0 and 30")
+        if not 1 <= self.observability_export_queue_size <= 10_000:
+            raise ValueError("OBSERVABILITY_EXPORT_QUEUE_SIZE must be between 1 and 10000")
+        if self.observability_clock_timezone != "UTC":
+            raise ValueError("OBSERVABILITY_CLOCK_TIMEZONE must be UTC")
+        if len(self.observability_release_id) > 128:
+            raise ValueError("OBSERVABILITY_RELEASE_ID must not exceed 128 characters")
         provider = self.auth_provider.lower()
         if provider not in {"legacy_local", "supabase"}:
             raise ValueError("AUTH_PROVIDER must be legacy_local or supabase")

@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -6,6 +7,7 @@ from app.auth.dependencies import require_admin
 from app.auth.schemas import AuditEventsResponse, UserContext
 from app.auth.service import audit_event_response
 from app.core.config import get_settings
+from app.core.observability import operational_readiness
 from app.db.session import get_db
 from app.models.access_audit_event import AccessAuditEventModel
 from app.providers.credential_service import (
@@ -43,6 +45,21 @@ from app.jobs.worker_service import (
 )
 
 router = APIRouter(tags=["admin"])
+
+
+class OperationalReadinessResponse(BaseModel):
+    status: str
+    checked_at: str
+    database_ready: bool
+    json_fallback_ready: bool
+    structured_logging: bool
+    correlation_headers: bool
+    observability_mode: str
+    telemetry_export: str
+    release_id_configured: bool
+    knowledge_pgvector_primary_enabled: bool
+    vast_dry_run: bool
+    vast_real_rentals_enabled: bool
 
 
 @router.post("/admin/provider-credentials", response_model=ProviderCredentialResponse)
@@ -126,6 +143,16 @@ def get_job_operations(
     _: UserContext = Depends(require_admin),
 ) -> JobOperationsResponse:
     return job_operations_summary(db)
+
+
+@router.get("/admin/operations/readiness", response_model=OperationalReadinessResponse)
+def get_operational_readiness(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> OperationalReadinessResponse:
+    """Return safe, non-mutating Phase 19A readiness information."""
+
+    return OperationalReadinessResponse(**operational_readiness(db))
 
 
 @router.post("/admin/workers/{worker_id}/disable", response_model=WorkerResponse)

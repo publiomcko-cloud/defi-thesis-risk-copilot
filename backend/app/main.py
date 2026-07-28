@@ -1,6 +1,5 @@
 import logging
 from time import perf_counter
-from uuid import uuid4
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -31,6 +30,13 @@ from app.api.routes_watchlist import router as watchlist_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
 from app.core.logging import configure_logging
+from app.core.observability import (
+    CORRELATION_HEADER,
+    REQUEST_ID_HEADER,
+    correlation_context,
+    normalize_correlation_id,
+    safe_log_fields,
+)
 
 configure_logging()
 logger = logging.getLogger("defi_copilot.requests")
@@ -60,28 +66,34 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
-        request_id = request.headers.get("x-request-id") or uuid4().hex
-        request.state.request_id = request_id
-        started = perf_counter()
-        response = await call_next(request)
-        duration_ms = round((perf_counter() - started) * 1000, 2)
-        response.headers["X-Request-ID"] = request_id
-        logger.info(
-            "API request request_id=%s method=%s path=%s status=%s duration_ms=%s",
-            request_id,
-            request.method,
-            request.url.path,
-            response.status_code,
-            duration_ms,
-            extra={
-                "request_id": request_id,
-                "method": request.method,
-                "path": request.url.path,
-                "status_code": response.status_code,
-                "duration_ms": duration_ms,
-            },
+        request_id = normalize_correlation_id(
+            request.headers.get(CORRELATION_HEADER) or request.headers.get(REQUEST_ID_HEADER),
+            prefix="req",
         )
-        return response
+        request.state.request_id = request_id
+        request.state.correlation_id = request_id
+        started = perf_counter()
+        with correlation_context(request_id, operation="api.request"):
+            response = await call_next(request)
+            duration_ms = round((perf_counter() - started) * 1000, 2)
+            response.headers[REQUEST_ID_HEADER] = request_id
+            response.headers[CORRELATION_HEADER] = request_id
+            logger.info(
+                "API request completed",
+                extra={
+                    "event": "api.request.completed",
+                    "request_id": request_id,
+                    "method": request.method,
+                    "path": request.url.path,
+                    "status_code": response.status_code,
+                    "duration_ms": duration_ms,
+                    "observability": safe_log_fields(
+                        app_env=settings.app_env,
+                        public_demo_mode=settings.public_demo_mode,
+                    ),
+                },
+            )
+            return response
 
     register_error_handlers(app)
     app.include_router(health_router)

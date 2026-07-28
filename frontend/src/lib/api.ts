@@ -73,10 +73,20 @@ function authHeaders(): Record<string, string> {
 }
 
 function requestInit(init: RequestInit = {}): RequestInit {
+  const headers = new Headers(init.headers);
+  if (!headers.has("X-Correlation-ID")) {
+    headers.set("X-Correlation-ID", newCorrelationId());
+  }
   return {
     ...init,
+    headers,
     credentials: "include"
   };
+}
+
+function newCorrelationId(): string {
+  const uuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}${Math.random().toString(16).slice(2)}`;
+  return `web_${uuid.replaceAll("-", "")}`;
 }
 
 async function errorDetail(response: Response, fallback: string): Promise<string> {
@@ -103,7 +113,8 @@ export async function fetchCurrentUser(): Promise<UserContext> {
 
 export async function fetchHealth(): Promise<HealthResponse> {
   const response = await fetch(`${getApiBaseUrl()}/health`, {
-    cache: "no-store"
+    cache: "no-store",
+    ...requestInit()
   });
 
   if (!response.ok) {
@@ -330,12 +341,13 @@ export async function analyzeStrategy(
 ): Promise<AnalysisResponse> {
   const response = await fetch(`${getApiBaseUrl()}/api/analyze`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
-    },
     body: JSON.stringify(payload),
-    ...requestInit()
+    ...requestInit({
+      headers: {
+        "Content-Type": "application/json",
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
+      }
+    })
   });
 
   if (!response.ok) {

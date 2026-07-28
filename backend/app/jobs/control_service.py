@@ -16,6 +16,7 @@ from app.auth.policies import READ_ORG_ROLES, WRITE_ORG_ROLES, has_org_role
 from app.auth.schemas import UserContext
 from app.auth.service import record_audit_event, user_context
 from app.core.config import get_settings
+from app.core.observability import current_correlation_id, new_correlation_id
 from app.jobs.access import get_visible_job
 from app.jobs.registry import validate_submission_schema
 from app.jobs.schemas import (
@@ -388,6 +389,7 @@ def _create_reserved_job(
     now = datetime.now(UTC)
     result_resource_type, result_resource_id, extra_context = _preallocate_result_resource(request.job_type)
     queue_expires_at = now + timedelta(seconds=get_settings().job_max_queue_age_seconds)
+    correlation_id = current_correlation_id() or new_correlation_id("jobcorr")
     input_snapshot = {
         "request": request.input_json,
         "_server_context": {
@@ -395,6 +397,7 @@ def _create_reserved_job(
             "organization_id": scope["organization_id"],
             "visibility": "organization" if scope["organization_id"] else "private",
             "submitted_by_user_id": created_by_user_id,
+            "correlation_id": correlation_id,
             **extra_context,
         },
     }
