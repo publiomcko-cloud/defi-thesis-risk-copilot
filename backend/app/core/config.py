@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import urlparse
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -37,6 +38,10 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     frontend_origin: str = "http://127.0.0.1:3000"
+    api_max_request_bytes: int = 1 * 1024 * 1024
+    security_csp_mode: str = "report_only"
+    security_csp_report_uri: str = ""
+    security_hsts_enabled: bool = False
     database_url: str = "sqlite:///./defi_copilot.db"
     llm_synthesis_enabled: bool = False
     llm_provider: str = "disabled"
@@ -66,6 +71,9 @@ class Settings(BaseSettings):
     supabase_storage_timeout_seconds: float = 20.0
     knowledge_upload_max_bytes: int = 10 * 1024 * 1024
     knowledge_upload_chunk_bytes: int = 64 * 1024
+    knowledge_upload_scanning_required: bool = False
+    knowledge_upload_scanner_url: str = ""
+    knowledge_upload_scanner_timeout_seconds: float = 10.0
     document_ingest_enabled: bool = False
     knowledge_ingest_max_bytes: int = 10 * 1024 * 1024
     knowledge_ingest_max_text_bytes: int = 2 * 1024 * 1024
@@ -164,6 +172,15 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_auth_configuration(self) -> "Settings":
+        allowed_origins = [origin.strip() for origin in self.frontend_origin.split(",") if origin.strip()]
+        if not allowed_origins or any(not _is_origin(origin) for origin in allowed_origins):
+            raise ValueError("FRONTEND_ORIGIN must contain one or more absolute origins without paths")
+        if self.api_max_request_bytes < 1:
+            raise ValueError("API_MAX_REQUEST_BYTES must be positive")
+        if self.security_csp_mode not in {"disabled", "report_only", "enforce"}:
+            raise ValueError("SECURITY_CSP_MODE must be disabled, report_only, or enforce")
+        if self.security_csp_report_uri and not self.security_csp_report_uri.startswith("/"):
+            raise ValueError("SECURITY_CSP_REPORT_URI must be a relative path")
         if not 0 <= self.observability_sampling_rate <= 1:
             raise ValueError("OBSERVABILITY_SAMPLING_RATE must be between 0 and 1")
         if not 0 < self.observability_export_timeout_seconds <= 30:
@@ -243,6 +260,15 @@ class Settings(BaseSettings):
             or self.knowledge_upload_chunk_bytes > self.knowledge_upload_max_bytes
         ):
             raise ValueError("Knowledge upload limits are invalid")
+        if self.knowledge_upload_scanner_timeout_seconds <= 0:
+            raise ValueError("KNOWLEDGE_UPLOAD_SCANNER_TIMEOUT_SECONDS must be positive")
+        if self.knowledge_upload_scanning_required:
+            if not self.knowledge_storage_enabled:
+                raise ValueError("KNOWLEDGE_UPLOAD_SCANNING_REQUIRED requires KNOWLEDGE_STORAGE_ENABLED")
+            if not _is_scanner_url(self.knowledge_upload_scanner_url):
+                raise ValueError("KNOWLEDGE_UPLOAD_SCANNER_URL must be an absolute HTTP(S) URL without credentials")
+        if self.app_env == "production" and self.knowledge_storage_enabled and not self.knowledge_upload_scanning_required:
+            raise ValueError("Production knowledge storage requires KNOWLEDGE_UPLOAD_SCANNING_REQUIRED")
         if (
             self.knowledge_ingest_max_bytes < 1
             or self.knowledge_ingest_max_bytes > self.knowledge_upload_max_bytes
@@ -333,3 +359,28 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def _is_origin(value: str) -> bool:
+    parsed = urlparse(value)
+    return (
+        parsed.scheme in {"http", "https"}
+        and bool(parsed.netloc)
+        and not parsed.username
+        and not parsed.password
+        and parsed.path in {"", "/"}
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
+def _is_scanner_url(value: str) -> bool:
+    parsed = urlparse(value)
+    return (
+        parsed.scheme in {"http", "https"}
+        and bool(parsed.netloc)
+        and not parsed.username
+        and not parsed.password
+        and not parsed.fragment
+    )

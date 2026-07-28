@@ -22,6 +22,7 @@ from app.knowledge.access import (
     list_visible_knowledge_sources,
 )
 from app.knowledge.lifecycle_service import schedule_version_cleanup
+from app.knowledge.upload_scanner import UploadScanError, require_clean_upload
 from app.knowledge.schemas import (
     KnowledgeDocumentResponse,
     KnowledgeDocumentVersionResponse,
@@ -169,6 +170,7 @@ async def create_document_upload(
 ) -> KnowledgeDocumentResponse:
     source = _get_manageable_source(db, actor, source_id)
     filename, media_type, content, content_checksum = await _read_and_validate_upload(upload, checksum)
+    _require_clean_upload(content=content, media_type=media_type)
     storage = _configured_storage()
     now = datetime.now(UTC)
     document = KnowledgeDocumentModel(
@@ -213,6 +215,7 @@ async def create_document_version_upload(
 ) -> KnowledgeDocumentResponse:
     document, source = _get_manageable_document(db, actor, document_id, lock=True)
     filename, media_type, content, content_checksum = await _read_and_validate_upload(upload, checksum)
+    _require_clean_upload(content=content, media_type=media_type)
     if filename != document.filename or media_type != document.media_type:
         raise HTTPException(
             status_code=422,
@@ -374,10 +377,22 @@ async def _read_and_validate_upload(
         raise HTTPException(status_code=422, detail="Knowledge upload does not match its PDF media type")
     if media_type.startswith("text/") and b"\x00" in content_bytes:
         raise HTTPException(status_code=422, detail="Knowledge text upload contains binary content")
+    if media_type.startswith("text/"):
+        try:
+            content_bytes.decode("utf-8", errors="strict")
+        except UnicodeDecodeError as exc:
+            raise HTTPException(status_code=422, detail="Knowledge text upload must be valid UTF-8") from exc
     actual_checksum = sha256(content_bytes).hexdigest()
     if expected_checksum is not None and actual_checksum != expected_checksum.lower():
         raise HTTPException(status_code=422, detail="Knowledge upload checksum does not match content")
     return filename, media_type, content_bytes, actual_checksum
+
+
+def _require_clean_upload(*, content: bytes, media_type: str) -> None:
+    try:
+        require_clean_upload(content=content, media_type=media_type, settings=get_settings())
+    except UploadScanError as exc:
+        raise HTTPException(status_code=503, detail="Knowledge upload security scan is unavailable") from exc
 
 
 def _validate_filename(value: str | None) -> str:

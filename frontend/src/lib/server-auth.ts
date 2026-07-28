@@ -7,7 +7,20 @@ const EXPIRES_COOKIE = `${SESSION_COOKIE}_expires_at`;
 export const ANONYMOUS_COOKIE = process.env.ANONYMOUS_SESSION_COOKIE_NAME ?? "defi_copilot_anon";
 
 export function backendApiBaseUrl(): string {
-  return process.env.BACKEND_API_BASE_URL ?? "http://127.0.0.1:8000";
+  const configured = process.env.BACKEND_API_BASE_URL ?? "http://127.0.0.1:8000";
+  const url = new URL(configured);
+  if (
+    !["http:", "https:"].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    !url.hostname ||
+    !["", "/"].includes(url.pathname) ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error("BACKEND_API_BASE_URL must be an origin without credentials or a path.");
+  }
+  return url.origin;
 }
 
 export function supabaseConfig() {

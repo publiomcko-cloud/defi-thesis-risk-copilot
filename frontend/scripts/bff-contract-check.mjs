@@ -26,4 +26,12 @@ if (!route.includes('x-vercel-forwarded-for') || !route.includes('isIP(candidate
   throw new Error("BFF route must forward only normalized provider client IPs and safe rate-limit metadata.");
 }
 
+if (!route.includes("hasTrustedOrigin(request)") || !route.includes("Browser origin is not allowed.")) {
+  throw new Error("BFF route must reject cross-origin browser mutations before forwarding cookies or tokens.");
+}
+
+if (!route.includes('redirect: "manual"') || !route.includes("Backend redirect rejected.")) {
+  throw new Error("BFF route must reject backend redirects to prevent redirect-based SSRF.");
+}
+
 console.log("BFF contract check passed.");
