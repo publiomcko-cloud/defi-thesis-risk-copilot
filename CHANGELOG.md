@@ -53,6 +53,17 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 - No external embedding provider is supported, so private content remains in the
   controlled worker process. Embeddings and retrieval stay disabled by default.
 
+### Phase 18E Tenant-safe Shadow Retrieval and Citations
+
+- Added a reversible privacy-safe retrieval-event table and an authenticated,
+  disabled-by-default pgvector shadow retrieval endpoint.
+- Added server-derived public/private/active-organization predicates before
+  ranking; deleted, unapproved, non-current, and corrupt-lineage chunks are
+  excluded.
+- Added exact source/document/version/chunk checksum citations and event
+  metadata without raw query or chunk-content logging. Analysis reports still
+  use the curated JSON RAG path; no durable retrieval cutover has occurred.
+
 ### Phase 17 Durable Jobs and Hybrid Workers
 
 - Correction pass completed on `main`: added supervised long-running heartbeats/cancellation, immutable

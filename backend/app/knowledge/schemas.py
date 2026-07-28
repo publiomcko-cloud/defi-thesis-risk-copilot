@@ -87,3 +87,36 @@ class KnowledgeDocumentResponse(BaseModel):
     updated_at: datetime
     deleted_at: datetime | None
     versions: list[KnowledgeDocumentVersionResponse] = Field(default_factory=list)
+
+
+class ShadowRetrievalRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+    top_k: int | None = Field(default=None, ge=1, le=20)
+    protocols: list[str] = Field(default_factory=list, max_length=10)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class KnowledgeCitationResponse(BaseModel):
+    citation_id: str
+    source_id: str
+    source_title: str
+    document_id: str
+    document_version_id: str
+    document_version_checksum: str
+    chunk_id: str
+    chunk_checksum: str
+    heading_path: list[str]
+
+
+class ShadowRetrievalItemResponse(BaseModel):
+    score: float
+    excerpt: str
+    citation: KnowledgeCitationResponse
+
+
+class ShadowRetrievalResponse(BaseModel):
+    request_id: str
+    retrieval_event_id: str
+    retriever_version: str
+    items: list[ShadowRetrievalItemResponse]

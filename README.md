@@ -39,13 +39,14 @@ Phase 18 is active on `agent/v1-phase-18-production-rag`; see the
 real-provider and final deployed identity checks remain Phase 22 work. Real
 Vast rentals remain disabled.
 
-Its first four slices are implemented but storage remains disabled by default:
+Its first five slices are implemented but storage remains disabled by default:
 durable knowledge metadata, private-storage interfaces, tenant authorization,
 authenticated source/document APIs, bounded upload handling, and the
 feature-gated `document.ingest.v1` worker path are present. Versioned local-only
-pgvector embedding generations are also implemented but disabled by default.
-Durable retrieval remains a later Phase 18 slice; public reports still use the
-curated JSON fallback. Phases 18A–18D are complete locally.
+pgvector embedding generations and an authenticated tenant-safe shadow
+retrieval/citation diagnostic are also implemented but disabled by default.
+Shadow retrieval does not feed reports; public reports still use the curated
+JSON fallback. Phases 18A–18E are complete locally.
 
 ## Product Capabilities
 

@@ -693,8 +693,9 @@ GitHub Actions worker path, job observability, and provider cost controls.
 
 ### Phase 18
 
-The 18A–18D schema, adapter, authenticated upload API, ingestion worker, and
-local-only pgvector embedding path are present but disabled by default.
+The 18A–18E schema, adapter, authenticated upload API, ingestion worker,
+local-only pgvector embedding path, and shadow retrieval diagnostic are present
+but disabled by default.
 Configuration defaults:
 
 ```env
@@ -713,6 +714,8 @@ KNOWLEDGE_EMBEDDING_PROFILE_ID=kembprof_local_hash_384_v1
 KNOWLEDGE_EMBEDDING_PROVIDER=local_deterministic
 KNOWLEDGE_EMBEDDING_MODEL=local-hash-384-v1
 KNOWLEDGE_EMBEDDING_DIMENSIONS=384
+KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED=false
+KNOWLEDGE_SHADOW_RETRIEVAL_TOP_K=4
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
@@ -737,6 +740,11 @@ profile and therefore does not need an external provider key. PostgreSQL must
 provide the `vector` extension; local/CI Compose uses `pgvector/pgvector:pg16`.
 Do not enable it before the private-storage/worker deployment gate and pgvector
 readiness probe are recorded.
+`KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED=true` requires embeddings to be enabled and
+exposes only the authenticated diagnostic endpoint. It must not be enabled for
+ordinary traffic until a synthetic tenant-isolation probe, pgvector readiness
+probe, and retrieval-event review are recorded. It never replaces JSON report
+retrieval in this slice.
 
 ### Phase 19
 

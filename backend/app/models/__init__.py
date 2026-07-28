@@ -13,8 +13,12 @@ from app.models.market_data_cache import MarketDataCacheModel
 from app.models.knowledge_base_ingestion import KnowledgeBaseIngestionModel
 from app.models.knowledge import (
     KnowledgeChunkModel,
+    KnowledgeChunkEmbeddingModel,
     KnowledgeDocumentModel,
     KnowledgeDocumentVersionModel,
+    KnowledgeEmbeddingGenerationModel,
+    KnowledgeEmbeddingProfileModel,
+    KnowledgeRetrievalEventModel,
     KnowledgeSourceModel,
 )
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
@@ -48,8 +52,12 @@ __all__ = [
     "MarketDataCacheModel",
     "KnowledgeBaseIngestionModel",
     "KnowledgeChunkModel",
+    "KnowledgeChunkEmbeddingModel",
     "KnowledgeDocumentModel",
     "KnowledgeDocumentVersionModel",
+    "KnowledgeEmbeddingGenerationModel",
+    "KnowledgeEmbeddingProfileModel",
+    "KnowledgeRetrievalEventModel",
     "KnowledgeSourceModel",
     "OrganizationMembershipModel",
     "OrganizationModel",

@@ -65,6 +65,7 @@ def test_phase18_upgrade_downgrade_preserves_phase17_and_json_rag_metadata(
         "knowledge_embedding_profiles",
         "knowledge_embedding_generations",
         "knowledge_chunk_embeddings",
+        "knowledge_retrieval_events",
     }.issubset(tables)
     assert connection.execute(
         "SELECT title FROM document_sources WHERE id = ?",
@@ -98,6 +99,10 @@ def test_phase18_upgrade_downgrade_preserves_phase17_and_json_rag_metadata(
         connection,
         "knowledge_chunk_embeddings",
     )
+    assert _indexes(connection, "knowledge_retrieval_events") >= {
+        "ix_knowledge_retrieval_events_user_created",
+        "ix_knowledge_retrieval_events_org_created",
+    }
     connection.close()
 
     _alembic(database_path, "downgrade", PHASE17_HEAD)
@@ -110,6 +115,7 @@ def test_phase18_upgrade_downgrade_preserves_phase17_and_json_rag_metadata(
         "knowledge_embedding_profiles",
         "knowledge_embedding_generations",
         "knowledge_chunk_embeddings",
+        "knowledge_retrieval_events",
     } & _tables(connection)
     assert connection.execute(
         "SELECT title FROM document_sources WHERE id = ?",

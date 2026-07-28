@@ -1,6 +1,6 @@
 # V1 Phase 18 Execution Plan — Production RAG and Knowledge Storage
 
-Status: **Implemented Foundation**
+Status: **Implemented Foundation (18A–18E complete locally)**
 
 Branch: `agent/v1-phase-18-production-rag`
 
@@ -768,6 +768,31 @@ Gate:
 - citations resolve to the exact checksum/version used;
 - JSON remains the report-producing path in shadow mode.
 
+Implementation: **Complete locally on the Phase 18 branch.**
+
+Implementation notes:
+
+- `20260727_0019` adds privacy-safe `knowledge_retrieval_events`; events retain
+  a query hash, derived filter summary, returned chunk identifiers, scores,
+  latency, and retriever version, but never raw query text or chunk content;
+- authenticated `POST /api/knowledge/shadow-retrieval` is disabled by default
+  through `KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED=false`. It accepts no
+  organization identifier. The backend derives active organization membership
+  from the authenticated actor and filters source visibility, approval, source
+  status, document/version/chunk tombstones, and the document current-version
+  pointer in SQL before pgvector ranking;
+- every returned citation carries immutable source/document/version/chunk IDs
+  and the exact version and chunk checksums. Invalid lineage is excluded rather
+  than rendered. The diagnostic endpoint is not connected to analysis reports:
+  the existing curated JSON index remains the sole report-producing retrieval
+  path and rollback fallback.
+
+Gate: **Passed locally.** SQLite coverage proves owner/organization/public
+isolation, membership removal, tombstone/current-version exclusion, event
+privacy, and checksum lineage. PostgreSQL integration exercises the pgvector
+ordering path and tenant predicates. Phase 18F may begin; Phase 18 remains
+incomplete until all later slices and cutover evidence are complete.
+
 ### Phase 18F — Lifecycle operations
 
 Dependencies: 18E.
@@ -915,7 +940,7 @@ rental.
 
 ## 18. Phase status rule
 
-After Phases 18A–18D, report:
+After Phases 18A–18E, report:
 
 ```text
 Phase 18 — Implemented Foundation

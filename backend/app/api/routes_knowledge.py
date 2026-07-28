@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, File, Form, Header, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_authenticated_user
@@ -10,6 +10,8 @@ from app.knowledge.schemas import (
     KnowledgeSourceResponse,
     KnowledgeSourcesResponse,
     KnowledgeSourceUpdateRequest,
+    ShadowRetrievalRequest,
+    ShadowRetrievalResponse,
 )
 from app.knowledge.service import (
     create_document_upload,
@@ -24,6 +26,7 @@ from app.knowledge.service import (
 )
 from app.knowledge.ingestion_service import submit_document_ingestion
 from app.knowledge.embedding_service import submit_document_embedding
+from app.knowledge.shadow_retriever import retrieve_shadow_knowledge
 from app.jobs.control_service import job_response
 from app.jobs.schemas import JobSubmissionResponse
 
@@ -150,3 +153,25 @@ def post_knowledge_document_embedding(
 ) -> JobSubmissionResponse:
     job, replayed = submit_document_embedding(db, actor, version_id, idempotency_key)
     return JobSubmissionResponse(job=job_response(job), idempotent_replay=replayed)
+
+
+@router.post(
+    "/knowledge/shadow-retrieval",
+    response_model=ShadowRetrievalResponse,
+)
+def post_knowledge_shadow_retrieval(
+    payload: ShadowRetrievalRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> ShadowRetrievalResponse:
+    result = retrieve_shadow_knowledge(
+        db,
+        actor,
+        query=payload.query,
+        top_k=payload.top_k,
+        protocols=payload.protocols,
+        request_id=request.state.request_id,
+    )
+    db.commit()
+    return result

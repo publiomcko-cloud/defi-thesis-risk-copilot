@@ -52,6 +52,8 @@ class Settings(BaseSettings):
     knowledge_embedding_provider: str = "local_deterministic"
     knowledge_embedding_model: str = "local-hash-384-v1"
     knowledge_embedding_dimensions: int = 384
+    knowledge_shadow_retrieval_enabled: bool = False
+    knowledge_shadow_retrieval_top_k: int = 4
     session_cookie_name: str = "defi_copilot_session"
     anonymous_session_cookie_name: str = "defi_copilot_anon"
     cookie_secure: bool = True
@@ -203,6 +205,12 @@ class Settings(BaseSettings):
             raise ValueError(
                 "KNOWLEDGE_EMBEDDINGS_ENABLED requires JOBS_ENABLED and WORKER_API_ENABLED"
             )
+        if self.knowledge_shadow_retrieval_enabled and not self.knowledge_embeddings_enabled:
+            raise ValueError(
+                "KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED requires KNOWLEDGE_EMBEDDINGS_ENABLED"
+            )
+        if not 1 <= self.knowledge_shadow_retrieval_top_k <= 20:
+            raise ValueError("KNOWLEDGE_SHADOW_RETRIEVAL_TOP_K must be between 1 and 20")
         if (
             not self.knowledge_embedding_profile_id.startswith("kembprof_")
             or self.knowledge_embedding_provider != "local_deterministic"

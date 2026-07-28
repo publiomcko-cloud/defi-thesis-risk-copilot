@@ -367,10 +367,12 @@ Storage abstraction, server-derived tenant authorization, the exact but
 feature-gated `document.ingest.v1` registry contract, authenticated
 source/document APIs, bounded private-upload handling, audit events, lifecycle
 tombstones, and the server-owned worker ingestion path.
-The local JSON public retrieval path remains authoritative. Slices 18A–18D are
-complete locally; source-scoped durable ingestion and local-only versioned
-pgvector embeddings are implemented but disabled by default. Retrieval remains
-later work in Slices 18E–18H.
+The local JSON public retrieval path remains authoritative. Slices 18A–18E are
+complete locally; source-scoped durable ingestion, local-only versioned pgvector
+embeddings, and an authenticated tenant-safe shadow retriever are implemented
+but disabled by default. Shadow retrieval records privacy-safe events and exact
+citation lineage but does not feed report generation. Lifecycle, public-corpus
+migration, frontend, evaluation, and cutover remain in Slices 18F–18H.
 
 ## V1 Phase 19 — Production operations and security — Planned
 

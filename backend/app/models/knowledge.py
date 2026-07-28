@@ -300,3 +300,32 @@ class KnowledgeChunkEmbeddingModel(Base):
     status: Mapped[str] = mapped_column(String(32), default="pending", nullable=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class KnowledgeRetrievalEventModel(Base):
+    """Privacy-safe audit evidence for the disabled-by-default shadow retriever."""
+
+    __tablename__ = "knowledge_retrieval_events"
+    __table_args__ = (
+        CheckConstraint("latency_ms >= 0", name="ck_knowledge_retrieval_events_latency"),
+        Index("ix_knowledge_retrieval_events_user_created", "user_id", "created_at"),
+        Index("ix_knowledge_retrieval_events_org_created", "organization_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    request_id: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
+    user_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    organization_id: Mapped[str | None] = mapped_column(
+        ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    query_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    filters_json: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
+    retrieved_chunk_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    scores_json: Mapped[list[float]] = mapped_column(JSON, default=list, nullable=False)
+    latency_ms: Mapped[int] = mapped_column(Integer, nullable=False)
+    retriever_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False
+    )

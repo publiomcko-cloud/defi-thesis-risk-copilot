@@ -534,7 +534,12 @@ remains a later retention slice. Phase 18C keeps storage and ingestion disabled
 by default. Phase 18D adds local-only 384-dimension pgvector embedding profiles,
 generations, and a PostgreSQL HNSW cosine index through a separate Phase 17
 worker job. Incomplete vectors never activate, external embedding providers are
-rejected, and retrieval remains disabled pending Phase 18E.
+rejected. Phase 18E adds an authenticated, disabled-by-default pgvector shadow
+retriever. It applies source approval, lifecycle, current-version, and
+server-derived tenant filters before ranking, records only privacy-safe
+retrieval telemetry, and returns checksum-bound citations. It is deliberately
+not wired into analysis reports: curated JSON retrieval remains the report and
+rollback authority until later evaluation/cutover gates pass.
 
 ---
 

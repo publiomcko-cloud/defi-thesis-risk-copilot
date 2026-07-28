@@ -15,7 +15,18 @@ from app.knowledge.access import (
     get_visible_knowledge_source,
     list_visible_knowledge_sources,
 )
-from app.models.knowledge import KnowledgeSourceModel
+from app.core.config import get_settings
+from app.jobs.cancellation import CancellationContext
+from app.knowledge.embedding import LocalDeterministicEmbeddingProvider, vector_literal
+from app.knowledge.shadow_retriever import retrieve_shadow_knowledge
+from app.models.knowledge import (
+    KnowledgeChunkEmbeddingModel,
+    KnowledgeChunkModel,
+    KnowledgeDocumentModel,
+    KnowledgeDocumentVersionModel,
+    KnowledgeEmbeddingGenerationModel,
+    KnowledgeSourceModel,
+)
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 
@@ -186,3 +197,134 @@ def test_postgres_pgvector_extension_and_embedding_index_are_present(
             {"left": vector, "right": vector},
         ).scalar_one()
         assert distance == 0
+
+
+def test_postgres_shadow_retrieval_filters_tenants_before_pgvector_ranking(
+    postgres_sessions: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("JOBS_ENABLED", "true")
+    monkeypatch.setenv("WORKER_API_ENABLED", "true")
+    monkeypatch.setenv("KNOWLEDGE_EMBEDDINGS_ENABLED", "true")
+    monkeypatch.setenv("KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED", "true")
+    get_settings.cache_clear()
+    suffix = uuid4().hex[:10]
+    ids: dict[str, str] = {}
+    try:
+        with postgres_sessions() as db:
+            owner = create_user(db, f"phase18e-pg-owner-{suffix}@example.test")
+            member = create_user(db, f"phase18e-pg-member-{suffix}@example.test")
+            outsider = create_user(db, f"phase18e-pg-outsider-{suffix}@example.test")
+            organization = OrganizationModel(
+                id=f"org_phase18e_pg_{suffix}",
+                name="Phase 18E PostgreSQL",
+                slug=f"phase-18e-pg-{suffix}",
+                status="active",
+                created_by_user_id=owner.id,
+            )
+            db.add(organization)
+            db.flush()
+            db.add(
+                OrganizationMembershipModel(
+                    id=f"mbr_phase18e_pg_{suffix}",
+                    organization_id=organization.id,
+                    user_id=member.id,
+                    role="viewer",
+                    status="active",
+                )
+            )
+            db.flush()
+            _add_pgvector_document(db, suffix, "organization", owner.id, organization.id, "organization only health factor")
+            _add_pgvector_document(db, suffix, "private", owner.id, None, "owner private liquidation data")
+            _add_pgvector_document(db, suffix, "public", owner.id, None, "public oracle safeguards", public=True)
+            db.commit()
+            ids = {"owner": owner.id, "member": member.id, "outsider": outsider.id, "org": organization.id}
+
+            member_result = retrieve_shadow_knowledge(
+                db, user_context(member), query="health factor", top_k=10, protocols=[], request_id=f"pg-member-{suffix}"
+            )
+            assert {item.citation.source_id for item in member_result.items} == {
+                f"ksrc_phase18e_pg_{suffix}_organization",
+                f"ksrc_phase18e_pg_{suffix}_public",
+            }
+            outsider_result = retrieve_shadow_knowledge(
+                db, user_context(outsider), query="health factor", top_k=10, protocols=[], request_id=f"pg-outsider-{suffix}"
+            )
+            assert {item.citation.source_id for item in outsider_result.items} == {f"ksrc_phase18e_pg_{suffix}_public"}
+            membership = db.get(OrganizationMembershipModel, f"mbr_phase18e_pg_{suffix}")
+            assert membership is not None
+            membership.status = "removed"
+            db.flush()
+            revoked_result = retrieve_shadow_knowledge(
+                db, user_context(member), query="health factor", top_k=10, protocols=[], request_id=f"pg-revoked-{suffix}"
+            )
+            assert {item.citation.source_id for item in revoked_result.items} == {f"ksrc_phase18e_pg_{suffix}_public"}
+    finally:
+        if ids:
+            with postgres_sessions() as db:
+                db.execute(delete(KnowledgeChunkEmbeddingModel).where(KnowledgeChunkEmbeddingModel.id.like(f"kembed_phase18e_pg_{suffix}%")))
+                db.execute(delete(KnowledgeEmbeddingGenerationModel).where(KnowledgeEmbeddingGenerationModel.id.like(f"kgen_phase18e_pg_{suffix}%")))
+                db.execute(delete(KnowledgeChunkModel).where(KnowledgeChunkModel.id.like(f"kchunk_phase18e_pg_{suffix}%")))
+                db.execute(delete(KnowledgeDocumentVersionModel).where(KnowledgeDocumentVersionModel.id.like(f"kver_phase18e_pg_{suffix}%")))
+                db.execute(delete(KnowledgeDocumentModel).where(KnowledgeDocumentModel.id.like(f"kdoc_phase18e_pg_{suffix}%")))
+                db.execute(delete(KnowledgeSourceModel).where(KnowledgeSourceModel.id.like(f"ksrc_phase18e_pg_{suffix}%")))
+                db.execute(delete(OrganizationMembershipModel).where(OrganizationMembershipModel.organization_id == ids["org"]))
+                db.execute(delete(OrganizationModel).where(OrganizationModel.id == ids["org"]))
+                db.execute(delete(UserModel).where(UserModel.id.in_({ids["owner"], ids["member"], ids["outsider"]})))
+                db.commit()
+        get_settings.cache_clear()
+
+
+def _add_pgvector_document(
+    db,
+    suffix: str,
+    kind: str,
+    owner_id: str,
+    organization_id: str | None,
+    content: str,
+    *,
+    public: bool = False,
+) -> None:
+    from hashlib import sha256
+
+    source_id = f"ksrc_phase18e_pg_{suffix}_{kind}"
+    document_id = f"kdoc_phase18e_pg_{suffix}_{kind}"
+    version_id = f"kver_phase18e_pg_{suffix}_{kind}"
+    chunk_id = f"kchunk_phase18e_pg_{suffix}_{kind}"
+    generation_id = f"kgen_phase18e_pg_{suffix}_{kind}"
+    embedding_id = f"kembed_phase18e_pg_{suffix}_{kind}"
+    checksum = sha256(content.encode("utf-8")).hexdigest()
+    source = KnowledgeSourceModel(
+        id=source_id,
+        owner_user_id=None if public else owner_id,
+        organization_id=organization_id,
+        visibility="public" if public else ("organization" if organization_id else "private"),
+        source_type="upload",
+        title=f"Phase 18E {kind}",
+        protocol="aave",
+        status="ingested",
+        trust_state="approved_for_rag",
+        created_by_user_id=owner_id,
+    )
+    document = KnowledgeDocumentModel(id=document_id, knowledge_source_id=source_id, current_version_id=version_id, filename="source.md", media_type="text/markdown", status="ready")
+    version = KnowledgeDocumentVersionModel(id=version_id, document_id=document_id, version_number=1, storage_key=f"knowledge/{suffix}/{kind}", checksum="a" * 64, size_bytes=len(content), status="ready")
+    chunk = KnowledgeChunkModel(id=chunk_id, document_version_id=version_id, chunk_index=0, heading_path=[kind], content=content, content_checksum=checksum, token_count=len(content.split()))
+    generation = KnowledgeEmbeddingGenerationModel(id=generation_id, document_version_id=version_id, embedding_profile_id="kembprof_local_hash_384_v1", status="completed", expected_chunk_count=1, completed_chunk_count=1, content_checksum=checksum)
+    values = LocalDeterministicEmbeddingProvider().embed(content, CancellationContext())
+    embedding = KnowledgeChunkEmbeddingModel(id=embedding_id, knowledge_chunk_id=chunk_id, embedding_profile_id="kembprof_local_hash_384_v1", embedding_generation_id=generation_id, content_checksum=checksum, dimensions=384, embedding_json=values, status="completed")
+    # The test models intentionally have no ORM relationships; flush the
+    # parent rows before the embedding foreign keys on PostgreSQL.
+    db.add(source)
+    db.flush()
+    db.add(document)
+    db.flush()
+    db.add(version)
+    db.flush()
+    db.add_all([chunk, generation])
+    db.flush()
+    db.add(embedding)
+    db.flush()
+    db.execute(
+        text("UPDATE knowledge_chunk_embeddings SET embedding_vector = CAST(:vector AS vector) WHERE id = :id"),
+        {"vector": vector_literal(values), "id": embedding_id},
+    )
