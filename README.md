@@ -277,7 +277,7 @@ Controlled research/admin routes remain explicitly protected.
 - [Archived Phase 16 records](docs/archive/v1_phase_16/) — implementation contract, execution plan, and deployment evidence
 - [Archived Phase 17 records](docs/archive/v1_phase_17/) — execution and validation evidence
 - [Archived Phase 18 records](docs/archive/v1_phase_18/) — implementation, validation, and cutover evidence
-- [Phase 19 contract](docs/future_phase_contracts.md#v1-phase-19--production-operations-and-security) — active implementation authority
+- [Phase 19 execution plan](docs/phase_19_execution_plan.md) — active implementation authority
 - [Future phase contracts](docs/future_phase_contracts.md) — full Phases 19–22 requirements
 - [Agent execution guide](docs/agent_execution_guide.md) — short-prompt workflow
 - [Architecture](docs/architecture.md)

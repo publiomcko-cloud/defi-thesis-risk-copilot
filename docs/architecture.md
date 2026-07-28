@@ -5,6 +5,7 @@ This document defines the system architecture and permanent trust boundaries. Ph
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
 - [`archive/v1_phase_18/`](archive/v1_phase_18/)
+- [`phase_19_execution_plan.md`](phase_19_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 

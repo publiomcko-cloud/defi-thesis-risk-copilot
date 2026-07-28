@@ -11,6 +11,8 @@ Detailed implementation requirements live in:
   corrections, and validation evidence;
 - [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 slices,
   gates, validation, migration, deployment, and rollback evidence;
+- [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — active Phase 19
+  operations and security implementation plan;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
 - [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
 
@@ -385,10 +387,10 @@ activation, and launch approval remain Phase 22 gates.
 
 Goal: make identity, API, jobs, workers, storage, and retrieval hardened, observable, recoverable, and supportable.
 
-Begin with observability, readiness checks, and controlled shadow-mode
-validation. The detailed Phase 19 execution plan is created on its own branch
-after this closeout merges. Do not enable all Phase 18 production flags as a
-Phase 19 starting condition.
+The ordered implementation authority is
+[`phase_19_execution_plan.md`](phase_19_execution_plan.md). Begin with
+observability, readiness checks, and controlled shadow-mode validation. Do not
+enable all Phase 18 production flags as a Phase 19 starting condition.
 
 Core outcomes:
 
