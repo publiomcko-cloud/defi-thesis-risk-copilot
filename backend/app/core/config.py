@@ -37,6 +37,25 @@ class Settings(BaseSettings):
     supabase_jwt_issuer: str = ""
     supabase_jwt_audience: str = "authenticated"
     supabase_service_role_key: str = ""
+    knowledge_storage_enabled: bool = False
+    supabase_storage_bucket: str = "private-knowledge"
+    supabase_storage_timeout_seconds: float = 20.0
+    knowledge_upload_max_bytes: int = 10 * 1024 * 1024
+    knowledge_upload_chunk_bytes: int = 64 * 1024
+    document_ingest_enabled: bool = False
+    knowledge_ingest_max_bytes: int = 10 * 1024 * 1024
+    knowledge_ingest_max_text_bytes: int = 2 * 1024 * 1024
+    knowledge_ingest_max_pdf_pages: int = 100
+    knowledge_chunk_max_characters: int = 2_000
+    knowledge_embeddings_enabled: bool = False
+    knowledge_embedding_profile_id: str = "kembprof_local_hash_384_v1"
+    knowledge_embedding_provider: str = "local_deterministic"
+    knowledge_embedding_model: str = "local-hash-384-v1"
+    knowledge_embedding_dimensions: int = 384
+    knowledge_shadow_retrieval_enabled: bool = False
+    knowledge_shadow_retrieval_top_k: int = 4
+    knowledge_public_corpus_import_enabled: bool = False
+    knowledge_pgvector_primary_enabled: bool = False
     session_cookie_name: str = "defi_copilot_session"
     anonymous_session_cookie_name: str = "defi_copilot_anon"
     cookie_secure: bool = True
@@ -143,6 +162,70 @@ class Settings(BaseSettings):
                 )
         if self.auth_enabled and self.app_env == "production" and not self.bff_audit_secret:
             raise ValueError("BFF_AUDIT_SECRET is required when production authentication is enabled")
+        if self.knowledge_storage_enabled:
+            if self.app_env == "production" and (
+                not self.supabase_url or not self.supabase_service_role_key
+            ):
+                raise ValueError(
+                    "SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are required when "
+                    "production knowledge storage is enabled"
+                )
+            if (
+                not self.supabase_storage_bucket
+                or "/" in self.supabase_storage_bucket
+                or len(self.supabase_storage_bucket) > 128
+                or any(
+                    character not in "abcdefghijklmnopqrstuvwxyz0123456789._-"
+                    for character in self.supabase_storage_bucket
+                )
+                or self.supabase_storage_timeout_seconds <= 0
+            ):
+                raise ValueError("Private knowledge storage configuration is invalid")
+        if (
+            self.knowledge_upload_max_bytes < 1
+            or self.knowledge_upload_chunk_bytes < 1024
+            or self.knowledge_upload_chunk_bytes > self.knowledge_upload_max_bytes
+        ):
+            raise ValueError("Knowledge upload limits are invalid")
+        if (
+            self.knowledge_ingest_max_bytes < 1
+            or self.knowledge_ingest_max_bytes > self.knowledge_upload_max_bytes
+            or self.knowledge_ingest_max_text_bytes < 1
+            or self.knowledge_ingest_max_pdf_pages < 1
+            or self.knowledge_chunk_max_characters < 256
+        ):
+            raise ValueError("Knowledge ingestion limits are invalid")
+        if self.document_ingest_enabled and (
+            not self.jobs_enabled or not self.worker_api_enabled or not self.knowledge_storage_enabled
+        ):
+            raise ValueError(
+                "DOCUMENT_INGEST_ENABLED requires JOBS_ENABLED, WORKER_API_ENABLED, and KNOWLEDGE_STORAGE_ENABLED"
+            )
+        if self.knowledge_embeddings_enabled and (
+            not self.jobs_enabled or not self.worker_api_enabled
+        ):
+            raise ValueError(
+                "KNOWLEDGE_EMBEDDINGS_ENABLED requires JOBS_ENABLED and WORKER_API_ENABLED"
+            )
+        if self.knowledge_shadow_retrieval_enabled and not self.knowledge_embeddings_enabled:
+            raise ValueError(
+                "KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED requires KNOWLEDGE_EMBEDDINGS_ENABLED"
+            )
+        if self.knowledge_pgvector_primary_enabled and not self.knowledge_shadow_retrieval_enabled:
+            raise ValueError(
+                "KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED requires KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED"
+            )
+        if not 1 <= self.knowledge_shadow_retrieval_top_k <= 20:
+            raise ValueError("KNOWLEDGE_SHADOW_RETRIEVAL_TOP_K must be between 1 and 20")
+        if (
+            not self.knowledge_embedding_profile_id.startswith("kembprof_")
+            or self.knowledge_embedding_provider != "local_deterministic"
+            or self.knowledge_embedding_model != "local-hash-384-v1"
+            or self.knowledge_embedding_dimensions != 384
+        ):
+            raise ValueError(
+                "Only the approved local deterministic 384-dimension embedding profile is supported"
+            )
         if self.worker_api_enabled and not self.jobs_enabled:
             raise ValueError("WORKER_API_ENABLED requires JOBS_ENABLED")
         if self.async_analysis_enabled and not self.jobs_enabled:

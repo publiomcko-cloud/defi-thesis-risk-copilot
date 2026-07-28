@@ -1,12 +1,120 @@
 # Changelog
 
+## Phase 18 Final Hardening
+
+- Added generation-specific embedding rows, exact active-generation retrieval,
+  same-profile rollback, and a reversible migration.
+- Connected guarded durable retrieval to authenticated analysis with server-derived
+  public/private/organization scope; anonymous analysis remains public-only and
+  JSON remains the fallback.
+- Made curated corpus import convergent and compensating, added retrieval quality
+  metrics, pgvector preflight, and safe private knowledge metadata in account export.
+- Hardened curated-object verification for checksum-free Supabase HEAD responses,
+  made compensation corpus-transaction-wide, rejected unsafe deterministic-ID
+  collisions, and added declared-lineage expected-empty retrieval evaluation.
+- Documented that migration `0021` downgrades fail closed after multi-generation
+  data exists; production rollback after activation uses feature flags, not a
+  destructive schema downgrade.
+- Made curated-object ownership tracking race-safe, added committed operator
+  import compensation, and extended convergent repair to validate chunk content,
+  metadata, deterministic vectors, and indexed PostgreSQL vector population.
+- Phase 18 remains locally complete only; deployed storage-policy and cutover
+  evidence remain Phase 22 work.
+
 All notable changes to DeFi Thesis & Risk Copilot are documented here.
 
 ## Unreleased — V1 Product Hardening
 
+### Phase 18A Production RAG Foundation
+
+- Added reversible durable source, document, immutable version, and chunk
+  tables while preserving the existing public JSON RAG metadata and runtime
+  path.
+- Added a disabled-by-default private Supabase Storage abstraction with
+  server-derived lineage keys, create-only writes, bounded reads, idempotent
+  deletion, sanitized failures, and an in-memory test backend.
+- Added server-derived public/private/organization knowledge authorization
+  without a platform-admin organization bypass.
+- Registered the exact `document.ingest.v1` job contract while keeping normal
+  submission and execution disabled until the worker-ingestion slice.
+- Added SQLite rollback/data-preservation and PostgreSQL tenant-isolation
+  coverage, plus Supabase Storage metadata and signed-path contract coverage.
+  Phase 18A is complete; Phase 18 remains an implemented foundation, not
+  complete.
+
+### Phase 18B Source/Document API and Private Upload
+
+- Added authenticated, server-scoped knowledge source/document/version APIs and
+  bounded multipart uploads for allowlisted text, Markdown, HTML, and PDF files.
+- Added checksum, media-type, filename, and size validation; create-only private
+  object writes; metadata-only responses; and database-failure object compensation.
+- Added source approval/upload audit events plus account and organization
+  tombstones for durable knowledge records. Storage, ingestion, and retrieval
+  remain disabled by default; Phase 18 is not complete.
+
+### Phase 18C Durable Ingestion Executor
+
+- Added server-owned, feature-gated `document.ingest.v1` submission and Phase 17
+  worker execution for approved immutable document versions.
+- Added bounded text/Markdown, HTML, and PDF extraction, deterministic
+  normalization/chunking, checksum verification, retry-safe partial cleanup,
+  and transactional version activation.
+- Generic durable-job submission cannot queue ingestion. Storage, ingestion,
+  embeddings, and retrieval remain disabled by default until deployment and
+  later Phase 18 gates are completed.
+
+### Phase 18D Versioned pgvector Embeddings
+
+- Added a reversible pgvector migration with a local deterministic 384-dimension
+  profile, immutable generation records, portable vector metadata, and a
+  PostgreSQL HNSW cosine index.
+- Added server-owned `document.embed.v1` worker jobs for approved ready document
+  versions, including idempotency, dimension/model validation, retry/cancel
+  cleanup, and atomic generation activation.
+- No external embedding provider is supported, so private content remains in the
+  controlled worker process. Embeddings and retrieval stay disabled by default.
+
+### Phase 18E Tenant-safe Shadow Retrieval and Citations
+
+- Added a reversible privacy-safe retrieval-event table and an authenticated,
+  disabled-by-default pgvector shadow retrieval endpoint.
+- Added server-derived public/private/active-organization predicates before
+  ranking; deleted, unapproved, non-current, and corrupt-lineage chunks are
+  excluded.
+- Added exact source/document/version/chunk checksum citations and event
+  metadata without raw query or chunk-content logging. Analysis reports still
+  use the curated JSON RAG path; no durable retrieval cutover has occurred.
+
+### Phase 18F Knowledge Lifecycle Operations
+
+- Added atomic document-version rollback, completed embedding-generation
+  promotion/rollback, and version-level active embedding-profile metadata.
+- Added immediate tombstone revocation with idempotent, retryable physical
+  cleanup tasks for private originals and derived chunks/vectors, plus a bounded
+  cleanup CLI with dry-run support.
+
+### Phase 18G Public Corpus Migration and Guarded Cutover
+
+- Added an operator-only, idempotent importer for checked-in curated Markdown
+  that creates approved public immutable source, version, chunk, object, and
+  local deterministic embedding lineage without accepting discovered or tenant
+  content.
+- Added durable-public retrieval comparison metrics in CI and a weekly scheduled
+  workflow, plus an opt-in pgvector public report path with automatic local JSON
+  fallback. Both the importer and the primary path remain disabled by default.
+
+### Phase 18H Knowledge Workspace and Operational Readiness
+
+- Added an authenticated source/document/version workspace, safe lifecycle
+  actions, exact durable citation lineage in report sources, and an
+  administrator-only aggregate readiness endpoint.
+- Added an explicit private-storage probe and a deployment runbook. It remains
+  disabled/non-mutating by default; live Supabase policy and cutover validation
+  are not represented as complete until Phase 22 evidence is recorded.
+
 ### Phase 17 Durable Jobs and Hybrid Workers
 
-- Correction pass completed locally: added supervised long-running heartbeats/cancellation, immutable
+- Correction pass completed on `main`: added supervised long-running heartbeats/cancellation, immutable
   attempt lease horizons, exact job schemas, recovery maintenance, database report-reference
   artifacts, completed-only report links, and durable Vast request reconciliation boundaries.
 
@@ -47,7 +155,7 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
 - Completed Phase 16D local lifecycle/security audit hardening with bounded redaction, organization/account/consent/MFA events, administrator-only audit access, and a server-only BFF MFA audit channel.
 - Completed Phase 16E PostgreSQL quota/resource concurrency validation and Phase 15 migrated public API regression coverage; CI now enables the guarded PostgreSQL integration suite, and development demo ownership now respects the production foreign-key contract.
 
-Phase 16 is **Complete and merge-ready**. Its implementation record is archived in `docs/archive/v1_phase_16/`; deferred deployed-provider and qualified legal release validation is tracked as final V1 Phase 22 work.
+Phase 16 is **Complete on main**. Its implementation record is archived in `docs/archive/v1_phase_16/`; deferred deployed-provider and qualified legal release validation is tracked as final V1 Phase 22 work.
 
 ### Security
 

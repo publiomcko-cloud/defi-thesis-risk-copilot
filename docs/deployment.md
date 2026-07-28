@@ -5,6 +5,8 @@ This document defines deployment modes, environment variables, trust boundaries,
 Related contracts:
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_17/`](archive/v1_phase_17/)
+- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -21,7 +23,7 @@ Browser
   -> Supabase PostgreSQL
 ```
 
-Live Phase 15 services:
+Live services:
 
 - frontend: `https://defi-thesis-risk-copilot.vercel.app`;
 - demo: `https://defi-thesis-risk-copilot.vercel.app/demo`;
@@ -31,7 +33,10 @@ Live Phase 15 services:
 - deployment status: `/api/deployment/status`;
 - OpenAPI: `/docs`.
 
-The live deployment follows `main`. Phase 16 is merge-ready; the final deployed-provider and legal launch checks are now V1 Phase 22 work.
+The live deployment follows `main`; Phases 16 and 17 are complete there.
+Phase 18 is active on its implementation branch and is not enabled in
+production by this first slice. Final deployed-provider and legal launch checks
+remain V1 Phase 22 work.
 
 ---
 
@@ -582,7 +587,7 @@ When running frontend outside Docker, use the reachable local backend URL.
 
 ---
 
-## 14. Phase 17 branch validation
+## 14. Completed Phase 17 baseline validation
 
 ### Backend
 
@@ -669,9 +674,13 @@ In hybrid mode, anonymous denial must not globally block authenticated user oper
 - [ ] documentation matches deployment;
 - [ ] V1 Phase 22 final provider/legal release validation is complete before commercial launch.
 
-### Archived Phase 16G Record
+### Archived Phase 16G record
 
-The current live domains remain the Phase 15 public-demo deployment. On 2026-07-21, Vercel returned `404` for `/login` and `/api/auth/session`, and Render reported `portfolio_demo` with `auth_enabled=false`; public privileged-mutation probes returned controlled `403` responses. This confirms the baseline remains safe but cannot satisfy managed-identity verification. The exact preview configuration and manual verification matrix are archived in [`archive/v1_phase_16/phase_16_deployed_verification.md`](archive/v1_phase_16/phase_16_deployed_verification.md); final provider validation is V1 Phase 22 work.
+On 2026-07-21, the then-current Phase 15 deployment returned `404` for
+`/login` and `/api/auth/session`; that historical evidence is preserved in
+[`archive/v1_phase_16/phase_16_deployed_verification.md`](archive/v1_phase_16/phase_16_deployed_verification.md).
+It does not describe the current hybrid deployment. Final provider validation
+remains V1 Phase 22 work.
 
 ---
 
@@ -679,11 +688,170 @@ The current live domains remain the Phase 15 public-demo deployment. On 2026-07-
 
 ### Phase 17
 
-Deploy worker identities, queue schema, local/cloud workers, job observability, and cost controls.
+Completed on `main`. Preserve worker identities, queue schema, the trusted
+GitHub Actions worker path, job observability, and provider cost controls.
 
 ### Phase 18
 
-Deploy object storage and tenant-aware vector storage. Stop treating runtime filesystem as authoritative.
+The 18A–18G schema, adapter, authenticated upload API, ingestion worker,
+local-only pgvector embedding path, shadow retrieval diagnostic, and lifecycle
+rollback/cleanup controls are present but disabled by default.
+Configuration defaults:
+
+```env
+KNOWLEDGE_STORAGE_ENABLED=false
+SUPABASE_STORAGE_BUCKET=private-knowledge
+SUPABASE_STORAGE_TIMEOUT_SECONDS=20
+KNOWLEDGE_UPLOAD_MAX_BYTES=10485760
+KNOWLEDGE_UPLOAD_CHUNK_BYTES=65536
+DOCUMENT_INGEST_ENABLED=false
+KNOWLEDGE_INGEST_MAX_BYTES=10485760
+KNOWLEDGE_INGEST_MAX_TEXT_BYTES=2097152
+KNOWLEDGE_INGEST_MAX_PDF_PAGES=100
+KNOWLEDGE_CHUNK_MAX_CHARACTERS=2000
+KNOWLEDGE_EMBEDDINGS_ENABLED=false
+KNOWLEDGE_EMBEDDING_PROFILE_ID=kembprof_local_hash_384_v1
+KNOWLEDGE_EMBEDDING_PROVIDER=local_deterministic
+KNOWLEDGE_EMBEDDING_MODEL=local-hash-384-v1
+KNOWLEDGE_EMBEDDING_DIMENSIONS=384
+KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED=false
+KNOWLEDGE_SHADOW_RETRIEVAL_TOP_K=4
+KNOWLEDGE_PUBLIC_CORPUS_IMPORT_ENABLED=false
+KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=false
+SUPABASE_SERVICE_ROLE_KEY=
+```
+
+`SUPABASE_SERVICE_ROLE_KEY` is backend/worker-only and must never use a
+`NEXT_PUBLIC_` name. Enabling storage in production without `SUPABASE_URL` and
+the service-role credential fails configuration validation. Bucket creation,
+private policies, and a synthetic-tenant object probe are external deployment
+prerequisites; Alembic never changes Supabase's managed `storage` schema.
+
+The API accepts uploads only when `KNOWLEDGE_STORAGE_ENABLED=true` and the
+private bucket/policy has been independently configured. It returns metadata
+only, never a public object URL. Do not enable the flag in production until a
+synthetic-tenant private-bucket probe and access-policy review are recorded.
+`DOCUMENT_INGEST_ENABLED=true` additionally requires `JOBS_ENABLED=true`,
+`WORKER_API_ENABLED=true`, and a scoped trusted worker credential. Do not enable
+it until the private bucket policy/probe is validated. Keep durable retrieval
+disabled. Runtime JSON remains the production retrieval fallback until shadow
+evaluation and rollback gates pass.
+`KNOWLEDGE_EMBEDDINGS_ENABLED=true` requires `JOBS_ENABLED=true` and
+`WORKER_API_ENABLED=true`; it accepts only the local deterministic 384-dimension
+profile and therefore does not need an external provider key. PostgreSQL must
+provide the `vector` extension; local/CI Compose uses `pgvector/pgvector:pg16`.
+Provision `vector` through a database administrator or Supabase before running
+application migrations, then verify it with:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m scripts.preflight_pgvector
+alembic upgrade head
+```
+
+The Alembic application role intentionally does not attempt `CREATE EXTENSION`.
+Do not enable it before the private-storage/worker deployment gate and pgvector
+readiness probe are recorded.
+Migration `20260728_0021` can downgrade only before multiple completed
+generations exist for the same version/profile; it fails closed rather than
+discarding historical embedding rows. After activation, the supported production
+rollback is to disable `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED` and retain durable
+data while reports return to JSON.
+`KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED=true` requires embeddings to be enabled and
+exposes only the authenticated diagnostic endpoint. It must not be enabled for
+ordinary traffic until a synthetic tenant-isolation probe, pgvector readiness
+probe, and retrieval-event review are recorded. It never replaces JSON report
+retrieval in this slice.
+
+Phase 18G adds a private, operator-only curated Markdown migration command:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m scripts.import_public_corpus
+KNOWLEDGE_PUBLIC_CORPUS_IMPORT_ENABLED=true python -m scripts.import_public_corpus --apply
+python -m scripts.evaluate_public_corpus
+```
+
+The import command accepts only checked-in `knowledge_base/**/*.md`, creates
+approved public immutable lineage, verifies Supabase objects by bounded
+authenticated read when checksum metadata is unavailable, and is not an API or
+browser upload path. A failed corpus transaction compensates all objects it
+created; `--apply` owns the final database commit and compensates every object
+created by that attempt if flush or commit fails. Objects observed as existing
+or verified after a concurrent create conflict are never deleted. Unsafe
+deterministic-ID collisions fail closed rather than changing tenant/discovered
+content.
+Apply it only after the private bucket and worker/pgvector deployment checks
+are recorded. `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true` additionally requires
+shadow retrieval and should be enabled only after the comparison command passes.
+For authenticated analysis it queries approved public, caller-owned private,
+and active-organization durable material through server-derived scope; anonymous
+analysis remains public-only. It automatically reverts an empty or unavailable
+durable lookup to the existing JSON index. Turn the flag back to `false` for an
+immediate report-path rollback; no data migration is required.
+
+Phase 18H adds the authenticated `/knowledge` workspace for source ownership,
+upload, immutable document versions, ingestion/embedding submission, version
+restore, deletion, and safe status inspection. Report sources display exact
+durable lineage only where guarded durable retrieval supplied it. The admin view
+shows aggregate readiness only; it never returns a private object key, bucket
+name, source content, or credential.
+
+Before any live storage activation, perform this recorded deployment runbook:
+
+1. Create `private-knowledge` as a **private** Supabase Storage bucket. Do not
+   enable public access and do not create a browser-facing service-role path.
+2. Restrict Storage object policies to the application service role and the
+   server-derived object-key scheme. A browser must not be able to list, read,
+   create, or guess a knowledge object URL.
+3. Deploy with all Phase 18 feature flags still `false`, then run:
+
+   ```bash
+   cd backend
+   source .venv/bin/activate
+   python -m scripts.check_knowledge_readiness
+   ```
+
+4. In a controlled synthetic environment, enable storage only and run:
+
+   ```bash
+   python -m scripts.check_knowledge_readiness --probe-storage
+   ```
+
+   The probe creates, bounded-reads, checks the public-object route, and deletes
+   one synthetic object. It prints no key or credential. A result other than
+   `"storage_probe": "passed"` blocks the rollout.
+5. Test a private owner, an active organization member, and a non-member using
+   `/knowledge`; confirm owner/member visibility and non-member `404`. Test a
+   deleted version is excluded before physical cleanup.
+6. Enable the trusted ingestion worker, then embeddings and shadow retrieval;
+   record the worker claim/heartbeat/completion and tenant-isolation evidence.
+7. Run `python -m scripts.import_public_corpus --apply` with the explicit import
+   flag, then `python -m scripts.evaluate_public_corpus` (the local quality gate
+   currently evaluates seven cases, including one expected-empty query, at
+   top-1). Enable
+   `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true` only after its quality gate passes.
+8. Keep JSON rollback active for the documented window. To roll back, set the
+   primary flag to `false` first; do not delete durable rows or private objects.
+
+These live Supabase policy, two-user, worker, and primary-cutover steps are
+external Phase 22 evidence until they are executed against the deployed
+environment. They are intentionally not claimed by local CI.
+
+Phase 18F adds a controlled retention command:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m scripts.cleanup_knowledge_tombstones --dry-run
+```
+
+Run the dry run before any real cleanup. A real run requires the private storage
+configuration and deletes only versions already tombstoned in a committed
+database transaction. Provider failures leave a retryable cleanup task; they
+never restore retrieval visibility or expose an object key.
 
 ### Phase 19
 

@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:16
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
@@ -52,11 +52,22 @@ jobs:
       - name: Compile Python modules
         run: python -m compileall app scripts
 
+      - name: Provision pgvector for integration database
+        env:
+          PGPASSWORD: postgres
+        run: psql -h 127.0.0.1 -U postgres -d defi_copilot_test -c "CREATE EXTENSION IF NOT EXISTS vector"
+
+      - name: Verify pgvector preflight
+        run: python -m scripts.preflight_pgvector
+
       - name: Apply PostgreSQL migrations
         run: alembic upgrade head
 
       - name: Run tests
         run: python -m pytest -q --tb=short 2>&1 | tee pytest-output.txt
+
+      - name: Evaluate public retrieval cutover gate
+        run: python -m scripts.evaluate_public_corpus
 
       - name: Upload backend validation log
         if: always()

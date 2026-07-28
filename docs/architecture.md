@@ -3,6 +3,8 @@
 This document defines the system architecture and permanent trust boundaries. Phase-specific requirements live in:
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_17/`](archive/v1_phase_17/)
+- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -44,7 +46,7 @@ The application must not implicitly:
 
 ---
 
-## 3. Deployed Phase 15 architecture
+## 3. Deployed V1 foundation
 
 ```text
 Browser
@@ -59,7 +61,8 @@ Render startup
   -> Uvicorn
 ```
 
-The deployed `main` branch currently represents the Phase 15 public-safe baseline unless a later phase is explicitly merged and deployed.
+The deployed `main` branch includes the Phase 15 public-safe baseline, Phase
+16 identity/ownership, and Phase 17 durable job control plane.
 
 Live endpoints:
 
@@ -72,7 +75,7 @@ Live endpoints:
 
 ---
 
-## 4. Phase 16 target architecture
+## 4. Phase 16 implemented identity architecture
 
 ```text
 Browser
@@ -211,7 +214,7 @@ discovery
   -> retrieval index
 ```
 
-Current global ingestion may generate curated Markdown and refresh the public-curated local index. Phase 16 organization sources persist provenance and approval metadata only. The analysis service derives retrieval scope from authenticated membership, but organization-tagged chunks remain blocked because tenant storage is disabled. Phase 18 replaces runtime/local authority with object storage, versioned documents/chunks, and tenant-filtered vector retrieval.
+Current global ingestion may generate curated Markdown and refresh the public-curated local index. Phase 18 adds a guarded durable path: authenticated analysis derives approved public, caller-owned private, and active-organization scope from its server-side actor, while anonymous analysis remains public-only. The local JSON index remains the default and rollback fallback until live storage-policy and cutover gates are completed.
 
 No automatically discovered content becomes trusted without explicit approval.
 
@@ -412,7 +415,7 @@ Market data may be delayed, partial, cached, simulated, or manually supplied and
 
 ---
 
-## 16. Phase 17 target — jobs and workers
+## 16. Phase 17 implemented — jobs and workers
 
 ```text
 API/control plane
@@ -492,7 +495,7 @@ outbound call and blocks a second rental until an uncertain outcome is reconcile
 
 ---
 
-## 17. Phase 18 target — durable RAG/storage
+## 17. Phase 18 implemented foundation — durable RAG/storage
 
 ```text
 approved source/upload
@@ -505,6 +508,67 @@ approved source/upload
 ```
 
 Runtime filesystem and global JSON indexes stop being authoritative.
+
+Phase 18A is complete and additive. `knowledge_sources`, `knowledge_documents`,
+`knowledge_document_versions`, and `knowledge_chunks` preserve immutable
+lineage without changing the current RAG tables. Public, private, and
+organization access predicates derive owner and active membership scope on the
+server; a platform administrator has no organization-content bypass.
+
+The private-storage protocol has a deterministic lineage-based key builder,
+create-only writes, bounded reads, idempotent deletion, a memory test backend,
+and a fail-closed Supabase adapter. It is disabled by default.
+`document.ingest.v1` has exact input/result schemas, a server-owned submission
+path, and a feature-gated Phase 17 worker executor. It validates private object
+metadata/checksums, supports bounded text/Markdown, HTML, and PDF extraction,
+persists incomplete chunks, and atomically activates only a validated approved
+version. The current public JSON path remains active retrieval and rollback
+authority until pgvector shadow evaluation and citation gates pass. See
+[`phase_18_execution_plan.md`](phase_18_execution_plan.md).
+Phase 18B is complete locally: authenticated source/document APIs derive scope
+and object lineage server-side, accept only bounded allowlisted uploads, record
+approval/upload audit events, and compensate a written object if the database
+commit fails. Responses never expose a storage key or object URL. Account and
+organization deletion tombstone knowledge descendants; physical object cleanup
+remains a later retention slice. Phase 18C keeps storage and ingestion disabled
+by default. Phase 18D adds local-only 384-dimension pgvector embedding profiles,
+generations, and a PostgreSQL HNSW cosine index through a separate Phase 17
+worker job. Incomplete vectors never activate, external embedding providers are
+rejected. Phase 18E adds an authenticated, disabled-by-default pgvector shadow
+retriever. It applies source approval, lifecycle, current-version, exact active
+embedding-generation, and server-derived tenant filters before ranking, records
+only privacy-safe retrieval telemetry, and returns checksum-bound citations.
+When the separately guarded primary flag is enabled, authenticated analysis uses
+the same server-derived public/private/organization boundary; anonymous analysis
+remains public-only and curated JSON remains the rollback fallback.
+Phase 18F adds immutable-version rollback, manager-scoped embedding-generation
+selection, and a two-stage deletion lifecycle. Database tombstones revoke
+durable retrieval before a bounded, retryable cleanup script deletes private
+objects and derived chunks/vectors; historical retrieval event identifiers are
+retained only as non-serving audit lineage.
+
+Phase 18G adds an operator-only importer for the repository's curated Markdown
+corpus. It creates approved public immutable source/document/version/chunk/
+embedding lineage, repairs deterministic partial state on rerun, never imports
+discovered or tenant material, and is disabled by default. It verifies
+checksum-free Supabase object metadata by bounded authenticated read, compensates
+every object created by a failed whole-corpus attempt, and fails closed on an
+unsafe deterministic-ID collision. The guarded report
+retriever derives tenant scope only from the actor and falls back to the local
+JSON index on an empty or unavailable durable result. Scheduled evaluation
+compares the durable corpus against the existing JSON fallback using declared
+immutable chunk/source relevance and an expected-empty case before an operator
+enables the primary flag.
+
+Phase 18H adds an authenticated source/document/version workspace and preserves
+exact durable source/document/version/chunk checksums in report-source data
+when the guarded durable retriever is used. The workspace receives only
+metadata; it never receives an object key, bucket path, or storage credential.
+An administrator-only readiness endpoint exposes aggregate state and feature
+flags without tenant content. A separate operator probe can make and delete one
+synthetic object and confirms it is not publicly readable before activation.
+Private account exports include only source/document/version metadata and never
+include document content, embeddings, storage keys, or signed URLs.
 
 ---
 

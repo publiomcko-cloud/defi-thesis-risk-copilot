@@ -99,6 +99,7 @@ def test_retrieval_evaluation_records_metrics(tmp_path: Path) -> None:
     )
 
     payload = json.loads(output_path.read_text(encoding="utf-8"))
-    assert summary.total_cases == 6
-    assert payload["total_cases"] == 6
+    assert summary.total_cases == 7
+    assert summary.passed_cases == 7
+    assert payload["total_cases"] == 7
     assert "pass_rate" in payload

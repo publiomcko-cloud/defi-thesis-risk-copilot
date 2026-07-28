@@ -7,7 +7,10 @@ Detailed implementation requirements live in:
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md) — archived Phase 16 implementation contract and evidence;
 - [`archive/v1_phase_16/phase_16_execution_plan.md`](archive/v1_phase_16/phase_16_execution_plan.md) — archived Phase 16 execution record;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — complete Phase 17–22 contracts;
-- [`phase_17_execution_plan.md`](phase_17_execution_plan.md) — implementation slices and checkpoints for the next planned phase;
+- [`archive/v1_phase_17/`](archive/v1_phase_17/) — archived Phase 17 plan,
+  corrections, and validation evidence;
+- [`phase_18_execution_plan.md`](phase_18_execution_plan.md) — active Phase 18
+  slices, gates, migration, deployment, and rollback plan;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
 - [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
 
@@ -255,7 +258,7 @@ Phase 15 is the permanent public-safety baseline for all later phases.
 
 # Completed V1 implementation
 
-## V1 Phase 16 — Production identity, ownership, and quotas — Complete and merge-ready
+## V1 Phase 16 — Production identity, ownership, and quotas — Complete
 
 Goal: support anonymous visitors and authenticated multi-user/organization workflows securely in the same product architecture.
 
@@ -264,18 +267,6 @@ The detailed implementation contract, sub-phase record, and deployed-preview evi
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`archive/v1_phase_16/phase_16_execution_plan.md`](archive/v1_phase_16/phase_16_execution_plan.md)
 - [`archive/v1_phase_16/phase_16_deployed_verification.md`](archive/v1_phase_16/phase_16_deployed_verification.md)
-
-Merge branch:
-
-```text
-agent/v1-phase-16-identity-ownership
-```
-
-Reviewed correction commit:
-
-```text
-bf1b9ddc6153e02f2018c4a43ba20bb634e82709
-```
 
 Implemented foundation includes:
 
@@ -300,12 +291,12 @@ The implementation, migration, automated browser, PostgreSQL, Compose, CI, and h
 Execution sequence:
 
 ```text
-16A Admin MFA usable workflow — complete locally
-16B Organization knowledge metadata and retrieval boundary — complete locally
-16C Migration, foreign-key, and index review — complete locally
-16D Audit coverage and security event logging — complete locally
-16E PostgreSQL concurrency and Phase 15 data validation — complete locally and in CI configuration
-16F Full browser E2E for Phase 16 workflows — complete locally and in CI configuration
+16A Admin MFA usable workflow — complete on main
+16B Organization knowledge metadata and retrieval boundary — complete on main
+16C Migration, foreign-key, and index review — complete on main
+16D Audit coverage and security event logging — complete on main
+16E PostgreSQL concurrency and Phase 15 data validation — complete on main and in CI
+16F Full browser E2E for Phase 16 workflows — complete on main and in CI
 16G Hosted configuration and automated validation — complete; archived evidence records the remaining manual provider checks
 16H Documentation and merge preparation — complete; final provider/legal launch approval moved to Phase 22
 ```
@@ -316,7 +307,7 @@ Execution sequence:
 
 The complete contracts are in [`future_phase_contracts.md`](future_phase_contracts.md).
 
-## V1 Phase 17 — Durable job queue and hybrid workers — Implementation complete locally
+## V1 Phase 17 — Durable job queue and hybrid workers — Complete
 
 Goal: execute heavy/retryable/provider work outside the public web process.
 
@@ -335,16 +326,18 @@ Core outcomes:
 
 Phase 17 must preserve Phase 16 ownership, quotas, actor boundaries, and auditability.
 
-V1 Phase 17 — Implementation complete locally; hosted-worker and verified real-provider validation remain deferred to Phase 22. It provides durable job, attempt, event,
+V1 Phase 17 is complete on `main`. It provides durable job, attempt, event,
 worker, credential, artifact, and capacity-reservation schemas; closed transitions; tenant-scoped
 submission, idempotency, queue expiry, cancellation, and operator replay; PostgreSQL-safe worker
 leasing/recovery; asynchronous authenticated analysis; a private jobs workspace; retention and
 account export/deletion handling; and an outbound-only trusted worker. The administrator-only Vast
 job uses server-owned settings, cost reservation, idempotent session linkage, and dry-run defaults.
-CI and local validation use fake/dry-run providers only. Hosted workers and real provider rentals
-remain intentionally unverified, are deferred to Phase 22, and are not production claims.
+CI uses fake/dry-run providers only. Real provider rentals and final hosted
+operations validation remain Phase 22 gates and are not production claims.
+Historical implementation and correction evidence is archived in
+[`archive/v1_phase_17/`](archive/v1_phase_17/).
 
-## V1 Phase 18 — Production RAG and knowledge storage — Planned
+## V1 Phase 18 — Production RAG and knowledge storage — Implemented Foundation
 
 Goal: eliminate runtime-filesystem authority and support durable, versioned, tenant-filtered knowledge.
 
@@ -360,6 +353,37 @@ Core outcomes:
 - deletion/tombstones;
 - rollback;
 - retrieval observability and evaluation.
+
+Active branch:
+
+```text
+agent/v1-phase-18-production-rag
+```
+
+The ordered implementation authority is
+[`phase_18_execution_plan.md`](phase_18_execution_plan.md). The first slice is
+implemented additively: four durable knowledge tables, a private Supabase
+Storage abstraction, server-derived tenant authorization, the exact but
+feature-gated `document.ingest.v1` registry contract, authenticated
+source/document APIs, bounded private-upload handling, audit events, lifecycle
+tombstones, and the server-owned worker ingestion path.
+The local JSON public retrieval path remains authoritative by default. Slices 18A–18H are
+complete locally; source-scoped durable ingestion, local-only versioned pgvector
+embeddings, and an authenticated tenant-safe shadow retriever are implemented
+but disabled by default. Shadow retrieval records privacy-safe events and exact
+citation lineage. The guarded primary report path derives approved public,
+caller-owned private, and active-organization scope server-side for
+authenticated users while anonymous analysis remains public-only; JSON stays
+the fallback. Atomic version rollback, generation-specific same-profile
+embedding promotion/rollback, and retryable tombstone cleanup are implemented.
+Phase 18G supplies the convergent curated-corpus importer with whole-attempt
+object compensation and fail-closed ID collision handling, declared-lineage
+expected-empty evaluation/weekly CI evidence, and durable fallback behavior.
+Phase 18H supplies the authenticated
+source/document/version workspace, report citation lineage UI, safe readiness
+metrics, private-knowledge export metadata, and the live storage verification
+runbook. Phase 18 code is complete locally; the actual private-bucket policy
+probe and production activation remain Phase 22 gates.
 
 ## V1 Phase 19 — Production operations and security — Planned
 

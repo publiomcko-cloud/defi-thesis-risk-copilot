@@ -18,6 +18,7 @@ const protectedLinks = [
   { href: "/account", label: "Account" },
   { href: "/jobs", label: "Jobs" },
   { href: "/theses", label: "Theses" },
+  { href: "/knowledge", label: "Knowledge" },
   { href: "/organizations", label: "Organizations" },
   { href: "/review", label: "Review" },
   { href: "/admin", label: "Admin" }

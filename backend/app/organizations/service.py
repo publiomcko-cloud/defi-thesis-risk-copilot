@@ -14,6 +14,7 @@ from app.auth.service import normalize_email, record_audit_event
 from app.jobs.lifecycle import dispose_jobs_for_organization_deletion, revoke_jobs_for_authorization_change
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
+from app.knowledge.service import tombstone_knowledge_for_organization
 from app.organizations.schemas import (
     MembershipCreateRequest,
     MembershipResponse,
@@ -137,6 +138,7 @@ def delete_organization(db: Session, actor: UserContext, organization_id: str) -
         raise HTTPException(status_code=403, detail="Organization admin role required")
     org.deleted_at = datetime.now(UTC)
     org.status = "disabled"
+    tombstone_knowledge_for_organization(db, org.id, now=org.deleted_at)
     dispose_jobs_for_organization_deletion(db, org.id, now=org.deleted_at)
     db.commit()
     db.refresh(org)

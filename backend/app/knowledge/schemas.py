@@ -1,0 +1,155 @@
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Literal
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+KnowledgeVisibility = Literal["public", "private", "organization"]
+KnowledgeTrustState = Literal[
+    "needs_review",
+    "approved_for_rag",
+    "rejected",
+    "archived",
+]
+
+
+class KnowledgeSourceCreateRequest(BaseModel):
+    visibility: KnowledgeVisibility
+    title: str = Field(min_length=1, max_length=255)
+    source_type: str = Field(min_length=1, max_length=64)
+    organization_id: str | None = Field(default=None, max_length=64)
+    source_uri: str | None = Field(default=None, max_length=2048)
+    canonical_uri: str | None = Field(default=None, max_length=2048)
+    protocol: str | None = Field(default=None, max_length=64)
+    chain: str | None = Field(default=None, max_length=64)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class KnowledgeSourceUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    protocol: str | None = Field(default=None, min_length=1, max_length=64)
+    chain: str | None = Field(default=None, min_length=1, max_length=64)
+    trust_state: KnowledgeTrustState | None = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class KnowledgeSourceResponse(BaseModel):
+    id: str
+    owner_user_id: str | None
+    organization_id: str | None
+    visibility: KnowledgeVisibility
+    source_type: str
+    source_uri: str | None
+    canonical_uri: str | None
+    title: str
+    protocol: str | None
+    chain: str | None
+    status: str
+    trust_state: str
+    approved_by_user_id: str | None
+    approved_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: datetime | None
+
+
+class KnowledgeSourcesResponse(BaseModel):
+    items: list[KnowledgeSourceResponse]
+
+
+class KnowledgeDocumentVersionResponse(BaseModel):
+    id: str
+    version_number: int
+    checksum: str | None
+    size_bytes: int
+    status: str
+    parser_version: str | None
+    chunker_version: str | None
+    embedding_model: str | None
+    embedding_dimensions: int | None
+    created_at: datetime
+    superseded_at: datetime | None
+    deleted_at: datetime | None
+
+
+class KnowledgeDocumentResponse(BaseModel):
+    id: str
+    knowledge_source_id: str
+    current_version_id: str | None
+    filename: str
+    media_type: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    deleted_at: datetime | None
+    versions: list[KnowledgeDocumentVersionResponse] = Field(default_factory=list)
+
+
+class KnowledgeDocumentsResponse(BaseModel):
+    items: list[KnowledgeDocumentResponse]
+
+
+class KnowledgeReadinessResponse(BaseModel):
+    database_ready: bool
+    pgvector_ready: bool
+    json_fallback_ready: bool
+    storage_enabled: bool
+    document_ingest_enabled: bool
+    embeddings_enabled: bool
+    shadow_retrieval_enabled: bool
+    public_corpus_import_enabled: bool
+    pgvector_primary_enabled: bool
+    visible_source_count: int
+    ready_document_count: int
+    ready_version_count: int
+    active_embedding_count: int
+    pending_cleanup_count: int
+
+
+class KnowledgeDocumentRollbackRequest(BaseModel):
+    version_id: str = Field(min_length=1, max_length=64)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class KnowledgeEmbeddingPromotionRequest(BaseModel):
+    embedding_generation_id: str = Field(min_length=1, max_length=64)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ShadowRetrievalRequest(BaseModel):
+    query: str = Field(min_length=1, max_length=2000)
+    top_k: int | None = Field(default=None, ge=1, le=20)
+    protocols: list[str] = Field(default_factory=list, max_length=10)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class KnowledgeCitationResponse(BaseModel):
+    citation_id: str
+    source_id: str
+    source_title: str
+    document_id: str
+    document_version_id: str
+    document_version_checksum: str
+    chunk_id: str
+    chunk_checksum: str
+    heading_path: list[str]
+
+
+class ShadowRetrievalItemResponse(BaseModel):
+    score: float
+    excerpt: str
+    citation: KnowledgeCitationResponse
+
+
+class ShadowRetrievalResponse(BaseModel):
+    request_id: str
+    retrieval_event_id: str
+    retriever_version: str
+    items: list[ShadowRetrievalItemResponse]

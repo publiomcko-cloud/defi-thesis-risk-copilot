@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, ROUND_UP
 from uuid import uuid4
@@ -67,6 +68,9 @@ def submit_job(
     replay_of_job_id: str | None = None,
     created_by_user_id: str | None = None,
     allow_provider_job: bool = False,
+    allow_document_ingest: bool = False,
+    allow_document_embedding: bool = False,
+    before_commit: Callable[[JobModel], None] | None = None,
 ) -> tuple[JobModel, bool]:
     """Create one queued job and its reservation in a single database transaction.
 
@@ -78,6 +82,10 @@ def submit_job(
     ensure_jobs_enabled()
     if request.job_type == "vast.session.start" and not allow_provider_job:
         raise HTTPException(status_code=403, detail="Vast jobs require the dedicated administrator endpoint.")
+    if request.job_type == "document.ingest" and not allow_document_ingest:
+        raise HTTPException(status_code=403, detail="Document ingestion requires the dedicated source endpoint.")
+    if request.job_type == "document.embed" and not allow_document_embedding:
+        raise HTTPException(status_code=403, detail="Document embedding requires the dedicated source endpoint.")
     if len(idempotency_key.strip()) < 8 or len(idempotency_key) > 128:
         raise HTTPException(status_code=422, detail="Idempotency-Key must be between 8 and 128 characters.")
     _validate_submission_input(request.input_json)
@@ -111,6 +119,8 @@ def submit_job(
                 {"job_type": job.job_type, "organization_id": job.organization_id, "replay_of_job_id": replay_of_job_id},
                 commit=False,
             )
+            if before_commit is not None:
+                before_commit(job)
             db.commit()
             db.refresh(job)
             return job, False
@@ -204,6 +214,18 @@ def cancel_job(db: Session, actor: UserContext, job_id: str) -> JobModel:
             message="Cancellation requested by an authorized user.",
         )
     if job.status == "cancel_requested" and job.leased_by_worker_id is None:
+        if job.job_type == "document.ingest":
+            from app.knowledge.ingestion_executor import cleanup_document_ingest_outputs
+
+            version_id = job.input_json.get("request", {}).get("document_version_id")
+            if isinstance(version_id, str):
+                cleanup_document_ingest_outputs(db, version_id, retryable=False, terminal=False)
+        elif job.job_type == "document.embed":
+            from app.knowledge.embedding_executor import cleanup_document_embedding_outputs
+
+            generation_id = job.input_json.get("_server_context", {}).get("embedding_generation_id")
+            if isinstance(generation_id, str):
+                cleanup_document_embedding_outputs(db, generation_id, retryable=False, terminal=False)
         transition_job(
             db,
             job,
@@ -660,6 +682,8 @@ def _create_provider_cost_reservation(db: Session, job: JobModel, now: datetime)
 def _reserve_quota(db: Session, actor: UserContext, job_type: str) -> None:
     if actor.is_admin and get_settings().quota_admin_exempt:
         return
+    if job_type in {"document.ingest", "document.embed"}:
+        return
     action = ACTION_ANALYSIS if job_type == "analysis.generate" else None
     if action is None:
         raise HTTPException(status_code=403, detail="This job type is not enabled.")
@@ -703,6 +727,10 @@ def _validate_enabled_job_type(job_type: str) -> None:
         return
     if job_type == "vast.session.start" and get_settings().vast_job_enabled:
         return
+    if job_type == "document.ingest" and get_settings().document_ingest_enabled:
+        return
+    if job_type == "document.embed" and get_settings().knowledge_embeddings_enabled:
+        return
     raise HTTPException(status_code=403, detail="This job type is not enabled.")
 
 
@@ -716,6 +744,10 @@ def _preallocate_result_resource(job_type: str) -> tuple[str, str, dict[str, str
     if job_type == "vast.session.start":
         session_id = f"vast_{uuid4().hex[:12]}"
         return "vast_session", session_id, {"vast_session_id": session_id}
+    if job_type == "document.ingest":
+        return "knowledge_document_version", "pending", {}
+    if job_type == "document.embed":
+        return "knowledge_embedding_generation", "pending", {}
     raise HTTPException(status_code=403, detail="This job type is not enabled.")
 
 

@@ -3,6 +3,8 @@
 This file is the validation index. Detailed acceptance tests are defined in:
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
+- [`archive/v1_phase_17/`](archive/v1_phase_17/)
+- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`agent_execution_guide.md`](agent_execution_guide.md)
 
@@ -116,7 +118,7 @@ organizations/memberships, recovery, consent, MFA, mobile layout, keyboard focus
 
 A route-status smoke script is useful but is not full browser E2E coverage.
 
-## 5. Current Phase 16 branch coverage
+## 5. Completed Phase 16 coverage
 
 Present:
 
@@ -208,7 +210,99 @@ be disabled for bounded smoke timing unless that provider is the explicit subjec
 
 ## 7. Phase 18 validation
 
-Test durable objects, document versions, worker ingestion, tenant-filtered retrieval, citation lineage, deletion/tombstones, re-embedding migration, rollback, and retrieval evaluation.
+Follow [`phase_18_execution_plan.md`](phase_18_execution_plan.md) slice gates.
+The implemented foundation must prove reversible additive migrations, immutable
+version relationships, private object-key construction, disabled-by-default
+storage, exact `document.ingest.v1` registry schemas, server-derived public,
+private, and organization authorization, compensated bounded upload handling,
+and feature-gated durable ingestion cleanup/activation. It must preserve the
+public JSON retriever as a rollback path.
+
+Implemented 18A–18H evidence:
+
+- `test_phase18_foundation.py` covers ownership, anonymous denial, active
+  organization membership, non-member platform-admin denial, trusted-public
+  separation, key traversal, bounded/create-only storage, redacted Supabase
+  failures, fail-closed configuration, exact job schemas, and disabled
+  submission;
+- `test_phase18_migration.py` upgrades from the Phase 17 head, preserves
+  existing `document_sources`, verifies indexes/uniqueness, downgrades, and
+  re-upgrades;
+- `test_phase18_postgres_foundation.py` verifies PostgreSQL scope constraints,
+  organization isolation, and immediate removed-member denial.
+- `test_phase18_storage_adapter.py` verifies the private Supabase metadata
+  route, bounded authenticated checksum fallback when object-info lacks one,
+  and rejects malformed or cross-key signed download responses without exposing
+  provider details.
+- `test_phase18b_knowledge_api.py` covers authenticated private and organization
+  upload isolation, manager-only mutation, allowlist/checksum validation,
+  storage-disabled failure, database-failure object compensation, approval audit
+  records, no object URL/key exposure, and account/organization tombstones.
+- `test_phase18c_ingestion.py` covers server-owned/idempotent ingestion
+  submission, approved-source enforcement, generic-job blocking, allowlisted
+  parser behavior, Phase 17 worker execution, retry/cancellation partial-chunk
+  cleanup, and atomic version activation.
+- `test_phase18d_embeddings.py` covers local-only provider configuration,
+  server-owned/idempotent embedding jobs, worker completion, dimension mismatch,
+  same-profile generation selection/rollback, and partial-vector cleanup. PostgreSQL integration verifies the `vector`
+  extension, `vector(384)` column, HNSW cosine index, and similarity operation.
+- `test_phase18e_shadow_retrieval.py` covers pre-ranking public/private/
+  organization filtering, active-membership removal, source tombstones,
+  non-current versions, checksum-bound citation lineage, and privacy-safe
+  retrieval-event metadata. PostgreSQL integration covers tenant-filtered
+  pgvector ordering.
+- `test_phase18f_lifecycle.py` covers atomic immutable-version rollback,
+  manager-scoped embedding generation promotion and rollback, immediate
+  tombstone revocation, side-effect-free cleanup dry run, retryable object and
+  derived-content cleanup, and safe historical retrieval-event identifiers.
+- `test_phase18g_public_corpus.py` covers idempotent checked-in-Markdown
+  migration, immutable re-ingestion versions, approved-public-only retrieval,
+  convergent partial-state repair including `A -> B -> A`, object-write
+  compensation across a two-document transaction, fail-closed deterministic-ID
+  collision handling, created-versus-conflict object ownership, post-upload
+  verification failure, operator commit failure, transaction-local evaluation
+  rollback, declared-lineage/expected-empty evaluation, citation coverage, and
+  chunk/metadata/embedding repair. PostgreSQL coverage additionally proves a
+  null indexed vector is rebuilt. The suite retains disabled-by-default
+  import/cutover flags and automatic JSON fallback when durable public corpus
+  is absent.
+- `test_phase18_postgres_foundation.py` additionally proves the curated importer
+  populates PostgreSQL's indexed `vector(384)` column before public ranking.
+- `test_phase18h_citation_lineage.py` proves a durable chunk's exact citation
+  identifiers and checksums persist in report source data without a storage key.
+- `test_phase18b_knowledge_api.py` additionally covers source-document list
+  ownership, administrator-only aggregate readiness, and redaction of private
+  storage details. Browser E2E covers the authenticated Knowledge workspace
+  source registration and document upload flow through the BFF.
+- `test_phase18_final_retrieval.py` proves guarded report-path durable retrieval
+  for public/private/organization sources, anonymous public-only behavior,
+  citation isolation, deletion/supersession/stale-generation exclusion, explicit
+  no-answer protocol filtering, and bounded overfetch after corrupt lineage.
+- `test_phase18_postgres_foundation.py` additionally proves exact active-generation
+  selection and same-profile rollback on PostgreSQL plus direct analysis-facing
+  pgvector tenant isolation. `scripts/preflight_pgvector.py`
+  verifies a provisioned `vector` extension before Alembic; migrations never
+  assume the application role can install extensions.
+
+`python -m scripts.evaluate_public_corpus` compares the JSON fallback and an
+in-transaction durable public bootstrap against `retrieval_eval_dataset.json`,
+enforcing item-level precision@k, recall, source coverage, citation integrity,
+and expected-empty behavior. The checked-in gate runs at top-1 and currently has
+seven cases, including an irrelevant no-answer query; the recorded result is
+7/7 with 100% precision@1/recall and zero citation issues. This is local/CI
+quality evidence, not deployed storage-policy or cutover evidence.
+It rolls the bootstrap back, writes no private object, and requires 80% pass
+rate, full source coverage, and zero citation issues. CI runs it on pull
+requests; `retrieval-evaluation.yml` repeats it weekly and stores the metrics
+as an artifact.
+
+The live deployment runbook uses `python -m scripts.check_knowledge_readiness`
+for a non-mutating state check and adds `--probe-storage` only for an explicit
+synthetic private-object round trip. Production bucket/RLS policy verification,
+two-user tenant probes, and primary retrieval activation remain Phase 22
+external validation; no local test claims those provider checks passed.
+PostgreSQL tests are required for tenant isolation, vector filtering, concurrent
+version creation, job idempotency, and migration safety.
 
 ## 8. Phase 19 validation
 

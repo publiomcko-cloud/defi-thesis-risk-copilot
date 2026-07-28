@@ -7,7 +7,10 @@
       "principal token",
       "pt"
     ],
-    "metadata_filters": null
+    "metadata_filters": null,
+    "relevant_source_ids": ["ksrc_pub_a1da37ff088089e679ef"],
+    "relevant_chunk_ids": ["kchunk_pub_f2bd825dac767963c577"],
+    "expect_empty": false
   },
   {
     "id": "pendle_maturity",
@@ -16,7 +19,10 @@
     "expected_terms": [
       "maturity"
     ],
-    "metadata_filters": null
+    "metadata_filters": null,
+    "relevant_source_ids": ["ksrc_pub_a1da37ff088089e679ef"],
+    "relevant_chunk_ids": ["kchunk_pub_b0061bed5ca98cb8509e"],
+    "expect_empty": false
   },
   {
     "id": "morpho_lltv",
@@ -25,7 +31,10 @@
     "expected_terms": [
       "lltv"
     ],
-    "metadata_filters": null
+    "metadata_filters": null,
+    "relevant_source_ids": ["ksrc_pub_b731019df5bc97b0e572"],
+    "relevant_chunk_ids": ["kchunk_pub_edeceb532eed80d5d5aa"],
+    "expect_empty": false
   },
   {
     "id": "aave_health_factor",
@@ -34,7 +43,10 @@
     "expected_terms": [
       "health factor"
     ],
-    "metadata_filters": null
+    "metadata_filters": null,
+    "relevant_source_ids": ["ksrc_pub_b024f4b882c2dfe9a317"],
+    "relevant_chunk_ids": ["kchunk_pub_8bad75b61af4c0ef3657"],
+    "expect_empty": false
   },
   {
     "id": "oracle_risk",
@@ -43,7 +55,10 @@
     "expected_terms": [
       "oracle"
     ],
-    "metadata_filters": null
+    "metadata_filters": null,
+    "relevant_source_ids": ["ksrc_pub_6f512f98508809c459d5"],
+    "relevant_chunk_ids": ["kchunk_pub_11029256a78a363519fd"],
+    "expect_empty": false
   },
   {
     "id": "liquidation_risk",
@@ -52,6 +67,19 @@
     "expected_terms": [
       "liquidation"
     ],
-    "metadata_filters": null
+    "metadata_filters": null,
+    "relevant_source_ids": ["ksrc_pub_7101b1f4894761eee339"],
+    "relevant_chunk_ids": ["kchunk_pub_5b5ff2d0e9e664ec1a02"],
+    "expect_empty": false
+  },
+  {
+    "id": "irrelevant_no_answer",
+    "query": "quantum satellite manufacturing",
+    "expected_protocol": null,
+    "expected_terms": [],
+    "metadata_filters": null,
+    "relevant_source_ids": [],
+    "relevant_chunk_ids": [],
+    "expect_empty": true
   }
 ]

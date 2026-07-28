@@ -46,7 +46,11 @@ import type {
   JobSubmissionResponse,
   JobOperations,
   JobEventsResponse,
-  JobsResponse
+  JobsResponse,
+  KnowledgeDocument,
+  KnowledgeReadiness,
+  KnowledgeSource,
+  KnowledgeVisibility
 } from "./types";
 
 export function getApiBaseUrl(): string {
@@ -106,6 +110,156 @@ export async function fetchHealth(): Promise<HealthResponse> {
     throw new Error(`Health check failed with status ${response.status}`);
   }
 
+  return response.json();
+}
+
+export async function fetchKnowledgeSources(): Promise<KnowledgeSource[]> {
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/sources`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Knowledge sources could not be loaded."));
+  }
+  return (await response.json()).items;
+}
+
+export async function createKnowledgeSource(payload: {
+  visibility: KnowledgeVisibility;
+  title: string;
+  source_type: string;
+  organization_id?: string;
+  source_uri?: string;
+  canonical_uri?: string;
+  protocol?: string;
+  chain?: string;
+}): Promise<KnowledgeSource> {
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/sources`, {
+    method: "POST",
+    ...requestInit({
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(payload)
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Knowledge source could not be created."));
+  }
+  return response.json();
+}
+
+export async function deleteKnowledgeSource(sourceId: string): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/sources/${sourceId}`, {
+    method: "DELETE",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Knowledge source could not be deleted."));
+  }
+}
+
+export async function updateKnowledgeSourceTrust(sourceId: string, trustState: string): Promise<KnowledgeSource> {
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/sources/${sourceId}`, {
+    method: "PATCH",
+    ...requestInit({
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ trust_state: trustState })
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Knowledge source trust state could not be updated."));
+  }
+  return response.json();
+}
+
+export async function fetchKnowledgeSourceDocuments(sourceId: string): Promise<KnowledgeDocument[]> {
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/sources/${sourceId}/documents`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Knowledge documents could not be loaded."));
+  }
+  return (await response.json()).items;
+}
+
+export async function uploadKnowledgeDocument(sourceId: string, file: File): Promise<KnowledgeDocument> {
+  const formData = new FormData();
+  formData.set("file", file);
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/sources/${sourceId}/documents`, {
+    method: "POST",
+    ...requestInit({ headers: authHeaders(), body: formData })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Knowledge document upload failed."));
+  }
+  return response.json();
+}
+
+export async function uploadKnowledgeDocumentVersion(documentId: string, file: File): Promise<KnowledgeDocument> {
+  const formData = new FormData();
+  formData.set("file", file);
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/documents/${documentId}/versions`, {
+    method: "POST",
+    ...requestInit({ headers: authHeaders(), body: formData })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Knowledge document version upload failed."));
+  }
+  return response.json();
+}
+
+export async function deleteKnowledgeDocument(documentId: string): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/documents/${documentId}`, {
+    method: "DELETE",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Knowledge document could not be deleted."));
+  }
+}
+
+export async function submitKnowledgeIngestion(versionId: string, idempotencyKey: string): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/document-versions/${versionId}/ingest`, {
+    method: "POST",
+    ...requestInit({ headers: { "Idempotency-Key": idempotencyKey, ...authHeaders() } })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Document ingestion could not be submitted."));
+  }
+}
+
+export async function submitKnowledgeEmbedding(versionId: string, idempotencyKey: string): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/document-versions/${versionId}/embed`, {
+    method: "POST",
+    ...requestInit({ headers: { "Idempotency-Key": idempotencyKey, ...authHeaders() } })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Document embedding could not be submitted."));
+  }
+}
+
+export async function rollbackKnowledgeDocument(documentId: string, versionId: string): Promise<KnowledgeDocument> {
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/documents/${documentId}/rollback`, {
+    method: "POST",
+    ...requestInit({
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ version_id: versionId })
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Document rollback could not be completed."));
+  }
+  return response.json();
+}
+
+export async function fetchKnowledgeReadiness(): Promise<KnowledgeReadiness> {
+  const response = await fetch(`${getApiBaseUrl()}/api/knowledge/readiness`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Knowledge readiness is unavailable."));
+  }
   return response.json();
 }
 

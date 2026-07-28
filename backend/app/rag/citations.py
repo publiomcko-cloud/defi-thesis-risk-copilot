@@ -1,5 +1,5 @@
 from app.rag.retriever import RetrievalResult
-from app.schemas.reports import SourceReference
+from app.schemas.reports import CitationLineageReference, SourceReference
 
 
 REQUIRED_CITATION_METADATA = ("document_title", "section_title", "protocol", "source_url")
@@ -23,16 +23,30 @@ def results_to_sources(results: list[RetrievalResult]) -> list[SourceReference]:
         if key in seen:
             continue
         seen.add(key)
+        lineage = _citation_lineage(metadata)
         sources.append(
             SourceReference(
                 title=citation_label(result),
                 source_type="knowledge_base",
                 url=metadata["source_url"],
                 protocol=metadata["protocol"],
+                citation_lineage=lineage,
             )
         )
 
     return sources
+
+
+def _citation_lineage(metadata: dict) -> CitationLineageReference | None:
+    value = metadata.get("citation_lineage")
+    if not isinstance(value, dict):
+        return None
+    try:
+        return CitationLineageReference.model_validate(value)
+    except ValueError:
+        # Legacy JSON and malformed metadata retain their usable public source
+        # reference but must never masquerade as exact durable lineage.
+        return None
 
 
 def validate_retrieval_citations(results: list[RetrievalResult]) -> list[str]:
