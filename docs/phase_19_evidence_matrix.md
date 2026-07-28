@@ -1,0 +1,20 @@
+# Phase 19 Evidence Matrix
+
+Status legend: `implemented locally`, `planned`, or `external evidence required`.
+
+| Contract requirement | Status | Implementation / evidence | Rollback or boundary |
+| --- | --- | --- | --- |
+| Structured operational logging and redaction | implemented locally | `app/core/logging.py`, `app/core/observability.py`, `test_phase19_observability.py` | Local JSON logs only; no external exporter. |
+| Browser to BFF to API correlation | implemented locally | `frontend/src/lib/api.ts`, BFF route, API middleware, BFF contract and backend tests | Remove correlation forwarding without changing auth/cookie behavior. |
+| API to job to worker correlation | implemented locally | Server-owned job context and worker header forwarding | Existing job schema/tenant authorization unchanged. |
+| Non-mutating readiness | implemented locally | Admin endpoint and `scripts/check_operational_readiness.py` | Read-only metadata; no provider, storage, or tenant action. |
+| Centralized logs, errors, traces, metrics, retention, dashboard RBAC | planned | 19D/19E | No exporter endpoint or credential is accepted in 19A. |
+| Shared distributed rate limiting | planned | 19B | Existing documented in-process limiter remains temporary low-risk protection only. |
+| CSP, HSTS, CORS, CSRF, SSRF, upload scanning | planned | 19C | Existing BFF allowlist and storage controls stay active. |
+| Alerting, synthetics, SLOs, status integration | planned | 19D | No paging or synthetic tenant has been enabled. |
+| Backup/restore, secret rotation, incident response | planned | 19E/19G | Existing cleanup/recovery commands remain unchanged. |
+| CI security scanning and protected branch rules | planned | 19F | Existing CI remains required. |
+| Load, worker-loss, provider-failure exercises | planned | 19H | Real Vast rentals remain disabled. |
+| Controlled Phase 18 deployment evidence | external evidence required | 19I, Phase 18 archive, Phase 22 | `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=false`; JSON RAG remains fallback. |
+
+The matrix is updated as slices gain code, tests, deployment evidence, owners, and a tested rollback. Phase 19 is not complete until every Phase 19 contract gate is evidenced and no unresolved critical/high security finding remains.

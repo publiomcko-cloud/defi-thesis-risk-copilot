@@ -392,6 +392,13 @@ The ordered implementation authority is
 observability, readiness checks, and controlled shadow-mode validation. Do not
 enable all Phase 18 production flags as a Phase 19 starting condition.
 
+Phase 19A is implemented locally: structured/redacted logs, safe correlation
+from browser through workers, and read-only readiness evidence. It has no
+external telemetry exporter, dashboard, paging, or retention/access-policy
+approval yet. The evidence matrix and threat model are
+[`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) and
+[`phase_19_threat_model.md`](phase_19_threat_model.md).
+
 Core outcomes:
 
 - threat model;

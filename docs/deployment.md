@@ -41,6 +41,27 @@ shadow-mode validation without enabling all durable knowledge flags. Final
 deployed-provider, storage-policy, and legal launch checks remain V1 Phase 22
 work.
 
+## Phase 19A local-only observability
+
+Phase 19A introduces safe structured logs and correlation propagation, not an
+external telemetry integration. Keep these defaults unless an approved later
+Phase 19 rollout supplies retention, access, exporter, and alerting evidence:
+
+```env
+OBSERVABILITY_ENABLED=false
+OBSERVABILITY_RELEASE_ID=
+OBSERVABILITY_SAMPLING_RATE=1.0
+OBSERVABILITY_EXPORT_TIMEOUT_SECONDS=2
+OBSERVABILITY_EXPORT_QUEUE_SIZE=100
+OBSERVABILITY_CLOCK_TIMEZONE=UTC
+```
+
+`backend/scripts/check_operational_readiness.py` reads database/JSON-fallback
+state and feature-safe booleans without contacting a telemetry provider or
+printing secrets. `GET /api/admin/operations/readiness` exposes the same
+metadata only to platform administrators. It does not prove deployed alerting,
+storage policy, worker availability, or a Phase 18 cutover.
+
 ---
 
 ## 2. Supported deployment modes

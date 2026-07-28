@@ -1,6 +1,6 @@
 # V1 Phase 19 Execution Plan — Production Operations and Security
 
-Status: **Active — planning complete; implementation has not started**
+Status: **In Progress — 19A implemented locally; preview/deployment evidence pending**
 
 This plan implements the [Phase 19 contract](future_phase_contracts.md#v1-phase-19--production-operations-and-security). Read it with [current state](current_state.md), [architecture](architecture.md), [deployment](deployment.md), [testing](testing.md), and the [Phase 18 archive](archive/v1_phase_18/).
 
@@ -158,8 +158,12 @@ Each implementation slice runs the relevant baseline in [testing](testing.md): b
 
 Maintain a Phase 19 evidence matrix mapping every requirement and completion gate in `future_phase_contracts.md` to its implementation, test, deployment evidence, owner, rollback procedure, and status. Phase 19 cannot be labeled complete while a contract gate is merely planned or while an unresolved critical/high security finding exists.
 
+The current matrix is [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md). The current threat model is [`phase_19_threat_model.md`](phase_19_threat_model.md).
+
 No validation uses production customer data, browser-accessible secrets, real provider rentals, or live capital execution.
 
 ## 5. Proposed first implementation task
 
 Implement **19A only**: a redacted structured-log/correlation contract and a non-mutating operational readiness checker. Its first deployment gate is a preview proving correlation from browser request through BFF/API and, when applicable, job/worker/retrieval activity. It does not add distributed rate limits, enable Phase 18 durable flags, or alter production retrieval authority.
+
+Implementation status: **implemented locally.** External telemetry export is intentionally not implemented. Preview evidence, retention/access policy approval, dashboard ownership, and alerting remain later Phase 19D/19E operational work.

@@ -310,6 +310,24 @@ version creation, job idempotency, and migration safety.
 
 Test distributed limits, security headers, proxy/SSRF/CSRF protections, centralized redaction, trace correlation, backup restore, migration rollback, scans, load, accessibility, browser, PostgreSQL, and failure recovery.
 
+### Phase 19A implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19_observability.py app/tests/test_access_control.py app/tests/test_health.py
+python scripts/check_operational_readiness.py
+
+cd ../frontend
+npm run lint
+npm run test:bff
+```
+
+The tests prove normalized correlation headers, redacted structured logs,
+server-owned job/worker propagation, admin-only metadata readiness, disabled
+export behavior, and no response/log secret values. They do not claim an
+external telemetry, tracing, dashboard, or alert deployment.
+
 Phase 19 begins with non-mutating observability/readiness and controlled
 shadow-mode checks. It must retain JSON RAG as the fallback and must not claim
 Phase 18 production activation until the deployed policy and cutover gates are

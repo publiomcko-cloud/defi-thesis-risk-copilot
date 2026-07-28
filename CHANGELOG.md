@@ -6,6 +6,10 @@
   merged into `main`.
 - Phase 19 begins with observability, readiness checks, and controlled
   shadow-mode validation; it does not activate all durable knowledge flags.
+- Implemented 19A locally with redacted structured logs, correlation IDs across
+  browser/BFF/API/jobs/workers, and a read-only operational readiness check.
+  External telemetry export, dashboards, retention/access policy, and alerting
+  are not enabled.
 
 ## Phase 18 — Merged
 

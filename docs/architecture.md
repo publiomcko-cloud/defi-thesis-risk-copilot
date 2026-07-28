@@ -68,6 +68,19 @@ durable knowledge/retrieval implementation. Phase 18's durable path remains
 feature-gated; local JSON RAG remains the production fallback while Phase 19
 gathers controlled operations and deployment evidence.
 
+Phase 19A adds a local-only operational correlation path:
+
+```text
+browser correlation ID
+  -> Next.js BFF normalized header
+  -> FastAPI request context and redacted JSON log
+  -> server-owned durable job context
+  -> outbound worker control-plane header and executor context
+```
+
+This is not an external telemetry exporter. Operational logs remain redacted,
+and the admin-only readiness surface returns aggregate booleans only.
+
 Live endpoints:
 
 - frontend: `https://defi-thesis-risk-copilot.vercel.app`;
