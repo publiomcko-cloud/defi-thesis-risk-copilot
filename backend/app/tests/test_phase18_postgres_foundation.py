@@ -18,6 +18,8 @@ from app.knowledge.access import (
 from app.core.config import get_settings
 from app.jobs.cancellation import CancellationContext
 from app.knowledge.embedding import LocalDeterministicEmbeddingProvider, vector_literal
+from app.knowledge.public_corpus import import_curated_public_corpus
+from app.knowledge.public_retriever import retrieve_public_durable_context
 from app.knowledge.shadow_retriever import retrieve_shadow_knowledge
 from app.models.knowledge import (
     KnowledgeChunkEmbeddingModel,
@@ -29,6 +31,7 @@ from app.models.knowledge import (
 )
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
+from app.storage.memory import InMemoryPrivateObjectStorage
 
 
 pytestmark = pytest.mark.postgres_integration
@@ -273,6 +276,34 @@ def test_postgres_shadow_retrieval_filters_tenants_before_pgvector_ranking(
                 db.execute(delete(UserModel).where(UserModel.id.in_({ids["owner"], ids["member"], ids["outsider"]})))
                 db.commit()
         get_settings.cache_clear()
+
+
+def test_postgres_curated_import_populates_pgvector_and_retrieves_public_only(
+    postgres_sessions: sessionmaker,
+) -> None:
+    """The Phase 18G importer must populate the actual pgvector ranking field."""
+
+    with postgres_sessions() as db:
+        try:
+            summary = import_curated_public_corpus(db, InMemoryPrivateObjectStorage())
+            results = retrieve_public_durable_context(
+                db,
+                "What is Health Factor?",
+                protocols=["aave"],
+            )
+            populated_vectors = db.execute(
+                text(
+                    "SELECT count(*) FROM knowledge_chunk_embeddings "
+                    "WHERE id LIKE 'kemb_pub_%' AND embedding_vector IS NOT NULL"
+                )
+            ).scalar_one()
+            assert summary.documents_seen >= 1
+            assert results and results[0].metadata["protocol"] == "aave"
+            assert populated_vectors >= len(results)
+        finally:
+            # Curated bootstrap evaluation must not persist rows in the shared
+            # integration database.
+            db.rollback()
 
 
 def _add_pgvector_document(

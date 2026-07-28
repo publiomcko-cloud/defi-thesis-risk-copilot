@@ -58,6 +58,9 @@ jobs:
       - name: Run tests
         run: python -m pytest -q --tb=short 2>&1 | tee pytest-output.txt
 
+      - name: Evaluate public retrieval cutover gate
+        run: python -m scripts.evaluate_public_corpus
+
       - name: Upload backend validation log
         if: always()
         uses: actions/upload-artifact@v4

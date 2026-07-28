@@ -218,7 +218,7 @@ private, and organization authorization, compensated bounded upload handling,
 and feature-gated durable ingestion cleanup/activation. It must preserve the
 public JSON retriever as a rollback path.
 
-Implemented 18A–18F evidence:
+Implemented 18A–18G evidence:
 
 - `test_phase18_foundation.py` covers ownership, anonymous denial, active
   organization membership, non-member platform-admin denial, trusted-public
@@ -254,9 +254,22 @@ Implemented 18A–18F evidence:
   manager-scoped embedding generation promotion and rollback, immediate
   tombstone revocation, side-effect-free cleanup dry run, retryable object and
   derived-content cleanup, and safe historical retrieval-event identifiers.
+- `test_phase18g_public_corpus.py` covers idempotent checked-in-Markdown
+  migration, immutable re-ingestion versions, approved-public-only retrieval,
+  citation coverage, disabled-by-default import/cutover flags, and automatic
+  JSON fallback when the durable public corpus is absent.
+- `test_phase18_postgres_foundation.py` additionally proves the curated importer
+  populates PostgreSQL's indexed `vector(384)` column before public ranking.
 
-Later slices test public corpus migration, evaluation datasets, frontend lineage,
-and public cutover quality evidence.
+`python -m scripts.evaluate_public_corpus` compares the JSON fallback and an
+in-transaction durable public bootstrap against `retrieval_eval_dataset.json`.
+It rolls the bootstrap back, writes no private object, and requires 80% pass
+rate, full source coverage, and zero citation issues. CI runs it on pull
+requests; `retrieval-evaluation.yml` repeats it weekly and stores the metrics
+as an artifact.
+
+Later slices test frontend lineage, deployed private-bucket verification, and
+the production cutover approval.
 PostgreSQL tests are required for tenant isolation, vector filtering, concurrent
 version creation, job idempotency, and migration safety.
 

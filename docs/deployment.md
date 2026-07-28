@@ -693,7 +693,7 @@ GitHub Actions worker path, job observability, and provider cost controls.
 
 ### Phase 18
 
-The 18A–18F schema, adapter, authenticated upload API, ingestion worker,
+The 18A–18G schema, adapter, authenticated upload API, ingestion worker,
 local-only pgvector embedding path, shadow retrieval diagnostic, and lifecycle
 rollback/cleanup controls are present but disabled by default.
 Configuration defaults:
@@ -716,6 +716,8 @@ KNOWLEDGE_EMBEDDING_MODEL=local-hash-384-v1
 KNOWLEDGE_EMBEDDING_DIMENSIONS=384
 KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED=false
 KNOWLEDGE_SHADOW_RETRIEVAL_TOP_K=4
+KNOWLEDGE_PUBLIC_CORPUS_IMPORT_ENABLED=false
+KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=false
 SUPABASE_SERVICE_ROLE_KEY=
 ```
 
@@ -745,6 +747,26 @@ exposes only the authenticated diagnostic endpoint. It must not be enabled for
 ordinary traffic until a synthetic tenant-isolation probe, pgvector readiness
 probe, and retrieval-event review are recorded. It never replaces JSON report
 retrieval in this slice.
+
+Phase 18G adds a private, operator-only curated Markdown migration command:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m scripts.import_public_corpus
+KNOWLEDGE_PUBLIC_CORPUS_IMPORT_ENABLED=true python -m scripts.import_public_corpus --apply
+python -m scripts.evaluate_public_corpus
+```
+
+The import command accepts only checked-in `knowledge_base/**/*.md`, creates
+approved public immutable lineage, and is not an API or browser upload path.
+Apply it only after the private bucket and worker/pgvector deployment checks
+are recorded. `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true` additionally requires
+shadow retrieval and should be enabled only after the comparison command passes.
+It queries approved public curated material only and automatically reverts an
+empty or unavailable durable lookup to the existing JSON index. Turn the flag
+back to `false` for an immediate report-path rollback; no data migration is
+required.
 
 Phase 18F adds a controlled retention command:
 

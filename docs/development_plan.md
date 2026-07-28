@@ -367,14 +367,16 @@ Storage abstraction, server-derived tenant authorization, the exact but
 feature-gated `document.ingest.v1` registry contract, authenticated
 source/document APIs, bounded private-upload handling, audit events, lifecycle
 tombstones, and the server-owned worker ingestion path.
-The local JSON public retrieval path remains authoritative. Slices 18A–18F are
+The local JSON public retrieval path remains authoritative by default. Slices 18A–18G are
 complete locally; source-scoped durable ingestion, local-only versioned pgvector
 embeddings, and an authenticated tenant-safe shadow retriever are implemented
 but disabled by default. Shadow retrieval records privacy-safe events and exact
 citation lineage but does not feed report generation. Atomic version rollback,
 embedding-generation promotion/rollback, and retryable tombstone cleanup are
-implemented. Public-corpus migration, frontend, evaluation, and cutover remain
-in Slices 18G–18H.
+implemented. Phase 18G supplies the controlled curated-corpus importer,
+evaluation/weekly CI evidence, and an opt-in public durable path that falls
+back to JSON. Frontend workflow, production enablement, and final completion
+remain in Slice 18H.
 
 ## V1 Phase 19 — Production operations and security — Planned
 

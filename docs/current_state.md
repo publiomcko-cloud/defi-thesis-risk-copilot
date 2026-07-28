@@ -48,7 +48,7 @@ Current status:
 ```text
 V1 Phase 16 — Complete
 V1 Phase 17 — Complete
-V1 Phase 18 — Implemented Foundation (18A–18F complete locally) on agent/v1-phase-18-production-rag
+V1 Phase 18 — Implemented Foundation (18A–18G complete locally) on agent/v1-phase-18-production-rag
 V1 Phases 19–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -71,8 +71,10 @@ Historical Phase 16 evidence remains in its archive.
 - RAG: active curated Markdown/local JSON path plus disabled-by-default Phase 18
   durable source/document/version/chunk storage, ingestion worker, and local-only
   pgvector embedding generations, lifecycle rollback/tombstone cleanup, and a
-  disabled-by-default tenant-safe shadow retrieval/citation path; reports still
-  use the curated local JSON path
+  disabled-by-default tenant-safe shadow retrieval/citation path, plus an
+  operator-only curated public-corpus importer and guarded pgvector-public
+  report path with automatic JSON fallback; production reports still use JSON
+  unless the guarded primary flag is explicitly enabled
 - Public data adapters: manual, Pendle, Morpho, Aave, DefiLlama, CoinGecko foundations
 - Testing: pytest, PostgreSQL CI migration path, TypeScript/build checks, smoke scripts, Compose validation
 - Optional synthesis: Ollama, OpenAI-compatible APIs, admin-controlled Vast.ai foundation
@@ -361,13 +363,15 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   [`archive/v1_phase_17/`](archive/v1_phase_17/). Real Vast.ai rental and continuously hosted
   worker validation remain Phase 22 gates;
 - Phase 18 — Implemented Foundation on `agent/v1-phase-18-production-rag`;
-  Slices 18A–18F are locally complete: additive durable knowledge metadata,
+  Slices 18A–18G are locally complete: additive durable knowledge metadata,
   private-storage interfaces, tenant boundaries, authenticated source/document
   APIs, bounded upload handling, approval audit events, lifecycle tombstones,
   feature-gated durable ingestion, versioned local-only pgvector embeddings,
   and a checksum-bound tenant-safe shadow retriever preserve the public JSON
-  fallback. Storage, ingestion, embeddings, and shadow retrieval remain
-  disabled by default; reports do not use durable retrieval. Slices 18G–18H remain;
+  fallback. Phase 18G adds a checked-in-Markdown-only importer, durable public
+  retrieval evaluation, and an opt-in pgvector public report path that falls
+  back to JSON. Storage, ingestion, embeddings, shadow retrieval, corpus import,
+  and the durable primary flag remain disabled by default. Slice 18H remains;
 - Phase 19 — production operations and security;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.

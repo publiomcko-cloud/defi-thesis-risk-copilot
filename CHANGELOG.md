@@ -72,6 +72,16 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
   cleanup tasks for private originals and derived chunks/vectors, plus a bounded
   cleanup CLI with dry-run support.
 
+### Phase 18G Public Corpus Migration and Guarded Cutover
+
+- Added an operator-only, idempotent importer for checked-in curated Markdown
+  that creates approved public immutable source, version, chunk, object, and
+  local deterministic embedding lineage without accepting discovered or tenant
+  content.
+- Added durable-public retrieval comparison metrics in CI and a weekly scheduled
+  workflow, plus an opt-in pgvector public report path with automatic local JSON
+  fallback. Both the importer and the primary path remain disabled by default.
+
 ### Phase 17 Durable Jobs and Hybrid Workers
 
 - Correction pass completed on `main`: added supervised long-running heartbeats/cancellation, immutable

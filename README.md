@@ -39,14 +39,17 @@ Phase 18 is active on `agent/v1-phase-18-production-rag`; see the
 real-provider and final deployed identity checks remain Phase 22 work. Real
 Vast rentals remain disabled.
 
-Its first six slices are implemented but storage remains disabled by default:
+Its first seven slices are implemented but production storage remains disabled by default:
 durable knowledge metadata, private-storage interfaces, tenant authorization,
 authenticated source/document APIs, bounded upload handling, and the
 feature-gated `document.ingest.v1` worker path are present. Versioned local-only
 pgvector embedding generations and an authenticated tenant-safe shadow
 retrieval/citation diagnostic are also implemented but disabled by default.
-Shadow retrieval does not feed reports; public reports still use the curated
-JSON fallback. Phases 18A–18F are complete locally. Durable source versions
+Phase 18G adds an operator-only, idempotent importer for the checked-in curated
+Markdown corpus, a public-only durable retrieval path, and scheduled comparison
+metrics. The durable report path is still disabled by default and falls back to
+the curated JSON index whenever it has no eligible result. Phases 18A–18G are
+complete locally. Durable source versions
 support atomic rollback and queued cleanup after tombstoning; those lifecycle
 controls remain inactive until private storage is deliberately enabled.
 

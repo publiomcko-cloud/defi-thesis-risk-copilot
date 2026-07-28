@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     knowledge_embedding_dimensions: int = 384
     knowledge_shadow_retrieval_enabled: bool = False
     knowledge_shadow_retrieval_top_k: int = 4
+    knowledge_public_corpus_import_enabled: bool = False
+    knowledge_pgvector_primary_enabled: bool = False
     session_cookie_name: str = "defi_copilot_session"
     anonymous_session_cookie_name: str = "defi_copilot_anon"
     cookie_secure: bool = True
@@ -208,6 +210,10 @@ class Settings(BaseSettings):
         if self.knowledge_shadow_retrieval_enabled and not self.knowledge_embeddings_enabled:
             raise ValueError(
                 "KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED requires KNOWLEDGE_EMBEDDINGS_ENABLED"
+            )
+        if self.knowledge_pgvector_primary_enabled and not self.knowledge_shadow_retrieval_enabled:
+            raise ValueError(
+                "KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED requires KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED"
             )
         if not 1 <= self.knowledge_shadow_retrieval_top_k <= 20:
             raise ValueError("KNOWLEDGE_SHADOW_RETRIEVAL_TOP_K must be between 1 and 20")

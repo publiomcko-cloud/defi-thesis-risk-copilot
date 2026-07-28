@@ -546,6 +546,15 @@ durable retrieval before a bounded, retryable cleanup script deletes private
 objects and derived chunks/vectors; historical retrieval event identifiers are
 retained only as non-serving audit lineage.
 
+Phase 18G adds an operator-only importer for the repository's curated Markdown
+corpus. It creates approved public immutable source/document/version/chunk/
+embedding lineage, never imports discovered or tenant material, and is disabled
+by default. The guarded report retriever can query only this approved public
+lineage, never accepts a tenant filter, and falls back to the local JSON index
+on an empty or unavailable durable result. Scheduled evaluation compares the
+durable corpus against the existing JSON fallback before an operator enables
+the primary flag.
+
 ---
 
 ## 18. Phase 19 target — operations/security

@@ -861,6 +861,32 @@ Gate:
 - no discovered/unapproved source is imported;
 - rollback to JSON is tested.
 
+Implementation: **Complete locally on the Phase 18 branch.**
+
+Implementation notes:
+
+- `scripts/import_public_corpus.py` is an explicit operator command. Its dry
+  run is side-effect free; `--apply` requires
+  `KNOWLEDGE_PUBLIC_CORPUS_IMPORT_ENABLED=true` and private storage. It accepts
+  only repository `knowledge_base/**/*.md`, creates stable `ksrc_pub_`,
+  `kdoc_pub_`, `kver_pub_`, chunk, and embedding lineage, and rejects an unsafe
+  pre-existing source state. Discovery, private, and organization sources are
+  not inputs to this importer.
+- `scripts/evaluate_public_corpus.py` uses the existing curated evaluation
+  dataset to compare JSON fallback with an in-transaction durable public
+  bootstrap. The bootstrap rolls back and uses in-memory objects, so evaluation
+  does not mutate a deployed corpus. CI runs the gate and a weekly workflow
+  stores comparison evidence.
+- `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=false` is the default. It requires shadow
+  retrieval to be configured, queries only approved/current public curated
+  durable rows, and returns to JSON automatically on an empty or unavailable
+  durable result. Disabling the flag is an immediate report-path rollback.
+
+Gate: **Passed locally.** The six curated public cases pass in both retrieval
+paths with zero citation issues and full coverage. Phase 18H may begin; Phase
+18 remains incomplete until frontend, deployment, and production-readiness
+gates are complete.
+
 ### Phase 18H — Frontend, operations, and completion
 
 Dependencies: 18G.
