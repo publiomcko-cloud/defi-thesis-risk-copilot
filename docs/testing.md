@@ -4,7 +4,7 @@ This file is the validation index. Detailed acceptance tests are defined in:
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
-- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
+- [`archive/v1_phase_18/`](archive/v1_phase_18/)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`agent_execution_guide.md`](agent_execution_guide.md)
 
@@ -208,9 +208,10 @@ completed provider spend on a rebuilt global row.
 `SMOKE_BASE_URL` only when validating an isolated local API process. Optional LLM synthesis should
 be disabled for bounded smoke timing unless that provider is the explicit subject of the test.
 
-## 7. Phase 18 validation
+## 7. Completed Phase 18 validation
 
-Follow [`phase_18_execution_plan.md`](phase_18_execution_plan.md) slice gates.
+Follow the archived [Phase 18 validation and execution record](archive/v1_phase_18/)
+when maintaining durable knowledge/retrieval behavior.
 The implemented foundation must prove reversible additive migrations, immutable
 version relationships, private object-key construction, disabled-by-default
 storage, exact `document.ingest.v1` registry schemas, server-derived public,
@@ -307,6 +308,11 @@ version creation, job idempotency, and migration safety.
 ## 8. Phase 19 validation
 
 Test distributed limits, security headers, proxy/SSRF/CSRF protections, centralized redaction, trace correlation, backup restore, migration rollback, scans, load, accessibility, browser, PostgreSQL, and failure recovery.
+
+Phase 19 begins with non-mutating observability/readiness and controlled
+shadow-mode checks. It must retain JSON RAG as the fallback and must not claim
+Phase 18 production activation until the deployed policy and cutover gates are
+evidenced in Phase 22.
 
 ## 9. Phase 20 validation
 

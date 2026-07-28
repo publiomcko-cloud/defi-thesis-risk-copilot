@@ -12,7 +12,7 @@ remain deferred to Phase 22.**
 Branch: `agent/v1-phase-17-durable-jobs`
 
 This document turns the broad Phase 17 contract in
-[`future_phase_contracts.md`](future_phase_contracts.md) into the specific implementation,
+[`future_phase_contracts.md`](../../future_phase_contracts.md) into the specific implementation,
 security, migration, rollout, and validation plan for this branch. It is a plan only: no job,
 worker, artifact, or hosted-worker behavior is claimed until implementation evidence exists.
 
@@ -1027,7 +1027,7 @@ Treat these as blocking:
 ## 17. Exit review
 
 Before proposing a merge, audit the branch against both this plan and sections 17.1–17.16 of
-[`future_phase_contracts.md`](future_phase_contracts.md). The final report must explicitly cover:
+[`future_phase_contracts.md`](../../future_phase_contracts.md). The final report must explicitly cover:
 
 1. state model, migrations, constraints, and retention;
 2. transactional submission, idempotency, quota, and cost reservation;

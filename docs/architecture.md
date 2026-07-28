@@ -4,7 +4,7 @@ This document defines the system architecture and permanent trust boundaries. Ph
 
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
-- [`phase_18_execution_plan.md`](phase_18_execution_plan.md)
+- [`archive/v1_phase_18/`](archive/v1_phase_18/)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -62,7 +62,10 @@ Render startup
 ```
 
 The deployed `main` branch includes the Phase 15 public-safe baseline, Phase
-16 identity/ownership, and Phase 17 durable job control plane.
+16 identity/ownership, Phase 17 durable job control plane, and Phase 18
+durable knowledge/retrieval implementation. Phase 18's durable path remains
+feature-gated; local JSON RAG remains the production fallback while Phase 19
+gathers controlled operations and deployment evidence.
 
 Live endpoints:
 
@@ -523,9 +526,9 @@ path, and a feature-gated Phase 17 worker executor. It validates private object
 metadata/checksums, supports bounded text/Markdown, HTML, and PDF extraction,
 persists incomplete chunks, and atomically activates only a validated approved
 version. The current public JSON path remains active retrieval and rollback
-authority until pgvector shadow evaluation and citation gates pass. See
-[`phase_18_execution_plan.md`](phase_18_execution_plan.md).
-Phase 18B is complete locally: authenticated source/document APIs derive scope
+authority until controlled deployment evidence supports a guarded cutover. See
+the [archived Phase 18 record](archive/v1_phase_18/).
+Phase 18B is merged into `main`: authenticated source/document APIs derive scope
 and object lineage server-side, accept only bounded allowlisted uploads, record
 approval/upload audit events, and compensate a written object if the database
 commit fails. Responses never expose a storage key or object URL. Account and

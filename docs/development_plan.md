@@ -9,8 +9,8 @@ Detailed implementation requirements live in:
 - [`future_phase_contracts.md`](future_phase_contracts.md) — complete Phase 17–22 contracts;
 - [`archive/v1_phase_17/`](archive/v1_phase_17/) — archived Phase 17 plan,
   corrections, and validation evidence;
-- [`phase_18_execution_plan.md`](phase_18_execution_plan.md) — active Phase 18
-  slices, gates, migration, deployment, and rollback plan;
+- [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 slices,
+  gates, validation, migration, deployment, and rollback evidence;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
 - [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
 
@@ -337,7 +337,7 @@ operations validation remain Phase 22 gates and are not production claims.
 Historical implementation and correction evidence is archived in
 [`archive/v1_phase_17/`](archive/v1_phase_17/).
 
-## V1 Phase 18 — Production RAG and knowledge storage — Implemented Foundation
+## V1 Phase 18 — Production RAG and knowledge storage — Complete on `main`
 
 Goal: eliminate runtime-filesystem authority and support durable, versioned, tenant-filtered knowledge.
 
@@ -354,14 +354,8 @@ Core outcomes:
 - rollback;
 - retrieval observability and evaluation.
 
-Active branch:
-
-```text
-agent/v1-phase-18-production-rag
-```
-
-The ordered implementation authority is
-[`phase_18_execution_plan.md`](phase_18_execution_plan.md). The first slice is
+The ordered implementation, validation, correction, migration, and cutover
+record is archived in [`archive/v1_phase_18/`](archive/v1_phase_18/). The first slice is
 implemented additively: four durable knowledge tables, a private Supabase
 Storage abstraction, server-derived tenant authorization, the exact but
 feature-gated `document.ingest.v1` registry contract, authenticated
@@ -382,12 +376,19 @@ expected-empty evaluation/weekly CI evidence, and durable fallback behavior.
 Phase 18H supplies the authenticated
 source/document/version workspace, report citation lineage UI, safe readiness
 metrics, private-knowledge export metadata, and the live storage verification
-runbook. Phase 18 code is complete locally; the actual private-bucket policy
-probe and production activation remain Phase 22 gates.
+runbook. Phase 18 is merged into `main`, but its production features remain
+feature-gated and JSON remains the fallback. Phase 19 may collect controlled
+deployment evidence; final private-bucket policy verification, primary-path
+activation, and launch approval remain Phase 22 gates.
 
-## V1 Phase 19 — Production operations and security — Planned
+## V1 Phase 19 — Production operations and security — Active
 
 Goal: make identity, API, jobs, workers, storage, and retrieval hardened, observable, recoverable, and supportable.
+
+Begin with observability, readiness checks, and controlled shadow-mode
+validation. The detailed Phase 19 execution plan is created on its own branch
+after this closeout merges. Do not enable all Phase 18 production flags as a
+Phase 19 starting condition.
 
 Core outcomes:
 

@@ -7,7 +7,7 @@ Branch: `agent/v1-phase-18-production-rag`
 Base: `main` after completed Phases 16 and 17
 
 This plan is the implementation authority for Phase 18 together with
-[`future_phase_contracts.md`](future_phase_contracts.md). It preserves the
+[`future_phase_contracts.md`](../../future_phase_contracts.md). It preserves the
 Phase 15 public JSON retrieval path until the durable corpus has passed
 tenant-isolation, citation, deletion, rollback, and quality gates.
 

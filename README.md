@@ -21,9 +21,9 @@ The Render free-tier backend may cold-start after inactivity.
 ## Current Phase Status
 
 ```text
-Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–17
-In progress: V1 Phase 18
-Planned:   V1 Phases 19–22
+Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–18
+In progress: V1 Phase 19
+Planned:   V1 Phases 20–22
 ```
 
 Phases 16 and 17 are complete on `main`. Phase 16 delivers managed identity,
@@ -34,12 +34,10 @@ server-profiled Vast job. Their implementation records are archived in
 [`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/) and
 [`docs/archive/v1_phase_17/`](docs/archive/v1_phase_17/).
 
-Phase 18 is active on `agent/v1-phase-18-production-rag`; see the
-[`Phase 18 execution plan`](docs/phase_18_execution_plan.md). Verified
-real-provider and final deployed identity checks remain Phase 22 work. Real
-Vast rentals remain disabled.
-
-Its eight slices are implemented locally but production storage remains disabled by default:
+Phase 18 is complete and merged into `main`; its implementation, correction,
+validation, migration, and cutover record is preserved in
+[`docs/archive/v1_phase_18/`](docs/archive/v1_phase_18/). Its eight slices are
+implemented, but production storage remains disabled by default:
 durable knowledge metadata, private-storage interfaces, tenant authorization,
 authenticated source/document APIs, bounded upload handling, and the
 feature-gated `document.ingest.v1` worker path are present. Versioned local-only
@@ -55,8 +53,10 @@ approved public, caller-owned private, and active-organization scope server-side
 anonymous analysis remains public-only. JSON remains the automatic fallback.
 Phase 18H adds the authenticated Knowledge workspace, document/version lifecycle
 controls, exact report-citation lineage display, safe private-knowledge export
-metadata, and administrator-only readiness metrics. Live private-bucket policy
-and production cutover verification remain controlled Phase 22 deployment gates.
+metadata, and administrator-only readiness metrics. Phase 19 is now active and
+may gather controlled deployment, observability, and shadow-mode evidence. Live
+private-bucket policy, final cutover verification, and launch approval remain
+Phase 22 gates.
 Durable source versions
 support atomic rollback and queued cleanup after tombstoning; those lifecycle
 controls remain inactive until private storage is deliberately enabled.
@@ -276,8 +276,9 @@ Controlled research/admin routes remain explicitly protected.
 - [Development plan](docs/development_plan.md) — roadmap and phase status
 - [Archived Phase 16 records](docs/archive/v1_phase_16/) — implementation contract, execution plan, and deployment evidence
 - [Archived Phase 17 records](docs/archive/v1_phase_17/) — execution and validation evidence
-- [Phase 18 execution plan](docs/phase_18_execution_plan.md) — active implementation authority
-- [Future phase contracts](docs/future_phase_contracts.md) — full Phases 18–22 requirements
+- [Archived Phase 18 records](docs/archive/v1_phase_18/) — implementation, validation, and cutover evidence
+- [Phase 19 contract](docs/future_phase_contracts.md#v1-phase-19--production-operations-and-security) — active implementation authority
+- [Future phase contracts](docs/future_phase_contracts.md) — full Phases 19–22 requirements
 - [Agent execution guide](docs/agent_execution_guide.md) — short-prompt workflow
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)

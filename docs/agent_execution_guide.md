@@ -11,7 +11,8 @@ Before implementation, read documents in this order:
 3. the selected phase contract:
    - the [archived Phase 16 contract](archive/v1_phase_16/phase_16_identity_ownership_contract.md) when maintaining its implementation, or
    - the [archived Phase 17 record](archive/v1_phase_17/) when maintaining durable jobs,
-   - [`phase_18_execution_plan.md`](phase_18_execution_plan.md) for active Phase 18 work, or
+   - the [archived Phase 18 record](archive/v1_phase_18/) when maintaining durable knowledge/retrieval, or
+   - the Phase 19 section of [`future_phase_contracts.md`](future_phase_contracts.md) for active operations/security work, or
    - [`future_phase_contracts.md`](future_phase_contracts.md) for later phases;
 4. [`architecture.md`](architecture.md) — trust boundaries and system design;
 5. [`deployment.md`](deployment.md) — environment and production behavior;

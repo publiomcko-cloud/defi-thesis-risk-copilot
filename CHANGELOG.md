@@ -1,6 +1,13 @@
 # Changelog
 
-## Phase 18 Final Hardening
+## Phase 19 — In Progress
+
+- Opened the production operations and security planning phase after Phase 18
+  merged into `main`.
+- Phase 19 begins with observability, readiness checks, and controlled
+  shadow-mode validation; it does not activate all durable knowledge flags.
+
+## Phase 18 — Merged
 
 - Added generation-specific embedding rows, exact active-generation retrieval,
   same-profile rollback, and a reversible migration.
@@ -18,8 +25,9 @@
 - Made curated-object ownership tracking race-safe, added committed operator
   import compensation, and extended convergent repair to validate chunk content,
   metadata, deterministic vectors, and indexed PostgreSQL vector population.
-- Phase 18 remains locally complete only; deployed storage-policy and cutover
-  evidence remain Phase 22 work.
+- Phase 18 merged into `main` through PR #4. Its archival record preserves
+  validation, correction, migration, and cutover evidence. Production
+  storage-policy and final cutover evidence remain Phase 22 work.
 
 All notable changes to DeFi Thesis & Risk Copilot are documented here.
 
