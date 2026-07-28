@@ -114,6 +114,39 @@ def test_private_upload_is_owner_scoped_and_does_not_expose_storage_details(
         assert "storage_key" not in event.metadata_json
 
 
+def test_source_document_list_and_admin_readiness_preserve_tenant_and_secret_boundaries(
+    knowledge_api_client,
+) -> None:
+    client, _, _ = knowledge_api_client
+    source_id = _create_private_source(client)
+    uploaded = client.post(
+        f"/api/knowledge/sources/{source_id}/documents",
+        headers=_auth("owner-token"),
+        files={"file": ("lineage.md", b"# Lineage", "text/markdown")},
+    ).json()
+
+    listed = client.get(
+        f"/api/knowledge/sources/{source_id}/documents", headers=_auth("owner-token")
+    )
+    assert listed.status_code == 200
+    assert listed.json()["items"][0]["id"] == uploaded["id"]
+    assert listed.json()["items"][0]["versions"][0]["id"].startswith("kver_")
+    assert "storage_key" not in str(listed.json())
+    assert client.get(
+        f"/api/knowledge/sources/{source_id}/documents", headers=_auth("outsider-token")
+    ).status_code == 404
+
+    assert client.get("/api/knowledge/readiness", headers=_auth("owner-token")).status_code == 403
+    readiness = client.get("/api/knowledge/readiness", headers=_auth("admin-token"))
+    assert readiness.status_code == 200
+    payload = readiness.json()
+    assert payload["database_ready"] is True
+    assert payload["storage_enabled"] is True
+    assert payload["visible_source_count"] >= 1
+    assert "storage_key" not in str(payload)
+    assert "secret" not in str(payload).lower()
+
+
 def test_upload_validation_and_disabled_storage_leave_no_document(knowledge_api_client, monkeypatch) -> None:
     client, Session, _ = knowledge_api_client
     source_id = _create_private_source(client)

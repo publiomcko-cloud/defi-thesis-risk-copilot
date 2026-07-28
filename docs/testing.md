@@ -218,7 +218,7 @@ private, and organization authorization, compensated bounded upload handling,
 and feature-gated durable ingestion cleanup/activation. It must preserve the
 public JSON retriever as a rollback path.
 
-Implemented 18A–18G evidence:
+Implemented 18A–18H evidence:
 
 - `test_phase18_foundation.py` covers ownership, anonymous denial, active
   organization membership, non-member platform-admin denial, trusted-public
@@ -260,6 +260,12 @@ Implemented 18A–18G evidence:
   JSON fallback when the durable public corpus is absent.
 - `test_phase18_postgres_foundation.py` additionally proves the curated importer
   populates PostgreSQL's indexed `vector(384)` column before public ranking.
+- `test_phase18h_citation_lineage.py` proves a durable chunk's exact citation
+  identifiers and checksums persist in report source data without a storage key.
+- `test_phase18b_knowledge_api.py` additionally covers source-document list
+  ownership, administrator-only aggregate readiness, and redaction of private
+  storage details. Browser E2E covers the authenticated Knowledge workspace
+  source registration and document upload flow through the BFF.
 
 `python -m scripts.evaluate_public_corpus` compares the JSON fallback and an
 in-transaction durable public bootstrap against `retrieval_eval_dataset.json`.
@@ -268,8 +274,11 @@ rate, full source coverage, and zero citation issues. CI runs it on pull
 requests; `retrieval-evaluation.yml` repeats it weekly and stores the metrics
 as an artifact.
 
-Later slices test frontend lineage, deployed private-bucket verification, and
-the production cutover approval.
+The live deployment runbook uses `python -m scripts.check_knowledge_readiness`
+for a non-mutating state check and adds `--probe-storage` only for an explicit
+synthetic private-object round trip. Production bucket/RLS policy verification,
+two-user tenant probes, and primary retrieval activation remain Phase 22
+external validation; no local test claims those provider checks passed.
 PostgreSQL tests are required for tenant isolation, vector filtering, concurrent
 version creation, job idempotency, and migration safety.
 

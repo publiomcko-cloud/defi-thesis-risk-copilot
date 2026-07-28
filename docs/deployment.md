@@ -768,6 +768,52 @@ empty or unavailable durable lookup to the existing JSON index. Turn the flag
 back to `false` for an immediate report-path rollback; no data migration is
 required.
 
+Phase 18H adds the authenticated `/knowledge` workspace for source ownership,
+upload, immutable document versions, ingestion/embedding submission, version
+restore, deletion, and safe status inspection. Report sources display exact
+durable lineage only where durable public retrieval supplied it. The admin view
+shows aggregate readiness only; it never returns a private object key, bucket
+name, source content, or credential.
+
+Before any live storage activation, perform this recorded deployment runbook:
+
+1. Create `private-knowledge` as a **private** Supabase Storage bucket. Do not
+   enable public access and do not create a browser-facing service-role path.
+2. Restrict Storage object policies to the application service role and the
+   server-derived object-key scheme. A browser must not be able to list, read,
+   create, or guess a knowledge object URL.
+3. Deploy with all Phase 18 feature flags still `false`, then run:
+
+   ```bash
+   cd backend
+   source .venv/bin/activate
+   python -m scripts.check_knowledge_readiness
+   ```
+
+4. In a controlled synthetic environment, enable storage only and run:
+
+   ```bash
+   python -m scripts.check_knowledge_readiness --probe-storage
+   ```
+
+   The probe creates, bounded-reads, checks the public-object route, and deletes
+   one synthetic object. It prints no key or credential. A result other than
+   `"storage_probe": "passed"` blocks the rollout.
+5. Test a private owner, an active organization member, and a non-member using
+   `/knowledge`; confirm owner/member visibility and non-member `404`. Test a
+   deleted version is excluded before physical cleanup.
+6. Enable the trusted ingestion worker, then embeddings and shadow retrieval;
+   record the worker claim/heartbeat/completion and tenant-isolation evidence.
+7. Run `python -m scripts.import_public_corpus --apply` with the explicit import
+   flag, then `python -m scripts.evaluate_public_corpus`. Enable
+   `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true` only after its quality gate passes.
+8. Keep JSON rollback active for the documented window. To roll back, set the
+   primary flag to `false` first; do not delete durable rows or private objects.
+
+These live Supabase policy, two-user, worker, and primary-cutover steps are
+external Phase 22 evidence until they are executed against the deployed
+environment. They are intentionally not claimed by local CI.
+
 Phase 18F adds a controlled retention command:
 
 ```bash

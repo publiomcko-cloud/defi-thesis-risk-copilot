@@ -49,7 +49,11 @@ Phase 18G adds an operator-only, idempotent importer for the checked-in curated
 Markdown corpus, a public-only durable retrieval path, and scheduled comparison
 metrics. The durable report path is still disabled by default and falls back to
 the curated JSON index whenever it has no eligible result. Phases 18A–18G are
-complete locally. Durable source versions
+complete locally. Phase 18H adds the authenticated Knowledge workspace,
+document/version lifecycle controls, exact report-citation lineage display, and
+administrator-only safe readiness metrics. Live private-bucket policy and
+production cutover verification remain controlled Phase 22 deployment gates.
+Durable source versions
 support atomic rollback and queued cleanup after tombstoning; those lifecycle
 controls remain inactive until private storage is deliberately enabled.
 

@@ -89,6 +89,27 @@ class KnowledgeDocumentResponse(BaseModel):
     versions: list[KnowledgeDocumentVersionResponse] = Field(default_factory=list)
 
 
+class KnowledgeDocumentsResponse(BaseModel):
+    items: list[KnowledgeDocumentResponse]
+
+
+class KnowledgeReadinessResponse(BaseModel):
+    database_ready: bool
+    pgvector_ready: bool
+    json_fallback_ready: bool
+    storage_enabled: bool
+    document_ingest_enabled: bool
+    embeddings_enabled: bool
+    shadow_retrieval_enabled: bool
+    public_corpus_import_enabled: bool
+    pgvector_primary_enabled: bool
+    visible_source_count: int
+    ready_document_count: int
+    ready_version_count: int
+    active_embedding_count: int
+    pending_cleanup_count: int
+
+
 class KnowledgeDocumentRollbackRequest(BaseModel):
     version_id: str = Field(min_length=1, max_length=64)
 

@@ -1,11 +1,14 @@
 from fastapi import APIRouter, Depends, File, Form, Header, Request, UploadFile
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
-from app.auth.dependencies import require_authenticated_user
+from app.auth.dependencies import require_admin, require_authenticated_user
+from app.core.config import get_settings
 from app.auth.schemas import UserContext
 from app.db.session import get_db
 from app.knowledge.schemas import (
     KnowledgeDocumentResponse,
+    KnowledgeDocumentsResponse,
     KnowledgeDocumentRollbackRequest,
     KnowledgeDocumentVersionResponse,
     KnowledgeEmbeddingPromotionRequest,
@@ -13,6 +16,7 @@ from app.knowledge.schemas import (
     KnowledgeSourceResponse,
     KnowledgeSourcesResponse,
     KnowledgeSourceUpdateRequest,
+    KnowledgeReadinessResponse,
     ShadowRetrievalRequest,
     ShadowRetrievalResponse,
 )
@@ -25,6 +29,7 @@ from app.knowledge.service import (
     get_document,
     get_source,
     list_sources,
+    list_source_documents,
     knowledge_document_version_response,
     update_source,
 )
@@ -35,6 +40,14 @@ from app.knowledge.lifecycle_service import (
     rollback_document_version,
 )
 from app.knowledge.shadow_retriever import retrieve_shadow_knowledge
+from app.models.knowledge import (
+    KnowledgeChunkEmbeddingModel,
+    KnowledgeCleanupTaskModel,
+    KnowledgeDocumentModel,
+    KnowledgeDocumentVersionModel,
+    KnowledgeSourceModel,
+)
+from app.rag.vector_store import JsonVectorStore
 from app.jobs.control_service import job_response
 from app.jobs.schemas import JobSubmissionResponse
 
@@ -66,6 +79,18 @@ def get_knowledge_source(
     actor: UserContext = Depends(require_authenticated_user),
 ) -> KnowledgeSourceResponse:
     return get_source(db, actor, source_id)
+
+
+@router.get(
+    "/knowledge/sources/{source_id}/documents",
+    response_model=KnowledgeDocumentsResponse,
+)
+def get_knowledge_source_documents(
+    source_id: str,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> KnowledgeDocumentsResponse:
+    return KnowledgeDocumentsResponse(items=list_source_documents(db, actor, source_id))
 
 
 @router.patch("/knowledge/sources/{source_id}", response_model=KnowledgeSourceResponse)
@@ -213,3 +238,49 @@ def post_knowledge_shadow_retrieval(
     )
     db.commit()
     return result
+
+
+@router.get("/knowledge/readiness", response_model=KnowledgeReadinessResponse)
+def get_knowledge_readiness(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> KnowledgeReadinessResponse:
+    """Safe aggregate readiness evidence for administrators only.
+
+    This intentionally excludes private object keys, bucket names, source
+    contents, provider errors, and all credential material.
+    """
+
+    settings = get_settings()
+    database_ready = True
+    pgvector_ready = False
+    try:
+        db.execute(text("select 1"))
+        if db.bind is not None and db.bind.dialect.name == "postgresql":
+            pgvector_ready = bool(
+                db.execute(text("SELECT 1 FROM pg_extension WHERE extname = 'vector'")).scalar()
+            )
+    except Exception:
+        database_ready = False
+
+    def count(statement) -> int:
+        if not database_ready:
+            return 0
+        return int(db.execute(statement).scalar_one())
+
+    return KnowledgeReadinessResponse(
+        database_ready=database_ready,
+        pgvector_ready=pgvector_ready,
+        json_fallback_ready=JsonVectorStore().path.exists(),
+        storage_enabled=settings.knowledge_storage_enabled,
+        document_ingest_enabled=settings.document_ingest_enabled,
+        embeddings_enabled=settings.knowledge_embeddings_enabled,
+        shadow_retrieval_enabled=settings.knowledge_shadow_retrieval_enabled,
+        public_corpus_import_enabled=settings.knowledge_public_corpus_import_enabled,
+        pgvector_primary_enabled=settings.knowledge_pgvector_primary_enabled,
+        visible_source_count=count(select(func.count()).select_from(KnowledgeSourceModel).where(KnowledgeSourceModel.deleted_at.is_(None))),
+        ready_document_count=count(select(func.count()).select_from(KnowledgeDocumentModel).where(KnowledgeDocumentModel.status == "ready").where(KnowledgeDocumentModel.deleted_at.is_(None))),
+        ready_version_count=count(select(func.count()).select_from(KnowledgeDocumentVersionModel).where(KnowledgeDocumentVersionModel.status == "ready").where(KnowledgeDocumentVersionModel.deleted_at.is_(None))),
+        active_embedding_count=count(select(func.count()).select_from(KnowledgeChunkEmbeddingModel).where(KnowledgeChunkEmbeddingModel.status == "completed").where(KnowledgeChunkEmbeddingModel.deleted_at.is_(None))),
+        pending_cleanup_count=count(select(func.count()).select_from(KnowledgeCleanupTaskModel).where(KnowledgeCleanupTaskModel.status.in_(("pending", "failed")))),
+    )

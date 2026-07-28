@@ -82,6 +82,15 @@ All notable changes to DeFi Thesis & Risk Copilot are documented here.
   workflow, plus an opt-in pgvector public report path with automatic local JSON
   fallback. Both the importer and the primary path remain disabled by default.
 
+### Phase 18H Knowledge Workspace and Operational Readiness
+
+- Added an authenticated source/document/version workspace, safe lifecycle
+  actions, exact durable citation lineage in report sources, and an
+  administrator-only aggregate readiness endpoint.
+- Added an explicit private-storage probe and a deployment runbook. It remains
+  disabled/non-mutating by default; live Supabase policy and cutover validation
+  are not represented as complete until Phase 22 evidence is recorded.
+
 ### Phase 17 Durable Jobs and Hybrid Workers
 
 - Correction pass completed on `main`: added supervised long-running heartbeats/cancellation, immutable

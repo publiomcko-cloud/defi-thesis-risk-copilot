@@ -3,11 +3,26 @@ from pydantic import BaseModel, Field
 from app.schemas.analysis import RiskRating
 
 
+class CitationLineageReference(BaseModel):
+    """Stable durable citation identifiers; never includes an object key or URL."""
+
+    citation_id: str
+    source_id: str
+    source_title: str
+    document_id: str
+    document_version_id: str
+    document_version_checksum: str
+    chunk_id: str
+    chunk_checksum: str
+    heading_path: list[str]
+
+
 class SourceReference(BaseModel):
     title: str
     source_type: str
     url: str | None = None
     protocol: str | None = None
+    citation_lineage: CitationLineageReference | None = None
 
 
 class ReportSection(BaseModel):

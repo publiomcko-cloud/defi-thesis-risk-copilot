@@ -21,6 +21,14 @@ export function SourcesPanel({ sources }: SourcesPanelProps) {
                   Open source
                 </a>
               ) : null}
+              {source.citation_lineage ? (
+                <details className="citation-lineage">
+                  <summary>Verified citation lineage</summary>
+                  <span>Document version: <code>{source.citation_lineage.document_version_id}</code></span>
+                  <span>Chunk: <code>{source.citation_lineage.chunk_id}</code></span>
+                  <span>Section: {source.citation_lineage.heading_path.join(" / ") || "Document"}</span>
+                </details>
+              ) : null}
             </li>
           ))}
         </ul>

@@ -87,6 +87,21 @@ def get_source(db: Session, actor: UserContext, source_id: str) -> KnowledgeSour
     return knowledge_source_response(get_visible_knowledge_source(db, actor, source_id))
 
 
+def list_source_documents(
+    db: Session,
+    actor: UserContext,
+    source_id: str,
+) -> list[KnowledgeDocumentResponse]:
+    source = get_visible_knowledge_source(db, actor, source_id)
+    documents = db.execute(
+        select(KnowledgeDocumentModel)
+        .where(KnowledgeDocumentModel.knowledge_source_id == source.id)
+        .where(KnowledgeDocumentModel.deleted_at.is_(None))
+        .order_by(KnowledgeDocumentModel.updated_at.desc(), KnowledgeDocumentModel.id.desc())
+    ).scalars().all()
+    return [knowledge_document_response(document, _document_versions(db, document.id)) for document in documents]
+
+
 def update_source(
     db: Session,
     actor: UserContext,

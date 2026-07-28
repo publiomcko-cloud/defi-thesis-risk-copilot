@@ -555,6 +555,14 @@ on an empty or unavailable durable result. Scheduled evaluation compares the
 durable corpus against the existing JSON fallback before an operator enables
 the primary flag.
 
+Phase 18H adds an authenticated source/document/version workspace and preserves
+exact durable source/document/version/chunk checksums in report-source data
+when the guarded public durable retriever is used. The workspace receives only
+metadata; it never receives an object key, bucket path, or storage credential.
+An administrator-only readiness endpoint exposes aggregate state and feature
+flags without tenant content. A separate operator probe can make and delete one
+synthetic object and confirms it is not publicly readable before activation.
+
 ---
 
 ## 18. Phase 19 target — operations/security

@@ -908,6 +908,34 @@ Gate:
 - public JSON fallback remains available for the documented rollback window;
 - Phase 18 may then be marked `Complete`.
 
+Implementation: **Complete locally on the Phase 18 branch.**
+
+Implementation notes:
+
+- `/knowledge` is an authenticated workspace for server-scoped source creation,
+  document upload, immutable version upload, ingestion/embedding submission,
+  version restore, deletion, and trust-state review. It traverses the existing
+  BFF and receives no storage key, signed URL, or credential.
+- Reports retain exact durable citation lineage when the guarded public durable
+  retriever produced the source. The report UI exposes document-version, chunk,
+  and heading identifiers without exposing a private object path.
+- `GET /api/knowledge/readiness` is administrator-only and returns safe feature
+  flags and aggregate counts. `scripts/check_knowledge_readiness.py` performs a
+  non-mutating state check by default; its explicit `--probe-storage` synthetic
+  round trip also verifies that the object cannot be served through the public
+  bucket route.
+- The documented deployment runbook preserves disabled-by-default flags and
+  requires deployed private-bucket policy, synthetic two-user, worker, and
+  pgvector/cutover evidence before any live activation.
+
+Gate: **Passed locally; external deployment evidence remains pending.** Full
+local backend, PostgreSQL, migration, frontend/browser, worker, Compose,
+retrieval, cleanup, and recovery checks are required before merging. The code
+path can make runtime filesystem retrieval non-authoritative when the guarded
+production flag is enabled, while JSON remains available for rollback. Live
+Supabase policy and production cutover execution remain Phase 22 validation;
+therefore Phase 18 must not be represented as deployed-complete yet.
+
 ---
 
 ## 16. Migration and rollout safety

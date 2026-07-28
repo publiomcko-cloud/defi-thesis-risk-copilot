@@ -16,6 +16,8 @@ const state = {
   memberships: [],
   consents: [],
   mfaFactors: [],
+  knowledgeSources: [],
+  knowledgeDocuments: [],
   jobs: [
     {
       id: "job-browser-queued",
@@ -118,7 +120,7 @@ try {
   );
   assert(state.backendTokens.includes("access-owner-refreshed"), "BFF must forward the refreshed access token");
   assert(state.supabaseCookies.every((cookie) => cookie === ""), "browser cookies must not reach Supabase Auth");
-  console.log("Phase 17 browser E2E passed: anonymous, BFF session, jobs, account, thesis, organization, recovery, MFA, and mobile flows.");
+  console.log("Browser E2E passed: anonymous, BFF session, jobs, account, thesis, organization, knowledge workspace, recovery, MFA, and mobile flows.");
 } catch (error) {
   await mkdir(artifactsDirectory, { recursive: true });
   if (activePage) {
@@ -283,6 +285,17 @@ async function runAuthenticatedFlow(browserInstance) {
   await memberRow.getByRole("button", { name: "Remove" }).click();
   await page.getByText("Member removed.").waitFor();
   await verifyRemovedMember(browserInstance);
+
+  await page.goto(`${appOrigin}/knowledge`);
+  await page.getByRole("heading", { name: "Knowledge Workspace" }).waitFor();
+  await page.getByRole("heading", { name: "Register Source" }).locator("..").getByLabel("Title").fill("Private risk notes");
+  await page.getByRole("button", { name: "Register source" }).click();
+  await page.getByText("Knowledge source registered.").waitFor();
+  await page.getByRole("button", { name: "Open" }).click();
+  await page.getByLabel("Upload document").setInputFiles({ name: "risk.md", mimeType: "text/markdown", buffer: Buffer.from("# Risk notes") });
+  await page.locator("form.upload-row button[type=submit]").click();
+  await page.getByText("Document uploaded. Submit ingestion only after source approval and worker readiness.").waitFor();
+  await page.getByText("risk.md").waitFor();
 
   await page.goto(`${appOrigin}/account/security`);
   await page.getByText("No authenticator factor is enrolled.").waitFor();
@@ -508,6 +521,32 @@ function handleBackend(method, url, payload, token, cookie, response) {
   }
   if (/^\/api\/organizations\/org-browser-1\/knowledge-sources$/.test(url.pathname)) {
     return send(response, 200, { items: [] });
+  }
+  if (url.pathname === "/api/knowledge/sources") {
+    if (method === "GET") return send(response, 200, { items: state.knowledgeSources });
+    if (method === "POST") {
+      const source = {
+        id: "ksrc-browser-1", owner_user_id: user.id, organization_id: null,
+        visibility: payload.visibility, source_type: payload.source_type, source_uri: null,
+        canonical_uri: null, title: payload.title, protocol: payload.protocol ?? null,
+        chain: null, status: "registered", trust_state: "needs_review",
+        approved_by_user_id: null, approved_at: null, created_at: now, updated_at: now, deleted_at: null
+      };
+      state.knowledgeSources = [source];
+      return send(response, 200, source);
+    }
+  }
+  if (/^\/api\/knowledge\/sources\/ksrc-browser-1\/documents$/.test(url.pathname)) {
+    if (method === "GET") return send(response, 200, { items: state.knowledgeDocuments });
+    if (method === "POST") {
+      const document = {
+        id: "kdoc-browser-1", knowledge_source_id: "ksrc-browser-1", current_version_id: "kver-browser-1",
+        filename: "risk.md", media_type: "text/markdown", status: "uploaded", created_at: now, updated_at: now,
+        deleted_at: null, versions: [{ id: "kver-browser-1", version_number: 1, checksum: "a".repeat(64), size_bytes: 12, status: "uploaded", parser_version: null, chunker_version: null, embedding_model: null, embedding_dimensions: null, created_at: now, superseded_at: null, deleted_at: null }]
+      };
+      state.knowledgeDocuments = [document];
+      return send(response, 200, document);
+    }
   }
   return send(response, 404, { detail: `Unhandled backend route ${method} ${url.pathname}` });
 }

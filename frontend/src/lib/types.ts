@@ -309,6 +309,86 @@ export type SourceReference = {
   source_type: string;
   url?: string | null;
   protocol?: string | null;
+  citation_lineage?: CitationLineage | null;
+};
+
+export type CitationLineage = {
+  citation_id: string;
+  source_id: string;
+  source_title: string;
+  document_id: string;
+  document_version_id: string;
+  document_version_checksum: string;
+  chunk_id: string;
+  chunk_checksum: string;
+  heading_path: string[];
+};
+
+export type KnowledgeVisibility = "public" | "private" | "organization";
+
+export type KnowledgeSource = {
+  id: string;
+  owner_user_id?: string | null;
+  organization_id?: string | null;
+  visibility: KnowledgeVisibility;
+  source_type: string;
+  source_uri?: string | null;
+  canonical_uri?: string | null;
+  title: string;
+  protocol?: string | null;
+  chain?: string | null;
+  status: string;
+  trust_state: string;
+  approved_by_user_id?: string | null;
+  approved_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+};
+
+export type KnowledgeDocumentVersion = {
+  id: string;
+  version_number: number;
+  checksum?: string | null;
+  size_bytes: number;
+  status: string;
+  parser_version?: string | null;
+  chunker_version?: string | null;
+  embedding_model?: string | null;
+  embedding_dimensions?: number | null;
+  created_at: string;
+  superseded_at?: string | null;
+  deleted_at?: string | null;
+};
+
+export type KnowledgeDocument = {
+  id: string;
+  knowledge_source_id: string;
+  current_version_id?: string | null;
+  filename: string;
+  media_type: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  deleted_at?: string | null;
+  versions: KnowledgeDocumentVersion[];
+};
+
+export type KnowledgeReadiness = {
+  database_ready: boolean;
+  pgvector_ready: boolean;
+  json_fallback_ready: boolean;
+  storage_enabled: boolean;
+  document_ingest_enabled: boolean;
+  embeddings_enabled: boolean;
+  shadow_retrieval_enabled: boolean;
+  public_corpus_import_enabled: boolean;
+  pgvector_primary_enabled: boolean;
+  visible_source_count: number;
+  ready_document_count: number;
+  ready_version_count: number;
+  active_embedding_count: number;
+  pending_cleanup_count: number;
 };
 
 export type ReportSection = {

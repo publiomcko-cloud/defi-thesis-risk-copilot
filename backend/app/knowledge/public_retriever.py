@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.jobs.cancellation import CancellationContext
 from app.knowledge.embedding import LocalDeterministicEmbeddingProvider
-from app.knowledge.shadow_retriever import _to_retrieved_chunk
+from app.knowledge.shadow_retriever import _citation_for, _to_retrieved_chunk
 from app.models.knowledge import (
     KnowledgeChunkEmbeddingModel,
     KnowledgeChunkModel,
@@ -99,6 +99,7 @@ def retrieve_public_durable_context(
                 "document_title": item.source.title,
                 "section_title": item.chunk.heading_path[-1] if item.chunk.heading_path else item.source.title,
                 "knowledge_scope": "public_curated",
+                "citation_lineage": _citation_for(item).model_dump(),
             },
             similarity_score=item.score,
         )
