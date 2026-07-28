@@ -778,8 +778,11 @@ The import command accepts only checked-in `knowledge_base/**/*.md`, creates
 approved public immutable lineage, verifies Supabase objects by bounded
 authenticated read when checksum metadata is unavailable, and is not an API or
 browser upload path. A failed corpus transaction compensates all objects it
-created; unsafe deterministic-ID collisions fail closed rather than changing
-tenant/discovered content.
+created; `--apply` owns the final database commit and compensates every object
+created by that attempt if flush or commit fails. Objects observed as existing
+or verified after a concurrent create conflict are never deleted. Unsafe
+deterministic-ID collisions fail closed rather than changing tenant/discovered
+content.
 Apply it only after the private bucket and worker/pgvector deployment checks
 are recorded. `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true` additionally requires
 shadow retrieval and should be enabled only after the comparison command passes.

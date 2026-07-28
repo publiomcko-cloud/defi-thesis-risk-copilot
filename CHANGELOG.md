@@ -15,6 +15,9 @@
 - Documented that migration `0021` downgrades fail closed after multi-generation
   data exists; production rollback after activation uses feature flags, not a
   destructive schema downgrade.
+- Made curated-object ownership tracking race-safe, added committed operator
+  import compensation, and extended convergent repair to validate chunk content,
+  metadata, deterministic vectors, and indexed PostgreSQL vector population.
 - Phase 18 remains locally complete only; deployed storage-policy and cutover
   evidence remain Phase 22 work.
 

@@ -374,8 +374,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   feature-gated durable ingestion, generation-specific local-only pgvector
   embeddings, and a checksum-bound tenant-safe retriever preserve the public
   JSON fallback. Phase 18G adds a convergent checked-in-Markdown-only importer,
-  whole-import object compensation, fail-closed collision protection, declared-
-  lineage expected-empty retrieval evaluation, and a guarded report path that derives public,
+  whole-import object compensation with race-safe ownership tracking and
+  operator commit coverage, fail-closed collision protection, deterministic
+  chunk/vector repair, declared-lineage expected-empty retrieval evaluation,
+  and a guarded report path that derives public,
   private, and active-organization scope server-side for authenticated users;
   anonymous analysis stays public-only. Phase 18H adds the authenticated
   Knowledge workspace, durable citation lineage in reports, safe admin readiness

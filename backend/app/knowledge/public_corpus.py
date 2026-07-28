@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from enum import Enum
 from hashlib import sha256
 from pathlib import Path
 
@@ -63,6 +64,14 @@ class PublicCorpusImportSummary:
     dry_run: bool
 
 
+class CuratedObjectDisposition(str, Enum):
+    """Ownership result for one immutable object key."""
+
+    CREATED = "created"
+    ALREADY_EXISTED = "already_existed"
+    CONFLICT_VERIFIED = "conflict_verified"
+
+
 def import_curated_public_corpus(
     db: Session,
     storage: PrivateObjectStorage,
@@ -77,39 +86,94 @@ def import_curated_public_corpus(
     cannot turn discovered or unapproved data into trusted public retrieval.
     """
 
+    return _import_curated_public_corpus(
+        db,
+        storage,
+        knowledge_base_path=knowledge_base_path,
+        dry_run=dry_run,
+        created_object_keys=set(),
+        compensate_on_failure=True,
+        rollback_on_failure=True,
+    )
+
+
+def import_curated_public_corpus_operator(
+    db: Session,
+    storage: PrivateObjectStorage,
+    *,
+    knowledge_base_path: Path = DEFAULT_KNOWLEDGE_BASE,
+) -> PublicCorpusImportSummary:
+    """Run a committed operator import with storage compensation on commit loss."""
+
+    if db.in_transaction():
+        raise RuntimeError("Operator curated corpus import requires a fresh database session")
+    created_object_keys: set[str] = set()
+    try:
+        # The operator wrapper explicitly owns the outer transaction and its
+        # single final commit; the evaluation helper never commits.
+        db.begin()
+        summary = _import_curated_public_corpus(
+            db,
+            storage,
+            knowledge_base_path=knowledge_base_path,
+            dry_run=False,
+            created_object_keys=created_object_keys,
+            compensate_on_failure=False,
+            rollback_on_failure=False,
+        )
+        db.commit()
+        return summary
+    except Exception:
+        db.rollback()
+        # A failed commit can leave objects attached to the caller's Session
+        # even though their transaction was rolled back. Detach them so a later
+        # incidental autoflush cannot replay this failed import attempt.
+        db.expunge_all()
+        _compensate_created_objects(storage, created_object_keys)
+        raise
+
+
+def _import_curated_public_corpus(
+    db: Session,
+    storage: PrivateObjectStorage,
+    *,
+    knowledge_base_path: Path,
+    dry_run: bool,
+    created_object_keys: set[str],
+    compensate_on_failure: bool,
+    rollback_on_failure: bool,
+) -> PublicCorpusImportSummary:
     documents = load_markdown_documents(knowledge_base_path)
     created_documents = 0
     unchanged_documents = 0
     created_versions = 0
     created_chunks = 0
-    created_object_keys: set[str] = set()
-
     try:
-        # A savepoint makes the complete corpus attempt atomic without taking
-        # ownership of a caller's surrounding transaction. Objects are outside
-        # the database transaction, so every newly-created key is compensated
-        # if any later document fails.
-        with db.begin_nested():
-            profile = None if dry_run else get_configured_embedding_profile(db, create=True)
-            for loaded in documents:
-                result = _import_document(
-                    db,
-                    storage,
-                    loaded,
-                    knowledge_base_path=knowledge_base_path,
-                    dry_run=dry_run,
-                    profile_id=profile.id if profile else None,
-                    created_object_keys=created_object_keys,
-                )
-                created_documents += result.documents_created
-                unchanged_documents += result.documents_unchanged
-                created_versions += result.document_versions_created
-                created_chunks += result.chunks_created
+        # Keep the evaluation/bootstrap route inside the caller's ordinary
+        # transaction. This remains rollbackable on SQLite and PostgreSQL;
+        # the operator wrapper is the only path that owns a final commit.
+        profile = None if dry_run else get_configured_embedding_profile(db, create=True)
+        for loaded in documents:
+            result = _import_document(
+                db,
+                storage,
+                loaded,
+                knowledge_base_path=knowledge_base_path,
+                dry_run=dry_run,
+                profile_id=profile.id if profile else None,
+                created_object_keys=created_object_keys,
+            )
+            created_documents += result.documents_created
+            unchanged_documents += result.documents_unchanged
+            created_versions += result.document_versions_created
+            created_chunks += result.chunks_created
 
-            if not dry_run:
-                db.flush()
-    except Exception:
         if not dry_run:
+            db.flush()
+    except Exception:
+        if rollback_on_failure:
+            db.rollback()
+        if not dry_run and compensate_on_failure:
             _compensate_created_objects(storage, created_object_keys)
         raise
 
@@ -174,8 +238,13 @@ def _import_document(
     # and PostgreSQL. Flush their immutable parent lineage in dependency order
     # before inserting chunks so PostgreSQL enforces the production contract.
     db.flush()
-    if _ensure_curated_object(storage, version.storage_key, content, checksum):
-        created_object_keys.add(version.storage_key)
+    _ensure_curated_object(
+        storage,
+        version.storage_key,
+        content,
+        checksum,
+        created_object_keys=created_object_keys,
+    )
     chunks = _ensure_curated_chunks(db, version, loaded, relative_path, now)
     generation = _ensure_curated_generation(db, version, profile_id, chunks, now)
     embeddings_created = _ensure_curated_embeddings(
@@ -334,6 +403,9 @@ def _ensure_curated_chunks(
 ) -> list[KnowledgeChunkModel]:
     expected = chunk_markdown_document(loaded)
     expected_checksums = [sha256(chunk.text.encode("utf-8")).hexdigest() for chunk in expected]
+    expected_metadata = [
+        _curated_chunk_metadata(chunk, relative_path) for chunk in expected
+    ]
     expected_ids = [
         _stable_id(
             "kchunk_pub_",
@@ -350,7 +422,15 @@ def _ensure_curated_chunks(
         len(existing) == len(expected)
         and [item.id for item in existing] == expected_ids
         and [item.content_checksum for item in existing] == expected_checksums
-        and all(item.deleted_at is None for item in existing)
+        and all(
+            item.deleted_at is None
+            and item.content == chunk.text
+            and item.content_checksum == sha256(item.content.encode("utf-8")).hexdigest()
+            and item.heading_path == [str(chunk.metadata["section_title"])]
+            and item.token_count == len(chunk.text.split())
+            and item.metadata_json == metadata
+            for item, chunk, metadata in zip(existing, expected, expected_metadata, strict=True)
+        )
     )
     if valid:
         return existing
@@ -374,7 +454,7 @@ def _ensure_curated_chunks(
             content=chunk.text,
             content_checksum=expected_checksums[index],
             token_count=len(chunk.text.split()),
-            metadata_json={**chunk.metadata, "curated_relative_path": relative_path},
+            metadata_json=expected_metadata[index],
             created_at=now,
         )
         db.add(item)
@@ -430,19 +510,30 @@ def _ensure_curated_embeddings(
     expected_ids = {
         _stable_id("kemb_pub_", f"{generation.id}:{chunk.id}") for chunk in chunks
     }
+    chunk_by_id = {chunk.id: chunk for chunk in chunks}
+    embedder = LocalDeterministicEmbeddingProvider()
+    cancellation = CancellationContext()
+    expected_vectors = {
+        chunk.id: embedder.embed(chunk.content, cancellation) for chunk in chunks
+    }
     valid = (
         len(existing) == len(chunks)
         and {item.id for item in existing} == expected_ids
         and all(
-            item.knowledge_chunk_id in {chunk.id for chunk in chunks}
+            item.knowledge_chunk_id in chunk_by_id
             and item.embedding_profile_id == profile_id
-            and item.content_checksum == next(
-                chunk.content_checksum for chunk in chunks if chunk.id == item.knowledge_chunk_id
-            )
+            and item.embedding_generation_id == generation.id
+            and item.content_checksum == chunk_by_id[item.knowledge_chunk_id].content_checksum
+            and item.dimensions == LOCAL_EMBEDDING_DIMENSIONS
+            and isinstance(item.embedding_json, list)
+            and len(item.embedding_json) == LOCAL_EMBEDDING_DIMENSIONS
+            and all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in item.embedding_json)
+            and item.embedding_json == expected_vectors[item.knowledge_chunk_id]
             and item.status == "completed"
             and item.deleted_at is None
             for item in existing
         )
+        and _pgvector_rows_are_populated(db, [item.id for item in existing])
     )
     if valid:
         return 0
@@ -452,8 +543,6 @@ def _ensure_curated_embeddings(
                 KnowledgeChunkEmbeddingModel.embedding_generation_id == generation.id
             )
         )
-    embedder = LocalDeterministicEmbeddingProvider()
-    cancellation = CancellationContext()
     for chunk in chunks:
         embedding = KnowledgeChunkEmbeddingModel(
             id=_stable_id("kemb_pub_", f"{generation.id}:{chunk.id}"),
@@ -476,7 +565,45 @@ def _ensure_curated_embeddings(
                 ),
                 {"embedding": vector_literal(embedding.embedding_json), "embedding_id": embedding.id},
             )
+    if not _pgvector_rows_are_populated(
+        db,
+        [_stable_id("kemb_pub_", f"{generation.id}:{chunk.id}") for chunk in chunks],
+    ):
+        raise RuntimeError("Curated embedding vector was not stored")
     return len(chunks)
+
+
+def _curated_chunk_metadata(chunk, relative_path: str) -> dict:
+    """Return deterministic metadata required by curated retrieval and citations."""
+
+    return {
+        "protocol": str(chunk.metadata["protocol"]).lower(),
+        "source_url": relative_path,
+        "document_title": str(chunk.metadata["document_title"]),
+        "knowledge_scope": "public_curated",
+        "organization_id": None,
+        "storage_status": "indexed_global",
+        "section_title": str(chunk.metadata["section_title"]),
+        "content_type": "markdown",
+        "risk_category": str(chunk.metadata["risk_category"]),
+        "curated_relative_path": relative_path,
+    }
+
+
+def _pgvector_rows_are_populated(db: Session, embedding_ids: list[str]) -> bool:
+    if not embedding_ids or db.bind is None or db.bind.dialect.name != "postgresql":
+        return True
+    for embedding_id in embedding_ids:
+        populated = db.execute(
+            text(
+                "SELECT embedding_vector IS NOT NULL FROM knowledge_chunk_embeddings "
+                "WHERE id = :embedding_id"
+            ),
+            {"embedding_id": embedding_id},
+        ).scalar_one_or_none()
+        if populated is not True:
+            return False
+    return True
 
 
 def _activate_curated_version(
@@ -510,28 +637,31 @@ def _ensure_curated_object(
     key: str,
     content: bytes,
     checksum: str,
-) -> bool:
+    *,
+    created_object_keys: set[str] | None = None,
+) -> CuratedObjectDisposition:
     try:
         existing = storage.head(key=key)
     except ObjectNotFoundError:
-        _store_curated_object(storage, key, content, checksum)
+        try:
+            storage.put_create_only(
+                key=key,
+                content=content,
+                content_type=CURATED_MEDIA_TYPE,
+                expected_checksum=checksum,
+            )
+        except ObjectConflictError:
+            existing = storage.head(key=key)
+            _verify_curated_object(storage, key, content, checksum, existing=existing)
+            return CuratedObjectDisposition.CONFLICT_VERIFIED
+        # The create-only request succeeded, so this attempt owns the object
+        # even if the authenticated post-upload verification now fails.
+        if created_object_keys is not None:
+            created_object_keys.add(key)
         _verify_curated_object(storage, key, content, checksum)
-        return True
+        return CuratedObjectDisposition.CREATED
     _verify_curated_object(storage, key, content, checksum, existing=existing)
-    return False
-
-
-def _store_curated_object(storage: PrivateObjectStorage, key: str, content: bytes, checksum: str) -> None:
-    try:
-        storage.put_create_only(
-            key=key,
-            content=content,
-            content_type="text/markdown",
-            expected_checksum=checksum,
-        )
-    except ObjectConflictError:
-        existing = storage.head(key=key)
-        _verify_curated_object(storage, key, content, checksum, existing=existing)
+    return CuratedObjectDisposition.ALREADY_EXISTED
 
 
 def _verify_curated_object(

@@ -7,7 +7,7 @@ import httpx
 import pytest
 
 from app.storage.base import StorageError
-from app.knowledge.public_corpus import _ensure_curated_object
+from app.knowledge.public_corpus import CuratedObjectDisposition, _ensure_curated_object
 from app.storage.supabase import SupabasePrivateObjectStorage
 
 
@@ -114,7 +114,7 @@ def test_curated_verification_uses_authenticated_read_when_supabase_head_has_no_
         sha256(content).hexdigest(),
     )
 
-    assert created is False
+    assert created is CuratedObjectDisposition.ALREADY_EXISTED
     assert [request.method for request in requests] == ["HEAD", "GET"]
 
 

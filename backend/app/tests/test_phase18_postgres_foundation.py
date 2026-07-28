@@ -316,6 +316,30 @@ def test_postgres_curated_import_populates_pgvector_and_retrieves_public_only(
             assert summary.documents_seen >= 1
             assert results and results[0].metadata["protocol"] == "aave"
             assert populated_vectors >= len(results)
+
+            # A JSON embedding without the indexed pgvector value is corrupt
+            # for production retrieval and must be rebuilt by a convergent run.
+            null_vector_id = db.execute(
+                text(
+                    "SELECT id FROM knowledge_chunk_embeddings "
+                    "WHERE id LIKE 'kemb_pub_%' LIMIT 1"
+                )
+            ).scalar_one()
+            db.execute(
+                text(
+                    "UPDATE knowledge_chunk_embeddings SET embedding_vector = NULL "
+                    "WHERE id = :embedding_id"
+                ),
+                {"embedding_id": null_vector_id},
+            )
+            import_curated_public_corpus(db, InMemoryPrivateObjectStorage())
+            assert db.execute(
+                text(
+                    "SELECT embedding_vector IS NOT NULL FROM knowledge_chunk_embeddings "
+                    "WHERE id = :embedding_id"
+                ),
+                {"embedding_id": null_vector_id},
+            ).scalar_one() is True
         finally:
             # Curated bootstrap evaluation must not persist rows in the shared
             # integration database.

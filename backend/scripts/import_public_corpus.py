@@ -9,7 +9,11 @@ from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from app.db.session import SessionLocal
-from app.knowledge.public_corpus import import_curated_public_corpus, require_public_corpus_import_enabled
+from app.knowledge.public_corpus import (
+    import_curated_public_corpus,
+    import_curated_public_corpus_operator,
+    require_public_corpus_import_enabled,
+)
 from app.storage.factory import create_private_object_storage
 from app.storage.memory import InMemoryPrivateObjectStorage
 
@@ -26,9 +30,11 @@ def main() -> int:
         # works without a configured private bucket or service-role credential.
         storage = InMemoryPrivateObjectStorage()
     with SessionLocal() as db:
-        summary = import_curated_public_corpus(db, storage, dry_run=not args.apply)
-        if args.apply:
-            db.commit()
+        summary = (
+            import_curated_public_corpus_operator(db, storage)
+            if args.apply
+            else import_curated_public_corpus(db, storage, dry_run=True)
+        )
     print(
         f"curated public corpus: seen={summary.documents_seen} created={summary.documents_created} "
         f"unchanged={summary.documents_unchanged} versions={summary.document_versions_created} "

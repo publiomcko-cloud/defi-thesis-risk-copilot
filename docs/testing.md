@@ -259,9 +259,13 @@ Implemented 18A–18H evidence:
   migration, immutable re-ingestion versions, approved-public-only retrieval,
   convergent partial-state repair including `A -> B -> A`, object-write
   compensation across a two-document transaction, fail-closed deterministic-ID
-  collision handling, declared-lineage/expected-empty evaluation, citation
-  coverage, disabled-by-default import/cutover flags, and automatic JSON fallback
-  when the durable public corpus is absent.
+  collision handling, created-versus-conflict object ownership, post-upload
+  verification failure, operator commit failure, transaction-local evaluation
+  rollback, declared-lineage/expected-empty evaluation, citation coverage, and
+  chunk/metadata/embedding repair. PostgreSQL coverage additionally proves a
+  null indexed vector is rebuilt. The suite retains disabled-by-default
+  import/cutover flags and automatic JSON fallback when durable public corpus
+  is absent.
 - `test_phase18_postgres_foundation.py` additionally proves the curated importer
   populates PostgreSQL's indexed `vector(384)` column before public ranking.
 - `test_phase18h_citation_lineage.py` proves a durable chunk's exact citation

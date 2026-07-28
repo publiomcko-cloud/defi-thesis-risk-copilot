@@ -883,8 +883,11 @@ Implementation notes:
   `kdoc_pub_`, `kver_pub_`, chunk, and embedding lineage, and repairs/re-activates
   deterministic partial state on rerun, including `A -> B -> A`. It verifies
   Supabase objects by bounded authenticated read when HEAD has no checksum, and
-  compensates every object created by a failed whole-corpus transaction. An ID
-  collision is repairable only for the expected ownerless public curated lineage;
+  distinguishes newly-created, already-existing, and conflict-verified objects
+  before compensation. The operator `--apply` path owns the final database
+  commit and compensates every attempt-owned object on flush or commit failure;
+  the transaction-local evaluation path remains rollback-only. An ID collision
+  is repairable only for the expected ownerless public curated lineage;
   private, organization, discovered, mismatched-type, and mismatched-path rows
   fail closed. Discovery, private, and organization sources are not inputs.
 - `scripts/evaluate_public_corpus.py` uses the existing curated evaluation
@@ -894,6 +897,9 @@ Implementation notes:
   chunk IDs, include an irrelevant expected-empty query, and do not turn the
   expected protocol into a retrieval filter unless the case explicitly requests
   one. CI runs the top-1 gate and a weekly workflow stores comparison evidence.
+  Corpus reruns validate exact chunk text SHA-256, heading path, required
+  metadata, deterministic embedding vectors/dimensions, and PostgreSQL indexed
+  vector population before accepting existing derived rows.
 - `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=false` is the default. It requires shadow
   retrieval to be configured. Authenticated analysis queries only approved/current
   public, caller-owned private, and active-organization durable rows; anonymous

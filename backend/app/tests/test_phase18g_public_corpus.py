@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from hashlib import sha256
 from pathlib import Path
 
 import pytest
-from sqlalchemy import create_engine, delete, select
+from sqlalchemy import create_engine, delete, select, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -13,8 +14,12 @@ from app.auth.service import create_user
 from app.core.config import Settings, get_settings
 from app.db.base import Base
 from app.knowledge.public_corpus import (
+    CuratedObjectDisposition,
+    _compensate_created_objects,
+    _ensure_curated_object,
     _stable_id,
     import_curated_public_corpus,
+    import_curated_public_corpus_operator,
     require_public_corpus_import_enabled,
 )
 from app.knowledge.retrieval_evaluation import evaluate_durable_public_retrieval
@@ -27,8 +32,11 @@ from app.models.knowledge import (
     KnowledgeSourceModel,
 )
 from app.models.organization import OrganizationModel
+from app.jobs.cancellation import CancellationContext
+from app.knowledge.embedding import LocalDeterministicEmbeddingProvider
 from app.rag.retriever import RetrievalResult
 from app.storage.memory import InMemoryPrivateObjectStorage
+from app.storage.base import ObjectConflictError, ObjectMetadata, StorageError
 
 
 @pytest.fixture()
@@ -221,6 +229,147 @@ def test_curated_import_compensates_every_object_when_the_second_document_fails(
         assert storage._objects == {}
         assert db.execute(select(KnowledgeSourceModel)).scalars().all() == []
         assert db.execute(select(KnowledgeDocumentModel)).scalars().all() == []
+
+
+def test_curated_import_compensates_an_uploaded_object_when_post_upload_verification_fails(
+    public_corpus_session,
+    tmp_path: Path,
+) -> None:
+    class VerificationFailingStorage(InMemoryPrivateObjectStorage):
+        uploaded_key: str | None = None
+
+        def put_create_only(self, **kwargs):
+            metadata = super().put_create_only(**kwargs)
+            self.uploaded_key = metadata.key
+            return metadata
+
+        def head(self, *, key: str) -> ObjectMetadata:
+            metadata = super().head(key=key)
+            if key == self.uploaded_key:
+                return ObjectMetadata(
+                    key=metadata.key,
+                    size_bytes=metadata.size_bytes,
+                    content_type="text/plain",
+                    checksum=metadata.checksum,
+                )
+            return metadata
+
+    storage = VerificationFailingStorage()
+    with public_corpus_session() as db:
+        with pytest.raises(StorageError, match="media type"):
+            import_curated_public_corpus(db, storage, knowledge_base_path=_curated_root(tmp_path))
+        assert storage._objects == {}
+        assert db.execute(select(KnowledgeSourceModel)).scalars().all() == []
+
+
+def test_conflict_verified_object_is_not_owned_or_deleted_by_this_importer() -> None:
+    class ConcurrentConflictStorage(InMemoryPrivateObjectStorage):
+        def put_create_only(self, **kwargs):
+            # A concurrent importer wins after this importer observed a miss.
+            super().put_create_only(**kwargs)
+            raise ObjectConflictError("Private object already exists")
+
+    storage = ConcurrentConflictStorage()
+    key = "knowledge/public/global/sources/ksrc_race/documents/kdoc_race/versions/kver_race/original"
+    content = b"# Curated\n"
+    created_keys: set[str] = set()
+
+    disposition = _ensure_curated_object(
+        storage,
+        key,
+        content,
+        sha256(content).hexdigest(),
+        created_object_keys=created_keys,
+    )
+    _compensate_created_objects(storage, created_keys)
+
+    assert disposition is CuratedObjectDisposition.CONFLICT_VERIFIED
+    assert created_keys == set()
+    assert storage.head(key=key).content_type == "text/markdown"
+
+
+def test_operator_import_compensates_every_object_when_final_commit_fails(
+    public_corpus_session,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    storage = InMemoryPrivateObjectStorage()
+    with public_corpus_session() as db:
+        def fail_commit() -> None:
+            raise SQLAlchemyError("forced operator commit failure")
+
+        monkeypatch.setattr(db, "commit", fail_commit)
+        with pytest.raises(SQLAlchemyError, match="operator commit"):
+            import_curated_public_corpus_operator(
+                db,
+                storage,
+                knowledge_base_path=_two_document_root(tmp_path),
+            )
+        assert storage._objects == {}
+        assert db.execute(select(KnowledgeSourceModel)).scalars().all() == []
+        assert db.execute(select(KnowledgeDocumentModel)).scalars().all() == []
+
+
+def test_transaction_local_import_remains_rollbackable_for_evaluation(
+    public_corpus_session,
+    tmp_path: Path,
+) -> None:
+    storage = InMemoryPrivateObjectStorage()
+    with public_corpus_session() as db:
+        import_curated_public_corpus(db, storage, knowledge_base_path=_curated_root(tmp_path))
+        assert db.execute(select(KnowledgeSourceModel)).scalars().all()
+        db.rollback()
+        assert db.execute(select(KnowledgeSourceModel)).scalars().all() == []
+
+
+@pytest.mark.parametrize(
+    "corruption",
+    ["chunk_content", "chunk_heading", "chunk_metadata", "embedding_json", "embedding_dimensions"],
+)
+def test_curated_import_repairs_corrupted_chunks_and_embeddings(
+    public_corpus_session,
+    tmp_path: Path,
+    corruption: str,
+) -> None:
+    root = _curated_root(tmp_path)
+    storage = InMemoryPrivateObjectStorage()
+    with public_corpus_session() as db:
+        import_curated_public_corpus(db, storage, knowledge_base_path=root)
+        db.commit()
+        chunk = db.execute(select(KnowledgeChunkModel)).scalar_one()
+        embedding = db.execute(select(KnowledgeChunkEmbeddingModel)).scalar_one()
+        if corruption == "chunk_content":
+            chunk.content = "tampered content"
+        elif corruption == "chunk_heading":
+            chunk.heading_path = ["Tampered"]
+        elif corruption == "chunk_metadata":
+            chunk.metadata_json = {"protocol": "tampered"}
+        elif corruption == "embedding_json":
+            embedding.embedding_json = [0.0] * 384
+        else:
+            db.execute(text("PRAGMA ignore_check_constraints = ON"))
+            db.execute(
+                text("UPDATE knowledge_chunk_embeddings SET dimensions = 383 WHERE id = :id"),
+                {"id": embedding.id},
+            )
+            db.execute(text("PRAGMA ignore_check_constraints = OFF"))
+        db.commit()
+
+        import_curated_public_corpus(db, storage, knowledge_base_path=root)
+        db.commit()
+        repaired_chunk = db.execute(select(KnowledgeChunkModel)).scalar_one()
+        repaired_embedding = db.execute(select(KnowledgeChunkEmbeddingModel)).scalar_one()
+
+    assert repaired_chunk.content_checksum == sha256(repaired_chunk.content.encode("utf-8")).hexdigest()
+    assert repaired_chunk.heading_path == ["Oracle Safety"]
+    assert repaired_chunk.metadata_json["curated_relative_path"] == "aave/README.md"
+    assert repaired_embedding.dimensions == 384
+    assert len(repaired_embedding.embedding_json) == 384
+    assert repaired_embedding.content_checksum == repaired_chunk.content_checksum
+    assert repaired_embedding.embedding_json == LocalDeterministicEmbeddingProvider().embed(
+        repaired_chunk.content,
+        CancellationContext(),
+    )
 
 
 @pytest.mark.parametrize(
