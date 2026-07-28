@@ -144,6 +144,7 @@ def operational_readiness(db: Session, settings: Settings | None = None) -> dict
         "correlation_headers": True,
         "observability_mode": "local_only" if settings.observability_enabled else "local_baseline",
         "telemetry_export": "not_implemented",
+        "shared_rate_limiting": "disabled" if not settings.rate_limiting_enabled else settings.rate_limiting_mode,
         "release_id_configured": bool(settings.observability_release_id),
         "knowledge_pgvector_primary_enabled": settings.knowledge_pgvector_primary_enabled,
         "vast_dry_run": settings.vast_dry_run,

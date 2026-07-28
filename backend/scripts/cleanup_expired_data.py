@@ -13,6 +13,7 @@ from app.models.alert_event import AlertEventModel
 from app.models.artifact import ArtifactModel
 from app.models.job import JobAttemptModel, JobEventModel, JobModel
 from app.models.report import ReportModel
+from app.models.rate_limit import RateLimitBucketModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.user import UserModel
 from app.models.watchlist_item import WatchlistItemModel
@@ -98,6 +99,10 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
             .where(ArtifactModel.retention_until <= now)
             .where(ArtifactModel.deleted_at.is_(None)),
         )
+        counts["expired_rate_limit_buckets"] = _count(
+            db,
+            select(RateLimitBucketModel).where(RateLimitBucketModel.expires_at <= now),
+        )
         if dry_run:
             return counts
         expired_watchlist_ids = [
@@ -173,6 +178,7 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
             db.execute(delete(JobEventModel).where(JobEventModel.job_id.in_(terminal_job_ids)))
             db.execute(delete(JobModel).where(JobModel.id.in_(terminal_job_ids)))
         db.execute(delete(JobEventModel).where(JobEventModel.created_at <= job_event_cutoff))
+        db.execute(delete(RateLimitBucketModel).where(RateLimitBucketModel.expires_at <= now))
         db.commit()
     return counts
 

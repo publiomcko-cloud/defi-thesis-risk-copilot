@@ -90,6 +90,17 @@ def test_operational_readiness_is_admin_only_and_never_returns_credentials(auth_
     assert "secret" not in str(payload).lower()
 
 
+def test_rate_limit_summary_is_admin_only_and_identifier_free(auth_client) -> None:
+    client, _ = auth_client
+
+    admin = client.get("/api/admin/operations/rate-limits", headers=_auth("admin-token"))
+    common = client.get("/api/admin/operations/rate-limits", headers=_auth("common-token"))
+
+    assert admin.status_code == 200
+    assert common.status_code == 403
+    assert admin.json() == {"mode": "disabled", "active_bucket_count": 0, "actions": []}
+
+
 def test_admin_can_create_list_update_and_disable_credential_without_secret_leak(auth_client) -> None:
     client, Session = auth_client
 

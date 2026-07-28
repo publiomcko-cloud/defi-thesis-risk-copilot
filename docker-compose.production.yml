@@ -8,6 +8,10 @@ services:
     environment:
       APP_ENV: production
       PUBLIC_DEMO_MODE: ${PUBLIC_DEMO_MODE:-true}
+      RATE_LIMITING_ENABLED: ${RATE_LIMITING_ENABLED:-false}
+      RATE_LIMITING_MODE: ${RATE_LIMITING_MODE:-shadow}
+      RATE_LIMIT_KEY_PEPPER: ${RATE_LIMIT_KEY_PEPPER:-}
+      RATE_LIMIT_TRUSTED_PROXY_CIDRS: ${RATE_LIMIT_TRUSTED_PROXY_CIDRS:-}
       DATABASE_URL: ${DATABASE_URL:-sqlite:///./defi_copilot.production.db}
       FRONTEND_ORIGIN: ${FRONTEND_ORIGIN:-http://127.0.0.1:3000}
       AUTH_ENABLED: ${AUTH_ENABLED:-false}

@@ -22,4 +22,8 @@ if (!route.includes('headers.set("x-correlation-id", correlationId)') || !route.
   throw new Error("BFF route must normalize and forward a correlation ID without forwarding arbitrary headers.");
 }
 
+if (!route.includes('x-vercel-forwarded-for') || !route.includes('isIP(candidate)') || !route.includes('"retry-after"')) {
+  throw new Error("BFF route must forward only normalized provider client IPs and safe rate-limit metadata.");
+}
+
 console.log("BFF contract check passed.");

@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth.dependencies import require_admin, require_authenticated_user
 from app.auth.schemas import UserContext
 from app.db.session import get_db
+from app.rate_limits.service import enforce_job_submission_rate_limit
 from app.jobs.access import get_visible_job
 from app.jobs.control_service import (
     cancel_job,
@@ -27,6 +28,7 @@ def create_job(
     actor: UserContext = Depends(require_authenticated_user),
     idempotency_key: str = Header(..., alias="Idempotency-Key"),
 ) -> JobSubmissionResponse:
+    enforce_job_submission_rate_limit(db, request, actor, request.organization_id)
     job, replayed = submit_job(db, actor, request, idempotency_key)
     return JobSubmissionResponse(job=job_response(job), idempotent_replay=replayed)
 

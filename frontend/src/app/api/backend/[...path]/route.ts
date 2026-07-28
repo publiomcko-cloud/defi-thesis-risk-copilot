@@ -1,11 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
+import { isIP } from "node:net";
 
 import { ANONYMOUS_COOKIE, backendApiBaseUrl, getValidAccessToken } from "@/lib/server-auth";
 
 const ALLOWED_EXACT_PATHS = ["/health", "/ready"];
 const ALLOWED_PREFIXES = ["/api/"];
-const SAFE_RESPONSE_HEADERS = ["content-type", "x-request-id", "x-correlation-id"];
+const SAFE_RESPONSE_HEADERS = [
+  "content-type",
+  "retry-after",
+  "x-request-id",
+  "x-correlation-id",
+  "x-ratelimit-mode",
+  "x-ratelimit-policy",
+  "x-ratelimit-remaining",
+  "x-ratelimit-reset"
+];
 const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 
 export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
@@ -44,6 +54,10 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   const correlationId = normalizeCorrelationId(request.headers.get("x-correlation-id"));
   headers.set("x-correlation-id", correlationId);
   headers.set("x-request-id", correlationId);
+  const clientIp = normalizedClientIp(request);
+  if (clientIp) {
+    headers.set("x-forwarded-for", clientIp);
+  }
   const contentType = request.headers.get("content-type");
   if (contentType) {
     headers.set("content-type", contentType);
@@ -105,4 +119,13 @@ function isAllowedBackendPath(path: string): boolean {
 function normalizeCorrelationId(value: string | null): string {
   const candidate = value?.trim() ?? "";
   return CORRELATION_ID_PATTERN.test(candidate) ? candidate : `bff_${randomUUID().replaceAll("-", "")}`;
+}
+
+function normalizedClientIp(request: NextRequest): string | null {
+  // Vercel supplies x-vercel-forwarded-for for proxied requests. The fallback
+  // supports local reverse proxies, but only a backend-configured trusted CIDR
+  // may act on this header.
+  const forwarded = request.headers.get("x-vercel-forwarded-for") ?? request.headers.get("x-forwarded-for");
+  const candidate = forwarded?.split(",", 1)[0].trim() ?? "";
+  return isIP(candidate) ? candidate : null;
 }

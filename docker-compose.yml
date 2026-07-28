@@ -9,6 +9,10 @@ services:
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/defi_copilot
       PUBLIC_DEMO_MODE: ${PUBLIC_DEMO_MODE:-false}
+      RATE_LIMITING_ENABLED: ${RATE_LIMITING_ENABLED:-false}
+      RATE_LIMITING_MODE: ${RATE_LIMITING_MODE:-shadow}
+      RATE_LIMIT_KEY_PEPPER: ${RATE_LIMIT_KEY_PEPPER:-}
+      RATE_LIMIT_TRUSTED_PROXY_CIDRS: ${RATE_LIMIT_TRUSTED_PROXY_CIDRS:-}
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
       AUTH_PROVIDER: ${AUTH_PROVIDER:-legacy_local}
       SUPABASE_URL: ${SUPABASE_URL:-}

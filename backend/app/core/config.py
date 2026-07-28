@@ -16,6 +16,24 @@ class Settings(BaseSettings):
     observability_export_timeout_seconds: float = 2.0
     observability_export_queue_size: int = 100
     observability_clock_timezone: str = "UTC"
+    public_compute_rate_limit_per_minute: int = 20
+    rate_limiting_enabled: bool = False
+    rate_limiting_mode: str = "shadow"
+    rate_limit_key_pepper: str = ""
+    rate_limit_trusted_proxy_cidrs: str = ""
+    rate_limit_retention_seconds: int = 86_400
+    rate_limit_public_compute_burst_limit: int = 20
+    rate_limit_public_compute_burst_window_seconds: int = 60
+    rate_limit_public_compute_sustained_limit: int = 120
+    rate_limit_public_compute_sustained_window_seconds: int = 3_600
+    rate_limit_authenticated_compute_burst_limit: int = 60
+    rate_limit_authenticated_compute_burst_window_seconds: int = 60
+    rate_limit_authenticated_compute_sustained_limit: int = 1_000
+    rate_limit_authenticated_compute_sustained_window_seconds: int = 3_600
+    rate_limit_job_submit_burst_limit: int = 10
+    rate_limit_job_submit_burst_window_seconds: int = 60
+    rate_limit_job_submit_sustained_limit: int = 100
+    rate_limit_job_submit_sustained_window_seconds: int = 3_600
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     frontend_origin: str = "http://127.0.0.1:3000"
@@ -156,6 +174,28 @@ class Settings(BaseSettings):
             raise ValueError("OBSERVABILITY_CLOCK_TIMEZONE must be UTC")
         if len(self.observability_release_id) > 128:
             raise ValueError("OBSERVABILITY_RELEASE_ID must not exceed 128 characters")
+        if self.rate_limiting_mode not in {"shadow", "enforce"}:
+            raise ValueError("RATE_LIMITING_MODE must be shadow or enforce")
+        if self.rate_limiting_enabled and self.app_env == "production" and not self.rate_limit_key_pepper:
+            raise ValueError("RATE_LIMIT_KEY_PEPPER is required when production rate limiting is enabled")
+        rate_limit_values = (
+            self.public_compute_rate_limit_per_minute,
+            self.rate_limit_retention_seconds,
+            self.rate_limit_public_compute_burst_limit,
+            self.rate_limit_public_compute_burst_window_seconds,
+            self.rate_limit_public_compute_sustained_limit,
+            self.rate_limit_public_compute_sustained_window_seconds,
+            self.rate_limit_authenticated_compute_burst_limit,
+            self.rate_limit_authenticated_compute_burst_window_seconds,
+            self.rate_limit_authenticated_compute_sustained_limit,
+            self.rate_limit_authenticated_compute_sustained_window_seconds,
+            self.rate_limit_job_submit_burst_limit,
+            self.rate_limit_job_submit_burst_window_seconds,
+            self.rate_limit_job_submit_sustained_limit,
+            self.rate_limit_job_submit_sustained_window_seconds,
+        )
+        if min(rate_limit_values) < 1:
+            raise ValueError("Rate-limit windows, limits, and retention must be positive")
         provider = self.auth_provider.lower()
         if provider not in {"legacy_local", "supabase"}:
             raise ValueError("AUTH_PROVIDER must be legacy_local or supabase")

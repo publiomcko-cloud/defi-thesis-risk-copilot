@@ -8,6 +8,7 @@ from app.auth.schemas import AuditEventsResponse, UserContext
 from app.auth.service import audit_event_response
 from app.core.config import get_settings
 from app.core.observability import operational_readiness
+from app.rate_limits.service import rate_limit_summary
 from app.db.session import get_db
 from app.models.access_audit_event import AccessAuditEventModel
 from app.providers.credential_service import (
@@ -56,10 +57,23 @@ class OperationalReadinessResponse(BaseModel):
     correlation_headers: bool
     observability_mode: str
     telemetry_export: str
+    shared_rate_limiting: str
     release_id_configured: bool
     knowledge_pgvector_primary_enabled: bool
     vast_dry_run: bool
     vast_real_rentals_enabled: bool
+
+
+class RateLimitActionSummary(BaseModel):
+    action: str
+    active_bucket_count: int
+    request_count: int
+
+
+class RateLimitSummaryResponse(BaseModel):
+    mode: str
+    active_bucket_count: int
+    actions: list[RateLimitActionSummary]
 
 
 @router.post("/admin/provider-credentials", response_model=ProviderCredentialResponse)
@@ -153,6 +167,16 @@ def get_operational_readiness(
     """Return safe, non-mutating Phase 19A readiness information."""
 
     return OperationalReadinessResponse(**operational_readiness(db))
+
+
+@router.get("/admin/operations/rate-limits", response_model=RateLimitSummaryResponse)
+def get_rate_limit_summary(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> RateLimitSummaryResponse:
+    """Expose only aggregate shared-limiter activity to platform administrators."""
+
+    return RateLimitSummaryResponse(**rate_limit_summary(db))
 
 
 @router.post("/admin/workers/{worker_id}/disable", response_model=WorkerResponse)

@@ -123,6 +123,7 @@ def test_operational_readiness_is_metadata_only_and_configuration_is_bounded(pha
         result = operational_readiness(db)
 
     assert result["telemetry_export"] == "not_implemented"
+    assert result["shared_rate_limiting"] == "disabled"
     assert result["knowledge_pgvector_primary_enabled"] is False
     assert result["vast_dry_run"] is True
     assert result["vast_real_rentals_enabled"] is False
