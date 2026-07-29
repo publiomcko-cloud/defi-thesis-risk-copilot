@@ -40,6 +40,11 @@
   incident tracker, or exercise evidence; named owners, communications
   authority, approved evidence location, and completed tabletops remain
   external gates.
+- Implemented 19H locally with a fail-closed fixed failure-exercise catalog,
+  isolated pgvector CI workflow, semantic accessibility contract, and safety
+  configuration. The ten local exercises pass without real provider execution;
+  production load/chaos, pager, customer-data, and assistive-technology
+  evidence remain external gates.
 
 ## Phase 18 — Merged
 

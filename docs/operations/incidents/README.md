@@ -94,6 +94,10 @@ record only the scenario ID, date, facilitator, assigned roles, elapsed
 containment/recovery decisions, safe evidence reference, gaps, owner, and due
 date in the approved operations system.
 
+The separate [Phase 19H failure-exercise catalog](../failure_exercises.md)
+rehearses fixed local/CI technical failure paths. It does not replace the
+human tabletop, ownership, communication, or evidence requirements above.
+
 Runbook changes are reversible through normal version control. Operational
 rollback means reversing the containment action only after the recovery checks
 in the relevant procedure pass and the IC records approval.

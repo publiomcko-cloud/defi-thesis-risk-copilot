@@ -453,6 +453,35 @@ It does not claim a pager, named on-call owner, incident system, provider
 exercise, customer-data test, or production tabletop outcome. Those are Phase
 19G deployment gates and final evidence remains part of Phase 22 approval.
 
+### Phase 19H implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19h_exercises.py
+python -m scripts.run_phase19_exercises --list
+
+APP_ENV=exercise \
+OPERATIONS_EXERCISES_ENABLED=true \
+OPERATIONS_EXERCISES_ISOLATED=true \
+VAST_ENABLED=false \
+VAST_DRY_RUN=true \
+VAST_REAL_RENTALS_ENABLED=false \
+RUN_POSTGRES_INTEGRATION=true \
+python -m scripts.run_phase19_exercises --run
+
+cd ../frontend
+npm run test:accessibility
+```
+
+The runner exercises fixed rate-limit, admission, worker-loss, fake-provider,
+storage, vector-repair, migration, authorization, recovery, and semantic
+accessibility paths. It rejects production, non-isolated, real-provider, and
+arbitrary-command operation; it writes no durable test record or customer data.
+The scheduled no-secret GitHub workflow adds isolated weekly evidence. These
+results are not production load capacity, provider, pager, customer-data,
+assistive-technology, or chaos-test evidence.
+
 ## 9. Phase 20 validation
 
 Test analytics consent, notification preferences, signed webhooks, delivery retry, schedules/timezones, entitlements, billing event idempotency, organization seats, and data export/deletion integration.

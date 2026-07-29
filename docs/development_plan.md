@@ -447,6 +447,15 @@ primary/backup owners, a communication authority, an approved private evidence
 location, alert delivery integration, and recorded tabletop exercises remain
 deployment gates.
 
+Phase 19H is implemented locally: a fail-closed fixed catalog runs only
+isolated tests for rate-limit saturation, queue admission, worker loss,
+fake-provider failure, storage outage, vector corruption recovery, migration
+rollback, authorization negatives, database recovery, and semantic
+accessibility. A scheduled no-secret pgvector workflow repeats the catalog. It
+refuses production, non-isolated operation, arbitrary commands, and real Vast
+rentals. Production load/chaos, provider, customer-data, alert/pager, and full
+assistive-technology evidence remain external gates.
+
 Core outcomes:
 
 - threat model;

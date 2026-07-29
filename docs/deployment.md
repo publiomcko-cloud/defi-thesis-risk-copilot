@@ -206,6 +206,23 @@ runtime containment action only after the incident commander records the
 recovery verification described by that procedure. These runbooks do not enable
 Phase 18 storage flags, real Vast.ai rentals, or destructive recovery actions.
 
+## Phase 19H isolated failure-exercise rollout
+
+[`operations/failure_exercises.md`](operations/failure_exercises.md) defines a
+fixed catalog for local/CI failure exercises. It is disabled by default and is
+not a production chaos-test control. Enable it only with an isolated
+PostgreSQL/pgvector database, the explicit `OPERATIONS_EXERCISES_ISOLATED=true`
+acknowledgement, `APP_ENV=exercise`, and bounded timeout. The runner refuses
+production and any non-dry-run/real-rental Vast configuration.
+
+The scheduled `Phase 19 Failure Exercises` workflow uses an ephemeral GitHub
+Actions pgvector service and no deployment, storage, provider, pager, or
+customer credentials. It may be manually dispatched only for the same isolated
+conditions. Stop the driver when a control fails, run durable-job recovery in
+dry-run mode, and follow the mapped Phase 19G procedure. Production load or
+chaos testing requires explicit separate approval and remains outside this
+repository's implemented scope.
+
 ---
 
 ## 2. Supported deployment modes

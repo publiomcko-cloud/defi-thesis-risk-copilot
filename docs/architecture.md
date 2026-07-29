@@ -646,6 +646,15 @@ application database, browser, or repository. The registry and tabletop scripts
 are structural local evidence only; named owners and exercised-response evidence
 are required before deployment-complete claims.
 
+Phase 19H adds no production workload path. A backend-only, fixed-command
+exercise runner validates its own explicit isolated-environment gate before
+spawning known test commands. It forces child test processes into a non-provider
+exercise context, caps their timeout, reports no child output, and persists no
+exercise state. The scheduled workflow uses an ephemeral pgvector service with
+no deployment/provider credentials. It verifies existing failure handling and
+semantic browser contracts; it is not a production capacity, provider, pager,
+or full accessibility certification system.
+
 ---
 
 ## 19. Phase 20 target — commercial product
