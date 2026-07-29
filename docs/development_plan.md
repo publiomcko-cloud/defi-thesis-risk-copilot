@@ -405,7 +405,8 @@ windows, salted scope hashes, and shadow/enforce modes. Preview proxy-policy,
 alert, and staged-enforcement evidence remain pending.
 
 Phase 19C is implemented locally: explicit FastAPI CORS/browser-origin and
-declared request-size controls, report-only CSP and baseline headers, BFF exact
+measured request-size controls for declared, chunked, and misleading-length
+bodies, report-only CSP and baseline headers, BFF exact
 origin/backend-target/redirect checks, and an opt-in required upload-scanner
 contract. The scanner fails closed and production knowledge storage cannot be
 enabled without it. WAF/bot policy, scanner/quarantine deployment, final origin
@@ -430,11 +431,12 @@ Phase 19F is implemented locally: workflows use immutable action SHAs and
 least-privilege permissions; repository policy checks reject mutable actions,
 unsafe pull-request triggers, persisted checkout credentials, and unlocked
 application manifests. CI generates a safe source-lockfile SBOM and adds
-Dependency Review, Gitleaks, CodeQL, and Trivy repository/container baseline
-scans; Dependabot proposes weekly pip, npm, and action updates. The remediated
-application manifests audit clean locally. GitHub branch rules, first hosted
-scan evidence, scanner triage ownership, and promotion of the baseline scans to
-required checks remain deployment gates.
+Dependency Review, Gitleaks, CodeQL, and Trivy repository/container scans;
+Dependabot proposes weekly pip, npm, and action updates. The remediated
+application manifests audit clean locally, and high/critical dependency,
+container, and repository findings now fail CI. Suppressions require an
+explicit owned, time-bounded registry entry. GitHub branch rules and first
+hosted scan evidence remain deployment gates.
 
 Phase 19G is implemented locally: versioned incident and security-operations
 runbooks cover credential exposure, account takeover, tenant exposure,
@@ -451,7 +453,8 @@ Phase 19H is implemented locally: a fail-closed fixed catalog runs only
 isolated tests for rate-limit saturation, queue admission, worker loss,
 fake-provider failure, storage outage, vector corruption recovery, migration
 rollback, authorization negatives, database recovery, and semantic
-accessibility. A scheduled no-secret pgvector workflow repeats the catalog. It
+accessibility. A scheduled no-secret pgvector workflow repeats the catalog and
+uploads bounded safe exercise metrics only. It
 refuses production, non-isolated operation, arbitrary commands, and real Vast
 rentals. Production load/chaos, provider, customer-data, alert/pager, and full
 assistive-technology evidence remain external gates.

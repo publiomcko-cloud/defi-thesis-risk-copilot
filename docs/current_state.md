@@ -52,7 +52,7 @@ Current status:
 V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
-V1 Phase 19 — In progress; 19A–19I observability, limiter, edge/upload, monitoring, recovery-verification, supply-chain, incident-response, isolated failure-exercise, and controlled durable-RAG rollout foundations implemented locally
+V1 Phase 19 — In progress; 19A–19I foundations are implemented locally, with final limiter/body-bound hardening and blocking high/critical CI checks added; centralized telemetry, alert delivery, restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
 V1 Phases 20–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -384,8 +384,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 - Phase 19 — In Progress: 19A locally implements redacted structured logging,
   browser/BFF/API/job/worker correlation IDs, and non-mutating operational
   readiness. 19B adds a disabled-by-default PostgreSQL shared limiter for
-  bounded compute and durable job admission. 19C adds exact CORS/origin/body
-  controls, report-only CSP/minimum browser and API headers, BFF target/redirect
+  bounded compute and durable job admission. 19C adds exact CORS/origin and
+  measured body controls for declared, chunked, and misleading-length requests,
+  report-only CSP/minimum browser and API headers, BFF target/redirect
   checks, and a fail-closed required-scanner contract. External telemetry,
   alerting, production proxy/WAF/origin evidence, scanner/quarantine deployment,
   CSP report review, HSTS approval, backup/restore, and all later Phase 19 gates
@@ -398,8 +399,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   implemented or claimed. 19F adds SHA-pinned/read-only security workflows,
   dependency remediation, lockfile/action policy checks, source SBOM artifacts,
   secret/SAST/dependency/container scans, Dependabot, and a findings runbook.
-  GitHub main ruleset configuration and first hosted scanner-baseline evidence
-  remain external rollout gates;
+  High/critical dependency, container, and repository findings now fail CI;
+  exceptions must be explicit, owned, and time-bounded. GitHub main ruleset
+  configuration and first hosted scanner evidence remain external rollout gates;
   19G adds versioned incident/security-operation procedures, stable mappings
   from the existing aggregate alert IDs, safe evidence-handling rules, and ten
   tabletop scripts. The repository has no on-call roster, incident tracker,
@@ -407,7 +409,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   communication authority, approved evidence location, and completed tabletop
   records remain external deployment gates;
   19H adds a fail-closed fixed exercise runner, isolated scheduled pgvector CI
-  workflow, and semantic accessibility contract. It validates local/CI
+  workflow, semantic accessibility contract, and bounded safe exercise metrics.
+  It validates local/CI
   saturation, admission, worker-loss, fake-provider, storage, retrieval,
   migration, authorization, recovery, and frontend paths without persisting
   exercise data or allowing real rentals. Production load/chaos, alert/pager,

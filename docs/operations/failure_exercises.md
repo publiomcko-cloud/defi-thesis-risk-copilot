@@ -7,7 +7,8 @@ The fixed catalog in `backend/scripts/run_phase19_exercises.py` exercises
 existing deterministic, fake, and isolated test paths. It accepts only catalog
 IDs, never shell fragments, user-selected commands, provider credentials, or
 browser-supplied parameters. It captures child output and reports only safe
-exercise ID, runbook ID, duration, and status.
+exercise ID, runbook ID, duration, configured timeout, test-case count, and
+status. An optional evidence file contains only these bounded metrics.
 
 ## Required safety configuration
 
@@ -63,16 +64,18 @@ python -m scripts.run_phase19_exercises --exercise database-recovery
 Run all fixed exercises only in the approved isolated environment:
 
 ```bash
-python -m scripts.run_phase19_exercises --run
+python -m scripts.run_phase19_exercises --run --evidence-file /approved-isolated-path/phase19-exercise-evidence.json
 ```
 
 ## Local evidence and limits
 
 The complete ten-exercise catalog passed locally against the isolated pgvector
-database during Phase 19H implementation. This validates test harnesses and
-existing safety behavior, not capacity at production traffic, a provider SLA,
-customer-data recovery, production accessibility, alert delivery, or an
-incident response outcome.
+database during Phase 19H implementation. Its fixed subprocess timeouts and
+safe test-case/duration metrics provide bounded evidence for isolated load,
+queue-saturation, worker-loss, database, and storage failure exercises. This
+validates test harnesses and existing safety behavior, not capacity at
+production traffic, a provider SLA, customer-data recovery, production
+accessibility, alert delivery, or an incident response outcome.
 
 The semantic accessibility contract covers every route page's main landmark and
 heading (including explicit delegated pages), named primary navigation, and

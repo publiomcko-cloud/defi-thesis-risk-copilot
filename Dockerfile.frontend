@@ -1,4 +1,4 @@
-FROM node:24-alpine
+FROM node:24-alpine AS dependencies
 
 ENV NEXT_TELEMETRY_DISABLED=1
 
@@ -7,8 +7,42 @@ WORKDIR /app
 COPY frontend/package*.json ./
 RUN npm ci
 
-COPY frontend/ ./
+
+FROM dependencies AS development
+
+RUN addgroup --system app && adduser --system --ingroup app app
+
+COPY --chown=app:app frontend/ ./
+RUN mkdir -p /app/.next && chown -R app:app /app
+
+USER app
 
 EXPOSE 3000
 
 CMD ["npm", "run", "dev", "--", "--hostname", "0.0.0.0"]
+
+
+FROM development AS build
+
+RUN npm run build && npm prune --omit=dev
+
+
+FROM node:24-alpine AS production
+
+ENV NEXT_TELEMETRY_DISABLED=1
+
+WORKDIR /app
+
+RUN addgroup --system app && adduser --system --ingroup app app
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
+
+COPY --from=build --chown=app:app /app/package.json ./
+COPY --from=build --chown=app:app /app/next.config.js ./
+COPY --from=build --chown=app:app /app/node_modules ./node_modules
+COPY --from=build --chown=app:app /app/.next ./.next
+
+USER app
+
+EXPOSE 3000
+
+CMD ["node", "node_modules/next/dist/bin/next", "start", "--hostname", "0.0.0.0"]

@@ -92,6 +92,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.frontend
+      target: development
     working_dir: /app
     command: npm run dev -- --hostname 0.0.0.0
     environment:
@@ -104,6 +105,8 @@ services:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY:-}
       BFF_AUDIT_SECRET: ${BFF_AUDIT_SECRET:-}
       BFF_ALLOWED_ORIGINS: ${BFF_ALLOWED_ORIGINS:-http://127.0.0.1:3000}
+      BFF_MAX_REQUEST_BYTES: ${BFF_MAX_REQUEST_BYTES:-1048576}
+      BFF_KNOWLEDGE_UPLOAD_MAX_BYTES: ${BFF_KNOWLEDGE_UPLOAD_MAX_BYTES:-10616832}
       SECURITY_CSP_MODE: ${SECURITY_CSP_MODE:-report_only}
       SECURITY_CSP_REPORT_URI: ${SECURITY_CSP_REPORT_URI:-}
       SECURITY_HSTS_ENABLED: ${SECURITY_HSTS_ENABLED:-false}

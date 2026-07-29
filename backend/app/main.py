@@ -43,6 +43,10 @@ configure_logging()
 logger = logging.getLogger("defi_copilot.requests")
 
 
+class _RequestBodyTooLarge(Exception):
+    pass
+
+
 def create_app() -> FastAPI:
     settings = get_settings()
 
@@ -74,6 +78,7 @@ def create_app() -> FastAPI:
 
     @app.middleware("http")
     async def request_context(request: Request, call_next):
+        body_limit = _request_size_limit(request, settings)
         content_length = request.headers.get("content-length")
         if content_length is not None:
             try:
@@ -82,7 +87,18 @@ def create_app() -> FastAPI:
                 return _secured_json_response(
                     {"detail": "Invalid Content-Length header."}, status_code=400, settings=settings
                 )
-            if declared_length > _request_size_limit(request, settings):
+            if declared_length < 0:
+                return _secured_json_response(
+                    {"detail": "Invalid Content-Length header."}, status_code=400, settings=settings
+                )
+            if declared_length > body_limit:
+                return _secured_json_response(
+                    {"detail": "Request body exceeds the allowed size."}, status_code=413, settings=settings
+                )
+        if request.method in {"POST", "PUT", "PATCH", "DELETE"}:
+            try:
+                await _cache_limited_request_body(request, body_limit)
+            except _RequestBodyTooLarge:
                 return _secured_json_response(
                     {"detail": "Request body exceeds the allowed size."}, status_code=413, settings=settings
                 )
@@ -158,6 +174,22 @@ def _request_size_limit(request: Request, settings) -> int:
         # Multipart framing is small relative to the bounded document bytes.
         return settings.knowledge_upload_max_bytes + 128 * 1024
     return settings.api_max_request_bytes
+
+
+async def _cache_limited_request_body(request: Request, limit: int) -> None:
+    """Bound streamed bodies even when Content-Length is missing or dishonest."""
+
+    if hasattr(request, "_body"):
+        return
+    chunks: list[bytes] = []
+    size = 0
+    async for chunk in request.stream():
+        size += len(chunk)
+        if size > limit:
+            raise _RequestBodyTooLarge()
+        chunks.append(chunk)
+    # Starlette reuses this cache for FastAPI body and multipart parsing.
+    request._body = b"".join(chunks)
 
 
 def _is_allowed_browser_origin(origin: str | None, allowed_origins: list[str]) -> bool:

@@ -10,7 +10,10 @@ from app.auth.dependencies import require_actor
 from app.auth.schemas import UserContext
 from app.core.config import get_settings
 from app.db.session import get_db
-from app.rate_limits.service import enforce_public_compute_rate_limit as enforce_shared_compute_limit
+from app.rate_limits.service import (
+    client_identifier,
+    enforce_public_compute_rate_limit as enforce_shared_compute_limit,
+)
 from sqlalchemy.orm import Session
 
 _RATE_WINDOWS: dict[str, deque[float]] = defaultdict(deque)
@@ -55,7 +58,7 @@ def _enforce_legacy_public_demo_limit(request: Request, settings: object) -> Non
 
     limit = max(int(getattr(settings, "public_compute_rate_limit_per_minute", 20)), 1)
     now = monotonic()
-    key = f"{_client_identifier(request)}:{request.url.path}"
+    key = f"{client_identifier(request, settings)}:{request.url.path}"
 
     with _RATE_LOCK:
         window = _RATE_WINDOWS[key]
@@ -76,12 +79,3 @@ def reset_public_rate_limits() -> None:
 
     with _RATE_LOCK:
         _RATE_WINDOWS.clear()
-
-
-def _client_identifier(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        return forwarded.split(",", 1)[0].strip()
-    if request.client is not None:
-        return request.client.host
-    return "unknown"

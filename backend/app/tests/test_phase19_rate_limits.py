@@ -15,6 +15,7 @@ from starlette.requests import Request
 from app.auth.schemas import UserContext
 from app.auth.service import create_user, user_context
 from app.core.config import Settings, get_settings
+from app.core.public_demo import reset_public_rate_limits
 from app.db.base import Base
 from app.db.session import get_db
 from app.jobs.schemas import JobSubmissionRequest
@@ -24,6 +25,7 @@ from app.models.usage_quota import UsageQuotaModel
 from app.main import app
 from app.rate_limits.service import (
     ACTION_AUTHENTICATED_COMPUTE,
+    ACTION_JOB_SUBMISSION,
     ACTION_PUBLIC_COMPUTE,
     _scopes_for_request,
     enforce_job_submission_rate_limit,
@@ -114,6 +116,57 @@ def shared_public_client(monkeypatch):
         get_settings.cache_clear()
 
 
+@pytest.fixture()
+def job_submission_client(monkeypatch):
+    """Exercise the public API path, including its shared limiter dependency."""
+
+    monkeypatch.setenv("AUTH_ENABLED", "true")
+    monkeypatch.setenv("AUTH_PROVIDER", "legacy_local")
+    monkeypatch.setenv("JOBS_ENABLED", "true")
+    monkeypatch.setenv("RATE_LIMITING_ENABLED", "true")
+    monkeypatch.setenv("RATE_LIMITING_MODE", "enforce")
+    monkeypatch.setenv("RATE_LIMIT_KEY_PEPPER", "test-rate-limit-pepper")
+    monkeypatch.setenv("RATE_LIMIT_JOB_SUBMIT_BURST_LIMIT", "1")
+    monkeypatch.setenv("RATE_LIMIT_JOB_SUBMIT_SUSTAINED_LIMIT", "10")
+    get_settings.cache_clear()
+    engine = create_engine(
+        "sqlite:///:memory:",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    Base.metadata.create_all(engine)
+    Session = sessionmaker(bind=engine, expire_on_commit=False)
+
+    def override_get_db():
+        db = Session()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield TestClient(app), Session
+    finally:
+        app.dependency_overrides.clear()
+        get_settings.cache_clear()
+
+
+@pytest.fixture()
+def legacy_public_client(monkeypatch):
+    monkeypatch.setenv("AUTH_ENABLED", "false")
+    monkeypatch.setenv("PUBLIC_DEMO_MODE", "true")
+    monkeypatch.setenv("RATE_LIMITING_ENABLED", "false")
+    monkeypatch.setenv("PUBLIC_COMPUTE_RATE_LIMIT_PER_MINUTE", "1")
+    get_settings.cache_clear()
+    reset_public_rate_limits()
+    try:
+        yield TestClient(app)
+    finally:
+        reset_public_rate_limits()
+        get_settings.cache_clear()
+
+
 def test_shared_public_compute_limit_returns_retry_metadata_and_hides_raw_scope(shared_public_client) -> None:
     client, Session = shared_public_client
     payload = {
@@ -139,6 +192,79 @@ def test_shared_public_compute_limit_returns_retry_metadata_and_hides_raw_scope(
     rendered = " ".join(bucket.scope_key_hash for bucket in buckets)
     assert "anon_" not in rendered
     assert "testclient" not in rendered
+
+
+def test_untrusted_runtime_forwarded_addresses_cannot_bypass_shared_limiter(shared_public_client) -> None:
+    client, _Session = shared_public_client
+    payload = {
+        "option_type": "call",
+        "underlying_asset": "ETH",
+        "underlying_price": 3000,
+        "strike_price": 3200,
+        "premium": 150,
+    }
+
+    first = client.post("/api/options/analyze", json=payload, headers={"X-Forwarded-For": "198.51.100.1"})
+    spoofed_retry = client.post(
+        "/api/options/analyze",
+        json=payload,
+        headers={"X-Forwarded-For": "203.0.113.250"},
+    )
+
+    assert first.status_code == 200
+    assert spoofed_retry.status_code == 429
+
+
+def test_untrusted_runtime_forwarded_addresses_cannot_bypass_legacy_limiter(legacy_public_client) -> None:
+    payload = {
+        "option_type": "put",
+        "underlying_asset": "ETH",
+        "underlying_price": 3000,
+        "strike_price": 2800,
+        "premium": 120,
+    }
+
+    first = legacy_public_client.post(
+        "/api/options/analyze", json=payload, headers={"X-Forwarded-For": "198.51.100.1"}
+    )
+    spoofed_retry = legacy_public_client.post(
+        "/api/options/analyze",
+        json=payload,
+        headers={"X-Forwarded-For": "203.0.113.250"},
+    )
+
+    assert first.status_code == 200
+    assert spoofed_retry.status_code == 429
+
+
+def test_job_submission_endpoint_enforces_shared_limiter_with_fastapi_request(job_submission_client) -> None:
+    client, Session = job_submission_client
+    with Session() as db:
+        create_user(db, "rate-limited-job-owner@example.test", token="rate-limited-job-token")
+
+    payload = {
+        "job_type": "analysis.generate",
+        "input_schema_version": "analysis.generate.v1",
+        "input_json": {
+            "analysis_request": {
+                "strategy_description": "Evaluate a bounded lending strategy.",
+                "protocols": ["aave"],
+                "manual_inputs": {},
+                "analysis_depth": "standard",
+            }
+        },
+    }
+    headers = {"Authorization": "Bearer rate-limited-job-token", "Idempotency-Key": "rate-limit-job-one"}
+    first = client.post("/api/jobs", json=payload, headers=headers)
+    blocked = client.post(
+        "/api/jobs",
+        json=payload,
+        headers={**headers, "Idempotency-Key": "rate-limit-job-two"},
+    )
+
+    assert first.status_code == 202
+    assert blocked.status_code == 429
+    assert blocked.headers["x-ratelimit-policy"] == ACTION_JOB_SUBMISSION
 
 
 def test_shadow_mode_observes_threshold_without_blocking(rate_limit_session) -> None:

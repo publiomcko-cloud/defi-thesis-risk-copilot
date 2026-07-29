@@ -30,6 +30,8 @@ jobs:
         run: python3 scripts/supply_chain.py check-workflows
       - name: Enforce lockfile policy
         run: python3 scripts/supply_chain.py check-lockfiles
+      - name: Enforce time-bounded security exception policy
+        run: python3 scripts/supply_chain.py check-security-exceptions
       - name: Generate source-lockfile SBOM
         run: python3 scripts/supply_chain.py generate-sbom --output artifacts/sbom.cdx.json
       - name: Upload SBOM
@@ -48,9 +50,6 @@ jobs:
       contents: read
     steps:
       - name: Review dependency changes
-        # GitHub Dependency Review needs the repository dependency graph, which
-        # is enabled by an administrator during the documented baseline rollout.
-        continue-on-error: true
         uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
         with:
           fail-on-severity: high
@@ -73,8 +72,8 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITLEAKS_ENABLE_COMMENTS: "false"
 
-  dependency-and-container-baseline:
-    name: Dependency and Container Baseline
+  dependency-and-container-security:
+    name: Dependency and Container Security
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -95,56 +94,54 @@ jobs:
         run: python -m pip install --disable-pip-version-check --no-input pip-audit==2.10.1
       - name: Audit Python dependencies
         id: python-audit
-        continue-on-error: true
         run: pip-audit -r backend/requirements.txt --format json > "$RUNNER_TEMP/pip-audit.json"
       - name: Install locked frontend dependencies
         working-directory: frontend
         run: npm ci --ignore-scripts
       - name: Audit production frontend dependencies
         id: npm-audit
-        continue-on-error: true
         working-directory: frontend
-        run: npm audit --omit=dev --json > "$RUNNER_TEMP/npm-audit.json"
-      - name: Summarize frontend advisory baseline
+        run: npm audit --omit=dev --audit-level=high --json > "$RUNNER_TEMP/npm-audit.json"
+      - name: Summarize frontend audit result
         if: always()
         run: python3 scripts/supply_chain.py audit-summary --audit-file "$RUNNER_TEMP/npm-audit.json"
-      - name: Scan repository configuration baseline
-        continue-on-error: true
+      - name: Scan repository configuration
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
           severity: HIGH,CRITICAL
           ignore-unfixed: true
+          ignorefile: .trivyignore
           format: table
-          exit-code: "0"
+          exit-code: "1"
       - name: Build backend image without deployment secrets
         run: docker build -f Dockerfile.backend -t local/defi-thesis-risk-copilot-backend:phase19f .
       - name: Build frontend image without deployment secrets
         run: docker build -f Dockerfile.frontend -t local/defi-thesis-risk-copilot-frontend:phase19f .
-      - name: Scan backend container image baseline
-        continue-on-error: true
+      - name: Scan backend container image
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: local/defi-thesis-risk-copilot-backend:phase19f
           format: table
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: "0"
-      - name: Scan frontend container image baseline
-        continue-on-error: true
+          ignorefile: .trivyignore
+          exit-code: "1"
+      - name: Scan frontend container image
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
         with:
           image-ref: local/defi-thesis-risk-copilot-frontend:phase19f
           format: table
           severity: HIGH,CRITICAL
           ignore-unfixed: true
-          exit-code: "0"
-      - name: Upload baseline scan artifacts
+          ignorefile: .trivyignore
+          exit-code: "1"
+      - name: Upload security scan artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
-          name: phase19f-advisory-baseline
+          name: phase19f-security-scan-results
           path: |
             ${{ runner.temp }}/pip-audit.json
             ${{ runner.temp }}/npm-audit.json

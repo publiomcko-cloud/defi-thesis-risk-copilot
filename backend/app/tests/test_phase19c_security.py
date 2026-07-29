@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from contextlib import contextmanager
 
 import pytest
@@ -10,6 +11,43 @@ from pydantic import ValidationError
 from app.core.config import Settings, get_settings
 from app.knowledge.upload_scanner import UploadScanError, require_clean_upload
 from app.main import create_app
+
+
+async def _asgi_status_for_body(app, chunks: list[bytes], content_length: str | None) -> int:
+    """Send raw ASGI frames to prove middleware counts received bytes."""
+
+    pending = list(chunks)
+    sent: list[dict] = []
+
+    async def receive() -> dict:
+        if pending:
+            return {"type": "http.request", "body": pending.pop(0), "more_body": bool(pending)}
+        return {"type": "http.disconnect"}
+
+    async def send(message: dict) -> None:
+        sent.append(message)
+
+    headers = [(b"host", b"api.example.test")]
+    if content_length is not None:
+        headers.append((b"content-length", content_length.encode()))
+    await app(
+        {
+            "type": "http",
+            "asgi": {"version": "3.0", "spec_version": "2.3"},
+            "http_version": "1.1",
+            "method": "POST",
+            "scheme": "https",
+            "path": "/api/analyze",
+            "raw_path": b"/api/analyze",
+            "query_string": b"",
+            "headers": headers,
+            "client": ("198.51.100.10", 12345),
+            "server": ("api.example.test", 443),
+        },
+        receive,
+        send,
+    )
+    return next(message["status"] for message in sent if message["type"] == "http.response.start")
 
 
 def test_api_uses_exact_cors_origins_security_headers_and_origin_checks(
@@ -53,6 +91,24 @@ def test_api_uses_exact_cors_origins_security_headers_and_origin_checks(
     assert forged.status_code == 403
     assert allowed.status_code != 403
     assert oversized.status_code == 413
+
+
+def test_api_measures_chunked_and_misleading_content_length_bodies(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("API_MAX_REQUEST_BYTES", "5")
+    get_settings.cache_clear()
+    try:
+        app = create_app()
+        chunked_status = asyncio.run(_asgi_status_for_body(app, [b"123", b"456"], None))
+        misleading_status = asyncio.run(_asgi_status_for_body(app, [b"123456"], "1"))
+        accepted_status = asyncio.run(_asgi_status_for_body(app, [b"12", b"34"], "1"))
+    finally:
+        get_settings.cache_clear()
+
+    assert chunked_status == 413
+    assert misleading_status == 413
+    # The body guard accepted all four actual bytes; request-schema validation
+    # may reject the empty/non-JSON analysis payload after that point.
+    assert accepted_status != 413
 
 
 def test_security_configuration_rejects_unsafe_origin_and_unscanned_production_storage() -> None:

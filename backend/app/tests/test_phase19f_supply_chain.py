@@ -19,6 +19,7 @@ MODULE_SPEC.loader.exec_module(supply_chain)
 def test_repository_workflows_are_pinned_and_lockfiles_are_reproducible() -> None:
     assert supply_chain.check_workflow_policy(REPO_ROOT) == []
     assert supply_chain.check_lockfiles(REPO_ROOT) == []
+    assert supply_chain.check_security_exceptions(REPO_ROOT) == []
 
 
 def test_workflow_policy_rejects_mutable_actions_and_unsafe_trigger(tmp_path: Path) -> None:
@@ -75,3 +76,31 @@ def test_source_sbom_is_deterministic_and_contains_no_environment_values(tmp_pat
     assert sbom["components"] == sorted(sbom["components"], key=lambda item: item["purl"])
     assert "DATABASE_URL" not in rendered
     assert "WORKER_CREDENTIAL" not in rendered
+
+
+def test_security_exception_policy_rejects_expired_or_untracked_trivy_suppressions(tmp_path: Path) -> None:
+    (tmp_path / "security-exceptions.json").write_text(
+        json.dumps(
+            {
+                "version": 1,
+                "exceptions": [
+                    {
+                        "id": "expired-example",
+                        "scanner": "trivy",
+                        "finding": "CVE-2000-0001",
+                        "owner": "platform-engineering",
+                        "expires_on": "2000-01-01",
+                        "reason": "test only",
+                        "compensating_control": "none",
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    (tmp_path / ".trivyignore").write_text("CVE-2000-0002\n", encoding="utf-8")
+
+    errors = supply_chain.check_security_exceptions(tmp_path)
+
+    assert any("expired" in error for error in errors)
+    assert any("exactly match" in error for error in errors)

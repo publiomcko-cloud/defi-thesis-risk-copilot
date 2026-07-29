@@ -15,6 +15,11 @@ def main() -> int:
     parser.add_argument("--list", action="store_true", help="Print the safe exercise catalog.")
     parser.add_argument("--exercise", action="append", default=[], help="Run one fixed catalog exercise by ID.")
     parser.add_argument("--run", action="store_true", help="Run selected fixed commands after safety checks.")
+    parser.add_argument(
+        "--evidence-file",
+        type=Path,
+        help="Write safe isolated-run metrics only after every selected exercise passes.",
+    )
     args = parser.parse_args()
 
     if args.list:
@@ -33,7 +38,16 @@ def main() -> int:
     except (RuntimeError, ValueError) as exc:
         print(json.dumps({"status": "blocked", "detail": str(exc)}, sort_keys=True))
         return 2
-    print(json.dumps({"status": "passed", "results": [result.__dict__ for result in results]}, sort_keys=True))
+    payload = {
+        "schema_version": 1,
+        "status": "passed",
+        "execution_scope": "isolated-synthetic",
+        "results": [result.__dict__ for result in results],
+    }
+    if args.evidence_file is not None:
+        args.evidence_file.parent.mkdir(parents=True, exist_ok=True)
+        args.evidence_file.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    print(json.dumps(payload, sort_keys=True))
     return 0
 
 

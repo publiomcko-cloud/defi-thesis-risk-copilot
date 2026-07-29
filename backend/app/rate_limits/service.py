@@ -327,7 +327,7 @@ def _scopes_for_request(
     organization_id: str | None,
     settings: Settings | object,
 ) -> list[RateLimitScope]:
-    scopes = [RateLimitScope("ip", _client_identifier(request, settings))]
+    scopes = [RateLimitScope("ip", client_identifier(request, settings))]
     if actor.anonymous_session_id:
         scopes.append(RateLimitScope("session", actor.anonymous_session_id))
     else:
@@ -337,7 +337,9 @@ def _scopes_for_request(
     return scopes
 
 
-def _client_identifier(request: Request, settings: Settings | object) -> str:
+def client_identifier(request: Request, settings: Settings | object) -> str:
+    """Derive an IP scope only from the connection or an explicit trusted proxy."""
+
     client_host = request.client.host if request.client is not None else "unknown"
     if _is_trusted_proxy(client_host, str(getattr(settings, "rate_limit_trusted_proxy_cidrs", ""))):
         forwarded = request.headers.get("x-forwarded-for", "")

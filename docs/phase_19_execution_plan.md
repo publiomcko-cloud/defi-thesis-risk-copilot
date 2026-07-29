@@ -1,6 +1,6 @@
 # V1 Phase 19 Execution Plan — Production Operations and Security
 
-Status: **In Progress — 19A through 19E implemented locally; deployment evidence pending**
+Status: **In Progress — 19A through 19I foundations implemented locally; deployment evidence pending**
 
 This plan implements the [Phase 19 contract](future_phase_contracts.md#v1-phase-19--production-operations-and-security). Read it with [current state](current_state.md), [architecture](architecture.md), [deployment](deployment.md), [testing](testing.md), and the [Phase 18 archive](archive/v1_phase_18/).
 
@@ -75,7 +75,8 @@ ships baseline MIME, frame, referrer, permissions, and opener policies plus a
 report-only CSP by default. HSTS is disabled until the operator confirms every
 covered domain is HTTPS-safe. The API accepts exact configured CORS origins,
 uses explicit request methods/headers, rejects browser mutations from other
-origins, and bounds declared request bodies. The BFF verifies mutating browser
+origins, and measures request bodies even when `Content-Length` is absent or
+misleading. The BFF applies the same measured forwarding bound, verifies mutating browser
 origins, accepts only an origin-only backend configuration, keeps its path
 allowlist, and rejects upstream redirects. Private storage is still disabled;
 when production storage is deliberately enabled, scanning must be required and

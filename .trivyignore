@@ -1,0 +1,2 @@
+# Every ignored Trivy finding must have an exact, active record in
+# security-exceptions.json with an accountable owner and expiry date.

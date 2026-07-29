@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { isIP } from "node:net";
 
 import { ANONYMOUS_COOKIE, backendApiBaseUrl, getValidAccessToken } from "@/lib/server-auth";
+import { bffBodyLimit, readBodyWithinLimit } from "@/lib/request-body-limit";
 import { hasTrustedOrigin } from "@/lib/request-security";
 
 const ALLOWED_EXACT_PATHS = ["/health", "/ready"];
@@ -49,6 +50,12 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   if (!isAllowedBackendPath(targetPath)) {
     return NextResponse.json({ detail: "Unsupported backend path." }, { status: 404 });
   }
+  const bodyResult = request.method === "GET" || request.method === "HEAD"
+    ? { ok: true as const, body: undefined }
+    : await readBodyWithinLimit(request, bffBodyLimit(targetPath));
+  if (!bodyResult.ok) {
+    return NextResponse.json({ detail: bodyResult.detail }, { status: bodyResult.status });
+  }
 
   const responseShell = NextResponse.json({});
   const token = await getValidAccessToken(responseShell);
@@ -94,7 +101,7 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
     backendResponse = await fetch(target, {
       method: request.method,
       headers,
-      body: request.method === "GET" || request.method === "HEAD" ? undefined : await request.text(),
+      body: bodyResult.body,
       cache: "no-store",
       redirect: "manual"
     });
@@ -153,10 +160,11 @@ function normalizeCorrelationId(value: string | null): string {
 }
 
 function normalizedClientIp(request: NextRequest): string | null {
-  // Vercel supplies x-vercel-forwarded-for for proxied requests. The fallback
-  // supports local reverse proxies, but only a backend-configured trusted CIDR
-  // may act on this header.
-  const forwarded = request.headers.get("x-vercel-forwarded-for") ?? request.headers.get("x-forwarded-for");
+  // Vercel injects this header at its trusted edge. Local and self-hosted BFFs
+  // intentionally forward no caller IP until an explicit trusted integration
+  // is added; browser-provided X-Forwarded-For is never accepted here.
+  if (process.env.VERCEL !== "1") return null;
+  const forwarded = request.headers.get("x-vercel-forwarded-for");
   const candidate = forwarded?.split(",", 1)[0].trim() ?? "";
   return isIP(candidate) ? candidate : null;
 }

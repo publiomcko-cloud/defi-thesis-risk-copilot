@@ -27,6 +27,7 @@ class ExerciseDefinition:
     working_directory: str
     command: tuple[str, ...]
     requires_postgres: bool = False
+    max_duration_seconds: int = 180
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,8 @@ class ExerciseResult:
     id: str
     status: str
     duration_seconds: float
+    timeout_seconds: int
+    test_cases: int
     runbook_id: str
 
 
@@ -169,17 +172,25 @@ def run_exercises(
         with tempfile.TemporaryDirectory(prefix="phase19-exercise-") as temporary_directory:
             junit_path = Path(temporary_directory) / "results.xml"
             command = _command_with_safe_test_report(exercise.command, junit_path)
-            completed = runner(
-                command,
-                cwd=repository_root / exercise.working_directory,
-                env=environment,
-                check=False,
-                capture_output=True,
-                text=True,
-                timeout=settings.operations_exercise_timeout_seconds,
-            )
-            failed_tests = _failed_test_identifiers(junit_path)
+            timeout_seconds = min(settings.operations_exercise_timeout_seconds, exercise.max_duration_seconds)
+            try:
+                completed = runner(
+                    command,
+                    cwd=repository_root / exercise.working_directory,
+                    env=environment,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                    timeout=timeout_seconds,
+                )
+            except subprocess.TimeoutExpired as exc:
+                raise RuntimeError(
+                    f"Phase 19 exercise timed out: {exercise.id} after {timeout_seconds}s"
+                ) from exc
+            test_cases, failed_tests = _junit_metrics(junit_path)
         duration = round(time.monotonic() - started, 3)
+        if duration > timeout_seconds:
+            raise RuntimeError(f"Phase 19 exercise exceeded its time bound: {exercise.id}")
         if completed.returncode != 0:
             detail = f" (failed tests: {', '.join(failed_tests)})" if failed_tests else ""
             raise RuntimeError(f"Phase 19 exercise failed: {exercise.id}{detail}")
@@ -188,6 +199,8 @@ def run_exercises(
                 id=exercise.id,
                 status="passed",
                 duration_seconds=duration,
+                timeout_seconds=timeout_seconds,
+                test_cases=test_cases,
                 runbook_id=exercise.runbook_id,
             )
         )
@@ -220,17 +233,18 @@ def _command_with_safe_test_report(command: tuple[str, ...], junit_path: Path) -
     return (*command, f"--junitxml={junit_path}")
 
 
-def _failed_test_identifiers(junit_path: Path) -> tuple[str, ...]:
-    """Return a small, non-sensitive diagnostic from a pytest JUnit report."""
+def _junit_metrics(junit_path: Path) -> tuple[int, tuple[str, ...]]:
+    """Return bounded test counts and non-sensitive failure identifiers."""
     if not junit_path.exists():
-        return ()
+        return 0, ()
     try:
         root = ElementTree.parse(junit_path).getroot()
     except ElementTree.ParseError:
-        return ()
+        return 0, ()
 
     failures: list[str] = []
-    for testcase in root.iter("testcase"):
+    testcases = tuple(root.iter("testcase"))
+    for testcase in testcases:
         if testcase.find("failure") is None and testcase.find("error") is None:
             continue
         classname = testcase.get("classname", "unknown")
@@ -238,4 +252,4 @@ def _failed_test_identifiers(junit_path: Path) -> tuple[str, ...]:
         failures.append(f"{classname}::{name}")
         if len(failures) == 3:
             break
-    return tuple(failures)
+    return len(testcases), tuple(failures)

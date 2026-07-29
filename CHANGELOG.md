@@ -51,6 +51,14 @@
   in an explicit isolated non-production environment. Deployed storage policy,
   tenant/worker, report/citation, monitoring, and rollback evidence remains
   external to the repository.
+- Hardened the Phase 19 foundations: `/api/jobs` now passes the actual FastAPI
+  request into its shared limiter; BFF/API body limits count actual stream
+  bytes; untrusted forwarded-IP fallbacks are rejected; isolated exercises emit
+  bounded safe metrics; and high/critical dependency/container/repository
+  findings now fail CI unless an explicit owned, time-bounded exception exists.
+  Centralized telemetry, alert delivery, restore drills, secret rotation,
+  protected-branch enforcement, and deployed durable-RAG evidence remain
+  external Phase 19/22 gates.
 
 ## Phase 18 — Merged
 

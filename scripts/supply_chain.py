@@ -9,6 +9,7 @@ environment variables or writes secret-bearing data.
 from __future__ import annotations
 
 import argparse
+from datetime import date
 import json
 import re
 import sys
@@ -20,6 +21,7 @@ from urllib.parse import quote
 SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 USES_PATTERN = re.compile(r"^\s*-?\s*uses:\s*([^\s#]+)", re.MULTILINE)
 PINNED_REQUIREMENT_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*(?:\[[^]]+\])?==[^\s;]+$")
+EXCEPTION_SCANNERS = {"dependency-review", "pip-audit", "npm-audit", "trivy"}
 
 
 def workflow_files(repo_root: Path) -> list[Path]:
@@ -151,9 +153,67 @@ def audit_summary(audit_path: Path) -> dict[str, int]:
     return {severity: int(vulnerabilities.get(severity, 0)) for severity in ("critical", "high", "moderate", "low", "info")}
 
 
+def check_security_exceptions(repo_root: Path) -> list[str]:
+    """Require every scanner suppression to be explicit, owned, and unexpired."""
+
+    errors: list[str] = []
+    exception_path = repo_root / "security-exceptions.json"
+    try:
+        payload = json.loads(exception_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        return [f"security exception registry is unreadable: {error}"]
+    if not isinstance(payload, dict) or payload.get("version") != 1 or not isinstance(payload.get("exceptions"), list):
+        return ["security-exceptions.json must contain version 1 and an exceptions list"]
+
+    seen_ids: set[str] = set()
+    active_trivy_findings: set[str] = set()
+    required_fields = {"id", "scanner", "finding", "owner", "expires_on", "reason", "compensating_control"}
+    for index, exception in enumerate(payload["exceptions"]):
+        label = f"security exception {index}"
+        if not isinstance(exception, dict):
+            errors.append(f"{label} must be an object")
+            continue
+        missing = sorted(field for field in required_fields if not isinstance(exception.get(field), str) or not exception[field].strip())
+        if missing:
+            errors.append(f"{label} is missing required fields: {', '.join(missing)}")
+            continue
+        exception_id = exception["id"]
+        if exception_id in seen_ids:
+            errors.append(f"duplicate security exception id: {exception_id}")
+        seen_ids.add(exception_id)
+        if exception["scanner"] not in EXCEPTION_SCANNERS:
+            errors.append(f"{label} has unsupported scanner: {exception['scanner']}")
+        try:
+            expires_on = date.fromisoformat(exception["expires_on"])
+        except ValueError:
+            errors.append(f"{label} has invalid expires_on date")
+            continue
+        if expires_on <= date.today():
+            errors.append(f"{label} is expired or expires today")
+        if exception["scanner"] == "trivy":
+            active_trivy_findings.add(exception["finding"])
+
+    trivy_ignore_path = repo_root / ".trivyignore"
+    try:
+        ignored = {
+            line.strip()
+            for line in trivy_ignore_path.read_text(encoding="utf-8").splitlines()
+            if line.strip() and not line.lstrip().startswith("#")
+        }
+    except OSError as error:
+        errors.append(f".trivyignore is unreadable: {error}")
+        ignored = set()
+    if ignored != active_trivy_findings:
+        errors.append(".trivyignore must exactly match active trivy findings in security-exceptions.json")
+    return errors
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("check-workflows", "check-lockfiles", "generate-sbom", "audit-summary"))
+    parser.add_argument(
+        "command",
+        choices=("check-workflows", "check-lockfiles", "check-security-exceptions", "generate-sbom", "audit-summary"),
+    )
     parser.add_argument("--repo-root", type=Path, default=Path(__file__).resolve().parents[1])
     parser.add_argument("--output", type=Path)
     parser.add_argument("--audit-file", type=Path)
@@ -173,6 +233,13 @@ def main() -> int:
             print("Lockfile policy failed:", *errors, sep="\n", file=sys.stderr)
             return 1
         print("Lockfile policy passed.")
+        return 0
+    if args.command == "check-security-exceptions":
+        errors = check_security_exceptions(repo_root)
+        if errors:
+            print("Security exception policy failed:", *errors, sep="\n", file=sys.stderr)
+            return 1
+        print("Security exception policy passed.")
         return 0
     if args.command == "generate-sbom":
         if args.output is None:

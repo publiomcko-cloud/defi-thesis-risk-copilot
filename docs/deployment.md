@@ -96,6 +96,8 @@ recorded final Vercel/Render origins, a CSP report review, and the HTTPS scope:
 FRONTEND_ORIGIN=https://defi-thesis-risk-copilot.vercel.app
 BFF_ALLOWED_ORIGINS=https://defi-thesis-risk-copilot.vercel.app
 API_MAX_REQUEST_BYTES=1048576
+BFF_MAX_REQUEST_BYTES=1048576
+BFF_KNOWLEDGE_UPLOAD_MAX_BYTES=10616832
 SECURITY_CSP_MODE=report_only
 SECURITY_CSP_REPORT_URI=
 SECURITY_HSTS_ENABLED=false
@@ -105,8 +107,11 @@ KNOWLEDGE_UPLOAD_SCANNING_REQUIRED=false
 
 `FRONTEND_ORIGIN` is the exact backend CORS allowlist. `BFF_ALLOWED_ORIGINS`
 is the exact same-origin browser allowlist for BFF mutations and must not be a
-wildcard. The BFF does not accept a path, credentials, redirect, or
-request-selected upstream target. Keep CSP report-only while reviewing browser
+wildcard. `BFF_MAX_REQUEST_BYTES` and `BFF_KNOWLEDGE_UPLOAD_MAX_BYTES` must
+match the backend route budgets. Both BFF and API count actual received bytes,
+so a missing or misleading `Content-Length` cannot enlarge the request. The BFF
+does not accept a path, credentials, redirect, or request-selected upstream
+target. Keep CSP report-only while reviewing browser
 compatibility. Set `SECURITY_HSTS_ENABLED=true` only after every included
 subdomain is HTTPS-safe; rollback a bad policy by setting it back to `false`.
 

@@ -82,4 +82,13 @@ jobs:
 
       - name: Run fixed isolated exercise catalog
         working-directory: backend
-        run: python -m scripts.run_phase19_exercises --run
+        run: python -m scripts.run_phase19_exercises --run --evidence-file "$RUNNER_TEMP/phase19-exercise-evidence.json"
+
+      - name: Upload bounded exercise evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase19-isolated-exercise-evidence
+          path: ${{ runner.temp }}/phase19-exercise-evidence.json
+          if-no-files-found: ignore
+          retention-days: 30

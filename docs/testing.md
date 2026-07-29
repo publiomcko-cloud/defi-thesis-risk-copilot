@@ -429,6 +429,7 @@ approved RPO/RTO, encryption-key migration, or production secret-store audit.
 ```bash
 python3 scripts/supply_chain.py check-workflows
 python3 scripts/supply_chain.py check-lockfiles
+python3 scripts/supply_chain.py check-security-exceptions
 python3 scripts/supply_chain.py generate-sbom --output /tmp/defi-sbom.cdx.json
 
 cd backend
@@ -442,9 +443,10 @@ npm audit --omit=dev
 
 The focused tests reject mutable workflow actions, `pull_request_target`,
 persisted checkout credentials, and unlocked Python requirements; they also
-validate deterministic secret-free SBOM generation. GitHub hosts the Dependency
-Review, Gitleaks, CodeQL, and Trivy checks. Their first hosted baseline, main
-ruleset configuration, required-check evidence, and external-PR preview-secret
+validate deterministic secret-free SBOM generation and exact owned,
+time-bounded scanner suppressions. GitHub blocks high/critical Dependency
+Review, dependency, and Trivy findings. Its first hosted evidence, main ruleset
+configuration, required-check enforcement, and external-PR preview-secret
 isolation still require an administrator and must not be claimed from local
 tests alone.
 
@@ -480,7 +482,7 @@ VAST_ENABLED=false \
 VAST_DRY_RUN=true \
 VAST_REAL_RENTALS_ENABLED=false \
 RUN_POSTGRES_INTEGRATION=true \
-python -m scripts.run_phase19_exercises --run
+python -m scripts.run_phase19_exercises --run --evidence-file /tmp/phase19-exercise-evidence.json
 
 cd ../frontend
 npm run test:accessibility
@@ -489,7 +491,9 @@ npm run test:accessibility
 The runner exercises fixed rate-limit, admission, worker-loss, fake-provider,
 storage, vector-repair, migration, authorization, recovery, and semantic
 accessibility paths. It rejects production, non-isolated, real-provider, and
-arbitrary-command operation; it writes no durable test record or customer data.
+arbitrary-command operation; it records only bounded duration, timeout, test
+case count, runbook ID, and pass/fail metrics, never durable test data or
+customer data.
 The scheduled no-secret GitHub workflow adds isolated weekly evidence. These
 results are not production load capacity, provider, pager, customer-data,
 assistive-technology, or chaos-test evidence.
