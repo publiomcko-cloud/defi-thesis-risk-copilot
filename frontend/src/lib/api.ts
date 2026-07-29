@@ -86,8 +86,17 @@ function requestInit(init: RequestInit = {}): RequestInit {
 }
 
 function newCorrelationId(): string {
-  const uuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}${Math.random().toString(16).slice(2)}`;
-  return `web_${uuid.replaceAll("-", "")}`;
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi) {
+    throw new Error("Secure browser randomness is required to create a correlation identifier.");
+  }
+  if (typeof cryptoApi.randomUUID === "function") {
+    return `web_${cryptoApi.randomUUID().replaceAll("-", "")}`;
+  }
+
+  const bytes = new Uint8Array(16);
+  cryptoApi.getRandomValues(bytes);
+  return `web_${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
 async function errorDetail(response: Response, fallback: string): Promise<string> {

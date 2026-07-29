@@ -281,9 +281,16 @@ export function StrategyInputForm() {
 }
 
 function createIdempotencyKey(): string {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto
-    ? crypto.randomUUID()
-    : `analysis-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  if (typeof crypto === "undefined") {
+    throw new Error("Secure browser randomness is required to submit an analysis.");
+  }
+  if (typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 function isTerminalJob(status: AnalysisResponse["status"]): boolean {
