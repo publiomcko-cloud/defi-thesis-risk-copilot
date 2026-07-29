@@ -28,6 +28,11 @@ All third-party actions in `.github/workflows/` are pinned to full commit SHAs.
 Comments retain the reviewed release family. Renovation of an action pin occurs
 only through a reviewed Dependabot pull request or a documented emergency fix.
 
+`.gitleaksignore` contains only reviewed fingerprints for historical,
+deterministic test/document fixtures. It does not ignore a file, rule, current
+source, or commit history. Any new match remains a failure until it is
+investigated.
+
 ## Baseline and findings process
 
 1. Review generated artifacts and GitHub Security/Dependabot alerts without
