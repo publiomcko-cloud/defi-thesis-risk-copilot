@@ -201,6 +201,12 @@ before required-check or release-complete claims.
 | Rollback | Disable durable ingestion/retrieval flags in documented order, retain durable records for investigation, and return reports to JSON RAG. |
 | Completion | Controlled shadow and isolated primary-path evidence recorded. Broad customer cutover, final launch approval, and commercial production claims remain Phase 22 decisions. |
 
+19I implementation status: **local rollout controls and validation tooling are
+implemented.** The checker is read-only, requires an explicit operator flag,
+and rejects primary-path validation outside an isolated non-production
+environment. Deployed storage-policy, synthetic-tenant, worker, monitoring,
+and rollback evidence remains an external gate.
+
 ## 4. Cross-slice validation and completion matrix
 
 Each implementation slice runs the relevant baseline in [testing](testing.md): backend and PostgreSQL integration, migration upgrade/downgrade/upgrade when schema changes, frontend lint/BFF/MFA/browser checks, worker checks, recovery/cleanup dry runs, and default/worker/production Compose validation. Add focused security, load, accessibility, and failure tests before enabling each respective control.

@@ -45,6 +45,12 @@
   configuration. The ten local exercises pass without real provider execution;
   production load/chaos, pager, customer-data, and assistive-technology
   evidence remain external gates.
+- Implemented 19I locally with a read-only controlled durable-RAG readiness
+  validator. It verifies the approved shadow prerequisites and JSON fallback,
+  blocks primary retrieval in production, and allows a primary-path check only
+  in an explicit isolated non-production environment. Deployed storage policy,
+  tenant/worker, report/citation, monitoring, and rollback evidence remains
+  external to the repository.
 
 ## Phase 18 — Merged
 

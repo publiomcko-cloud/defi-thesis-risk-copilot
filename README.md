@@ -22,7 +22,7 @@ The Render free-tier backend may cold-start after inactivity.
 
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–18
-In progress: V1 Phase 19 (19A-19H operations/security foundations, recovery verification, supply-chain controls, incident response, and isolated failure exercises)
+In progress: V1 Phase 19 (19A-19I operations/security foundations, recovery verification, supply-chain controls, incident response, isolated failure exercises, and controlled durable-RAG rollout checks)
 Planned:   V1 Phases 20–22
 ```
 

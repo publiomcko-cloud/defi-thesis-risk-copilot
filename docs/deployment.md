@@ -1025,6 +1025,28 @@ These live Supabase policy, two-user, worker, and primary-cutover steps are
 external Phase 22 evidence until they are executed against the deployed
 environment. They are intentionally not claimed by local CI.
 
+## Phase 19I Controlled Durable-RAG Validation
+
+Phase 19I adds a read-only guard for the documented controlled rollout. It
+does not create a tenant, upload a document, change a feature flag, or expose
+storage information. Use the complete operator sequence in
+[`operations/controlled_rag_rollout.md`](operations/controlled_rag_rollout.md).
+
+For a shadow-only production check, enable the explicit validation flag while
+leaving `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=false`, then run:
+
+```bash
+cd backend
+python -m scripts.check_controlled_rag_rollout --mode shadow
+```
+
+The checker requires database and pgvector readiness, JSON fallback, storage,
+ingestion/worker/embedding/shadow prerequisites, and a dry-run-only Vast
+configuration. A primary-path check is available only in a separately isolated
+non-production environment with `CONTROLLED_RAG_VALIDATION_ISOLATED=true`.
+The application rejects the primary flag in production, so it cannot be
+accidentally enabled through a deployment variable.
+
 Phase 18F adds a controlled retention command:
 
 ```bash

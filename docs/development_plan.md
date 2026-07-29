@@ -456,6 +456,16 @@ refuses production, non-isolated operation, arbitrary commands, and real Vast
 rentals. Production load/chaos, provider, customer-data, alert/pager, and full
 assistive-technology evidence remain external gates.
 
+Phase 19I is implemented locally: `check_controlled_rag_rollout` is a
+read-only, explicit opt-in readiness validator for the narrow durable-RAG
+deployment sequence. It verifies the shadow prerequisites, pgvector, JSON
+fallback, worker/ingestion dependencies, and dry-run provider posture. A
+primary-path check is limited to an isolated non-production environment, while
+production configuration rejects `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true`.
+The real storage-policy/RLS probe, synthetic tenant and worker evidence,
+durable-versus-JSON comparison, citation review, monitoring, and tested
+rollback must be retained in the approved external evidence system.
+
 Core outcomes:
 
 - threat model;

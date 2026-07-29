@@ -655,6 +655,16 @@ no deployment/provider credentials. It verifies existing failure handling and
 semantic browser contracts; it is not a production capacity, provider, pager,
 or full accessibility certification system.
 
+Phase 19I adds a read-only rollout-readiness boundary around the existing
+durable-RAG controls. It checks only safe booleans: database/pgvector and JSON
+fallback availability, explicitly enabled storage/ingestion/worker/embedding/
+shadow dependencies, and dry-run provider posture. It neither mutates a
+feature flag nor touches tenant content. The production configuration rejects
+the pgvector-primary flag; an actual primary report-path check is possible only
+in an explicitly isolated non-production environment. Private bucket/RLS,
+synthetic identities, worker execution, report/citation comparison, alerting,
+and rollback records remain external operational evidence.
+
 ---
 
 ## 19. Phase 20 target — commercial product

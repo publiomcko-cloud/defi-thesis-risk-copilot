@@ -352,6 +352,18 @@ shadow-mode checks. It must retain JSON RAG as the fallback and must not claim
 Phase 18 production activation until the deployed policy and cutover gates are
 evidenced in Phase 22.
 
+### Phase 19I implemented coverage
+
+`test_phase19i_controlled_rag.py` verifies that the controlled rollout checker
+requires an explicit opt-in, checks JSON fallback and pgvector readiness,
+returns only safe booleans, requires isolated mode for a primary-path probe,
+and rejects `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED` in production. Existing
+Phase 18 integration tests cover private/organization isolation, worker-owned
+ingestion, durable report citation lineage, public-only anonymous retrieval,
+and JSON fallback. Deployed storage policy, synthetic identities, worker
+availability, report comparison, monitoring, and rollback remain external
+evidence requirements.
+
 ### Phase 19C implemented coverage
 
 ```bash

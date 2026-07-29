@@ -32,6 +32,8 @@ class Settings(BaseSettings):
     operations_exercises_enabled: bool = False
     operations_exercises_isolated: bool = False
     operations_exercise_timeout_seconds: int = 180
+    controlled_rag_validation_enabled: bool = False
+    controlled_rag_validation_isolated: bool = False
     backup_restore_drill_enabled: bool = False
     backup_retention_guard_enabled: bool = False
     backup_restore_evidence_reference: str = ""
@@ -219,6 +221,10 @@ class Settings(BaseSettings):
             raise ValueError("OPERATIONS_EXERCISES_ENABLED requires OPERATIONS_EXERCISES_ISOLATED=true")
         if not 5 <= self.operations_exercise_timeout_seconds <= 600:
             raise ValueError("OPERATIONS_EXERCISE_TIMEOUT_SECONDS must be between 5 and 600")
+        if self.controlled_rag_validation_isolated and not self.controlled_rag_validation_enabled:
+            raise ValueError(
+                "CONTROLLED_RAG_VALIDATION_ISOLATED requires CONTROLLED_RAG_VALIDATION_ENABLED"
+            )
         if min(
             self.operations_monitoring_window_hours,
             self.operations_monitoring_event_limit,
@@ -344,6 +350,10 @@ class Settings(BaseSettings):
         if self.knowledge_pgvector_primary_enabled and not self.knowledge_shadow_retrieval_enabled:
             raise ValueError(
                 "KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED requires KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED"
+            )
+        if self.app_env == "production" and self.knowledge_pgvector_primary_enabled:
+            raise ValueError(
+                "KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED cannot run in production before Phase 22 approval"
             )
         if not 1 <= self.knowledge_shadow_retrieval_top_k <= 20:
             raise ValueError("KNOWLEDGE_SHADOW_RETRIEVAL_TOP_K must be between 1 and 20")
