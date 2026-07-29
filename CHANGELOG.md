@@ -34,6 +34,12 @@
   runbook. Pinned Python/npm manifests now audit clean locally. GitHub main
   protection and the first hosted scanner baseline still require administrator
   rollout evidence.
+- Implemented 19G locally with versioned incident/security-operation runbooks,
+  aggregate-alert ID mapping, evidence-handling rules, and ten synthetic
+  tabletop scripts. The repository does not contain a pager, on-call roster,
+  incident tracker, or exercise evidence; named owners, communications
+  authority, approved evidence location, and completed tabletops remain
+  external gates.
 
 ## Phase 18 — Merged
 

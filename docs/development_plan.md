@@ -436,6 +436,17 @@ application manifests audit clean locally. GitHub branch rules, first hosted
 scan evidence, scanner triage ownership, and promotion of the baseline scans to
 required checks remain deployment gates.
 
+Phase 19G is implemented locally: versioned incident and security-operations
+runbooks cover credential exposure, account takeover, tenant exposure,
+malicious sources, queue duplication, provider cost, database/object-storage
+outage, vector integrity, failed migration, and compromised workers. The
+registry maps existing aggregate alert IDs to stable response procedures; a
+structural check verifies required ownership, containment, recovery,
+communications, evidence, and retrospective sections. Named human
+primary/backup owners, a communication authority, an approved private evidence
+location, alert delivery integration, and recorded tabletop exercises remain
+deployment gates.
+
 Core outcomes:
 
 - threat model;

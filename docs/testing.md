@@ -436,6 +436,23 @@ ruleset configuration, required-check evidence, and external-PR preview-secret
 isolation still require an administrator and must not be claimed from local
 tests alone.
 
+### Phase 19G implemented coverage
+
+```bash
+python3 scripts/check_incident_runbooks.py
+
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19g_incident_runbooks.py
+```
+
+The structural check verifies the stable runbook registry, ten tabletop
+scenarios, ownership/communication declarations, and detection, containment,
+eradication, recovery, communications, evidence, and retrospective sections.
+It does not claim a pager, named on-call owner, incident system, provider
+exercise, customer-data test, or production tabletop outcome. Those are Phase
+19G deployment gates and final evidence remains part of Phase 22 approval.
+
 ## 9. Phase 20 validation
 
 Test analytics consent, notification preferences, signed webhooks, delivery retry, schedules/timezones, entitlements, billing event idempotency, organization seats, and data export/deletion integration.

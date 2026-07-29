@@ -636,6 +636,16 @@ container-image scans operate in CI without deployment credentials. GitHub
 ruleset and security-provider configuration remain an external control-plane
 boundary.
 
+Phase 19G makes operational response explicit without adding a runtime incident
+or paging service. Existing aggregate monitoring alerts retain stable runbook
+IDs; the versioned incident registry maps them to containment, recovery,
+communication, evidence, and retrospective procedures. Incident records,
+on-call names, pager routes, raw logs, customer data, credentials, and forensic
+artifacts remain in approved private operational systems rather than the
+application database, browser, or repository. The registry and tabletop scripts
+are structural local evidence only; named owners and exercised-response evidence
+are required before deployment-complete claims.
+
 ---
 
 ## 19. Phase 20 target — commercial product

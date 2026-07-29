@@ -183,6 +183,29 @@ workflow constructs local container images only for scanning and does not
 publish them. To roll back a scanner, use the documented reviewed exception
 process; do not disable functional CI, secret scanning, or workflow policy.
 
+## Phase 19G incident-response rollout
+
+The repository contains no pager, incident ticket, contact roster, or evidence
+store. Before relying on the local monitoring candidates for operational
+response, the deployment operator must assign named primary/backup owners,
+incident commander coverage, and communication authority in the approved
+private operations system. Record the approved evidence location, legal/privacy
+escalation route, and status-page process there as well.
+
+Use [`operations/incidents/README.md`](operations/incidents/README.md) to map
+the existing `operations.*` alert IDs to versioned procedures, and run the ten
+synthetic [tabletop scripts](operations/incidents/tabletop_exercises.md) before
+enabling an external alert receiver. Keep alert delivery disabled until a
+non-production receiver test and its evidence reference are approved. Do not
+place pager tokens, contact details, incident content, evidence URLs with
+credentials, raw logs, or customer data in environment files, browser values,
+CI output, or the repository.
+
+For rollback, revert the runbook change only through normal review. Reverse a
+runtime containment action only after the incident commander records the
+recovery verification described by that procedure. These runbooks do not enable
+Phase 18 storage flags, real Vast.ai rentals, or destructive recovery actions.
+
 ---
 
 ## 2. Supported deployment modes
