@@ -9,7 +9,7 @@ Authoritative references:
 - [`archive/v1_phase_17/`](archive/v1_phase_17/) — archived Phase 17 plan, corrections, and validation evidence;
 - [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 plan, validation, correction, migration, and cutover evidence;
 - [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — active Phase 19 implementation plan;
-- [`phase_19_threat_model.md`](phase_19_threat_model.md) and [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) — Phase 19A–19E risk and evidence record;
+- [`phase_19_threat_model.md`](phase_19_threat_model.md) and [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) — Phase 19A–19F risk and evidence record;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22 contract;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -52,7 +52,7 @@ Current status:
 V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
-V1 Phase 19 — In progress; 19A–19E observability, limiter, edge/upload, monitoring, and local recovery-verification foundations implemented locally
+V1 Phase 19 — In progress; 19A–19F observability, limiter, edge/upload, monitoring, recovery-verification, and CI/CD supply-chain foundations implemented locally
 V1 Phases 20–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -359,7 +359,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 - monitoring/discovery are manually initiated;
 - the production hybrid frontend exposes public demo/login routes alongside authenticated workspace
   navigation; platform-admin APIs remain role-protected by the backend rather than by hidden URLs;
-- production observability, WAF, backups, restore drills, and incident operations are later phases;
+- provider backup/restore, deployed observability/WAF evidence, GitHub branch-protection/scanner-baseline evidence, and incident operations remain Phase 19/22 gates;
 - billing, notifications, and commercial support workflows are not implemented;
 - model/research expansion remains later-phase work;
 - no wallet, signing, custody, private-key handling, or execution exists.
@@ -395,7 +395,11 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   probe is configured. 19E adds a disabled metadata-only restore verifier,
   opt-in retention evidence guard, and secret-inventory/runbook templates; no
   provider backup/restore, approved RPO/RTO, or encryption-key migration is
-  implemented or claimed;
+  implemented or claimed. 19F adds SHA-pinned/read-only security workflows,
+  dependency remediation, lockfile/action policy checks, source SBOM artifacts,
+  secret/SAST/dependency/container scans, Dependabot, and a findings runbook.
+  GitHub main ruleset configuration and first hosted scanner-baseline evidence
+  remain external rollout gates;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.

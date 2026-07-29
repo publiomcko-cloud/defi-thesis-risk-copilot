@@ -426,6 +426,16 @@ approved RPO/RTO, a provider restore drill, secret-store audit, emergency
 rotation exercise, and encryption-key migration remain required before any
 recovery claim.
 
+Phase 19F is implemented locally: workflows use immutable action SHAs and
+least-privilege permissions; repository policy checks reject mutable actions,
+unsafe pull-request triggers, persisted checkout credentials, and unlocked
+application manifests. CI generates a safe source-lockfile SBOM and adds
+Dependency Review, Gitleaks, CodeQL, and Trivy repository/container baseline
+scans; Dependabot proposes weekly pip, npm, and action updates. The remediated
+application manifests audit clean locally. GitHub branch rules, first hosted
+scan evidence, scanner triage ownership, and promotion of the baseline scans to
+required checks remain deployment gates.
+
 Core outcomes:
 
 - threat model;

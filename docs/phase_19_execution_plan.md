@@ -145,6 +145,18 @@ key migration remain external completion gates.
 | Rollback | Disable a broken new scanner only with a recorded reason, expiry, owner, and bounded alternative; never remove current passing CI checks. |
 | Completion | Protected `main`, required scans/tests, dependency-update process, findings workflow, SBOM where practical, and secret-free previews. |
 
+Implementation status: **implemented locally, deployment evidence pending.**
+The repository now enforces full-SHA action pins, read-only default workflow
+permissions, no `pull_request_target`, non-persisted checkout credentials, and
+reproducible application-manifest policy checks. It generates a CycloneDX
+source-lockfile SBOM, runs Dependency Review and Gitleaks as workflow checks,
+and adds CodeQL plus Trivy repository/container scans in an informational
+baseline mode. Dependabot proposes weekly updates. The direct/transitive npm
+findings recorded before this slice and the Python audit findings have been
+remediated in the pinned manifests. GitHub ruleset configuration, hosted scan
+triage, and proof that preview/external PRs receive no secrets remain required
+before required-check or release-complete claims.
+
 ### 19G — Incident-response and security-operations runbooks
 
 | Item | Plan |

@@ -27,6 +27,13 @@
   verifier, an opt-in retention evidence guard, and secret/backup runbooks.
   Provider backup/restore, approved RPO/RTO, secret-store audit, and
   encryption-key migration remain external gates.
+- Implemented 19F locally with commit-SHA-pinned GitHub Actions, read-only
+  workflow defaults, no `pull_request_target`, lockfile/action policy checks,
+  source-lockfile SBOM artifacts, dependency review, Gitleaks, CodeQL, Trivy
+  repository/container baseline scans, Dependabot, and a security-triage
+  runbook. Pinned Python/npm manifests now audit clean locally. GitHub main
+  protection and the first hosted scanner baseline still require administrator
+  rollout evidence.
 
 ## Phase 18 — Merged
 

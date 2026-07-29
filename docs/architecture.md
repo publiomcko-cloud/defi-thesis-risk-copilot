@@ -627,6 +627,15 @@ and restore. The optional retention guard requires a server-side recovery
 evidence identifier before destructive cleanup; it does not alter default
 Phase 17 cleanup or job recovery behavior.
 
+Phase 19F keeps build-pipeline trust separate from runtime trust. GitHub Actions
+use immutable action revisions and least-privilege permissions; a standard
+library policy utility validates workflow and lockfile invariants before project
+dependencies are installed. Its SBOM is derived only from pinned Python/npm
+metadata, never runtime configuration or secrets. Dependency/secret/SAST and
+container-image scans operate in CI without deployment credentials. GitHub
+ruleset and security-provider configuration remain an external control-plane
+boundary.
+
 ---
 
 ## 19. Phase 20 target — commercial product

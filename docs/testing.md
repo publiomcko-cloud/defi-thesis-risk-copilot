@@ -412,6 +412,30 @@ execution, and records provider credential update/disable behavior without
 returning a secret. It does not prove a provider database/object restore,
 approved RPO/RTO, encryption-key migration, or production secret-store audit.
 
+### Phase 19F implemented coverage
+
+```bash
+python3 scripts/supply_chain.py check-workflows
+python3 scripts/supply_chain.py check-lockfiles
+python3 scripts/supply_chain.py generate-sbom --output /tmp/defi-sbom.cdx.json
+
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19f_supply_chain.py
+pip-audit -r requirements.txt
+
+cd ../frontend
+npm audit --omit=dev
+```
+
+The focused tests reject mutable workflow actions, `pull_request_target`,
+persisted checkout credentials, and unlocked Python requirements; they also
+validate deterministic secret-free SBOM generation. GitHub hosts the Dependency
+Review, Gitleaks, CodeQL, and Trivy checks. Their first hosted baseline, main
+ruleset configuration, required-check evidence, and external-PR preview-secret
+isolation still require an administrator and must not be claimed from local
+tests alone.
+
 ## 9. Phase 20 validation
 
 Test analytics consent, notification preferences, signed webhooks, delivery retry, schedules/timezones, entitlements, billing event idempotency, organization seats, and data export/deletion integration.

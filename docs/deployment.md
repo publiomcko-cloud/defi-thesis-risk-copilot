@@ -168,6 +168,21 @@ The verifier refuses `APP_ENV=production`, and `BACKUP_RETENTION_GUARD_ENABLED`
 blocks non-dry cleanup when no reference is configured. Neither control creates
 provider backups, exposes a secret, or substitutes Alembic for data recovery.
 
+## Phase 19F CI/CD security rollout
+
+The repository controls are active in GitHub Actions without deployment secrets.
+`Supply Chain Security` uses a read-only token and does not run under
+`pull_request_target`; `CodeQL` only uploads security results with its scoped
+`security-events: write` permission. Both use full-SHA action pins. Do not add
+Render, Vercel, Supabase, worker, or provider credentials to these workflows.
+
+Before treating the scans as release enforcement, follow
+[`operations/supply_chain_security.md`](operations/supply_chain_security.md) to
+review the first hosted baseline and configure required checks on `main`. The
+workflow constructs local container images only for scanning and does not
+publish them. To roll back a scanner, use the documented reviewed exception
+process; do not disable functional CI, secret scanning, or workflow policy.
+
 ---
 
 ## 2. Supported deployment modes

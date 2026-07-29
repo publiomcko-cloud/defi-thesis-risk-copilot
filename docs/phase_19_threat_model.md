@@ -1,6 +1,6 @@
 # Phase 19 Threat Model
 
-Status: **19A–19E foundations implemented locally; review and operational rollout evidence pending.**
+Status: **19A–19F foundations implemented locally; review and operational rollout evidence pending.**
 
 This is the living threat model for V1 Phase 19. It records no credentials, customer content, storage keys, or personal data. Security/audit records remain separate from operational telemetry and retain their existing authorization and retention rules.
 
@@ -14,7 +14,7 @@ This is the living threat model for V1 Phase 19. It records no credentials, cust
 | Identity and administration | Account takeover, recovery/MFA abuse, privileged misuse, audit tampering | Existing Phase 16 authentication, role, MFA, and audit boundaries are preserved; operational endpoint requires platform admin. | Deployed two-user/MFA evidence and incident exercises: 19G/Phase 22. |
 | Public compute and providers | Rate-limit bypass, DoS, provider-cost abuse, secret exposure | 19B supplies a disabled-by-default PostgreSQL shared limiter with IP/session/user/verified-org scopes, burst/sustained windows, retry metadata, and fail-closed compute/job behavior in enforce mode. Phase 17 reservation controls remain unchanged; real Vast rentals remain disabled. | Alert owner, production proxy configuration, preview shadow evidence, and staged enforcement remain required. Provider failure and cost exercises: 19H. |
 | Recovery and secret lifecycle | Stale/unrecoverable backups, object/database mismatch, destructive retention before recovery evidence, secret leak, or unsafe key replacement | 19E creates only salted metadata-only restore manifests for isolated targets, has an opt-in server-side retention evidence guard, and documents provider/worker rotation without values. Existing worker/provider credential paths remain admin-only and audited. | Provider backup/object versioning, encryption verification, approved RPO/RTO, isolated provider restore drill, secret-store audit, emergency exercise, and encryption-key dual-read migration remain required. |
-| Supply chain and recovery | Compromised dependency, database/object outage, failed migration | Existing CI and migration checks remain required. The 2026-07-28 production dependency audit reports three high-severity advisories: direct `next` and transitive `postcss`/`sharp`. | Dependency remediation and protected-branch scan policy: 19F. The open high-severity advisories block Phase 19 completion. Backup/restore: 19E; incident runbooks: 19G. |
+| Supply chain and recovery | Compromised action/dependency/image, secret leak in CI, database/object outage, or failed migration | 19F pins every remote action to a full SHA, uses read-only default workflow permissions, rejects unsafe workflow/lockfile policy, generates a safe SBOM, and adds dependency review, secret, SAST, and repository/container baseline scans. Pinned application dependencies have zero local known audit findings. | GitHub main ruleset, scanner first-run triage, required-check evidence, dependency/security feature activation, image-base provenance review, and no-secrets-on-external-PR proof remain required. Backup/restore: 19E; incident runbooks: 19G. |
 
 ## 19A acceptance evidence
 
@@ -24,4 +24,4 @@ This is the living threat model for V1 Phase 19. It records no credentials, cust
 - `backend/scripts/check_operational_readiness.py` and `GET /api/admin/operations/readiness` are read-only. The endpoint requires a platform administrator.
 - No external telemetry exporter, dashboard, or alert integration is configured or enabled in 19A.
 
-Review date: 2026-07-28. Owner: platform engineering. Re-review before enabling any external telemetry, shared limiter, upload scanner, or Phase 18 shadow deployment.
+Review date: 2026-07-29. Owner: platform engineering. Re-review before enabling any external telemetry, shared limiter, upload scanner, Phase 18 shadow deployment, or GitHub required-check rollout.
