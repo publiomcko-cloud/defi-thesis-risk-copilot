@@ -36,6 +36,15 @@ class ExerciseResult:
 
 
 EXERCISES: tuple[ExerciseDefinition, ...] = (
+    # Run integrity repair first against only the migration baseline. Later
+    # worker/admission tests intentionally create broad durable-job fixtures.
+    ExerciseDefinition(
+        "pgvector-corruption-recovery",
+        "Corrupt derived retrieval state is repaired or rolled back without tenant leakage.",
+        "retrieval.vector-corruption",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase18f_lifecycle.py", "app/tests/test_phase18g_public_corpus.py", "app/tests/test_phase18_final_retrieval.py"),
+    ),
     ExerciseDefinition(
         "rate-limit-saturation",
         "Burst and bounded-compute saturation retain one-winner shared-limit behavior.",
@@ -73,13 +82,6 @@ EXERCISES: tuple[ExerciseDefinition, ...] = (
         "operations.database-storage",
         "backend",
         ("python", "-m", "pytest", "-q", "app/tests/test_phase18_storage_adapter.py", "app/tests/test_phase19c_security.py"),
-    ),
-    ExerciseDefinition(
-        "pgvector-corruption-recovery",
-        "Corrupt derived retrieval state is repaired or rolled back without tenant leakage.",
-        "retrieval.vector-corruption",
-        "backend",
-        ("python", "-m", "pytest", "-q", "app/tests/test_phase18f_lifecycle.py", "app/tests/test_phase18g_public_corpus.py", "app/tests/test_phase18_final_retrieval.py"),
     ),
     ExerciseDefinition(
         "migration-rollback",
