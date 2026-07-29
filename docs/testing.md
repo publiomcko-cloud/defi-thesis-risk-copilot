@@ -6,6 +6,7 @@ This file is the validation index. Detailed acceptance tests are defined in:
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
 - [`archive/v1_phase_18/`](archive/v1_phase_18/)
 - [`phase_19_execution_plan.md`](phase_19_execution_plan.md)
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`agent_execution_guide.md`](agent_execution_guide.md)
 
@@ -347,10 +348,9 @@ server-validated organization scope, database-outage policy, cleanup reporting,
 and PostgreSQL concurrent one-winner admission. It does not claim deployed
 proxy CIDR correctness, alert delivery, or a completed staged rollout.
 
-Phase 19 begins with non-mutating observability/readiness and controlled
-shadow-mode checks. It must retain JSON RAG as the fallback and must not claim
-Phase 18 production activation until the deployed policy and cutover gates are
-evidenced in Phase 22.
+The merged Phase 19 foundation retains JSON RAG as the fallback and does not
+claim Phase 18 production activation. Deployed policy and cutover gates remain
+external evidence for Phase 22.
 
 ### Phase 19I implemented coverage
 
@@ -507,7 +507,22 @@ assistive-technology, or chaos-test evidence.
 
 ## 9. Phase 20 validation
 
-Test analytics consent, notification preferences, signed webhooks, delivery retry, schedules/timezones, entitlements, billing event idempotency, organization seats, and data export/deletion integration.
+Phase 20 is planned only. Its validation authority is
+[`phase_20_execution_plan.md`](phase_20_execution_plan.md). Each slice must add
+focused unit, PostgreSQL concurrency/isolation, API, BFF/browser, migration, and
+rollback evidence as applicable. Required coverage includes:
+
+- analytics consent, taxonomy allowlists, retention, export, and deletion;
+- schedule timezone, idempotency, missed-run, cancellation, quota, and recovery behavior;
+- notification preference, destination verification, signed webhook, retry, dead-letter, unsubscribe, and deletion behavior;
+- explicit separation of network limits, product quotas, billable usage, and versioned plan entitlements;
+- server-owned entitlement resolution and exactly-once usage reconciliation;
+- billing sandbox signature, replay, out-of-order, lifecycle, portal, and rollback behavior;
+- organization invitation, seat, owner-transfer, billing-contact, export, deletion, audit, and concurrency boundaries;
+- support, status, feedback, abuse, and privacy-request ownership and retention.
+
+No provider test may use production customer data or be treated as provider
+selection before its ADR is approved.
 
 ## 10. Phase 21 validation
 

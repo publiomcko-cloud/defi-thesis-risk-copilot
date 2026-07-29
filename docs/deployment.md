@@ -8,6 +8,7 @@ Related contracts:
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
 - [`archive/v1_phase_18/`](archive/v1_phase_18/)
 - [`phase_19_execution_plan.md`](phase_19_execution_plan.md)
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -34,12 +35,14 @@ Live services:
 - deployment status: `/api/deployment/status`;
 - OpenAPI: `/docs`.
 
-The live deployment follows `main`; Phases 16–18 are complete there. Phase 18
-durable knowledge capabilities are merged but remain feature-gated while JSON
-RAG remains the production fallback. Phase 19 may run controlled readiness and
-shadow-mode validation without enabling all durable knowledge flags. Final
-deployed-provider, storage-policy, and legal launch checks remain V1 Phase 22
-work.
+The live deployment follows `main`; Phases 16–18 are complete there and the
+Phase 19 repository foundation is merged. Phase 18 durable knowledge
+capabilities remain feature-gated while JSON RAG remains the production
+fallback. Phase 19 centralized telemetry, alert delivery, provider restore,
+secret rotation, protected-branch, and controlled rollout evidence remains
+external. Phase 20 is planning-only and adds no deployment variables or
+providers. Final deployed-provider, storage-policy, and legal launch checks
+remain V1 Phase 22 work.
 
 ## Phase 19A local-only observability
 
@@ -1067,11 +1070,20 @@ never restore retrieval visibility or expose an object key.
 
 ### Phase 19
 
-Deploy shared rate limiting, WAF, security headers, centralized observability, backups, restore drills, scanning, and incident operations.
+The repository foundation for shared rate limiting, security headers,
+observability hooks, recovery verification, scanning, incident operations, and
+bounded exercises is merged. Centralized telemetry, alert delivery, provider
+restore, production secret rotation, protected-branch enforcement, and
+controlled deployment evidence remain external gates.
 
 ### Phase 20
 
-Deploy analytics/notification processors, durable schedules, billing webhook handling, status/support systems, and legal/commercial controls.
+Follow [`phase_20_execution_plan.md`](phase_20_execution_plan.md) only after
+the relevant provider ADR and privacy/security gate is approved. Deploy
+analytics and notification processors, durable schedules, entitlement and
+billing sandbox handling, status/support systems, and legal/commercial controls
+incrementally. The plan itself selects no provider and changes no production
+flag.
 
 ### Phase 21
 

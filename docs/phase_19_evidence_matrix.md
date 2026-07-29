@@ -1,5 +1,8 @@
 # Phase 19 Evidence Matrix
 
+Phase status: **Implemented Foundation — merged into `main`; external
+deployment and control-plane evidence remains required.**
+
 Status legend: `implemented locally`, `planned`, or `external evidence required`.
 
 | Contract requirement | Status | Implementation / evidence | Rollback or boundary |

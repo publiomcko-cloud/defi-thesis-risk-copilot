@@ -6,6 +6,7 @@ This document defines the system architecture and permanent trust boundaries. Ph
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
 - [`archive/v1_phase_18/`](archive/v1_phase_18/)
 - [`phase_19_execution_plan.md`](phase_19_execution_plan.md)
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -63,10 +64,12 @@ Render startup
 ```
 
 The deployed `main` branch includes the Phase 15 public-safe baseline, Phase
-16 identity/ownership, Phase 17 durable job control plane, and Phase 18
-durable knowledge/retrieval implementation. Phase 18's durable path remains
-feature-gated; local JSON RAG remains the production fallback while Phase 19
-gathers controlled operations and deployment evidence.
+16 identity/ownership, Phase 17 durable job control plane, Phase 18 durable
+knowledge/retrieval implementation, and the Phase 19 operations/security
+repository foundation. Phase 18's durable path remains feature-gated; local
+JSON RAG remains the production fallback. Phase 19's centralized telemetry,
+alert delivery, provider restore, secret rotation, protected-branch, and
+controlled deployment evidence remains external.
 
 Phase 19A adds a local-only operational correlation path:
 
@@ -589,7 +592,7 @@ include document content, embeddings, storage keys, or signed URLs.
 
 ---
 
-## 18. Phase 19 target — operations/security
+## 18. Phase 19 implemented foundation — operations/security
 
 Adds:
 
@@ -603,7 +606,7 @@ Adds:
 - incident response;
 - load/failure/browser/PostgreSQL testing.
 
-Phase 19C is locally implemented as a feature-gated edge boundary: Next.js
+Phase 19C is implemented as a feature-gated edge boundary: Next.js
 emits a report-only CSP and minimum browser headers, FastAPI accepts exact CORS
 origins and rejects browser mutations from other origins, and the BFF keeps a
 fixed backend origin/path allowlist while rejecting redirects. Private source
@@ -667,9 +670,15 @@ and rollback records remain external operational evidence.
 
 ---
 
-## 19. Phase 20 target — commercial product
+## 19. Phase 20 planned target — commercial product
 
-Adds privacy-conscious analytics, durable scheduling, notifications, entitlements, billing webhook processing, organization invitations/seats, support/status, and qualified legal review.
+The ordered design is
+[`phase_20_execution_plan.md`](phase_20_execution_plan.md). It adds
+privacy-conscious analytics, durable scheduling, user-controlled notifications,
+separate usage and entitlement controls, billing sandbox processing,
+organization invitations/seats, support/status/privacy operations, and
+qualified legal review. No provider is selected and no Phase 20 runtime path is
+implemented by the planning work.
 
 ---
 

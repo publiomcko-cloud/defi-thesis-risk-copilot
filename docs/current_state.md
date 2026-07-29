@@ -1,6 +1,7 @@
 # Current State — DeFi Thesis & Risk Copilot
 
-This document describes what is deployed on `main`, the active V1 implementation phase, and the remaining roadmap.
+This document describes what is deployed on `main`, the next V1 implementation
+phase, and the remaining roadmap.
 
 Authoritative references:
 
@@ -8,8 +9,9 @@ Authoritative references:
 - [`archive/v1_phase_16/`](archive/v1_phase_16/) — archived Phase 16 contract, execution plan, and deployment evidence;
 - [`archive/v1_phase_17/`](archive/v1_phase_17/) — archived Phase 17 plan, corrections, and validation evidence;
 - [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 plan, validation, correction, migration, and cutover evidence;
-- [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — active Phase 19 implementation plan;
+- [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — merged Phase 19 foundation and rollout gates;
 - [`phase_19_threat_model.md`](phase_19_threat_model.md) and [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) — Phase 19A–19I risk and evidence record;
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md) — next planned implementation sequence;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22 contract;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -27,7 +29,9 @@ Authoritative references:
 
 The live production branch is `main`. It contains the completed Phase 15
 public-safety baseline, Phase 16 managed identity/ownership, Phase 17 durable
-jobs and worker control plane, and Phase 18 durable knowledge/retrieval code.
+jobs and worker control plane, Phase 18 durable knowledge/retrieval code, and
+the Phase 19 operations/security repository foundation. Phase 19 provider and
+control-plane evidence remains external.
 
 Render free-tier cold starts may delay the first request after inactivity.
 
@@ -46,14 +50,20 @@ Completed on `main`:
 - V1 Phase 17 durable jobs, workers, async analysis, and job workspace.
 - V1 Phase 18 production RAG and knowledge storage.
 
+Implemented foundation on `main`:
+
+- V1 Phase 19 operations, security, recovery, exercises, and controlled
+  durable-RAG readiness. External deployment gates remain open.
+
 Current status:
 
 ```text
 V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
-V1 Phase 19 — In progress; 19A–19I foundations are implemented locally, with final limiter/body-bound hardening and blocking high/critical CI checks added; centralized telemetry, alert delivery, restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
-V1 Phases 20–21 — Planned implementation work
+V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
+V1 Phase 20 — Planned and next for implementation; no provider selected or runtime capability added
+V1 Phase 21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -379,9 +389,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   and the Knowledge workspace. The complete code remains feature-gated; JSON
   RAG remains the production fallback. The local top-1 retrieval gate has seven
   cases with 100% precision/recall and zero citation issues, but is not
-  production cutover evidence. Controlled deployment can occur during Phase 19;
-  final storage-policy, cutover, and launch approval remain Phase 22 gates;
-- Phase 19 — In Progress: 19A locally implements redacted structured logging,
+  production cutover evidence. Controlled deployment remains governed by the
+  Phase 19 operational gates; final storage-policy, cutover, and launch
+  approval remain Phase 22 gates;
+- Phase 19 — Implemented Foundation on `main`: 19A implements redacted structured logging,
   browser/BFF/API/job/worker correlation IDs, and non-mutating operational
   readiness. 19B adds a disabled-by-default PostgreSQL shared limiter for
   bounded compute and durable job admission. 19C adds exact CORS/origin and
@@ -423,8 +434,17 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   environment. It does not create tenant data or activate a feature. Deployed
   private-bucket/RLS, synthetic two-user/organization, trusted-worker,
   durable-versus-JSON, citation, monitoring, and rollback evidence remains an
-  external gate;
-- Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
+  external gate. The latest hosted PR validation passed, but centralized
+  telemetry, alert delivery, provider restore, secret rotation,
+  protected-branch enforcement, and controlled deployment are not evidenced
+  as complete;
+- Phase 20 — Planned and next for implementation under
+  [`phase_20_execution_plan.md`](phase_20_execution_plan.md): privacy-conscious
+  analytics, durable schedules, user-controlled notifications, separate
+  product quotas/billable usage/versioned entitlements, billing sandbox
+  foundations, organization commercial workflows, support/status/privacy
+  processes, and legal readiness. No Phase 20 provider is selected and no
+  Phase 20 runtime behavior is implemented;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 

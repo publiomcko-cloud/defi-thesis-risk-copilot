@@ -22,8 +22,9 @@ The Render free-tier backend may cold-start after inactivity.
 
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–18
-In progress: V1 Phase 19 (19A-19I operations/security foundations, recovery verification, supply-chain controls, incident response, isolated failure exercises, and controlled durable-RAG rollout checks)
-Planned:   V1 Phases 20–22
+Implemented foundation: V1 Phase 19 (merged; deployed-provider and operational evidence remains gated)
+Next planned: V1 Phase 20 (product analytics and commercial readiness)
+Later: V1 Phases 21–22
 ```
 
 Phases 16 and 17 are complete on `main`. Phase 16 delivers managed identity,
@@ -53,10 +54,12 @@ approved public, caller-owned private, and active-organization scope server-side
 anonymous analysis remains public-only. JSON remains the automatic fallback.
 Phase 18H adds the authenticated Knowledge workspace, document/version lifecycle
 controls, exact report-citation lineage display, safe private-knowledge export
-metadata, and administrator-only readiness metrics. Phase 19 is now active and
-may gather controlled deployment, observability, and shadow-mode evidence. Live
-private-bucket policy, final cutover verification, and launch approval remain
-Phase 22 gates.
+metadata, and administrator-only readiness metrics. Phase 19 operations and
+security foundations are merged into `main`; centralized telemetry, alert
+delivery, provider restore drills, secret rotation, protected-branch evidence,
+and controlled deployment evidence remain external gates. Phase 20 is the next
+planned implementation phase. Live private-bucket policy, final cutover
+verification, and launch approval remain Phase 22 gates.
 Durable source versions
 support atomic rollback and queued cleanup after tombstoning; those lifecycle
 controls remain inactive until private storage is deliberately enabled.
@@ -277,7 +280,8 @@ Controlled research/admin routes remain explicitly protected.
 - [Archived Phase 16 records](docs/archive/v1_phase_16/) — implementation contract, execution plan, and deployment evidence
 - [Archived Phase 17 records](docs/archive/v1_phase_17/) — execution and validation evidence
 - [Archived Phase 18 records](docs/archive/v1_phase_18/) — implementation, validation, and cutover evidence
-- [Phase 19 execution plan](docs/phase_19_execution_plan.md) — active implementation authority
+- [Phase 19 execution plan](docs/phase_19_execution_plan.md) — merged foundation and remaining external gates
+- [Phase 20 execution plan](docs/phase_20_execution_plan.md) — next planned implementation authority
 - [Phase 19 monitoring runbook](docs/operations/monitoring_and_alerting.md) — local monitoring and external rollout gates
 - [Phase 19 backup/restore runbook](docs/operations/backup_restore_runbook.md) — isolated recovery drill and retention guard
 - [Phase 19 secret inventory](docs/operations/secret_inventory.md) — secret ownership and rotation boundaries
