@@ -92,6 +92,24 @@ def test_phase19h_runner_surfaces_failed_fixed_exercise_without_test_output(tmp_
         run_exercises(tmp_path, _settings(), exercise_ids=["database-recovery"], runner=failed_runner)
 
 
+def test_phase19h_runner_reports_only_failed_junit_identifiers(tmp_path: Path) -> None:
+    def failed_runner(command, *_args, **_kwargs):
+        junit_argument = next(argument for argument in command if argument.startswith("--junitxml="))
+        junit_path = Path(junit_argument.removeprefix("--junitxml="))
+        junit_path.write_text(
+            "<testsuite><testcase classname=\"app.tests.safe\" name=\"failure_case\">"
+            "<failure>secret captured output</failure></testcase></testsuite>",
+            encoding="utf-8",
+        )
+        return SimpleNamespace(returncode=1, stdout="sensitive test output", stderr="sensitive stderr")
+
+    with pytest.raises(RuntimeError, match=r"app\.tests\.safe::failure_case") as error:
+        run_exercises(tmp_path, _settings(), exercise_ids=["database-recovery"], runner=failed_runner)
+
+    assert "secret captured output" not in str(error.value)
+    assert "sensitive" not in str(error.value)
+
+
 def test_phase19h_settings_require_isolation_and_reject_production_or_real_vast() -> None:
     with pytest.raises(ValidationError, match="ISOLATED"):
         Settings(operations_exercises_enabled=True)

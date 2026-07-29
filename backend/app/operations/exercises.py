@@ -12,7 +12,9 @@ from pathlib import Path
 from typing import Callable, Sequence
 import os
 import subprocess
+import tempfile
 import time
+from xml.etree import ElementTree
 
 from app.core.config import Settings
 
@@ -164,18 +166,23 @@ def run_exercises(
     environment = _exercise_environment()
     for exercise in select_exercises(exercise_ids):
         started = time.monotonic()
-        completed = runner(
-            exercise.command,
-            cwd=repository_root / exercise.working_directory,
-            env=environment,
-            check=False,
-            capture_output=True,
-            text=True,
-            timeout=settings.operations_exercise_timeout_seconds,
-        )
+        with tempfile.TemporaryDirectory(prefix="phase19-exercise-") as temporary_directory:
+            junit_path = Path(temporary_directory) / "results.xml"
+            command = _command_with_safe_test_report(exercise.command, junit_path)
+            completed = runner(
+                command,
+                cwd=repository_root / exercise.working_directory,
+                env=environment,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=settings.operations_exercise_timeout_seconds,
+            )
+            failed_tests = _failed_test_identifiers(junit_path)
         duration = round(time.monotonic() - started, 3)
         if completed.returncode != 0:
-            raise RuntimeError(f"Phase 19 exercise failed: {exercise.id}")
+            detail = f" (failed tests: {', '.join(failed_tests)})" if failed_tests else ""
+            raise RuntimeError(f"Phase 19 exercise failed: {exercise.id}{detail}")
         results.append(
             ExerciseResult(
                 id=exercise.id,
@@ -204,3 +211,31 @@ def _exercise_environment() -> dict[str, str]:
         }
     )
     return environment
+
+
+def _command_with_safe_test_report(command: tuple[str, ...], junit_path: Path) -> tuple[str, ...]:
+    """Ask pytest for identifiers only; never surface captured test output."""
+    if command[:4] != ("python", "-m", "pytest", "-q"):
+        return command
+    return (*command, f"--junitxml={junit_path}")
+
+
+def _failed_test_identifiers(junit_path: Path) -> tuple[str, ...]:
+    """Return a small, non-sensitive diagnostic from a pytest JUnit report."""
+    if not junit_path.exists():
+        return ()
+    try:
+        root = ElementTree.parse(junit_path).getroot()
+    except ElementTree.ParseError:
+        return ()
+
+    failures: list[str] = []
+    for testcase in root.iter("testcase"):
+        if testcase.find("failure") is None and testcase.find("error") is None:
+            continue
+        classname = testcase.get("classname", "unknown")
+        name = testcase.get("name", "unknown")
+        failures.append(f"{classname}::{name}")
+        if len(failures) == 3:
+            break
+    return tuple(failures)
