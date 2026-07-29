@@ -12,7 +12,7 @@ Before implementation, read documents in this order:
    - the [archived Phase 16 contract](archive/v1_phase_16/phase_16_identity_ownership_contract.md) when maintaining its implementation, or
    - the [archived Phase 17 record](archive/v1_phase_17/) when maintaining durable jobs,
    - the [archived Phase 18 record](archive/v1_phase_18/) when maintaining durable knowledge/retrieval, or
-   - the Phase 19 section of [`future_phase_contracts.md`](future_phase_contracts.md) for active operations/security work, or
+   - [`phase_19_execution_plan.md`](phase_19_execution_plan.md) for active Phase 19 operations/security work, or
    - [`future_phase_contracts.md`](future_phase_contracts.md) for later phases;
 4. [`architecture.md`](architecture.md) — trust boundaries and system design;
 5. [`deployment.md`](deployment.md) — environment and production behavior;
@@ -79,6 +79,12 @@ For every change, inspect:
 - secret/token/cookie exposure;
 - SSRF and proxy destination control;
 - request size and schema bounds;
+- exact browser origins, BFF upstream allowlists, redirect handling, and CORS;
+- upload media/signature validation and scanner failure behavior before storage;
+- telemetry, alert, synthetic, and dashboard paths for aggregate-only output,
+  ownership, redaction, delivery failure, and feature-gated rollout;
+- backup/restore tooling for isolated targets, metadata-only evidence, RPO/RTO,
+  provider/object parity, retention gating, and secret-free rotation records;
 - concurrency and idempotency;
 - deletion and retention;
 - logging and audit redaction;

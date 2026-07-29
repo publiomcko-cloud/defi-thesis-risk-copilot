@@ -1,10 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
+import { randomUUID } from "node:crypto";
+import { isIP } from "node:net";
 
 import { ANONYMOUS_COOKIE, backendApiBaseUrl, getValidAccessToken } from "@/lib/server-auth";
+import { bffBodyLimit, readBodyWithinLimit } from "@/lib/request-body-limit";
+import { hasTrustedOrigin } from "@/lib/request-security";
 
 const ALLOWED_EXACT_PATHS = ["/health", "/ready"];
 const ALLOWED_PREFIXES = ["/api/"];
-const SAFE_RESPONSE_HEADERS = ["content-type", "x-request-id"];
+const SAFE_RESPONSE_HEADERS = [
+  "content-type",
+  "retry-after",
+  "x-request-id",
+  "x-correlation-id",
+  "x-ratelimit-mode",
+  "x-ratelimit-policy",
+  "x-ratelimit-remaining",
+  "x-ratelimit-reset"
+];
+const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
+const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   return forward(request, context);
@@ -27,18 +42,44 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
 }
 
 async function forward(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  if (UNSAFE_METHODS.has(request.method) && !hasTrustedOrigin(request)) {
+    return NextResponse.json({ detail: "Browser origin is not allowed." }, { status: 403 });
+  }
   const params = await context.params;
   const targetPath = `/${params.path.join("/")}`;
   if (!isAllowedBackendPath(targetPath)) {
     return NextResponse.json({ detail: "Unsupported backend path." }, { status: 404 });
   }
+  const bodyResult = request.method === "GET" || request.method === "HEAD"
+    ? { ok: true as const, body: undefined }
+    : await readBodyWithinLimit(request, bffBodyLimit(targetPath));
+  if (!bodyResult.ok) {
+    return NextResponse.json({ detail: bodyResult.detail }, { status: bodyResult.status });
+  }
 
   const responseShell = NextResponse.json({});
   const token = await getValidAccessToken(responseShell);
-  const target = new URL(`${backendApiBaseUrl()}${targetPath}`);
+  let target: URL;
+  let backendOrigin: string;
+  try {
+    backendOrigin = backendApiBaseUrl();
+    target = new URL(targetPath, `${backendOrigin}/`);
+  } catch {
+    return NextResponse.json({ detail: "Backend service is unavailable." }, { status: 503 });
+  }
+  if (target.origin !== backendOrigin || target.pathname !== targetPath) {
+    return NextResponse.json({ detail: "Unsupported backend path." }, { status: 404 });
+  }
   target.search = request.nextUrl.search;
 
   const headers = new Headers();
+  const correlationId = normalizeCorrelationId(request.headers.get("x-correlation-id"));
+  headers.set("x-correlation-id", correlationId);
+  headers.set("x-request-id", correlationId);
+  const clientIp = normalizedClientIp(request);
+  if (clientIp) {
+    headers.set("x-forwarded-for", clientIp);
+  }
   const contentType = request.headers.get("content-type");
   if (contentType) {
     headers.set("content-type", contentType);
@@ -55,13 +96,21 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
     headers.set("authorization", `Bearer ${token}`);
   }
 
-  const backendResponse = await fetch(target, {
-    method: request.method,
-    headers,
-    body: request.method === "GET" || request.method === "HEAD" ? undefined : await request.text(),
-    cache: "no-store",
-    redirect: "manual"
-  });
+  let backendResponse: Response;
+  try {
+    backendResponse = await fetch(target, {
+      method: request.method,
+      headers,
+      body: bodyResult.body,
+      cache: "no-store",
+      redirect: "manual"
+    });
+  } catch {
+    return NextResponse.json({ detail: "Backend service is unavailable." }, { status: 503 });
+  }
+  if (backendResponse.status >= 300 && backendResponse.status < 400) {
+    return NextResponse.json({ detail: "Backend redirect rejected." }, { status: 502 });
+  }
   const body = await backendResponse.text();
   const responseHeaders = new Headers();
   for (const header of SAFE_RESPONSE_HEADERS) {
@@ -91,8 +140,31 @@ function isAllowedBackendPath(path: string): boolean {
   if (!path.startsWith("/") || path.includes("..") || path.includes("//")) {
     return false;
   }
+  try {
+    const decodedPath = decodeURIComponent(path);
+    if (decodedPath.includes("..") || decodedPath.includes("//") || decodedPath.includes("\\")) {
+      return false;
+    }
+  } catch {
+    return false;
+  }
   if (path.startsWith("/internal/")) {
     return false;
   }
   return ALLOWED_EXACT_PATHS.includes(path) || ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+function normalizeCorrelationId(value: string | null): string {
+  const candidate = value?.trim() ?? "";
+  return CORRELATION_ID_PATTERN.test(candidate) ? candidate : `bff_${randomUUID().replaceAll("-", "")}`;
+}
+
+function normalizedClientIp(request: NextRequest): string | null {
+  // Vercel injects this header at its trusted edge. Local and self-hosted BFFs
+  // intentionally forward no caller IP until an explicit trusted integration
+  // is added; browser-provided X-Forwarded-For is never accepted here.
+  if (process.env.VERCEL !== "1") return null;
+  const forwarded = request.headers.get("x-vercel-forwarded-for");
+  const candidate = forwarded?.split(",", 1)[0].trim() ?? "";
+  return isIP(candidate) ? candidate : null;
 }

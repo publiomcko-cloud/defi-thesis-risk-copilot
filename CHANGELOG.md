@@ -6,6 +6,59 @@
   merged into `main`.
 - Phase 19 begins with observability, readiness checks, and controlled
   shadow-mode validation; it does not activate all durable knowledge flags.
+- Implemented 19A locally with redacted structured logs, correlation IDs across
+  browser/BFF/API/jobs/workers, and a read-only operational readiness check.
+  External telemetry export, dashboards, retention/access policy, and alerting
+  are not enabled.
+- Implemented 19B locally with a disabled-by-default PostgreSQL shared limiter
+  for bounded compute and durable-job admission. It uses salted scope hashes,
+  trusted-proxy CIDR controls, burst/sustained windows, and shadow/enforce
+  rollout modes; production proxy and alert evidence remain pending.
+- Implemented 19C locally with explicit CORS/origin/body-size controls,
+  report-only CSP and baseline browser/API security headers, BFF origin/target/
+  redirect checks, and a required-scanner contract that fails uploads closed.
+  WAF/bot rules, scanner/quarantine deployment, CSP-report evidence, final
+  origins, and HSTS approval remain pending.
+- Implemented 19D locally with aggregate-only operational monitoring, stable
+  local alert candidates, a private admin operations view, and an opt-in safe
+  synthetic runner. No telemetry exporter, pager, status provider, dashboard
+  destination, or synthetic identity is configured.
+- Implemented 19E locally with a disabled metadata-only isolated restore
+  verifier, an opt-in retention evidence guard, and secret/backup runbooks.
+  Provider backup/restore, approved RPO/RTO, secret-store audit, and
+  encryption-key migration remain external gates.
+- Implemented 19F locally with commit-SHA-pinned GitHub Actions, read-only
+  workflow defaults, no `pull_request_target`, lockfile/action policy checks,
+  source-lockfile SBOM artifacts, dependency review, Gitleaks, CodeQL, Trivy
+  repository/container baseline scans, Dependabot, and a security-triage
+  runbook. Pinned Python/npm manifests now audit clean locally. GitHub main
+  protection and the first hosted scanner baseline still require administrator
+  rollout evidence.
+- Implemented 19G locally with versioned incident/security-operation runbooks,
+  aggregate-alert ID mapping, evidence-handling rules, and ten synthetic
+  tabletop scripts. The repository does not contain a pager, on-call roster,
+  incident tracker, or exercise evidence; named owners, communications
+  authority, approved evidence location, and completed tabletops remain
+  external gates.
+- Implemented 19H locally with a fail-closed fixed failure-exercise catalog,
+  isolated pgvector CI workflow, semantic accessibility contract, and safety
+  configuration. The ten local exercises pass without real provider execution;
+  production load/chaos, pager, customer-data, and assistive-technology
+  evidence remain external gates.
+- Implemented 19I locally with a read-only controlled durable-RAG readiness
+  validator. It verifies the approved shadow prerequisites and JSON fallback,
+  blocks primary retrieval in production, and allows a primary-path check only
+  in an explicit isolated non-production environment. Deployed storage policy,
+  tenant/worker, report/citation, monitoring, and rollback evidence remains
+  external to the repository.
+- Hardened the Phase 19 foundations: `/api/jobs` now passes the actual FastAPI
+  request into its shared limiter; BFF/API body limits count actual stream
+  bytes; untrusted forwarded-IP fallbacks are rejected; isolated exercises emit
+  bounded safe metrics; and high/critical dependency/container/repository
+  findings now fail CI unless an explicit owned, time-bounded exception exists.
+  Centralized telemetry, alert delivery, restore drills, secret rotation,
+  protected-branch enforcement, and deployed durable-RAG evidence remain
+  external Phase 19/22 gates.
 
 ## Phase 18 — Merged
 

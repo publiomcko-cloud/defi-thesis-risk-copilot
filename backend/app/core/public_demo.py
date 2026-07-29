@@ -4,9 +4,17 @@ from collections import defaultdict, deque
 from threading import Lock
 from time import monotonic
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request, Response
 
+from app.auth.dependencies import require_actor
+from app.auth.schemas import UserContext
 from app.core.config import get_settings
+from app.db.session import get_db
+from app.rate_limits.service import (
+    client_identifier,
+    enforce_public_compute_rate_limit as enforce_shared_compute_limit,
+)
+from sqlalchemy.orm import Session
 
 _RATE_WINDOWS: dict[str, deque[float]] = defaultdict(deque)
 _RATE_LOCK = Lock()
@@ -23,7 +31,12 @@ def block_public_demo_mutation() -> None:
         )
 
 
-def enforce_public_compute_rate_limit(request: Request) -> None:
+def enforce_public_compute_rate_limit(
+    request: Request,
+    response: Response,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_actor),
+) -> None:
     """Apply a lightweight per-client limit to public compute endpoints.
 
     This in-process limiter is intentionally dependency-free for the current
@@ -32,12 +45,20 @@ def enforce_public_compute_rate_limit(request: Request) -> None:
     """
 
     settings = get_settings()
+    if getattr(settings, "rate_limiting_enabled", False):
+        enforce_shared_compute_limit(request, response, db, actor)
+        return
     if not settings.public_demo_mode:
         return
 
+    _enforce_legacy_public_demo_limit(request, settings)
+
+
+def _enforce_legacy_public_demo_limit(request: Request, settings: object) -> None:
+
     limit = max(int(getattr(settings, "public_compute_rate_limit_per_minute", 20)), 1)
     now = monotonic()
-    key = f"{_client_identifier(request)}:{request.url.path}"
+    key = f"{client_identifier(request, settings)}:{request.url.path}"
 
     with _RATE_LOCK:
         window = _RATE_WINDOWS[key]
@@ -58,12 +79,3 @@ def reset_public_rate_limits() -> None:
 
     with _RATE_LOCK:
         _RATE_WINDOWS.clear()
-
-
-def _client_identifier(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for", "")
-    if forwarded:
-        return forwarded.split(",", 1)[0].strip()
-    if request.client is not None:
-        return request.client.host
-    return "unknown"

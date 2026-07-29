@@ -5,6 +5,7 @@ This file is the validation index. Detailed acceptance tests are defined in:
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
 - [`archive/v1_phase_18/`](archive/v1_phase_18/)
+- [`phase_19_execution_plan.md`](phase_19_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`agent_execution_guide.md`](agent_execution_guide.md)
 
@@ -309,10 +310,200 @@ version creation, job idempotency, and migration safety.
 
 Test distributed limits, security headers, proxy/SSRF/CSRF protections, centralized redaction, trace correlation, backup restore, migration rollback, scans, load, accessibility, browser, PostgreSQL, and failure recovery.
 
+### Phase 19A implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19_observability.py app/tests/test_access_control.py app/tests/test_health.py
+python scripts/check_operational_readiness.py
+
+cd ../frontend
+npm run lint
+npm run test:bff
+```
+
+The tests prove normalized correlation headers, redacted structured logs,
+server-owned job/worker propagation, admin-only metadata readiness, disabled
+export behavior, and no response/log secret values. They do not claim an
+external telemetry, tracing, dashboard, or alert deployment.
+
+### Phase 19B implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19_rate_limits.py
+RUN_POSTGRES_INTEGRATION=true python -m pytest -q -m postgres_integration
+alembic upgrade head
+alembic downgrade -1
+alembic upgrade head
+python -m scripts.cleanup_expired_data --dry-run
+```
+
+The suite proves enforced and shadow behavior, fixed-window retry metadata,
+proxy-header trust, salted bucket storage, product-quota separation,
+server-validated organization scope, database-outage policy, cleanup reporting,
+and PostgreSQL concurrent one-winner admission. It does not claim deployed
+proxy CIDR correctness, alert delivery, or a completed staged rollout.
+
 Phase 19 begins with non-mutating observability/readiness and controlled
 shadow-mode checks. It must retain JSON RAG as the fallback and must not claim
 Phase 18 production activation until the deployed policy and cutover gates are
 evidenced in Phase 22.
+
+### Phase 19I implemented coverage
+
+`test_phase19i_controlled_rag.py` verifies that the controlled rollout checker
+requires an explicit opt-in, checks JSON fallback and pgvector readiness,
+returns only safe booleans, requires isolated mode for a primary-path probe,
+and rejects `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED` in production. Existing
+Phase 18 integration tests cover private/organization isolation, worker-owned
+ingestion, durable report citation lineage, public-only anonymous retrieval,
+and JSON fallback. Deployed storage policy, synthetic identities, worker
+availability, report comparison, monitoring, and rollback remain external
+evidence requirements.
+
+### Phase 19C implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19c_security.py app/tests/test_phase18b_knowledge_api.py app/tests/test_health.py
+
+cd ../frontend
+npm run test:bff
+npm run test:security
+npm run build
+npm run test:mfa:routes
+npm run test:e2e
+```
+
+These checks cover exact CORS preflight/mutation origins, request-size rejection,
+browser/API baseline headers, HSTS configuration, BFF origin/target/redirect
+rejection, safe backend-base validation, and required scanner clean/failure
+behavior. They do not prove a deployed WAF, bot policy, scanner/quarantine
+service, CSP report collection, final production origin list, or HSTS scope.
+
+### Phase 19D implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19d_monitoring.py
+OPERATIONS_MONITORING_ENABLED=true OPERATIONS_SYNTHETIC_CHECKS_ENABLED=true \
+  OPERATIONS_SYNTHETIC_ALLOWED_ORIGINS=https://approved-synthetic-target.example \\
+  python -m scripts.run_synthetic_checks --base-url https://approved-synthetic-target.example
+
+cd ../frontend
+npm run lint
+npm run build
+```
+
+The automated coverage proves aggregate-only queue/worker/retrieval signals,
+candidate deduplication, admin authorization, configuration gates, and fixed
+synthetic paths with no response-body or token output. The CLI example requires
+an operator-owned target and is not run against production customer data. Pager,
+telemetry, dashboard, authenticated synthetic, escalation, and SLO evidence are
+external rollout work.
+
+### Phase 19E implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19e_recovery_operations.py
+BACKUP_RESTORE_DRILL_ENABLED=true \
+  python -m scripts.run_sanitized_restore_drill --write-manifest /approved-isolated-path/manifest.json
+```
+
+The local suite proves salted metadata-only manifest generation and isolated
+target comparison, excludes report/source/object/identity/credential values,
+fails closed for invalid retention evidence, blocks disabled/production CLI
+execution, and records provider credential update/disable behavior without
+returning a secret. It does not prove a provider database/object restore,
+approved RPO/RTO, encryption-key migration, or production secret-store audit.
+
+### Phase 19F implemented coverage
+
+```bash
+python3 scripts/supply_chain.py check-workflows
+python3 scripts/supply_chain.py check-lockfiles
+python3 scripts/supply_chain.py check-security-exceptions
+python3 scripts/supply_chain.py generate-sbom --output /tmp/defi-sbom.cdx.json
+
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19f_supply_chain.py
+pip-audit -r requirements.txt
+
+cd ../frontend
+npm audit --omit=dev
+```
+
+The focused tests reject mutable workflow actions, `pull_request_target`,
+persisted checkout credentials, and unlocked Python requirements; they also
+validate deterministic secret-free SBOM generation and exact owned,
+time-bounded scanner suppressions. GitHub blocks high/critical pip/npm and
+Trivy findings. Dependency Review becomes blocking only after a repository
+administrator enables GitHub Dependency Graph. Its first hosted evidence, main
+ruleset configuration, required-check enforcement, and external-PR
+preview-secret isolation still require an administrator and must not be claimed
+from local tests alone.
+
+### Phase 19G implemented coverage
+
+```bash
+python3 scripts/check_incident_runbooks.py
+
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19g_incident_runbooks.py
+```
+
+The structural check verifies the stable runbook registry, ten tabletop
+scenarios, ownership/communication declarations, and detection, containment,
+eradication, recovery, communications, evidence, and retrospective sections.
+It does not claim a pager, named on-call owner, incident system, provider
+exercise, customer-data test, or production tabletop outcome. Those are Phase
+19G deployment gates and final evidence remains part of Phase 22 approval.
+
+### Phase 19H implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19h_exercises.py
+RUN_POSTGRES_INTEGRATION=true python -m pytest -q app/tests/test_phase19h_isolated_operations.py
+python -m scripts.run_phase19_exercises --list
+
+APP_ENV=exercise \
+OPERATIONS_EXERCISES_ENABLED=true \
+OPERATIONS_EXERCISES_ISOLATED=true \
+VAST_ENABLED=false \
+VAST_DRY_RUN=true \
+VAST_REAL_RENTALS_ENABLED=false \
+RUN_POSTGRES_INTEGRATION=true \
+python -m scripts.run_phase19_exercises --run --evidence-file /tmp/phase19-exercise-evidence.json
+
+cd ../frontend
+npm run test:accessibility
+```
+
+The runner exercises fixed rate-limit, admission, worker-loss, fake-provider,
+storage, vector-repair, migration, authorization, recovery, and semantic
+accessibility paths. The dedicated HTTP harness makes 24 public `/health` and
+24 authenticated `/api/auth/me` requests at concurrency six and records request
+count, concurrency, throughput, success/error rate, p50/p95 latency, and
+thresholds. PostgreSQL scenarios record six-way durable admission, queue
+recovery, worker lease-loss/stale-execution rejection, and database/storage
+failure recovery. It rejects production, non-isolated, real-provider, and
+arbitrary-command operation; the schema-v2 evidence is capped at 8 KiB and
+contains only aggregate timings/counts/statuses/thresholds, never durable test
+data, request bodies, identifiers, URLs, exception text, or customer data.
+The scheduled no-secret GitHub workflow adds isolated weekly evidence. These
+results are not production load capacity, provider, pager, customer-data,
+assistive-technology, or chaos-test evidence.
 
 ## 9. Phase 20 validation
 

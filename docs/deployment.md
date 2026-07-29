@@ -7,6 +7,7 @@ Related contracts:
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
 - [`archive/v1_phase_18/`](archive/v1_phase_18/)
+- [`phase_19_execution_plan.md`](phase_19_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -39,6 +40,193 @@ RAG remains the production fallback. Phase 19 may run controlled readiness and
 shadow-mode validation without enabling all durable knowledge flags. Final
 deployed-provider, storage-policy, and legal launch checks remain V1 Phase 22
 work.
+
+## Phase 19A local-only observability
+
+Phase 19A introduces safe structured logs and correlation propagation, not an
+external telemetry integration. Keep these defaults unless an approved later
+Phase 19 rollout supplies retention, access, exporter, and alerting evidence:
+
+```env
+OBSERVABILITY_ENABLED=false
+OBSERVABILITY_RELEASE_ID=
+OBSERVABILITY_SAMPLING_RATE=1.0
+OBSERVABILITY_EXPORT_TIMEOUT_SECONDS=2
+OBSERVABILITY_EXPORT_QUEUE_SIZE=100
+OBSERVABILITY_CLOCK_TIMEZONE=UTC
+```
+
+`backend/scripts/check_operational_readiness.py` reads database/JSON-fallback
+state and feature-safe booleans without contacting a telemetry provider or
+printing secrets. `GET /api/admin/operations/readiness` exposes the same
+metadata only to platform administrators. It does not prove deployed alerting,
+storage policy, worker availability, or a Phase 18 cutover.
+
+## Phase 19B shared rate-limiter rollout
+
+Phase 19B uses the existing PostgreSQL/Supabase database, so it does not add a
+Redis service or browser credential. It is disabled by default and must not be
+enabled until the deployment operator knows the exact proxy CIDRs that are
+permitted to supply `X-Forwarded-For`.
+
+```env
+RATE_LIMITING_ENABLED=false
+RATE_LIMITING_MODE=shadow
+RATE_LIMIT_KEY_PEPPER=<server-only-long-random-value>
+RATE_LIMIT_TRUSTED_PROXY_CIDRS=<comma-separated-proxy-cidrs>
+```
+
+The rollout order is: apply migration `20260728_0022`; set the pepper and proxy
+CIDRs in a preview environment; enable `RATE_LIMITING_ENABLED=true` with
+`RATE_LIMITING_MODE=shadow`; inspect only the aggregate administrator endpoint
+`/api/admin/operations/rate-limits`; define the alert owner; then explicitly
+switch to `enforce` for bounded compute. Job submission is cost-bearing and
+fails closed if the enabled shared-limiter database path is unavailable.
+
+Do not place the pepper in Vercel browser variables, committed `.env` files,
+client logs, or the frontend. To roll back, set `RATE_LIMITING_ENABLED=false`.
+The legacy public-demo in-process limiter remains active in that disabled mode.
+
+## Phase 19C edge and upload-security rollout
+
+Keep the 19C controls in their safe defaults until the production operator has
+recorded final Vercel/Render origins, a CSP report review, and the HTTPS scope:
+
+```env
+FRONTEND_ORIGIN=https://defi-thesis-risk-copilot.vercel.app
+BFF_ALLOWED_ORIGINS=https://defi-thesis-risk-copilot.vercel.app
+API_MAX_REQUEST_BYTES=1048576
+BFF_MAX_REQUEST_BYTES=1048576
+BFF_KNOWLEDGE_UPLOAD_MAX_BYTES=10616832
+SECURITY_CSP_MODE=report_only
+SECURITY_CSP_REPORT_URI=
+SECURITY_HSTS_ENABLED=false
+KNOWLEDGE_STORAGE_ENABLED=false
+KNOWLEDGE_UPLOAD_SCANNING_REQUIRED=false
+```
+
+`FRONTEND_ORIGIN` is the exact backend CORS allowlist. `BFF_ALLOWED_ORIGINS`
+is the exact same-origin browser allowlist for BFF mutations and must not be a
+wildcard. `BFF_MAX_REQUEST_BYTES` and `BFF_KNOWLEDGE_UPLOAD_MAX_BYTES` must
+match the backend route budgets. Both BFF and API count actual received bytes,
+so a missing or misleading `Content-Length` cannot enlarge the request. The BFF
+does not accept a path, credentials, redirect, or request-selected upstream
+target. Keep CSP report-only while reviewing browser
+compatibility. Set `SECURITY_HSTS_ENABLED=true` only after every included
+subdomain is HTTPS-safe; rollback a bad policy by setting it back to `false`.
+
+Private knowledge storage remains disabled. Before a production private-source
+activation, configure a trusted internal scanner and require it:
+
+```env
+KNOWLEDGE_STORAGE_ENABLED=true
+KNOWLEDGE_UPLOAD_SCANNING_REQUIRED=true
+KNOWLEDGE_UPLOAD_SCANNER_URL=https://scanner.internal.example/scan
+KNOWLEDGE_UPLOAD_SCANNER_TIMEOUT_SECONDS=10
+```
+
+The scanner endpoint is server-only, must be HTTPS (or an approved internal
+transport), must return a bounded JSON `{\"status\": \"clean\"}`, and any
+failure rejects the upload before object storage. Do not activate storage until
+scanner, quarantine, WAF/bot, and synthetic two-tenant policy evidence are
+recorded. There is no scanner credential in browser configuration.
+
+## Phase 19D monitoring and synthetic rollout
+
+Local monitoring is disabled by default and never sends an alert:
+
+```env
+OPERATIONS_MONITORING_ENABLED=false
+OPERATIONS_ALERT_EVALUATION_ENABLED=false
+OPERATIONS_SYNTHETIC_CHECKS_ENABLED=false
+OPERATIONS_SYNTHETIC_ALLOWED_ORIGINS=
+```
+
+In a private preview, enable local aggregate inspection first. The
+administrator-only `/api/admin/operations/monitoring` endpoint and
+`/admin/operations` page expose only counts, ages, booleans, retrieval metrics,
+and stable candidate keys. They must continue to return
+`alert_delivery=not_implemented` until a later approved delivery adapter exists.
+
+Use [`operations/monitoring_and_alerting.md`](operations/monitoring_and_alerting.md)
+for SLO targets, synthetic command rules, owners, escalation, and rollout gates.
+Do not configure a browser-visible telemetry key, pager token, or synthetic
+credential. Do not run authenticated synthetics until a dedicated least-privilege
+synthetic user and revocation procedure are documented.
+
+## Phase 19E recovery verification and retention guard
+
+The local restore verifier is disabled by default and must only run against an
+isolated target. It is not a provider backup implementation:
+
+```env
+BACKUP_RESTORE_DRILL_ENABLED=false
+BACKUP_RETENTION_GUARD_ENABLED=false
+BACKUP_RESTORE_EVIDENCE_REFERENCE=
+```
+
+Follow [`operations/backup_restore_runbook.md`](operations/backup_restore_runbook.md)
+and [`operations/secret_inventory.md`](operations/secret_inventory.md) before
+changing these values. Do not set the evidence reference until a provider
+backup/object restore drill is recorded in the approved operational system.
+The verifier refuses `APP_ENV=production`, and `BACKUP_RETENTION_GUARD_ENABLED`
+blocks non-dry cleanup when no reference is configured. Neither control creates
+provider backups, exposes a secret, or substitutes Alembic for data recovery.
+
+## Phase 19F CI/CD security rollout
+
+The repository controls are active in GitHub Actions without deployment secrets.
+`Supply Chain Security` uses a read-only token and does not run under
+`pull_request_target`; `CodeQL` only uploads security results with its scoped
+`security-events: write` permission. Both use full-SHA action pins. Do not add
+Render, Vercel, Supabase, worker, or provider credentials to these workflows.
+
+Before treating the scans as release enforcement, follow
+[`operations/supply_chain_security.md`](operations/supply_chain_security.md) to
+review the first hosted baseline and configure required checks on `main`. The
+workflow constructs local container images only for scanning and does not
+publish them. To roll back a scanner, use the documented reviewed exception
+process; do not disable functional CI, secret scanning, or workflow policy.
+
+## Phase 19G incident-response rollout
+
+The repository contains no pager, incident ticket, contact roster, or evidence
+store. Before relying on the local monitoring candidates for operational
+response, the deployment operator must assign named primary/backup owners,
+incident commander coverage, and communication authority in the approved
+private operations system. Record the approved evidence location, legal/privacy
+escalation route, and status-page process there as well.
+
+Use [`operations/incidents/README.md`](operations/incidents/README.md) to map
+the existing `operations.*` alert IDs to versioned procedures, and run the ten
+synthetic [tabletop scripts](operations/incidents/tabletop_exercises.md) before
+enabling an external alert receiver. Keep alert delivery disabled until a
+non-production receiver test and its evidence reference are approved. Do not
+place pager tokens, contact details, incident content, evidence URLs with
+credentials, raw logs, or customer data in environment files, browser values,
+CI output, or the repository.
+
+For rollback, revert the runbook change only through normal review. Reverse a
+runtime containment action only after the incident commander records the
+recovery verification described by that procedure. These runbooks do not enable
+Phase 18 storage flags, real Vast.ai rentals, or destructive recovery actions.
+
+## Phase 19H isolated failure-exercise rollout
+
+[`operations/failure_exercises.md`](operations/failure_exercises.md) defines a
+fixed catalog for local/CI failure exercises. It is disabled by default and is
+not a production chaos-test control. Enable it only with an isolated
+PostgreSQL/pgvector database, the explicit `OPERATIONS_EXERCISES_ISOLATED=true`
+acknowledgement, `APP_ENV=exercise`, and bounded timeout. The runner refuses
+production and any non-dry-run/real-rental Vast configuration.
+
+The scheduled `Phase 19 Failure Exercises` workflow uses an ephemeral GitHub
+Actions pgvector service and no deployment, storage, provider, pager, or
+customer credentials. It may be manually dispatched only for the same isolated
+conditions. Stop the driver when a control fails, run durable-job recovery in
+dry-run mode, and follow the mapped Phase 19G procedure. Production load or
+chaos testing requires explicit separate approval and remains outside this
+repository's implemented scope.
 
 ---
 
@@ -841,6 +1029,28 @@ Before any live storage activation, perform this recorded deployment runbook:
 These live Supabase policy, two-user, worker, and primary-cutover steps are
 external Phase 22 evidence until they are executed against the deployed
 environment. They are intentionally not claimed by local CI.
+
+## Phase 19I Controlled Durable-RAG Validation
+
+Phase 19I adds a read-only guard for the documented controlled rollout. It
+does not create a tenant, upload a document, change a feature flag, or expose
+storage information. Use the complete operator sequence in
+[`operations/controlled_rag_rollout.md`](operations/controlled_rag_rollout.md).
+
+For a shadow-only production check, enable the explicit validation flag while
+leaving `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=false`, then run:
+
+```bash
+cd backend
+python -m scripts.check_controlled_rag_rollout --mode shadow
+```
+
+The checker requires database and pgvector readiness, JSON fallback, storage,
+ingestion/worker/embedding/shadow prerequisites, and a dry-run-only Vast
+configuration. A primary-path check is available only in a separately isolated
+non-production environment with `CONTROLLED_RAG_VALIDATION_ISOLATED=true`.
+The application rejects the primary flag in production, so it cannot be
+accidentally enabled through a deployment variable.
 
 Phase 18F adds a controlled retention command:
 

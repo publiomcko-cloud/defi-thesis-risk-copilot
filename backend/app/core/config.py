@@ -1,4 +1,5 @@
 from functools import lru_cache
+from urllib.parse import urlparse
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -10,9 +11,59 @@ class Settings(BaseSettings):
     public_demo_mode: bool = False
     app_version: str = "0.1.0"
     deployment_commit: str = ""
+    observability_enabled: bool = False
+    observability_release_id: str = ""
+    observability_sampling_rate: float = 1.0
+    observability_export_timeout_seconds: float = 2.0
+    observability_export_queue_size: int = 100
+    observability_clock_timezone: str = "UTC"
+    operations_monitoring_enabled: bool = False
+    operations_alert_evaluation_enabled: bool = False
+    operations_synthetic_checks_enabled: bool = False
+    operations_synthetic_allowed_origins: str = ""
+    operations_monitoring_window_hours: int = 24
+    operations_monitoring_event_limit: int = 1_000
+    operations_alert_queue_depth: int = 25
+    operations_alert_queue_age_seconds: int = 900
+    operations_alert_dead_letter_count: int = 1
+    operations_alert_stale_worker_count: int = 1
+    operations_alert_retrieval_empty_rate_percent: float = 80.0
+    operations_alert_retrieval_latency_ms: int = 5_000
+    operations_exercises_enabled: bool = False
+    operations_exercises_isolated: bool = False
+    operations_exercise_timeout_seconds: int = 180
+    controlled_rag_validation_enabled: bool = False
+    controlled_rag_validation_isolated: bool = False
+    backup_restore_drill_enabled: bool = False
+    backup_retention_guard_enabled: bool = False
+    backup_restore_evidence_reference: str = ""
+    backup_rpo_hours: int = 24
+    backup_rto_minutes: int = 240
+    public_compute_rate_limit_per_minute: int = 20
+    rate_limiting_enabled: bool = False
+    rate_limiting_mode: str = "shadow"
+    rate_limit_key_pepper: str = ""
+    rate_limit_trusted_proxy_cidrs: str = ""
+    rate_limit_retention_seconds: int = 86_400
+    rate_limit_public_compute_burst_limit: int = 20
+    rate_limit_public_compute_burst_window_seconds: int = 60
+    rate_limit_public_compute_sustained_limit: int = 120
+    rate_limit_public_compute_sustained_window_seconds: int = 3_600
+    rate_limit_authenticated_compute_burst_limit: int = 60
+    rate_limit_authenticated_compute_burst_window_seconds: int = 60
+    rate_limit_authenticated_compute_sustained_limit: int = 1_000
+    rate_limit_authenticated_compute_sustained_window_seconds: int = 3_600
+    rate_limit_job_submit_burst_limit: int = 10
+    rate_limit_job_submit_burst_window_seconds: int = 60
+    rate_limit_job_submit_sustained_limit: int = 100
+    rate_limit_job_submit_sustained_window_seconds: int = 3_600
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     frontend_origin: str = "http://127.0.0.1:3000"
+    api_max_request_bytes: int = 1 * 1024 * 1024
+    security_csp_mode: str = "report_only"
+    security_csp_report_uri: str = ""
+    security_hsts_enabled: bool = False
     database_url: str = "sqlite:///./defi_copilot.db"
     llm_synthesis_enabled: bool = False
     llm_provider: str = "disabled"
@@ -42,6 +93,9 @@ class Settings(BaseSettings):
     supabase_storage_timeout_seconds: float = 20.0
     knowledge_upload_max_bytes: int = 10 * 1024 * 1024
     knowledge_upload_chunk_bytes: int = 64 * 1024
+    knowledge_upload_scanning_required: bool = False
+    knowledge_upload_scanner_url: str = ""
+    knowledge_upload_scanner_timeout_seconds: float = 10.0
     document_ingest_enabled: bool = False
     knowledge_ingest_max_bytes: int = 10 * 1024 * 1024
     knowledge_ingest_max_text_bytes: int = 2 * 1024 * 1024
@@ -140,6 +194,79 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_auth_configuration(self) -> "Settings":
+        allowed_origins = [origin.strip() for origin in self.frontend_origin.split(",") if origin.strip()]
+        if not allowed_origins or any(not _is_origin(origin) for origin in allowed_origins):
+            raise ValueError("FRONTEND_ORIGIN must contain one or more absolute origins without paths")
+        if self.api_max_request_bytes < 1:
+            raise ValueError("API_MAX_REQUEST_BYTES must be positive")
+        if self.security_csp_mode not in {"disabled", "report_only", "enforce"}:
+            raise ValueError("SECURITY_CSP_MODE must be disabled, report_only, or enforce")
+        if self.security_csp_report_uri and not self.security_csp_report_uri.startswith("/"):
+            raise ValueError("SECURITY_CSP_REPORT_URI must be a relative path")
+        if not 0 <= self.observability_sampling_rate <= 1:
+            raise ValueError("OBSERVABILITY_SAMPLING_RATE must be between 0 and 1")
+        if not 0 < self.observability_export_timeout_seconds <= 30:
+            raise ValueError("OBSERVABILITY_EXPORT_TIMEOUT_SECONDS must be between 0 and 30")
+        if not 1 <= self.observability_export_queue_size <= 10_000:
+            raise ValueError("OBSERVABILITY_EXPORT_QUEUE_SIZE must be between 1 and 10000")
+        if self.observability_clock_timezone != "UTC":
+            raise ValueError("OBSERVABILITY_CLOCK_TIMEZONE must be UTC")
+        if self.operations_alert_evaluation_enabled and not self.operations_monitoring_enabled:
+            raise ValueError("OPERATIONS_ALERT_EVALUATION_ENABLED requires OPERATIONS_MONITORING_ENABLED")
+        if self.operations_synthetic_checks_enabled and not self.operations_monitoring_enabled:
+            raise ValueError("OPERATIONS_SYNTHETIC_CHECKS_ENABLED requires OPERATIONS_MONITORING_ENABLED")
+        if self.operations_exercises_enabled and self.app_env == "production":
+            raise ValueError("OPERATIONS_EXERCISES_ENABLED cannot run in production")
+        if self.operations_exercises_enabled and not self.operations_exercises_isolated:
+            raise ValueError("OPERATIONS_EXERCISES_ENABLED requires OPERATIONS_EXERCISES_ISOLATED=true")
+        if not 5 <= self.operations_exercise_timeout_seconds <= 600:
+            raise ValueError("OPERATIONS_EXERCISE_TIMEOUT_SECONDS must be between 5 and 600")
+        if self.controlled_rag_validation_isolated and not self.controlled_rag_validation_enabled:
+            raise ValueError(
+                "CONTROLLED_RAG_VALIDATION_ISOLATED requires CONTROLLED_RAG_VALIDATION_ENABLED"
+            )
+        if min(
+            self.operations_monitoring_window_hours,
+            self.operations_monitoring_event_limit,
+            self.operations_alert_queue_depth,
+            self.operations_alert_queue_age_seconds,
+            self.operations_alert_dead_letter_count,
+            self.operations_alert_stale_worker_count,
+            self.operations_alert_retrieval_latency_ms,
+        ) < 1:
+            raise ValueError("Phase 19 operations monitoring thresholds must be positive")
+        if not 0 <= self.operations_alert_retrieval_empty_rate_percent <= 100:
+            raise ValueError("OPERATIONS_ALERT_RETRIEVAL_EMPTY_RATE_PERCENT must be between 0 and 100")
+        if min(self.backup_rpo_hours, self.backup_rto_minutes) < 1:
+            raise ValueError("BACKUP_RPO_HOURS and BACKUP_RTO_MINUTES must be positive")
+        if self.backup_retention_guard_enabled and not self.backup_restore_evidence_reference.strip():
+            raise ValueError("BACKUP_RESTORE_EVIDENCE_REFERENCE is required when BACKUP_RETENTION_GUARD_ENABLED")
+        if len(self.backup_restore_evidence_reference) > 255:
+            raise ValueError("BACKUP_RESTORE_EVIDENCE_REFERENCE must not exceed 255 characters")
+        if len(self.observability_release_id) > 128:
+            raise ValueError("OBSERVABILITY_RELEASE_ID must not exceed 128 characters")
+        if self.rate_limiting_mode not in {"shadow", "enforce"}:
+            raise ValueError("RATE_LIMITING_MODE must be shadow or enforce")
+        if self.rate_limiting_enabled and self.app_env == "production" and not self.rate_limit_key_pepper:
+            raise ValueError("RATE_LIMIT_KEY_PEPPER is required when production rate limiting is enabled")
+        rate_limit_values = (
+            self.public_compute_rate_limit_per_minute,
+            self.rate_limit_retention_seconds,
+            self.rate_limit_public_compute_burst_limit,
+            self.rate_limit_public_compute_burst_window_seconds,
+            self.rate_limit_public_compute_sustained_limit,
+            self.rate_limit_public_compute_sustained_window_seconds,
+            self.rate_limit_authenticated_compute_burst_limit,
+            self.rate_limit_authenticated_compute_burst_window_seconds,
+            self.rate_limit_authenticated_compute_sustained_limit,
+            self.rate_limit_authenticated_compute_sustained_window_seconds,
+            self.rate_limit_job_submit_burst_limit,
+            self.rate_limit_job_submit_burst_window_seconds,
+            self.rate_limit_job_submit_sustained_limit,
+            self.rate_limit_job_submit_sustained_window_seconds,
+        )
+        if min(rate_limit_values) < 1:
+            raise ValueError("Rate-limit windows, limits, and retention must be positive")
         provider = self.auth_provider.lower()
         if provider not in {"legacy_local", "supabase"}:
             raise ValueError("AUTH_PROVIDER must be legacy_local or supabase")
@@ -187,6 +314,15 @@ class Settings(BaseSettings):
             or self.knowledge_upload_chunk_bytes > self.knowledge_upload_max_bytes
         ):
             raise ValueError("Knowledge upload limits are invalid")
+        if self.knowledge_upload_scanner_timeout_seconds <= 0:
+            raise ValueError("KNOWLEDGE_UPLOAD_SCANNER_TIMEOUT_SECONDS must be positive")
+        if self.knowledge_upload_scanning_required:
+            if not self.knowledge_storage_enabled:
+                raise ValueError("KNOWLEDGE_UPLOAD_SCANNING_REQUIRED requires KNOWLEDGE_STORAGE_ENABLED")
+            if not _is_scanner_url(self.knowledge_upload_scanner_url):
+                raise ValueError("KNOWLEDGE_UPLOAD_SCANNER_URL must be an absolute HTTP(S) URL without credentials")
+        if self.app_env == "production" and self.knowledge_storage_enabled and not self.knowledge_upload_scanning_required:
+            raise ValueError("Production knowledge storage requires KNOWLEDGE_UPLOAD_SCANNING_REQUIRED")
         if (
             self.knowledge_ingest_max_bytes < 1
             or self.knowledge_ingest_max_bytes > self.knowledge_upload_max_bytes
@@ -214,6 +350,10 @@ class Settings(BaseSettings):
         if self.knowledge_pgvector_primary_enabled and not self.knowledge_shadow_retrieval_enabled:
             raise ValueError(
                 "KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED requires KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED"
+            )
+        if self.app_env == "production" and self.knowledge_pgvector_primary_enabled:
+            raise ValueError(
+                "KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED cannot run in production before Phase 22 approval"
             )
         if not 1 <= self.knowledge_shadow_retrieval_top_k <= 20:
             raise ValueError("KNOWLEDGE_SHADOW_RETRIEVAL_TOP_K must be between 1 and 20")
@@ -277,3 +417,28 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def _is_origin(value: str) -> bool:
+    parsed = urlparse(value)
+    return (
+        parsed.scheme in {"http", "https"}
+        and bool(parsed.netloc)
+        and not parsed.username
+        and not parsed.password
+        and parsed.path in {"", "/"}
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+    )
+
+
+def _is_scanner_url(value: str) -> bool:
+    parsed = urlparse(value)
+    return (
+        parsed.scheme in {"http", "https"}
+        and bool(parsed.netloc)
+        and not parsed.username
+        and not parsed.password
+        and not parsed.fragment
+    )

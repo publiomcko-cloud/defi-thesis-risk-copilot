@@ -16,6 +16,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.knowledge.schemas import KnowledgeSourceCreateRequest
 from app.knowledge.service import create_document_upload, create_source
+from app.knowledge.upload_scanner import UploadScanError
 from app.main import app
 from app.models.access_audit_event import AccessAuditEventModel
 from app.models.knowledge import (
@@ -204,6 +205,34 @@ def test_upload_validation_and_disabled_storage_leave_no_document(knowledge_api_
     with Session() as db:
         assert db.execute(select(KnowledgeDocumentModel)).scalars().all() == []
         assert db.execute(select(KnowledgeDocumentVersionModel)).scalars().all() == []
+
+
+def test_required_scanner_failure_rejects_upload_before_object_storage(
+    knowledge_api_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, Session, storage = knowledge_api_client
+    monkeypatch.setenv("KNOWLEDGE_UPLOAD_SCANNING_REQUIRED", "true")
+    monkeypatch.setenv("KNOWLEDGE_UPLOAD_SCANNER_URL", "https://scanner.internal.test/scan")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        "app.knowledge.service.require_clean_upload",
+        lambda **_kwargs: (_ for _ in ()).throw(UploadScanError("scanner unavailable")),
+    )
+    try:
+        source_id = _create_private_source(client)
+        rejected = client.post(
+            f"/api/knowledge/sources/{source_id}/documents",
+            headers=_auth("owner-token"),
+            files={"file": ("blocked.md", b"# scanner failure", "text/markdown")},
+        )
+    finally:
+        get_settings.cache_clear()
+
+    assert rejected.status_code == 503
+    assert storage._objects == {}
+    with Session() as db:
+        assert db.execute(select(KnowledgeDocumentModel)).scalars().all() == []
 
 
 def test_upload_compensates_written_object_when_database_commit_fails(

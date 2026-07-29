@@ -25,6 +25,7 @@ from app.models.knowledge import (
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.organization_knowledge_source import OrganizationKnowledgeSourceModel
 from app.models.report import ReportModel
+from app.models.rate_limit import RateLimitBucketModel
 from app.models.review_item import ReviewItemModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.source_watch import SourceWatchModel
@@ -65,6 +66,7 @@ __all__ = [
     "OrganizationModel",
     "OrganizationKnowledgeSourceModel",
     "ReportModel",
+    "RateLimitBucketModel",
     "ReviewItemModel",
     "SavedThesisModel",
     "SourceWatchModel",

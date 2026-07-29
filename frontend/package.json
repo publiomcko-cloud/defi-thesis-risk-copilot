@@ -9,14 +9,20 @@
     "lint": "tsc --noEmit --incremental false",
     "test:e2e": "node scripts/phase16-e2e.mjs",
     "test:route-smoke": "node scripts/e2e-smoke.mjs",
-    "test:bff": "node scripts/bff-contract-check.mjs",
+    "test:bff": "node scripts/bff-contract-check.mjs && node --experimental-strip-types scripts/bff-body-limit-check.ts",
+    "test:accessibility": "node scripts/accessibility-contract-check.mjs",
+    "test:security": "node scripts/security-headers-check.mjs",
     "test:mfa": "node --experimental-strip-types scripts/mfa-provider-check.ts",
     "test:mfa:routes": "node scripts/mfa-route-check.mjs"
   },
   "dependencies": {
-    "next": "^15.5.20",
+    "next": "15.5.21",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
+  },
+  "overrides": {
+    "postcss": "8.5.24",
+    "sharp": "0.35.3"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

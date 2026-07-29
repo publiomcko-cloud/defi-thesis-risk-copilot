@@ -7,6 +7,7 @@ import os
 import signal
 import inspect
 import time
+from contextvars import copy_context
 from dataclasses import dataclass
 from threading import Event, Thread
 from urllib.error import HTTPError, URLError
@@ -16,6 +17,7 @@ from app.jobs.errors import JobErrorCategory, JobExecutionError, classify_except
 from app.jobs.cancellation import CancellationContext
 from app.jobs.executors import get_executor
 from app.jobs.schemas import WorkerClaimedJob
+from app.core.observability import correlation_context, correlation_headers, correlation_id_from_job_input
 
 
 logger = logging.getLogger("defi_copilot.worker")
@@ -42,6 +44,7 @@ class WorkerClient:
     def __init__(self, base_url: str, credential: str) -> None:
         self.base_url = base_url.rstrip("/")
         self.credential = credential
+        self.correlation_id: str | None = None
 
     def request(self, method: str, path: str, payload: dict | None = None) -> dict:
         body = json.dumps(payload).encode("utf-8") if payload is not None else None
@@ -52,6 +55,7 @@ class WorkerClient:
             headers={
                 "Authorization": f"Bearer {self.credential}",
                 "Content-Type": "application/json",
+                **correlation_headers(self.correlation_id),
             },
         )
         try:
@@ -91,6 +95,7 @@ def run_worker(*, once: bool = False) -> int:
                 stop_event.wait(poll_seconds)
                 continue
             job = WorkerClaimedJob.model_validate(payload)
+            client.correlation_id = correlation_id_from_job_input(job.input_json)
             active = ActiveLease(job.id, job.lease_generation, job.lease_token)
             lease_payload = {"lease_generation": job.lease_generation, "lease_token": job.lease_token}
             client.request("POST", f"/internal/workers/v1/jobs/{job.id}/start", lease_payload)
@@ -150,9 +155,11 @@ def run_worker(*, once: bool = False) -> int:
                         },
                     )
             active = None
+            client.correlation_id = None
             if once:
                 return 0
         except RuntimeError as exc:
+            client.correlation_id = None
             logger.warning("Worker loop request failed: %s", exc)
             if once:
                 return 1
@@ -193,6 +200,21 @@ def _execute_with_supervision(
     lease_payload: dict,
     stop_event: Event,
 ):
+    with correlation_context(
+        correlation_id_from_job_input(job.input_json),
+        operation="worker.execute",
+        job_id=job.id,
+    ):
+        return _execute_with_supervision_with_context(client, executor, job, lease_payload, stop_event)
+
+
+def _execute_with_supervision_with_context(
+    client: WorkerClient,
+    executor: object,
+    job: WorkerClaimedJob,
+    lease_payload: dict,
+    stop_event: Event,
+):
     """Run work while a control-plane lease remains owned by this worker."""
 
     done = Event()
@@ -210,7 +232,12 @@ def _execute_with_supervision(
 
     # This is deliberately non-daemon. The worker never claims another job until the
     # cooperative executor has left this thread, including after lease loss/shutdown.
-    thread = Thread(target=run, name=f"job-{job.id}", daemon=False)
+    execution_context = copy_context()
+    thread = Thread(
+        target=lambda: execution_context.run(run),
+        name=f"job-{job.id}",
+        daemon=False,
+    )
     thread.start()
     interval = max(float(os.getenv("JOB_HEARTBEAT_SECONDS", "20")), 0.1)
     while not done.wait(interval):

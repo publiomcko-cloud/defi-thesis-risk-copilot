@@ -274,6 +274,39 @@ export type JobOperations = {
   provider_cleanup_failures: number;
 };
 
+export type OperationsMonitoringAlert = {
+  key: string;
+  severity: string;
+  summary: string;
+  runbook_id: string;
+};
+
+export type OperationsMonitoring = {
+  status: string;
+  checked_at: string;
+  monitoring_mode: string;
+  alert_delivery: string;
+  monitoring_window_hours: number;
+  database_ready: boolean;
+  json_fallback_ready: boolean;
+  queue_depth: number;
+  oldest_queue_age_seconds?: number | null;
+  leased_or_running_jobs: number;
+  dead_letter_jobs: number;
+  active_workers: number;
+  stale_workers: number;
+  overdue_active_workers: number;
+  provider_cleanup_failures: number;
+  retrieval_events: number;
+  retrieval_empty_rate_percent?: number | null;
+  retrieval_average_latency_ms?: number | null;
+  retrieval_max_latency_ms?: number | null;
+  knowledge_storage_state: string;
+  pgvector_primary_enabled: boolean;
+  slo_targets: Record<string, string>;
+  alerts: OperationsMonitoringAlert[];
+};
+
 export type JobsResponse = {
   items: JobResponse[];
 };

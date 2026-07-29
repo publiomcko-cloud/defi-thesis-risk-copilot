@@ -11,6 +11,8 @@ Detailed implementation requirements live in:
   corrections, and validation evidence;
 - [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 slices,
   gates, validation, migration, deployment, and rollback evidence;
+- [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — active Phase 19
+  operations and security implementation plan;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
 - [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
 
@@ -385,10 +387,87 @@ activation, and launch approval remain Phase 22 gates.
 
 Goal: make identity, API, jobs, workers, storage, and retrieval hardened, observable, recoverable, and supportable.
 
-Begin with observability, readiness checks, and controlled shadow-mode
-validation. The detailed Phase 19 execution plan is created on its own branch
-after this closeout merges. Do not enable all Phase 18 production flags as a
-Phase 19 starting condition.
+The ordered implementation authority is
+[`phase_19_execution_plan.md`](phase_19_execution_plan.md). Begin with
+observability, readiness checks, and controlled shadow-mode validation. Do not
+enable all Phase 18 production flags as a Phase 19 starting condition.
+
+Phase 19A is implemented locally: structured/redacted logs, safe correlation
+from browser through workers, and read-only readiness evidence. It has no
+external telemetry exporter, dashboard, paging, or retention/access-policy
+approval yet. The evidence matrix and threat model are
+[`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) and
+[`phase_19_threat_model.md`](phase_19_threat_model.md).
+
+Phase 19B is implemented locally: a disabled-by-default PostgreSQL shared
+limiter protects bounded compute and durable-job admission with burst/sustained
+windows, salted scope hashes, and shadow/enforce modes. Preview proxy-policy,
+alert, and staged-enforcement evidence remain pending.
+
+Phase 19C is implemented locally: explicit FastAPI CORS/browser-origin and
+measured request-size controls for declared, chunked, and misleading-length
+bodies, report-only CSP and baseline headers, BFF exact
+origin/backend-target/redirect checks, and an opt-in required upload-scanner
+contract. The scanner fails closed and production knowledge storage cannot be
+enabled without it. WAF/bot policy, scanner/quarantine deployment, final origin
+evidence, CSP reporting, and HSTS approval remain pending.
+
+Phase 19D is implemented locally: an aggregate-only administrator monitoring
+snapshot covers queue/worker/retrieval/provider and fallback state; local alert
+candidates are deduplicated and have no delivery channel. The private operations
+page and fixed-path synthetic CLI are disabled by default. Telemetry/pager/status
+provider selection, dashboard RBAC, safe synthetic identity, alert escalation,
+and SLO/error-budget evidence remain deployment work.
+
+Phase 19E is implemented locally as a recovery-verification foundation: a
+disabled metadata-only manifest tool compares salted durable metadata in an
+isolated restore target, and an optional evidence guard can block destructive
+retention cleanup. Provider database/object backup, encryption verification,
+approved RPO/RTO, a provider restore drill, secret-store audit, emergency
+rotation exercise, and encryption-key migration remain required before any
+recovery claim.
+
+Phase 19F is implemented locally: workflows use immutable action SHAs and
+least-privilege permissions; repository policy checks reject mutable actions,
+unsafe pull-request triggers, persisted checkout credentials, and unlocked
+application manifests. CI generates a safe source-lockfile SBOM and adds
+Dependency Review, Gitleaks, CodeQL, and Trivy repository/container scans;
+Dependabot proposes weekly pip, npm, and action updates. The remediated
+application manifests audit clean locally, and high/critical dependency,
+container, and repository findings now fail CI. Suppressions require an
+explicit owned, time-bounded registry entry. GitHub branch rules and first
+hosted scan evidence remain deployment gates.
+
+Phase 19G is implemented locally: versioned incident and security-operations
+runbooks cover credential exposure, account takeover, tenant exposure,
+malicious sources, queue duplication, provider cost, database/object-storage
+outage, vector integrity, failed migration, and compromised workers. The
+registry maps existing aggregate alert IDs to stable response procedures; a
+structural check verifies required ownership, containment, recovery,
+communications, evidence, and retrospective sections. Named human
+primary/backup owners, a communication authority, an approved private evidence
+location, alert delivery integration, and recorded tabletop exercises remain
+deployment gates.
+
+Phase 19H is implemented locally: a fail-closed fixed catalog runs only
+isolated tests for rate-limit saturation, queue admission, worker loss,
+fake-provider failure, storage outage, vector corruption recovery, migration
+rollback, authorization negatives, database recovery, and semantic
+accessibility. A scheduled no-secret pgvector workflow repeats the catalog and
+uploads bounded safe exercise metrics only. It
+refuses production, non-isolated operation, arbitrary commands, and real Vast
+rentals. Production load/chaos, provider, customer-data, alert/pager, and full
+assistive-technology evidence remain external gates.
+
+Phase 19I is implemented locally: `check_controlled_rag_rollout` is a
+read-only, explicit opt-in readiness validator for the narrow durable-RAG
+deployment sequence. It verifies the shadow prerequisites, pgvector, JSON
+fallback, worker/ingestion dependencies, and dry-run provider posture. A
+primary-path check is limited to an isolated non-production environment, while
+production configuration rejects `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED=true`.
+The real storage-policy/RLS probe, synthetic tenant and worker evidence,
+durable-versus-JSON comparison, citation review, monitoring, and tested
+rollback must be retained in the approved external evidence system.
 
 Core outcomes:
 

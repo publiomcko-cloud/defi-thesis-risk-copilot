@@ -5,6 +5,7 @@ This document defines the system architecture and permanent trust boundaries. Ph
 - [`archive/v1_phase_16/phase_16_identity_ownership_contract.md`](archive/v1_phase_16/phase_16_identity_ownership_contract.md)
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
 - [`archive/v1_phase_18/`](archive/v1_phase_18/)
+- [`phase_19_execution_plan.md`](phase_19_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -66,6 +67,19 @@ The deployed `main` branch includes the Phase 15 public-safe baseline, Phase
 durable knowledge/retrieval implementation. Phase 18's durable path remains
 feature-gated; local JSON RAG remains the production fallback while Phase 19
 gathers controlled operations and deployment evidence.
+
+Phase 19A adds a local-only operational correlation path:
+
+```text
+browser correlation ID
+  -> Next.js BFF normalized header
+  -> FastAPI request context and redacted JSON log
+  -> server-owned durable job context
+  -> outbound worker control-plane header and executor context
+```
+
+This is not an external telemetry exporter. Operational logs remain redacted,
+and the admin-only readiness surface returns aggregate booleans only.
 
 Live endpoints:
 
@@ -348,7 +362,7 @@ Persistent per-period limits for analysis, simulation, options, market data, and
 
 ### Network rate limits
 
-Request-frequency protection. Current Phase 15 limiter is in-process; Phase 19 supplies distributed enforcement.
+Request-frequency protection is distinct from persistent product quotas. Phase 19B provides a disabled-by-default PostgreSQL shared limiter with two fixed windows per action for burst and sustained protection. It derives IP scope from the direct peer unless that peer belongs to an explicit trusted-proxy CIDR, then combines it with an anonymous session or authenticated user scope. Durable job admission adds an organization scope only after server-side membership validation. The database stores salted HMAC scope hashes, never raw IP addresses or session identifiers. The legacy Phase 15 in-process public-demo limiter remains only as the documented rollback fallback while shared limiting is disabled.
 
 Quota check/increment must be atomic. A row lock cannot protect a missing first-use row; PostgreSQL upsert or retry logic is required.
 
@@ -588,6 +602,68 @@ Adds:
 - scanning;
 - incident response;
 - load/failure/browser/PostgreSQL testing.
+
+Phase 19C is locally implemented as a feature-gated edge boundary: Next.js
+emits a report-only CSP and minimum browser headers, FastAPI accepts exact CORS
+origins and rejects browser mutations from other origins, and the BFF keeps a
+fixed backend origin/path allowlist while rejecting redirects. Private source
+storage remains disabled. When production storage is eventually enabled, an
+operator-configured scanner must return `clean` before bytes reach storage;
+scanner failure rejects the upload. JSON RAG remains the fallback and no
+Phase 18 feature flag is activated by these controls.
+
+Phase 19D adds a separate, administrator-only aggregate monitoring projection.
+It reads durable job/worker state and privacy-safe retrieval events without
+returning tenant, job, worker, query, source, or credential detail. Local alert
+candidates remain inside the application and are not pager delivery. The
+synthetic runner can only use fixed health/readiness/demo paths until a later
+operator-owned authenticated synthetic deployment is approved.
+
+Phase 19E adds a separate metadata-only recovery-verification path. It derives
+salted fingerprints from durable report/job/artifact/knowledge metadata but
+never serializes content, object keys, checksums, identities, or credentials.
+An external provider remains responsible for encrypted database/object backup
+and restore. The optional retention guard requires a server-side recovery
+evidence identifier before destructive cleanup; it does not alter default
+Phase 17 cleanup or job recovery behavior.
+
+Phase 19F keeps build-pipeline trust separate from runtime trust. GitHub Actions
+use immutable action revisions and least-privilege permissions; a standard
+library policy utility validates workflow and lockfile invariants before project
+dependencies are installed. Its SBOM is derived only from pinned Python/npm
+metadata, never runtime configuration or secrets. Dependency/secret/SAST and
+container-image scans operate in CI without deployment credentials. GitHub
+ruleset and security-provider configuration remain an external control-plane
+boundary.
+
+Phase 19G makes operational response explicit without adding a runtime incident
+or paging service. Existing aggregate monitoring alerts retain stable runbook
+IDs; the versioned incident registry maps them to containment, recovery,
+communication, evidence, and retrospective procedures. Incident records,
+on-call names, pager routes, raw logs, customer data, credentials, and forensic
+artifacts remain in approved private operational systems rather than the
+application database, browser, or repository. The registry and tabletop scripts
+are structural local evidence only; named owners and exercised-response evidence
+are required before deployment-complete claims.
+
+Phase 19H adds no production workload path. A backend-only, fixed-command
+exercise runner validates its own explicit isolated-environment gate before
+spawning known test commands. It forces child test processes into a non-provider
+exercise context, caps their timeout, reports no child output, and persists no
+exercise state. The scheduled workflow uses an ephemeral pgvector service with
+no deployment/provider credentials. It verifies existing failure handling and
+semantic browser contracts; it is not a production capacity, provider, pager,
+or full accessibility certification system.
+
+Phase 19I adds a read-only rollout-readiness boundary around the existing
+durable-RAG controls. It checks only safe booleans: database/pgvector and JSON
+fallback availability, explicitly enabled storage/ingestion/worker/embedding/
+shadow dependencies, and dry-run provider posture. It neither mutates a
+feature flag nor touches tenant content. The production configuration rejects
+the pgvector-primary flag; an actual primary report-path check is possible only
+in an explicitly isolated non-production environment. Private bucket/RLS,
+synthetic identities, worker execution, report/citation comparison, alerting,
+and rollback records remain external operational evidence.
 
 ---
 

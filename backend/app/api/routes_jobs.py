@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_admin, require_authenticated_user
 from app.auth.schemas import UserContext
 from app.db.session import get_db
+from app.rate_limits.service import enforce_job_submission_rate_limit
 from app.jobs.access import get_visible_job
 from app.jobs.control_service import (
     cancel_job,
@@ -22,12 +23,14 @@ router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 @router.post("", response_model=JobSubmissionResponse, status_code=202)
 def create_job(
-    request: JobSubmissionRequest,
+    payload: JobSubmissionRequest,
+    request: Request,
     db: Session = Depends(get_db),
     actor: UserContext = Depends(require_authenticated_user),
     idempotency_key: str = Header(..., alias="Idempotency-Key"),
 ) -> JobSubmissionResponse:
-    job, replayed = submit_job(db, actor, request, idempotency_key)
+    enforce_job_submission_rate_limit(db, request, actor, payload.organization_id)
+    job, replayed = submit_job(db, actor, payload, idempotency_key)
     return JobSubmissionResponse(job=job_response(job), idempotent_replay=replayed)
 
 

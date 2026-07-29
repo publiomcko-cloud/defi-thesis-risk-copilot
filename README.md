@@ -22,7 +22,7 @@ The Render free-tier backend may cold-start after inactivity.
 
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–18
-In progress: V1 Phase 19
+In progress: V1 Phase 19 (19A-19I operations/security foundations, recovery verification, supply-chain controls, incident response, isolated failure exercises, and controlled durable-RAG rollout checks)
 Planned:   V1 Phases 20–22
 ```
 
@@ -277,7 +277,12 @@ Controlled research/admin routes remain explicitly protected.
 - [Archived Phase 16 records](docs/archive/v1_phase_16/) — implementation contract, execution plan, and deployment evidence
 - [Archived Phase 17 records](docs/archive/v1_phase_17/) — execution and validation evidence
 - [Archived Phase 18 records](docs/archive/v1_phase_18/) — implementation, validation, and cutover evidence
-- [Phase 19 contract](docs/future_phase_contracts.md#v1-phase-19--production-operations-and-security) — active implementation authority
+- [Phase 19 execution plan](docs/phase_19_execution_plan.md) — active implementation authority
+- [Phase 19 monitoring runbook](docs/operations/monitoring_and_alerting.md) — local monitoring and external rollout gates
+- [Phase 19 backup/restore runbook](docs/operations/backup_restore_runbook.md) — isolated recovery drill and retention guard
+- [Phase 19 secret inventory](docs/operations/secret_inventory.md) — secret ownership and rotation boundaries
+- [Phase 19 incident runbooks](docs/operations/incidents/) — versioned containment and recovery procedures with safe tabletop scripts
+- [Phase 19 failure exercises](docs/operations/failure_exercises.md) — fixed isolated test catalog and rollback boundaries
 - [Future phase contracts](docs/future_phase_contracts.md) — full Phases 19–22 requirements
 - [Agent execution guide](docs/agent_execution_guide.md) — short-prompt workflow
 - [Architecture](docs/architecture.md)

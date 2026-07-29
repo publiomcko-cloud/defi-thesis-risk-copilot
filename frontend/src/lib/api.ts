@@ -45,6 +45,7 @@ import type {
   JobResponse,
   JobSubmissionResponse,
   JobOperations,
+  OperationsMonitoring,
   JobEventsResponse,
   JobsResponse,
   KnowledgeDocument,
@@ -73,10 +74,29 @@ function authHeaders(): Record<string, string> {
 }
 
 function requestInit(init: RequestInit = {}): RequestInit {
+  const headers = new Headers(init.headers);
+  if (!headers.has("X-Correlation-ID")) {
+    headers.set("X-Correlation-ID", newCorrelationId());
+  }
   return {
     ...init,
+    headers,
     credentials: "include"
   };
+}
+
+function newCorrelationId(): string {
+  const cryptoApi = globalThis.crypto;
+  if (!cryptoApi) {
+    throw new Error("Secure browser randomness is required to create a correlation identifier.");
+  }
+  if (typeof cryptoApi.randomUUID === "function") {
+    return `web_${cryptoApi.randomUUID().replaceAll("-", "")}`;
+  }
+
+  const bytes = new Uint8Array(16);
+  cryptoApi.getRandomValues(bytes);
+  return `web_${Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
 async function errorDetail(response: Response, fallback: string): Promise<string> {
@@ -103,7 +123,8 @@ export async function fetchCurrentUser(): Promise<UserContext> {
 
 export async function fetchHealth(): Promise<HealthResponse> {
   const response = await fetch(`${getApiBaseUrl()}/health`, {
-    cache: "no-store"
+    cache: "no-store",
+    ...requestInit()
   });
 
   if (!response.ok) {
@@ -330,12 +351,13 @@ export async function analyzeStrategy(
 ): Promise<AnalysisResponse> {
   const response = await fetch(`${getApiBaseUrl()}/api/analyze`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
-    },
     body: JSON.stringify(payload),
-    ...requestInit()
+    ...requestInit({
+      headers: {
+        "Content-Type": "application/json",
+        ...(idempotencyKey ? { "Idempotency-Key": idempotencyKey } : {})
+      }
+    })
   });
 
   if (!response.ok) {
@@ -696,6 +718,19 @@ export async function fetchJobOperations(): Promise<JobOperations> {
 
   if (!response.ok) {
     throw new Error(await errorDetail(response, `Job operations fetch failed with status ${response.status}`));
+  }
+
+  return response.json();
+}
+
+export async function fetchOperationsMonitoring(): Promise<OperationsMonitoring> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/operations/monitoring`, {
+    cache: "no-store",
+    headers: authHeaders()
+  });
+
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Operations monitoring fetch failed with status ${response.status}`));
   }
 
   return response.json();

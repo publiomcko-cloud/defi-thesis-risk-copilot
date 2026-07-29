@@ -8,6 +8,8 @@ Authoritative references:
 - [`archive/v1_phase_16/`](archive/v1_phase_16/) — archived Phase 16 contract, execution plan, and deployment evidence;
 - [`archive/v1_phase_17/`](archive/v1_phase_17/) — archived Phase 17 plan, corrections, and validation evidence;
 - [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 plan, validation, correction, migration, and cutover evidence;
+- [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — active Phase 19 implementation plan;
+- [`phase_19_threat_model.md`](phase_19_threat_model.md) and [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) — Phase 19A–19I risk and evidence record;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22 contract;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -50,7 +52,7 @@ Current status:
 V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
-V1 Phase 19 — Active implementation phase
+V1 Phase 19 — In progress; 19A–19I foundations are implemented locally, with final limiter/body-bound hardening and blocking high/critical CI checks added; centralized telemetry, alert delivery, restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
 V1 Phases 20–21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -341,7 +343,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 
 ## 10. Known platform limitations
 
-- public rate limiting is still in-process, not distributed;
+- the new PostgreSQL shared limiter is implemented but disabled by default; the legacy in-process public-demo limiter remains the rollback fallback until preview shadow and proxy-policy evidence exists;
 - local JSON remains the default public-curated retrieval path and the explicit
   rollback fallback. When the guarded Phase 18 primary flag is enabled,
   authenticated analysis can retrieve approved public, caller-owned private,
@@ -357,7 +359,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 - monitoring/discovery are manually initiated;
 - the production hybrid frontend exposes public demo/login routes alongside authenticated workspace
   navigation; platform-admin APIs remain role-protected by the backend rather than by hidden URLs;
-- production observability, WAF, backups, restore drills, and incident operations are later phases;
+- provider backup/restore, deployed observability/WAF evidence, GitHub branch-protection/scanner-baseline evidence, and incident operations remain Phase 19/22 gates;
 - billing, notifications, and commercial support workflows are not implemented;
 - model/research expansion remains later-phase work;
 - no wallet, signing, custody, private-key handling, or execution exists.
@@ -379,8 +381,49 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   cases with 100% precision/recall and zero citation issues, but is not
   production cutover evidence. Controlled deployment can occur during Phase 19;
   final storage-policy, cutover, and launch approval remain Phase 22 gates;
-- Phase 19 — Active: production operations and security, beginning with
-  observability, readiness checks, and controlled shadow-mode validation;
+- Phase 19 — In Progress: 19A locally implements redacted structured logging,
+  browser/BFF/API/job/worker correlation IDs, and non-mutating operational
+  readiness. 19B adds a disabled-by-default PostgreSQL shared limiter for
+  bounded compute and durable job admission. 19C adds exact CORS/origin and
+  measured body controls for declared, chunked, and misleading-length requests,
+  report-only CSP/minimum browser and API headers, BFF target/redirect
+  checks, and a fail-closed required-scanner contract. External telemetry,
+  alerting, production proxy/WAF/origin evidence, scanner/quarantine deployment,
+  CSP report review, HSTS approval, backup/restore, and all later Phase 19 gates
+  remain pending. 19D adds a disabled-by-default aggregate monitoring snapshot,
+  local alert candidates, private admin operations view, and safe synthetic CLI;
+  no telemetry exporter, pager, status provider, synthetic identity, or customer
+  probe is configured. 19E adds a disabled metadata-only restore verifier,
+  opt-in retention evidence guard, and secret-inventory/runbook templates; no
+  provider backup/restore, approved RPO/RTO, or encryption-key migration is
+  implemented or claimed. 19F adds SHA-pinned/read-only security workflows,
+  dependency remediation, lockfile/action policy checks, source SBOM artifacts,
+  secret/SAST/dependency/container scans, Dependabot, and a findings runbook.
+  High/critical dependency, container, and repository findings now fail CI;
+  exceptions must be explicit, owned, and time-bounded. GitHub main ruleset
+  configuration and first hosted scanner evidence remain external rollout gates;
+  19G adds versioned incident/security-operation procedures, stable mappings
+  from the existing aggregate alert IDs, safe evidence-handling rules, and ten
+  tabletop scripts. The repository has no on-call roster, incident tracker,
+  pager, or production exercise evidence: named primary/backup owners,
+  communication authority, approved evidence location, and completed tabletop
+  records remain external deployment gates;
+  19H adds a fail-closed fixed exercise runner, isolated scheduled pgvector CI
+  workflow, semantic accessibility contract, and bounded safe exercise metrics.
+  It validates local/CI
+  saturation, admission, worker-loss, fake-provider, storage, retrieval,
+  migration, authorization, recovery, and frontend paths without persisting
+  exercise data or allowing real rentals. Production load/chaos, alert/pager,
+  customer-data, provider, and assistive-technology evidence remain external
+  gates;
+  19I adds a read-only controlled durable-RAG rollout checker. It requires an
+  explicit validation flag, verifies pgvector plus JSON fallback and the
+  approved shadow prerequisites, rejects primary retrieval in production, and
+  permits a primary-path check only in an explicitly isolated non-production
+  environment. It does not create tenant data or activate a feature. Deployed
+  private-bucket/RLS, synthetic two-user/organization, trusted-worker,
+  durable-versus-JSON, citation, monitoring, and rollback evidence remains an
+  external gate;
 - Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.

@@ -101,6 +101,7 @@ export default function AdminPage() {
           <div className="action-row">
             <Link className="secondary-link" href="/admin/provider-credentials">Provider Credentials</Link>
             <Link className="secondary-link" href="/admin/audit">Audit Events</Link>
+            <Link className="secondary-link" href="/admin/operations">Operations</Link>
             <Link className="secondary-link" href="/admin/vast">Vast.ai</Link>
             <Link className="secondary-link" href="/review">Review Queue</Link>
             <Link className="secondary-link" href="/knowledge">Knowledge Readiness</Link>

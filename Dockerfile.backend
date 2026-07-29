@@ -5,11 +5,15 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /workspace/backend
 
+RUN addgroup --system app && adduser --system --ingroup app app
+
 COPY backend/requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY backend/ ./
-COPY knowledge_base/ /workspace/knowledge_base/
+COPY --chown=app:app backend/ ./
+COPY --chown=app:app knowledge_base/ /workspace/knowledge_base/
+
+USER app
 
 EXPOSE 8000
 

@@ -451,19 +451,37 @@ def test_public_durable_retriever_never_surfaces_noncurated_or_unapproved_rows(p
 
 def test_primary_cutover_requires_shadow_and_falls_back_to_json(monkeypatch: pytest.MonkeyPatch, public_corpus_session) -> None:
     with pytest.raises(ValueError, match="KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED"):
-        Settings(knowledge_pgvector_primary_enabled=True)
+        Settings(
+            jobs_enabled=False,
+            worker_api_enabled=False,
+            knowledge_embeddings_enabled=False,
+            knowledge_shadow_retrieval_enabled=False,
+            knowledge_pgvector_primary_enabled=True,
+        )
 
     monkeypatch.setenv("JOBS_ENABLED", "true")
     monkeypatch.setenv("WORKER_API_ENABLED", "true")
     monkeypatch.setenv("KNOWLEDGE_EMBEDDINGS_ENABLED", "true")
     monkeypatch.setenv("KNOWLEDGE_SHADOW_RETRIEVAL_ENABLED", "true")
     monkeypatch.setenv("KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED", "true")
+    json_fallback = [
+        RetrievalResult(
+            chunk_id="json_fallback",
+            text="Local JSON fallback context",
+            metadata={"protocol": "aave", "source_url": "knowledge_base/aave/README.md"},
+            similarity_score=1.0,
+        )
+    ]
+    monkeypatch.setattr(
+        "app.agents.protocol_research_agent.Retriever.retrieve",
+        lambda *_args, **_kwargs: json_fallback,
+    )
     get_settings.cache_clear()
     try:
         with public_corpus_session() as db:
-            # No imported durable corpus means old JSON retrieval is still used.
+            # No imported durable corpus means the old JSON retrieval is used.
             fallback = retrieve_protocol_context("What is Health Factor?", ["aave"], db=db)
-        assert fallback
+        assert fallback == json_fallback
 
         durable = [
             RetrievalResult(

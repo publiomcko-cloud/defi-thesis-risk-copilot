@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -6,6 +7,10 @@ from app.auth.dependencies import require_admin
 from app.auth.schemas import AuditEventsResponse, UserContext
 from app.auth.service import audit_event_response
 from app.core.config import get_settings
+from app.core.observability import operational_readiness
+from app.operations.monitoring import operations_monitoring_snapshot
+from app.operations.schemas import OperationsMonitoringResponse
+from app.rate_limits.service import rate_limit_summary
 from app.db.session import get_db
 from app.models.access_audit_event import AccessAuditEventModel
 from app.providers.credential_service import (
@@ -43,6 +48,34 @@ from app.jobs.worker_service import (
 )
 
 router = APIRouter(tags=["admin"])
+
+
+class OperationalReadinessResponse(BaseModel):
+    status: str
+    checked_at: str
+    database_ready: bool
+    json_fallback_ready: bool
+    structured_logging: bool
+    correlation_headers: bool
+    observability_mode: str
+    telemetry_export: str
+    shared_rate_limiting: str
+    release_id_configured: bool
+    knowledge_pgvector_primary_enabled: bool
+    vast_dry_run: bool
+    vast_real_rentals_enabled: bool
+
+
+class RateLimitActionSummary(BaseModel):
+    action: str
+    active_bucket_count: int
+    request_count: int
+
+
+class RateLimitSummaryResponse(BaseModel):
+    mode: str
+    active_bucket_count: int
+    actions: list[RateLimitActionSummary]
 
 
 @router.post("/admin/provider-credentials", response_model=ProviderCredentialResponse)
@@ -126,6 +159,38 @@ def get_job_operations(
     _: UserContext = Depends(require_admin),
 ) -> JobOperationsResponse:
     return job_operations_summary(db)
+
+
+@router.get("/admin/operations/readiness", response_model=OperationalReadinessResponse)
+def get_operational_readiness(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> OperationalReadinessResponse:
+    """Return safe, non-mutating Phase 19A readiness information."""
+
+    return OperationalReadinessResponse(**operational_readiness(db))
+
+
+@router.get("/admin/operations/monitoring", response_model=OperationsMonitoringResponse)
+def get_operations_monitoring(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> OperationsMonitoringResponse:
+    """Expose aggregate-only Phase 19D signals to platform administrators."""
+
+    if not get_settings().operations_monitoring_enabled:
+        raise HTTPException(status_code=503, detail="Operations monitoring is disabled")
+    return operations_monitoring_snapshot(db)
+
+
+@router.get("/admin/operations/rate-limits", response_model=RateLimitSummaryResponse)
+def get_rate_limit_summary(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> RateLimitSummaryResponse:
+    """Expose only aggregate shared-limiter activity to platform administrators."""
+
+    return RateLimitSummaryResponse(**rate_limit_summary(db))
 
 
 @router.post("/admin/workers/{worker_id}/disable", response_model=WorkerResponse)
