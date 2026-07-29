@@ -17,7 +17,7 @@ does not use `pull_request_target`, deployment credentials, or preview secrets.
 | Workflow policy | `scripts/supply_chain.py check-workflows` rejects mutable action references, `pull_request_target`, `write-all`, and checkout credentials persisted by default. | Blocking now. |
 | Lockfile policy | Python requirements must be exact pins; npm must use a v3 lockfile with registry URLs and integrity digests. | Blocking now. |
 | SBOM | A CycloneDX 1.5 source-lockfile SBOM is generated as a 30-day CI artifact. It excludes environment values, credentials, source content, and image layers. | Evidence now; use a release artifact for deployment attestation later. |
-| Dependency review | GitHub reviews pull-request dependency changes, rejecting new high-severity advisories and GPL-3.0/AGPL-3.0 dependencies. | Blocking after GitHub required-check configuration. |
+| Dependency review | GitHub reviews pull-request dependency changes, rejecting new high-severity advisories and GPL-3.0/AGPL-3.0 dependencies when the repository dependency graph is enabled. It is non-blocking until that administrator prerequisite exists. | Make blocking after dependency-graph activation and first successful evidence. |
 | Secret scan | Gitleaks scans committed history and changed content with a read-only token. | Blocking after GitHub required-check configuration. |
 | Dependency audit | `pip-audit` and `npm audit --omit=dev` generate baseline artifacts. | Informational until an owner has triaged each scanner/provider baseline. |
 | Container scan | Trivy scans repository configuration and locally built backend/frontend images without deployment secrets. | Informational during the first baseline; high/critical findings require triage. |

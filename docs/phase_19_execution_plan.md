@@ -151,7 +151,9 @@ permissions, no `pull_request_target`, non-persisted checkout credentials, and
 reproducible application-manifest policy checks. It generates a CycloneDX
 source-lockfile SBOM, runs Dependency Review and Gitleaks as workflow checks,
 and adds CodeQL plus Trivy repository/container scans in an informational
-baseline mode. Dependabot proposes weekly updates. The direct/transitive npm
+baseline mode. Dependency Review remains non-blocking until a repository
+administrator enables GitHub's dependency graph. Dependabot proposes weekly
+updates. The direct/transitive npm
 findings recorded before this slice and the Python audit findings have been
 remediated in the pinned manifests. GitHub ruleset configuration, hosted scan
 triage, and proof that preview/external PRs receive no secrets remain required

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 from datetime import UTC, datetime
 
 import pytest
@@ -38,7 +39,9 @@ from scripts import run_sanitized_restore_drill as restore_script
 
 @pytest.fixture()
 def recovery_session(monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("CREDENTIAL_ENCRYPTION_KEY", "phase19e-test-encryption-key")
+    monkeypatch.setenv(
+        "CREDENTIAL_ENCRYPTION_KEY", base64.urlsafe_b64encode(b"t" * 32).decode("ascii")
+    )
     get_settings.cache_clear()
     engine = create_engine(
         "sqlite:///:memory:",
