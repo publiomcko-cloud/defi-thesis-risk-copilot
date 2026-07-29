@@ -1,0 +1,148 @@
+name: Supply Chain Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "41 4 * * 2"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: supply-chain-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  policy-and-sbom:
+    name: Workflow Policy and SBOM
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.2
+        with:
+          persist-credentials: false
+      - name: Enforce workflow action policy
+        run: python3 scripts/supply_chain.py check-workflows
+      - name: Enforce lockfile policy
+        run: python3 scripts/supply_chain.py check-lockfiles
+      - name: Generate source-lockfile SBOM
+        run: python3 scripts/supply_chain.py generate-sbom --output artifacts/sbom.cdx.json
+      - name: Upload SBOM
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase19f-source-lockfile-sbom
+          path: artifacts/sbom.cdx.json
+          retention-days: 30
+
+  dependency-review:
+    name: Dependency Review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Review dependency changes
+        uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0, AGPL-3.0
+
+  secret-scan:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan repository history and changes
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2.3.9
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  dependency-and-container-baseline:
+    name: Dependency and Container Baseline
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install Python audit tool
+        run: python -m pip install --disable-pip-version-check --no-input pip-audit==2.10.1
+      - name: Audit Python dependencies
+        id: python-audit
+        continue-on-error: true
+        run: pip-audit -r backend/requirements.txt --format json > "$RUNNER_TEMP/pip-audit.json"
+      - name: Install locked frontend dependencies
+        working-directory: frontend
+        run: npm ci --ignore-scripts
+      - name: Audit production frontend dependencies
+        id: npm-audit
+        continue-on-error: true
+        working-directory: frontend
+        run: npm audit --omit=dev --json > "$RUNNER_TEMP/npm-audit.json"
+      - name: Summarize frontend advisory baseline
+        if: always()
+        run: python3 scripts/supply_chain.py audit-summary --audit-file "$RUNNER_TEMP/npm-audit.json"
+      - name: Scan repository configuration baseline
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: "0"
+      - name: Build backend image without deployment secrets
+        run: docker build -f Dockerfile.backend -t local/defi-thesis-risk-copilot-backend:phase19f .
+      - name: Build frontend image without deployment secrets
+        run: docker build -f Dockerfile.frontend -t local/defi-thesis-risk-copilot-frontend:phase19f .
+      - name: Scan backend container image baseline
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: local/defi-thesis-risk-copilot-backend:phase19f
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Scan frontend container image baseline
+        continue-on-error: true
+        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        with:
+          image-ref: local/defi-thesis-risk-copilot-frontend:phase19f
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Upload baseline scan artifacts
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: phase19f-advisory-baseline
+          path: |
+            ${{ runner.temp }}/pip-audit.json
+            ${{ runner.temp }}/npm-audit.json
+          if-no-files-found: ignore
+          retention-days: 14
