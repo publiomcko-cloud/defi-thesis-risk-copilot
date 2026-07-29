@@ -444,11 +444,12 @@ npm audit --omit=dev
 The focused tests reject mutable workflow actions, `pull_request_target`,
 persisted checkout credentials, and unlocked Python requirements; they also
 validate deterministic secret-free SBOM generation and exact owned,
-time-bounded scanner suppressions. GitHub blocks high/critical Dependency
-Review, dependency, and Trivy findings. Its first hosted evidence, main ruleset
-configuration, required-check enforcement, and external-PR preview-secret
-isolation still require an administrator and must not be claimed from local
-tests alone.
+time-bounded scanner suppressions. GitHub blocks high/critical pip/npm and
+Trivy findings. Dependency Review becomes blocking only after a repository
+administrator enables GitHub Dependency Graph. Its first hosted evidence, main
+ruleset configuration, required-check enforcement, and external-PR
+preview-secret isolation still require an administrator and must not be claimed
+from local tests alone.
 
 ### Phase 19G implemented coverage
 

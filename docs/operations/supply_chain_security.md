@@ -17,7 +17,7 @@ does not use `pull_request_target`, deployment credentials, or preview secrets.
 | Workflow policy | `scripts/supply_chain.py check-workflows` rejects mutable action references, `pull_request_target`, `write-all`, and checkout credentials persisted by default. | Blocking now. |
 | Lockfile policy | Python requirements must be exact pins; npm must use a v3 lockfile with registry URLs and integrity digests. | Blocking now. |
 | SBOM | A CycloneDX 1.5 source-lockfile SBOM is generated as a 30-day CI artifact. It excludes environment values, credentials, source content, and image layers. | Evidence now; use a release artifact for deployment attestation later. |
-| Dependency review | GitHub reviews pull-request dependency changes, rejecting new high-severity advisories and GPL-3.0/AGPL-3.0 dependencies. | Blocking in CI; dependency graph/service availability is an external GitHub administration gate. |
+| Dependency review | GitHub reviews pull-request dependency changes, rejecting new high-severity advisories and GPL-3.0/AGPL-3.0 dependencies once GitHub Dependency Graph is enabled. | Informational only while that repository-admin prerequisite is unavailable; pinned dependency audits remain blocking. |
 | Secret scan | Gitleaks scans committed history and changed content with a read-only token. | Blocking after GitHub required-check configuration. |
 | Dependency audit | `pip-audit` and `npm audit --omit=dev` generate artifacts. | Blocking for known high/critical findings. |
 | Container scan | Trivy scans repository configuration and locally built backend/frontend images without deployment secrets. | Blocking for known high/critical findings. |
@@ -53,9 +53,10 @@ investigated.
 
 At the Phase 19F hardening checkpoint, the pinned application manifests return
 zero known findings from `pip-audit` and `npm audit --omit=dev`, and the local
-exception register is empty. Dependency review and high/critical Trivy scans
-are now blocking in CI. The first hosted Trivy/Dependency Review evidence,
-GitHub dependency-graph activation, and branch rules remain external gates;
+exception register is empty. High/critical pip/npm and Trivy scans are blocking
+in CI. Dependency Review remains informational until GitHub Dependency Graph is
+enabled. The first hosted Trivy/Dependency Review evidence, GitHub
+dependency-graph activation, and branch rules remain external gates;
 those provider controls cannot be proven by repository code alone.
 
 The backend image runs as an unprivileged `app` user. The frontend Dockerfile
@@ -74,11 +75,12 @@ the workflows have completed at least once:
    approvals after new commits.
 2. Require the existing `Backend and PostgreSQL`, `Frontend`, and `Docker
    Compose Config` checks.
-3. Require `Workflow Policy and SBOM`, `Dependency Review`, `Secret Scan`,
-   `Dependency and Container Security`, and the relevant CodeQL checks after
-   their first hosted successful evidence. The repository now validates the
-   exception process, but a GitHub administrator must still make the checks
-   required on `main`.
+3. Enable GitHub Dependency Graph and confirm Dependency Review passes, then
+   remove its temporary non-blocking setting. Require `Workflow Policy and
+   SBOM`, `Dependency Review`, `Secret Scan`, `Dependency and Container
+   Security`, and the relevant CodeQL checks after their first hosted successful
+   evidence. The repository now validates the exception process, but a GitHub
+   administrator must still make the checks required on `main`.
 4. Restrict direct pushes, force pushes, branch deletion, and bypasses. Apply
    the rule to administrators where the plan supports it.
 5. Enable GitHub dependency graph, Dependabot alerts/security updates, secret
