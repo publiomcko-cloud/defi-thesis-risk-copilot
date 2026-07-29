@@ -1,6 +1,8 @@
 name: Phase 19 Failure Exercises
 
 on:
+  pull_request:
+    branches: [main]
   schedule:
     - cron: "17 3 * * 6"
   workflow_dispatch:
