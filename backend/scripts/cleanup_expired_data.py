@@ -32,6 +32,8 @@ def main() -> int:
 
 def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
     settings = get_settings()
+    if not dry_run and settings.backup_retention_guard_enabled:
+        _require_backup_evidence(settings.backup_restore_evidence_reference)
     now = datetime.now(UTC)
     deleted_cutoff = now - timedelta(days=settings.deleted_account_retention_days)
     job_event_cutoff = now - timedelta(days=settings.job_event_retention_days)
@@ -185,6 +187,13 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
 
 def _count(db, statement) -> int:
     return len(db.execute(statement).scalars().all())
+
+
+def _require_backup_evidence(reference: str) -> None:
+    """Keep the optional retention guard local; never log the evidence reference."""
+
+    if not reference.strip():
+        raise RuntimeError("Retention cleanup requires recorded backup/restore evidence")
 
 
 if __name__ == "__main__":

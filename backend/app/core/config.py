@@ -29,6 +29,11 @@ class Settings(BaseSettings):
     operations_alert_stale_worker_count: int = 1
     operations_alert_retrieval_empty_rate_percent: float = 80.0
     operations_alert_retrieval_latency_ms: int = 5_000
+    backup_restore_drill_enabled: bool = False
+    backup_retention_guard_enabled: bool = False
+    backup_restore_evidence_reference: str = ""
+    backup_rpo_hours: int = 24
+    backup_rto_minutes: int = 240
     public_compute_rate_limit_per_minute: int = 20
     rate_limiting_enabled: bool = False
     rate_limiting_mode: str = "shadow"
@@ -217,6 +222,12 @@ class Settings(BaseSettings):
             raise ValueError("Phase 19 operations monitoring thresholds must be positive")
         if not 0 <= self.operations_alert_retrieval_empty_rate_percent <= 100:
             raise ValueError("OPERATIONS_ALERT_RETRIEVAL_EMPTY_RATE_PERCENT must be between 0 and 100")
+        if min(self.backup_rpo_hours, self.backup_rto_minutes) < 1:
+            raise ValueError("BACKUP_RPO_HOURS and BACKUP_RTO_MINUTES must be positive")
+        if self.backup_retention_guard_enabled and not self.backup_restore_evidence_reference.strip():
+            raise ValueError("BACKUP_RESTORE_EVIDENCE_REFERENCE is required when BACKUP_RETENTION_GUARD_ENABLED")
+        if len(self.backup_restore_evidence_reference) > 255:
+            raise ValueError("BACKUP_RESTORE_EVIDENCE_REFERENCE must not exceed 255 characters")
         if len(self.observability_release_id) > 128:
             raise ValueError("OBSERVABILITY_RELEASE_ID must not exceed 128 characters")
         if self.rate_limiting_mode not in {"shadow", "enforce"}:
