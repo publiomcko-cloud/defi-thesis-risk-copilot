@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     operations_alert_stale_worker_count: int = 1
     operations_alert_retrieval_empty_rate_percent: float = 80.0
     operations_alert_retrieval_latency_ms: int = 5_000
+    operations_exercises_enabled: bool = False
+    operations_exercises_isolated: bool = False
+    operations_exercise_timeout_seconds: int = 180
     backup_restore_drill_enabled: bool = False
     backup_retention_guard_enabled: bool = False
     backup_restore_evidence_reference: str = ""
@@ -210,6 +213,12 @@ class Settings(BaseSettings):
             raise ValueError("OPERATIONS_ALERT_EVALUATION_ENABLED requires OPERATIONS_MONITORING_ENABLED")
         if self.operations_synthetic_checks_enabled and not self.operations_monitoring_enabled:
             raise ValueError("OPERATIONS_SYNTHETIC_CHECKS_ENABLED requires OPERATIONS_MONITORING_ENABLED")
+        if self.operations_exercises_enabled and self.app_env == "production":
+            raise ValueError("OPERATIONS_EXERCISES_ENABLED cannot run in production")
+        if self.operations_exercises_enabled and not self.operations_exercises_isolated:
+            raise ValueError("OPERATIONS_EXERCISES_ENABLED requires OPERATIONS_EXERCISES_ISOLATED=true")
+        if not 5 <= self.operations_exercise_timeout_seconds <= 600:
+            raise ValueError("OPERATIONS_EXERCISE_TIMEOUT_SECONDS must be between 5 and 600")
         if min(
             self.operations_monitoring_window_hours,
             self.operations_monitoring_event_limit,

@@ -1,0 +1,204 @@
+"""Fail-closed, fixed Phase 19H failure-exercise catalog.
+
+The catalog is deliberately test-only: it accepts no caller-supplied command,
+does not persist exercise data, and refuses production or real-provider modes.
+The actual incident record remains in the approved private operations system.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Callable, Sequence
+import os
+import subprocess
+import time
+
+from app.core.config import Settings
+
+
+@dataclass(frozen=True)
+class ExerciseDefinition:
+    id: str
+    summary: str
+    runbook_id: str
+    working_directory: str
+    command: tuple[str, ...]
+    requires_postgres: bool = False
+
+
+@dataclass(frozen=True)
+class ExerciseResult:
+    id: str
+    status: str
+    duration_seconds: float
+    runbook_id: str
+
+
+EXERCISES: tuple[ExerciseDefinition, ...] = (
+    ExerciseDefinition(
+        "rate-limit-saturation",
+        "Burst and bounded-compute saturation retain one-winner shared-limit behavior.",
+        "queue.duplication",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase19_rate_limits.py", "app/tests/test_phase19b_postgres_rate_limits.py"),
+        requires_postgres=True,
+    ),
+    ExerciseDefinition(
+        "queue-admission",
+        "Admission limits and capacity reservations reject excess durable work safely.",
+        "queue.duplication",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase17b_postgres_control_plane.py"),
+        requires_postgres=True,
+    ),
+    ExerciseDefinition(
+        "worker-loss-recovery",
+        "Lease expiry, stale mutation rejection, cancellation, and recovery remain controlled.",
+        "workers.compromised",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase17c_worker_protocol.py", "app/tests/test_phase17c_postgres_claims.py"),
+        requires_postgres=True,
+    ),
+    ExerciseDefinition(
+        "provider-timeout-failure",
+        "Fake/dry-run provider failures retain conservative cost and cleanup behavior.",
+        "provider.cost",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase17e_vast_jobs.py", "app/tests/test_vast_provider.py"),
+    ),
+    ExerciseDefinition(
+        "storage-outage",
+        "Private storage and upload-scanner failures reject access before unsafe persistence.",
+        "operations.database-storage",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase18_storage_adapter.py", "app/tests/test_phase19c_security.py"),
+    ),
+    ExerciseDefinition(
+        "pgvector-corruption-recovery",
+        "Corrupt derived retrieval state is repaired or rolled back without tenant leakage.",
+        "retrieval.vector-corruption",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase18f_lifecycle.py", "app/tests/test_phase18g_public_corpus.py", "app/tests/test_phase18_final_retrieval.py"),
+    ),
+    ExerciseDefinition(
+        "migration-rollback",
+        "Reversible migration rehearsals preserve seeded data and fail closed when required.",
+        "deployment.failed-migration",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase16_migration_hardening.py", "app/tests/test_phase17_migration.py", "app/tests/test_phase18_migration.py"),
+    ),
+    ExerciseDefinition(
+        "authorization-negative",
+        "Adversarial tenant and organization access attempts remain denied.",
+        "tenant.exposure",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase16_knowledge_scope.py", "app/tests/test_phase18_final_retrieval.py"),
+    ),
+    ExerciseDefinition(
+        "database-recovery",
+        "Isolated metadata-only restore verification detects recovery mismatches safely.",
+        "operations.database-storage",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase19e_recovery_operations.py"),
+    ),
+    ExerciseDefinition(
+        "frontend-accessibility",
+        "Core semantic and keyboard-visible browser contracts remain present.",
+        "identity.account-takeover",
+        "frontend",
+        ("npm", "run", "test:accessibility"),
+    ),
+)
+
+
+def catalog_payload() -> list[dict[str, object]]:
+    """Return safe catalog metadata without exposing environment or commands."""
+    return [
+        {
+            "id": exercise.id,
+            "summary": exercise.summary,
+            "runbook_id": exercise.runbook_id,
+            "requires_postgres": exercise.requires_postgres,
+        }
+        for exercise in EXERCISES
+    ]
+
+
+def select_exercises(exercise_ids: Sequence[str] | None = None) -> tuple[ExerciseDefinition, ...]:
+    requested = set(exercise_ids or ())
+    known = {exercise.id for exercise in EXERCISES}
+    unknown = sorted(requested - known)
+    if unknown:
+        raise ValueError(f"Unknown Phase 19 exercise IDs: {', '.join(unknown)}")
+    return tuple(exercise for exercise in EXERCISES if not requested or exercise.id in requested)
+
+
+def require_safe_exercise_environment(settings: Settings) -> None:
+    """Refuse mutable, production, or real-provider exercise execution."""
+    if not settings.operations_exercises_enabled:
+        raise RuntimeError("Phase 19 exercises are disabled")
+    if not settings.operations_exercises_isolated:
+        raise RuntimeError("Phase 19 exercises require an isolated environment")
+    if settings.app_env == "production":
+        raise RuntimeError("Phase 19 exercises are blocked in production")
+    if not settings.vast_dry_run or settings.vast_real_rentals_enabled:
+        raise RuntimeError("Phase 19 exercises require Vast dry-run mode with real rentals disabled")
+
+
+CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
+
+
+def run_exercises(
+    repository_root: Path,
+    settings: Settings,
+    *,
+    exercise_ids: Sequence[str] | None = None,
+    runner: CommandRunner = subprocess.run,
+) -> list[ExerciseResult]:
+    """Run only fixed synthetic test commands after fail-closed validation."""
+    require_safe_exercise_environment(settings)
+    results: list[ExerciseResult] = []
+    environment = _exercise_environment()
+    for exercise in select_exercises(exercise_ids):
+        started = time.monotonic()
+        completed = runner(
+            exercise.command,
+            cwd=repository_root / exercise.working_directory,
+            env=environment,
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=settings.operations_exercise_timeout_seconds,
+        )
+        duration = round(time.monotonic() - started, 3)
+        if completed.returncode != 0:
+            raise RuntimeError(f"Phase 19 exercise failed: {exercise.id}")
+        results.append(
+            ExerciseResult(
+                id=exercise.id,
+                status="passed",
+                duration_seconds=duration,
+                runbook_id=exercise.runbook_id,
+            )
+        )
+    return results
+
+
+def _exercise_environment() -> dict[str, str]:
+    """Retain runtime tooling paths but force safe application/provider settings."""
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "APP_ENV": "exercise",
+            "VAST_DRY_RUN": "true",
+            "VAST_REAL_RENTALS_ENABLED": "false",
+            "VAST_ENABLED": "false",
+            # The parent runner has already validated these gates. Individual
+            # tests must remain free to construct production settings as a
+            # negative case without inheriting a conflicting enabled flag.
+            "OPERATIONS_EXERCISES_ENABLED": "false",
+            "OPERATIONS_EXERCISES_ISOLATED": "false",
+        }
+    )
+    return environment
