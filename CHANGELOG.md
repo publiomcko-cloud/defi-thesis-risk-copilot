@@ -23,6 +23,10 @@
   local alert candidates, a private admin operations view, and an opt-in safe
   synthetic runner. No telemetry exporter, pager, status provider, dashboard
   destination, or synthetic identity is configured.
+- Implemented 19E locally with a disabled metadata-only isolated restore
+  verifier, an opt-in retention evidence guard, and secret/backup runbooks.
+  Provider backup/restore, approved RPO/RTO, secret-store audit, and
+  encryption-key migration remain external gates.
 
 ## Phase 18 — Merged
 

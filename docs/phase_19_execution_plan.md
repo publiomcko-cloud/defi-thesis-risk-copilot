@@ -1,6 +1,6 @@
 # V1 Phase 19 Execution Plan — Production Operations and Security
 
-Status: **In Progress — 19A through 19D implemented locally; deployment evidence pending**
+Status: **In Progress — 19A through 19E implemented locally; deployment evidence pending**
 
 This plan implements the [Phase 19 contract](future_phase_contracts.md#v1-phase-19--production-operations-and-security). Read it with [current state](current_state.md), [architecture](architecture.md), [deployment](deployment.md), [testing](testing.md), and the [Phase 18 archive](archive/v1_phase_18/).
 
@@ -121,6 +121,15 @@ evidence, and storage/pgvector probes remain required rollout work.
 | Rollout gate | Successful documented restore drill; no production data copied into local development; owners approve RPO/RTO; secret inventory contains identifiers/owners/locations, never values. |
 | Rollback | Restore only through the runbook. Alembic downgrade is never data recovery. |
 | Completion | Tested restore evidence, approved RPO/RTO, current secret owners/inventory, rotation and emergency-revocation drills. |
+
+Implementation status: **local verification foundation, feature-gated.**
+`run_sanitized_restore_drill` creates or verifies a metadata-only, salted
+manifest against an isolated target; it never exports report/source content,
+object keys, identities, or credentials and refuses production execution. The
+optional retention guard requires a server-only evidence identifier before
+destructive cleanup. Provider database/object backup, encrypted restore,
+approved RPO/RTO, deployed drill evidence, secret-store audit, and encryption
+key migration remain external completion gates.
 
 ### 19F — CI/CD and supply-chain security
 

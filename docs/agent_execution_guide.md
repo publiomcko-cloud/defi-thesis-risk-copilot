@@ -83,6 +83,8 @@ For every change, inspect:
 - upload media/signature validation and scanner failure behavior before storage;
 - telemetry, alert, synthetic, and dashboard paths for aggregate-only output,
   ownership, redaction, delivery failure, and feature-gated rollout;
+- backup/restore tooling for isolated targets, metadata-only evidence, RPO/RTO,
+  provider/object parity, retention gating, and secret-free rotation records;
 - concurrency and idempotency;
 - deletion and retention;
 - logging and audit redaction;

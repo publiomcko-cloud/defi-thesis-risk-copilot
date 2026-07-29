@@ -22,7 +22,7 @@ The Render free-tier backend may cold-start after inactivity.
 
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–18
-In progress: V1 Phase 19 (19A observability/readiness, 19B shared limiter, 19C edge/upload hardening, and 19D local monitoring foundations)
+In progress: V1 Phase 19 (19A-19D operations/security foundations and 19E local recovery verification)
 Planned:   V1 Phases 20–22
 ```
 
@@ -279,6 +279,8 @@ Controlled research/admin routes remain explicitly protected.
 - [Archived Phase 18 records](docs/archive/v1_phase_18/) — implementation, validation, and cutover evidence
 - [Phase 19 execution plan](docs/phase_19_execution_plan.md) — active implementation authority
 - [Phase 19 monitoring runbook](docs/operations/monitoring_and_alerting.md) — local monitoring and external rollout gates
+- [Phase 19 backup/restore runbook](docs/operations/backup_restore_runbook.md) — isolated recovery drill and retention guard
+- [Phase 19 secret inventory](docs/operations/secret_inventory.md) — secret ownership and rotation boundaries
 - [Future phase contracts](docs/future_phase_contracts.md) — full Phases 19–22 requirements
 - [Agent execution guide](docs/agent_execution_guide.md) — short-prompt workflow
 - [Architecture](docs/architecture.md)

@@ -395,6 +395,23 @@ an operator-owned target and is not run against production customer data. Pager,
 telemetry, dashboard, authenticated synthetic, escalation, and SLO evidence are
 external rollout work.
 
+### Phase 19E implemented coverage
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase19e_recovery_operations.py
+BACKUP_RESTORE_DRILL_ENABLED=true \
+  python -m scripts.run_sanitized_restore_drill --write-manifest /approved-isolated-path/manifest.json
+```
+
+The local suite proves salted metadata-only manifest generation and isolated
+target comparison, excludes report/source/object/identity/credential values,
+fails closed for invalid retention evidence, blocks disabled/production CLI
+execution, and records provider credential update/disable behavior without
+returning a secret. It does not prove a provider database/object restore,
+approved RPO/RTO, encryption-key migration, or production secret-store audit.
+
 ## 9. Phase 20 validation
 
 Test analytics consent, notification preferences, signed webhooks, delivery retry, schedules/timezones, entitlements, billing event idempotency, organization seats, and data export/deletion integration.

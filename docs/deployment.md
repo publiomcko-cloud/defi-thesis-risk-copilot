@@ -149,6 +149,25 @@ Do not configure a browser-visible telemetry key, pager token, or synthetic
 credential. Do not run authenticated synthetics until a dedicated least-privilege
 synthetic user and revocation procedure are documented.
 
+## Phase 19E recovery verification and retention guard
+
+The local restore verifier is disabled by default and must only run against an
+isolated target. It is not a provider backup implementation:
+
+```env
+BACKUP_RESTORE_DRILL_ENABLED=false
+BACKUP_RETENTION_GUARD_ENABLED=false
+BACKUP_RESTORE_EVIDENCE_REFERENCE=
+```
+
+Follow [`operations/backup_restore_runbook.md`](operations/backup_restore_runbook.md)
+and [`operations/secret_inventory.md`](operations/secret_inventory.md) before
+changing these values. Do not set the evidence reference until a provider
+backup/object restore drill is recorded in the approved operational system.
+The verifier refuses `APP_ENV=production`, and `BACKUP_RETENTION_GUARD_ENABLED`
+blocks non-dry cleanup when no reference is configured. Neither control creates
+provider backups, exposes a secret, or substitutes Alembic for data recovery.
+
 ---
 
 ## 2. Supported deployment modes

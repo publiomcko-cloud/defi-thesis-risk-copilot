@@ -418,6 +418,14 @@ page and fixed-path synthetic CLI are disabled by default. Telemetry/pager/statu
 provider selection, dashboard RBAC, safe synthetic identity, alert escalation,
 and SLO/error-budget evidence remain deployment work.
 
+Phase 19E is implemented locally as a recovery-verification foundation: a
+disabled metadata-only manifest tool compares salted durable metadata in an
+isolated restore target, and an optional evidence guard can block destructive
+retention cleanup. Provider database/object backup, encryption verification,
+approved RPO/RTO, a provider restore drill, secret-store audit, emergency
+rotation exercise, and encryption-key migration remain required before any
+recovery claim.
+
 Core outcomes:
 
 - threat model;

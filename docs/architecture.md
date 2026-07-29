@@ -619,6 +619,14 @@ candidates remain inside the application and are not pager delivery. The
 synthetic runner can only use fixed health/readiness/demo paths until a later
 operator-owned authenticated synthetic deployment is approved.
 
+Phase 19E adds a separate metadata-only recovery-verification path. It derives
+salted fingerprints from durable report/job/artifact/knowledge metadata but
+never serializes content, object keys, checksums, identities, or credentials.
+An external provider remains responsible for encrypted database/object backup
+and restore. The optional retention guard requires a server-side recovery
+evidence identifier before destructive cleanup; it does not alter default
+Phase 17 cleanup or job recovery behavior.
+
 ---
 
 ## 19. Phase 20 target — commercial product
