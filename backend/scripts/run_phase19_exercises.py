@@ -39,7 +39,7 @@ def main() -> int:
         print(json.dumps({"status": "blocked", "detail": str(exc)}, sort_keys=True))
         return 2
     payload = {
-        "schema_version": 1,
+        "schema_version": 2,
         "status": "passed",
         "execution_scope": "isolated-synthetic",
         "results": [result.__dict__ for result in results],

@@ -474,6 +474,7 @@ exercise, customer-data test, or production tabletop outcome. Those are Phase
 cd backend
 source .venv/bin/activate
 python -m pytest -q app/tests/test_phase19h_exercises.py
+RUN_POSTGRES_INTEGRATION=true python -m pytest -q app/tests/test_phase19h_isolated_operations.py
 python -m scripts.run_phase19_exercises --list
 
 APP_ENV=exercise \
@@ -491,10 +492,15 @@ npm run test:accessibility
 
 The runner exercises fixed rate-limit, admission, worker-loss, fake-provider,
 storage, vector-repair, migration, authorization, recovery, and semantic
-accessibility paths. It rejects production, non-isolated, real-provider, and
-arbitrary-command operation; it records only bounded duration, timeout, test
-case count, runbook ID, and pass/fail metrics, never durable test data or
-customer data.
+accessibility paths. The dedicated HTTP harness makes 24 public `/health` and
+24 authenticated `/api/auth/me` requests at concurrency six and records request
+count, concurrency, throughput, success/error rate, p50/p95 latency, and
+thresholds. PostgreSQL scenarios record six-way durable admission, queue
+recovery, worker lease-loss/stale-execution rejection, and database/storage
+failure recovery. It rejects production, non-isolated, real-provider, and
+arbitrary-command operation; the schema-v2 evidence is capped at 8 KiB and
+contains only aggregate timings/counts/statuses/thresholds, never durable test
+data, request bodies, identifiers, URLs, exception text, or customer data.
 The scheduled no-secret GitHub workflow adds isolated weekly evidence. These
 results are not production load capacity, provider, pager, customer-data,
 assistive-technology, or chaos-test evidence.

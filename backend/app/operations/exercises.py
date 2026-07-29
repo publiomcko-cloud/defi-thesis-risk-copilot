@@ -17,6 +17,7 @@ import time
 from xml.etree import ElementTree
 
 from app.core.config import Settings
+from app.operations.exercise_metrics import load_exercise_metrics
 
 
 @dataclass(frozen=True)
@@ -28,6 +29,7 @@ class ExerciseDefinition:
     command: tuple[str, ...]
     requires_postgres: bool = False
     max_duration_seconds: int = 180
+    requires_metrics: bool = False
 
 
 @dataclass(frozen=True)
@@ -38,11 +40,21 @@ class ExerciseResult:
     timeout_seconds: int
     test_cases: int
     runbook_id: str
+    metrics: dict[str, bool | int | float | str]
 
 
 EXERCISES: tuple[ExerciseDefinition, ...] = (
     # Run integrity repair first against only the migration baseline. Later
     # worker/admission tests intentionally create broad durable-job fixtures.
+    ExerciseDefinition(
+        "http-load-harness",
+        "Bounded public and authenticated HTTP requests meet isolated latency and error thresholds.",
+        "operations.database-storage",
+        "backend",
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase19h_isolated_operations.py::test_isolated_http_load_harness"),
+        requires_postgres=True,
+        requires_metrics=True,
+    ),
     ExerciseDefinition(
         "pgvector-corruption-recovery",
         "Corrupt derived retrieval state is repaired or rolled back without tenant leakage.",
@@ -60,19 +72,21 @@ EXERCISES: tuple[ExerciseDefinition, ...] = (
     ),
     ExerciseDefinition(
         "queue-admission",
-        "Admission limits and capacity reservations reject excess durable work safely.",
+        "Concurrent admission measures bounded queue growth, rejection, and expiry recovery.",
         "queue.duplication",
         "backend",
-        ("python", "-m", "pytest", "-q", "app/tests/test_phase17b_postgres_control_plane.py"),
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase19h_isolated_operations.py::test_concurrent_queue_admission_and_recovery"),
         requires_postgres=True,
+        requires_metrics=True,
     ),
     ExerciseDefinition(
         "worker-loss-recovery",
-        "Lease expiry, stale mutation rejection, cancellation, and recovery remain controlled.",
+        "A stopped isolated worker loses its lease, recovery proceeds, and stale execution is rejected.",
         "workers.compromised",
         "backend",
-        ("python", "-m", "pytest", "-q", "app/tests/test_phase17c_worker_protocol.py", "app/tests/test_phase17c_postgres_claims.py"),
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase19h_isolated_operations.py::test_worker_loss_lease_recovery_blocks_duplicate_execution"),
         requires_postgres=True,
+        requires_metrics=True,
     ),
     ExerciseDefinition(
         "provider-timeout-failure",
@@ -83,10 +97,12 @@ EXERCISES: tuple[ExerciseDefinition, ...] = (
     ),
     ExerciseDefinition(
         "storage-outage",
-        "Private storage and upload-scanner failures reject access before unsafe persistence.",
+        "Database and private-storage interruption fail closed, recover, and retain data integrity.",
         "operations.database-storage",
         "backend",
-        ("python", "-m", "pytest", "-q", "app/tests/test_phase18_storage_adapter.py", "app/tests/test_phase19c_security.py"),
+        ("python", "-m", "pytest", "-q", "app/tests/test_phase19h_isolated_operations.py::test_database_and_storage_fault_injection_recovers_without_partial_data"),
+        requires_postgres=True,
+        requires_metrics=True,
     ),
     ExerciseDefinition(
         "migration-rollback",
@@ -171,13 +187,14 @@ def run_exercises(
         started = time.monotonic()
         with tempfile.TemporaryDirectory(prefix="phase19-exercise-") as temporary_directory:
             junit_path = Path(temporary_directory) / "results.xml"
+            metrics_path = Path(temporary_directory) / "metrics.json"
             command = _command_with_safe_test_report(exercise.command, junit_path)
             timeout_seconds = min(settings.operations_exercise_timeout_seconds, exercise.max_duration_seconds)
             try:
                 completed = runner(
                     command,
                     cwd=repository_root / exercise.working_directory,
-                    env=environment,
+                    env={**environment, "PHASE19_EXERCISE_METRICS_FILE": str(metrics_path)},
                     check=False,
                     capture_output=True,
                     text=True,
@@ -188,6 +205,12 @@ def run_exercises(
                     f"Phase 19 exercise timed out: {exercise.id} after {timeout_seconds}s"
                 ) from exc
             test_cases, failed_tests = _junit_metrics(junit_path)
+            try:
+                metrics = load_exercise_metrics(metrics_path)
+            except ValueError as exc:
+                raise RuntimeError(f"Phase 19 exercise emitted unsafe metrics: {exercise.id}") from exc
+            if exercise.requires_metrics and not metrics:
+                raise RuntimeError(f"Phase 19 exercise did not emit required metrics: {exercise.id}")
         duration = round(time.monotonic() - started, 3)
         if duration > timeout_seconds:
             raise RuntimeError(f"Phase 19 exercise exceeded its time bound: {exercise.id}")
@@ -202,6 +225,7 @@ def run_exercises(
                 timeout_seconds=timeout_seconds,
                 test_cases=test_cases,
                 runbook_id=exercise.runbook_id,
+                metrics=metrics,
             )
         )
     return results

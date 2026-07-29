@@ -27,6 +27,7 @@ def test_phase19h_catalog_covers_each_contract_exercise_and_uses_fixed_commands(
     exercise_ids = {exercise.id for exercise in EXERCISES}
 
     assert exercise_ids == {
+        "http-load-harness",
         "rate-limit-saturation",
         "queue-admission",
         "worker-loss-recovery",
@@ -41,6 +42,12 @@ def test_phase19h_catalog_covers_each_contract_exercise_and_uses_fixed_commands(
     assert all(exercise.command[0] in {"python", "npm"} for exercise in EXERCISES)
     assert all("VAST" not in " ".join(exercise.command) for exercise in EXERCISES)
     assert all(5 <= exercise.max_duration_seconds <= 600 for exercise in EXERCISES)
+    assert {exercise.id for exercise in EXERCISES if exercise.requires_metrics} == {
+        "http-load-harness",
+        "queue-admission",
+        "worker-loss-recovery",
+        "storage-outage",
+    }
 
 
 def test_phase19h_runner_forces_safe_environment_and_never_accepts_custom_commands(tmp_path: Path) -> None:
@@ -61,6 +68,7 @@ def test_phase19h_runner_forces_safe_environment_and_never_accepts_custom_comman
     assert results[0].status == "passed"
     assert results[0].timeout_seconds == 30
     assert results[0].test_cases == 0
+    assert results[0].metrics == {}
     assert captured["command"] == ("npm", "run", "test:accessibility")
     environment = captured["env"]
     assert environment["APP_ENV"] == "exercise"
@@ -117,17 +125,20 @@ def test_phase19h_runner_reports_bounded_safe_junit_metrics(tmp_path: Path) -> N
     def successful_runner(command, *_args, **_kwargs):
         junit_argument = next(argument for argument in command if argument.startswith("--junitxml="))
         junit_path = Path(junit_argument.removeprefix("--junitxml="))
+        metrics_path = Path(_kwargs["env"]["PHASE19_EXERCISE_METRICS_FILE"])
         junit_path.write_text(
             "<testsuite><testcase classname=\"app.tests.safe\" name=\"one\"/>"
             "<testcase classname=\"app.tests.safe\" name=\"two\"/></testsuite>",
             encoding="utf-8",
         )
+        metrics_path.write_text('{"request_count":48,"thresholds_passed":true}', encoding="utf-8")
         return SimpleNamespace(returncode=0)
 
     result = run_exercises(tmp_path, _settings(), exercise_ids=["database-recovery"], runner=successful_runner)[0]
 
     assert result.test_cases == 2
     assert result.timeout_seconds == 30
+    assert result.metrics == {"request_count": 48, "thresholds_passed": True}
 
 
 def test_phase19h_settings_require_isolation_and_reject_production_or_real_vast() -> None:

@@ -188,6 +188,28 @@ before required-check or release-complete claims.
 | Rollback | Stop drivers, drain/recover queues through Phase 17 procedures, disable test-only configuration. |
 | Completion | SLO-oriented results, no unresolved critical/high issue, exercised incident runbooks, and documented capacity/failure risk. |
 
+Implementation status: **bounded isolated validation implemented locally.**
+`scripts.run_phase19_exercises` has a fixed, fail-closed catalog and writes a
+versioned aggregate-only artifact only after every selected exercise passes.
+The dedicated 19H scenarios run actual in-process HTTP requests against
+`/health` and authenticated `/api/auth/me` (24 requests each, concurrency 6),
+require 100% success, p95 at or below 2,000 ms, and throughput of at least one
+request/second. PostgreSQL-backed scenarios concurrently submit six durable
+jobs with a two-job user pending ceiling, require two admissions/four 429
+rejections and expiry recovery to zero pending jobs, simulate a stopped worker
+after a lease, reject its stale heartbeat, and require a replacement claim.
+The dependency scenario injects database and private-storage interruption,
+requires non-success/503 fail-closed responses, verifies recovery within five
+seconds, and proves no partial document row or mismatched recovered object.
+
+These are intentionally small synthetic exercises, not a production capacity
+claim or production chaos test. They run only with `APP_ENV=exercise`,
+`OPERATIONS_EXERCISES_ENABLED=true`, `OPERATIONS_EXERCISES_ISOLATED=true`,
+`VAST_DRY_RUN=true`, and `VAST_REAL_RENTALS_ENABLED=false`; the runner rejects
+all other modes. Centralized telemetry, alert delivery, provider restore,
+secret rotation, branch protection, and controlled deployment evidence remain
+external completion gates.
+
 ### 19I — Controlled Phase 18 deployment and rollback evidence
 
 | Item | Plan |
