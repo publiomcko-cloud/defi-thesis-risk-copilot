@@ -3,7 +3,7 @@
 This document is the authoritative implementation contract for V1 Phases
 17–22. Phases 16–18 are complete on `main`; the Phase 19 repository
 foundations are merged with external completion gates still pending; Phase 20
-is the next planned implementation phase.
+is in progress at its documentation-only 20A checkpoint.
 
 Future implementation prompts should reference this file, [`development_plan.md`](development_plan.md), [`current_state.md`](current_state.md), and the selected phase section instead of restating the entire scope.
 
@@ -774,11 +774,22 @@ Each runbook defines detection, containment, eradication, recovery, communicatio
 
 # V1 Phase 20 — Product Analytics, Notifications, and Commercial Readiness
 
-Status: **Planned — next implementation phase**
+Status: **In Progress — Phase 20A design artifacts implemented; human approval
+gates remain blocked; no runtime capability implemented**
 
 Execution order: [`phase_20_execution_plan.md`](phase_20_execution_plan.md).
 The plan does not select or integrate a provider and must remain subordinate to
 this contract.
+
+Phase 20A evidence:
+
+- [`phase_20_threat_model.md`](phase_20_threat_model.md);
+- [`phase_20_evidence_matrix.md`](phase_20_evidence_matrix.md);
+- [`phase_20_event_privacy_matrix.md`](phase_20_event_privacy_matrix.md);
+- [`phase_20_usage_entitlement_registry.md`](phase_20_usage_entitlement_registry.md);
+- [`phase_20_notification_classification.md`](phase_20_notification_classification.md);
+- [`phase_20_provider_scorecards.md`](phase_20_provider_scorecards.md);
+- [`phase_20_data_model_review.md`](phase_20_data_model_review.md).
 
 ## 20.1 Goal
 

@@ -1,0 +1,55 @@
+[
+  {
+    "name": "analysis_completed",
+    "schema_version": 1,
+    "purpose": "product_improvement",
+    "trigger": "server_commit_succeeded",
+    "actor_scopes": [
+      "authenticated",
+      "organization_context"
+    ],
+    "metadata_allowlist": [
+      "actor_class",
+      "execution_mode",
+      "result_class"
+    ],
+    "retention_class": "analytics_standard",
+    "consent_rule": "approved_current_purpose_decision_required",
+    "status": "candidate"
+  },
+  {
+    "name": "analysis_failed",
+    "schema_version": 1,
+    "purpose": "product_improvement",
+    "trigger": "server_terminal_failure",
+    "actor_scopes": [
+      "authenticated",
+      "organization_context"
+    ],
+    "metadata_allowlist": [
+      "actor_class",
+      "execution_mode",
+      "failure_class"
+    ],
+    "retention_class": "analytics_short",
+    "consent_rule": "approved_current_purpose_decision_required",
+    "status": "candidate"
+  },
+  {
+    "name": "quota_exceeded",
+    "schema_version": 1,
+    "purpose": "product_improvement",
+    "trigger": "server_terminal_failure",
+    "actor_scopes": [
+      "authenticated",
+      "organization_context"
+    ],
+    "metadata_allowlist": [
+      "actor_class",
+      "quota_action"
+    ],
+    "retention_class": "analytics_short",
+    "consent_rule": "approved_current_purpose_decision_required",
+    "status": "candidate"
+  }
+]

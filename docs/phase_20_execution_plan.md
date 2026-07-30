@@ -1,6 +1,7 @@
 # V1 Phase 20 Execution Plan — Product Analytics and Commercial Readiness
 
-Status: **Planned — planning branch only; no Phase 20 runtime capability is implemented**
+Status: **In Progress — Phase 20A design artifacts implemented; required human
+approvals remain blocked; no Phase 20 runtime capability is implemented**
 
 Branch: `agent/v1-phase-20-product-analytics-commercial-readiness`
 
@@ -217,12 +218,17 @@ Parallel work is allowed only when schemas and authorization boundaries are inde
 | Objective | Define approved analytics purposes, event taxonomy, metadata allowlists, retention classes, consent behavior, usage units, entitlement vocabulary, notification categories, and provider decision process. |
 | Dependencies | Merged Phase 19 foundations; existing Phase 16 consent/export/deletion authority; named product, engineering, security, privacy/legal, and finance owners. |
 | Data/migrations | No runtime migration. Specify proposed revisions `0023`–`0029` and reconfirm migration head at implementation time. |
-| Deliverables | `docs/phase_20_threat_model.md`; `docs/phase_20_evidence_matrix.md`; provider ADR template; event-purpose/metadata/retention/consent matrix; usage-unit and entitlement registry proposal; notification category/destination classification; data-flow and lifecycle diagrams. |
+| Deliverables | [`phase_20_threat_model.md`](phase_20_threat_model.md); [`phase_20_evidence_matrix.md`](phase_20_evidence_matrix.md); [`decisions/phase_20_provider_adr_template.md`](decisions/phase_20_provider_adr_template.md); [`phase_20_provider_scorecards.md`](phase_20_provider_scorecards.md); [`phase_20_event_privacy_matrix.md`](phase_20_event_privacy_matrix.md); [`phase_20_usage_entitlement_registry.md`](phase_20_usage_entitlement_registry.md); [`phase_20_notification_classification.md`](phase_20_notification_classification.md); [`phase_20_data_model_review.md`](phase_20_data_model_review.md); documentation schema/examples and lifecycle diagrams. |
 | Boundaries | No runtime collection, tables, SDKs, provider secrets, sends, payments, or client-facing commercial behavior. |
 | Tests/evidence | Link checks, schema examples, threat-model review, data-flow review, confirmation that no runtime/env/migration changed. |
 | Completion | Definitions and decision owners are approved; unresolved choices are explicit; independent subphase gates are documented. |
 
 Gate to 20B: privacy/legal approves analytics purposes, legal basis/consent, immutable decision evidence, retention, export, and deletion. Missing approval blocks 20B, not unrelated 20C/20F work.
+
+Checkpoint status: the documentation artifacts are implemented. Phase 20A is
+an `Implemented Foundation`, not `Complete`, because product, engineering,
+security, privacy/legal, finance/commercial, and operations decisions remain
+unapproved. No dependent runtime slice may assume an approval.
 
 ### Phase 20B — Consent-aware first-party product analytics
 
@@ -527,20 +533,25 @@ Scaffolding, a pricing page, a plan label, a provider mock, an unverified webhoo
 
 ---
 
-## 12. Recommended first implementation task
+## 12. Phase 20A checkpoint and next eligibility
 
-Start with **Phase 20A only**.
+Phase 20A produced the required threat/evidence, provider-decision,
+event/privacy, usage/entitlement, notification, and data-model artifacts plus
+machine-checkable taxonomy examples. It created no table, migration, API, SDK,
+event, provider secret, notification, payment, or production configuration.
 
-Deliver:
+Next gate:
 
-- `docs/phase_20_threat_model.md`;
-- `docs/phase_20_evidence_matrix.md`;
-- provider ADR template and scored alternatives;
-- event-purpose, metadata, retention, and consent matrix;
-- consent/anonymous analytics policy and immutable evidence decision;
-- usage-unit and entitlement registry proposal;
-- notification category/destination classification;
-- proposed `0023` schema and lifecycle review;
-- documentation-only validation.
+- 20B remains `Blocked` until privacy/legal approves analytics purpose, legal
+  basis/consent, immutable evidence, retention, export, and deletion;
+- 20C becomes eligible only after product, engineering, security, and
+  operations approve the applicable schedule, quota, and lifecycle definitions;
+- 20F becomes eligible only after product, finance/commercial, engineering, and
+  security approve its usage/entitlement definitions;
+- provider-neutral 20I work becomes eligible only after privacy/legal,
+  product/support, security, and operations approve its request/lifecycle
+  definitions;
+- every provider-dependent slice remains `Blocked` until its ADR and Phase 19
+  prerequisites are approved.
 
-Do not create tables, emit events, install SDKs, configure provider secrets, or add UI/API behavior until the relevant 20A review gate is approved.
+Do not infer an approval from an artifact or CI result.
