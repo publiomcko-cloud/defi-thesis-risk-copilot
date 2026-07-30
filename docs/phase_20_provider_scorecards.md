@@ -159,7 +159,7 @@ Capability-specific evidence:
 
 | Alternative | Model | Hard gates | Evidence completeness | Weighted score | Decision |
 | --- | --- | --- | --- | --- | --- |
-| Telegram Bot API | External messaging processor | Pending user-link verification, privacy, credential-management, regional/abuse/rate review | Not assessed | Withheld | No selection |
+| Telegram Bot API | External messaging processor | Pending account-linking, privacy, regional-control, abuse-control and quota reviews | Not assessed | Withheld | No selection |
 | Reviewed multi-channel provider | External processor | Pending exact vendor and full ADR | Not assessed | Withheld | No selection |
 | Defer messaging | No messaging channel | Passes data-minimization/fail-closed default | Partial repository evidence | Withheld | Current default |
 
