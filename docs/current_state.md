@@ -11,7 +11,10 @@ Authoritative references:
 - [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 plan, validation, correction, migration, and cutover evidence;
 - [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — merged Phase 19 foundation and rollout gates;
 - [`phase_19_threat_model.md`](phase_19_threat_model.md) and [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) — Phase 19A–19I risk and evidence record;
-- [`phase_20_execution_plan.md`](phase_20_execution_plan.md) — next planned implementation sequence;
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md) — active implementation sequence;
+- [`phase_20_threat_model.md`](phase_20_threat_model.md) and
+  [`phase_20_evidence_matrix.md`](phase_20_evidence_matrix.md) — Phase 20A
+  risk, design evidence, and approval blockers;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22 contract;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -62,7 +65,7 @@ V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
-V1 Phase 20 — Planned and next for implementation; no provider selected or runtime capability added
+V1 Phase 20 — In Progress on its implementation branch; Phase 20A documentation/governance artifacts exist, human approvals remain blocked, and no provider or runtime capability has been added
 V1 Phase 21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -438,13 +441,21 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   telemetry, alert delivery, provider restore, secret rotation,
   protected-branch enforcement, and controlled deployment are not evidenced
   as complete;
-- Phase 20 — Planned and next for implementation under
+- Phase 20 — In Progress on
+  `agent/v1-phase-20-product-analytics-commercial-readiness` under
   [`phase_20_execution_plan.md`](phase_20_execution_plan.md): privacy-conscious
   analytics, durable schedules, user-controlled notifications, separate
   product quotas/billable usage/versioned entitlements, billing sandbox
   foundations, organization commercial workflows, support/status/privacy
-  processes, and legal readiness. No Phase 20 provider is selected and no
-  Phase 20 runtime behavior is implemented;
+  processes, and legal readiness. Phase 20A implements the threat/evidence,
+  event-purpose/consent/retention, usage/entitlement, notification,
+  provider-decision, and proposed data-model artifacts. It reuses existing
+  Phase 16 terms/privacy consent plus account/organization lifecycle authority
+  and records missing granular analytics decisions, consent withdrawal,
+  lifecycle hooks, and organization export as later-slice gaps. No provider is
+  selected, no human approval is inferred, and no Phase 20 runtime behavior,
+  migration, API, event, send, payment, secret, or production configuration is
+  implemented;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 

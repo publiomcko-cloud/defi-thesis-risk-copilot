@@ -23,7 +23,7 @@ The Render free-tier backend may cold-start after inactivity.
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–18
 Implemented foundation: V1 Phase 19 (merged; deployed-provider and operational evidence remains gated)
-Next planned: V1 Phase 20 (product analytics and commercial readiness)
+In progress: V1 Phase 20A (documentation/governance foundation; human approvals blocked)
 Later: V1 Phases 21–22
 ```
 
@@ -57,9 +57,11 @@ controls, exact report-citation lineage display, safe private-knowledge export
 metadata, and administrator-only readiness metrics. Phase 19 operations and
 security foundations are merged into `main`; centralized telemetry, alert
 delivery, provider restore drills, secret rotation, protected-branch evidence,
-and controlled deployment evidence remain external gates. Phase 20 is the next
-planned implementation phase. Live private-bucket policy, final cutover
-verification, and launch approval remain Phase 22 gates.
+and controlled deployment evidence remain external gates. Phase 20A now defines
+the threat, privacy, event, usage, entitlement, notification, provider-decision,
+and proposed data-model contracts without runtime collection or provider
+activation. Human approvals remain blocked. Live private-bucket policy, final
+cutover verification, and launch approval remain Phase 22 gates.
 Durable source versions
 support atomic rollback and queued cleanup after tombstoning; those lifecycle
 controls remain inactive until private storage is deliberately enabled.
@@ -281,7 +283,9 @@ Controlled research/admin routes remain explicitly protected.
 - [Archived Phase 17 records](docs/archive/v1_phase_17/) — execution and validation evidence
 - [Archived Phase 18 records](docs/archive/v1_phase_18/) — implementation, validation, and cutover evidence
 - [Phase 19 execution plan](docs/phase_19_execution_plan.md) — merged foundation and remaining external gates
-- [Phase 20 execution plan](docs/phase_20_execution_plan.md) — next planned implementation authority
+- [Phase 20 execution plan](docs/phase_20_execution_plan.md) — active implementation authority
+- [Phase 20 threat model](docs/phase_20_threat_model.md) — analytics, commercial, provider, and lifecycle risks
+- [Phase 20 evidence matrix](docs/phase_20_evidence_matrix.md) — implemented artifacts and blocked approvals
 - [Phase 19 monitoring runbook](docs/operations/monitoring_and_alerting.md) — local monitoring and external rollout gates
 - [Phase 19 backup/restore runbook](docs/operations/backup_restore_runbook.md) — isolated recovery drill and retention guard
 - [Phase 19 secret inventory](docs/operations/secret_inventory.md) — secret ownership and rotation boundaries

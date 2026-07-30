@@ -40,9 +40,10 @@ Phase 19 repository foundation is merged. Phase 18 durable knowledge
 capabilities remain feature-gated while JSON RAG remains the production
 fallback. Phase 19 centralized telemetry, alert delivery, provider restore,
 secret rotation, protected-branch, and controlled rollout evidence remains
-external. Phase 20 is planning-only and adds no deployment variables or
-providers. Final deployed-provider, storage-policy, and legal launch checks
-remain V1 Phase 22 work.
+external. Phase 20A is documentation/governance only and adds no deployment
+variables, migrations, services, providers, secrets, events, sends, payments,
+or feature flags. Final deployed-provider, storage-policy, and legal launch
+checks remain V1 Phase 22 work.
 
 ## Phase 19A local-only observability
 
@@ -1078,12 +1079,13 @@ controlled deployment evidence remain external gates.
 
 ### Phase 20
 
-Follow [`phase_20_execution_plan.md`](phase_20_execution_plan.md) only after
-the relevant provider ADR and privacy/security gate is approved. Deploy
-analytics and notification processors, durable schedules, entitlement and
-billing sandbox handling, status/support systems, and legal/commercial controls
-incrementally. The plan itself selects no provider and changes no production
-flag.
+Phase 20A requires no deployment and must not add environment variables or
+provider configuration. Its decision artifacts are linked from
+[`phase_20_execution_plan.md`](phase_20_execution_plan.md). Later slices may
+deploy analytics and notification processors, durable schedules, entitlement
+and billing sandbox handling, status/support systems, and legal/commercial
+controls only after their human and provider gates are approved. No provider
+is currently selected and no production flag changes.
 
 ### Phase 21
 

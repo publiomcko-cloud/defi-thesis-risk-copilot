@@ -507,10 +507,34 @@ assistive-technology, or chaos-test evidence.
 
 ## 9. Phase 20 validation
 
-Phase 20 is planned only. Its validation authority is
-[`phase_20_execution_plan.md`](phase_20_execution_plan.md). Each slice must add
-focused unit, PostgreSQL concurrency/isolation, API, BFF/browser, migration, and
-rollback evidence as applicable. Required coverage includes:
+Phase 20 is in progress at the documentation-only 20A checkpoint. Its
+validation authority is
+[`phase_20_execution_plan.md`](phase_20_execution_plan.md).
+
+### Phase 20A documentation coverage
+
+Phase 20A must validate:
+
+- all local Markdown links in changed Phase 20/living documents;
+- JSON syntax plus
+  [`phase_20_event_taxonomy.schema.json`](phase_20_event_taxonomy.schema.json)
+  validation of
+  [`phase_20_event_taxonomy_examples.json`](phase_20_event_taxonomy_examples.json);
+- threat-to-evidence IDs and required artifact presence;
+- explicit blocked human approvals and no provider selection;
+- migration head review without adding a revision;
+- no changes under runtime, migration, frontend, environment, or deployment
+  configuration paths;
+- `git diff --check`;
+- workflow, lockfile, and security-exception policy checks;
+- baseline repository CI.
+
+Phase 20A does not require a migration cycle for a nonexistent migration, but
+CI must prove prior behavior still passes.
+
+Each later slice must add focused unit, PostgreSQL concurrency/isolation, API,
+BFF/browser, migration, and rollback evidence as applicable. Required coverage
+includes:
 
 - analytics consent, taxonomy allowlists, retention, export, and deletion;
 - schedule timezone, idempotency, missed-run, cancellation, quota, and recovery behavior;

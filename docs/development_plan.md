@@ -13,7 +13,7 @@ Detailed implementation requirements live in:
   gates, validation, migration, deployment, and rollback evidence;
 - [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — merged Phase 19
   operations/security foundation and external rollout gates;
-- [`phase_20_execution_plan.md`](phase_20_execution_plan.md) — next planned
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md) — active
   implementation sequence;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
 - [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
@@ -487,17 +487,26 @@ Core outcomes:
 - incident runbooks;
 - PostgreSQL/browser/accessibility/load/failure tests.
 
-## V1 Phase 20 — Analytics, notifications, and commercial readiness — Planned
+## V1 Phase 20 — Analytics, notifications, and commercial readiness — In Progress
 
 Goal: add privacy-conscious product analytics, scheduled monitoring, controlled notifications, plan entitlements, billing foundations, support, and legal launch readiness.
 
-Phase 20 is the next planned implementation phase. Its ordered, reviewable
+Phase 20 is active on its implementation branch. Its ordered, reviewable
 subphases and gates are defined by
 [`phase_20_execution_plan.md`](phase_20_execution_plan.md), subordinate to the
 authoritative Phase 20 contract in
-[`future_phase_contracts.md`](future_phase_contracts.md). Planning does not add
-runtime behavior or select an analytics, consent, email, webhook, messaging,
-billing, status, or support provider.
+[`future_phase_contracts.md`](future_phase_contracts.md).
+
+Phase 20A is an `Implemented Foundation`: it adds the Phase 20 threat/evidence
+matrices, event-purpose/consent/retention taxonomy, machine-checkable event
+examples, usage-unit/entitlement registry, notification classification,
+provider ADR template/scorecards, and proposed `0023`–`0029` data-model review.
+It preserves Phase 16 lifecycle authority and documents missing granular
+analytics preference evidence, consent withdrawal, lifecycle registration, and
+organization export as later-slice gaps. Product, privacy/legal, security,
+engineering, finance/commercial, and operations approvals remain `Blocked`.
+There is no runtime behavior, migration, provider selection, event, send,
+payment, secret, or production configuration.
 
 Core outcomes:
 

@@ -1,15 +1,20 @@
 # Changelog
 
-## Phase 20 — Planned
+## Phase 20 — In Progress
 
 - Added the ordered Phase 20 execution plan for privacy-conscious product
   analytics, durable monitoring schedules, user-controlled notifications,
   usage metering, versioned entitlements, billing sandbox foundations,
   organization commercial workflows, customer operations, and qualified
   legal/commercial readiness.
-- Phase 20 remains planning-only. No analytics, billing, email, webhook,
-  messaging, support, status, or consent-management provider has been selected
-  or integrated.
+- Implemented the Phase 20A documentation/governance foundation: threat and
+  evidence matrices, event-purpose/consent/retention taxonomy, usage-unit and
+  entitlement registry, notification classification, provider ADR
+  template/scorecards, and proposed migration/data-model review.
+- Phase 20A adds no migration, runtime API, analytics event, notification,
+  billing behavior, provider, secret, or production configuration. Required
+  product, privacy/legal, security, engineering, finance, and operations
+  approvals remain explicit blockers.
 - Network rate limits, product quotas, billable usage, and plan entitlements
   are explicitly separate controls and ledgers.
 

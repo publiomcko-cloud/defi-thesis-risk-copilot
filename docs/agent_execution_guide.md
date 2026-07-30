@@ -13,7 +13,7 @@ Before implementation, read documents in this order:
    - the [archived Phase 17 record](archive/v1_phase_17/) when maintaining durable jobs,
    - the [archived Phase 18 record](archive/v1_phase_18/) when maintaining durable knowledge/retrieval, or
    - [`phase_19_execution_plan.md`](phase_19_execution_plan.md) when maintaining the merged Phase 19 foundation,
-   - [`phase_20_execution_plan.md`](phase_20_execution_plan.md) for the next planned Phase 20 work, or
+   - [`phase_20_execution_plan.md`](phase_20_execution_plan.md) for active Phase 20 work, or
    - [`future_phase_contracts.md`](future_phase_contracts.md) for later phases;
 4. [`architecture.md`](architecture.md) — trust boundaries and system design;
 5. [`deployment.md`](deployment.md) — environment and production behavior;

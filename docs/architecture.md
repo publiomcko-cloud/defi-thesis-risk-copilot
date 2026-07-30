@@ -670,15 +670,33 @@ and rollback records remain external operational evidence.
 
 ---
 
-## 19. Phase 20 planned target — commercial product
+## 19. Phase 20 in progress — commercial product
 
 The ordered design is
 [`phase_20_execution_plan.md`](phase_20_execution_plan.md). It adds
 privacy-conscious analytics, durable scheduling, user-controlled notifications,
 separate usage and entitlement controls, billing sandbox processing,
 organization invitations/seats, support/status/privacy operations, and
-qualified legal review. No provider is selected and no Phase 20 runtime path is
-implemented by the planning work.
+qualified legal review.
+
+Phase 20A defines the design boundary only:
+
+- Phase 16 `consent_records` remains terms/privacy acceptance authority;
+- granular optional analytics decisions require separate immutable evidence
+  only if 20B is approved;
+- existing account export/deletion, organization deletion, retention cleanup,
+  audit, quota, and job lifecycle remain authoritative;
+- proposed Phase 20 rows must register projections/lifecycle hooks rather than
+  create a second account or organization lifecycle;
+- network rate limits, product quotas, billable usage, entitlements, analytics,
+  audit, billing, and support remain separate domains;
+- no provider is selected and no runtime path, migration, table, SDK, event,
+  notification, payment, or production configuration exists.
+
+The Phase 20A trust and data-model records are
+[`phase_20_threat_model.md`](phase_20_threat_model.md) and
+[`phase_20_data_model_review.md`](phase_20_data_model_review.md). Human
+approvals remain blocked.
 
 ---
 
