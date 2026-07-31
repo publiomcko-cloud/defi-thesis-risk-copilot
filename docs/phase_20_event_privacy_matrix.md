@@ -1,11 +1,12 @@
 # Phase 20 Event, Consent, and Retention Matrix
 
-Status: **Implemented Foundation — proposed taxonomy and fail-closed defaults;
-privacy/legal and product approval remain blocked**
+Status: **Phase 20B approved subset locally implemented; production activation
+remains blocked pending qualified privacy/legal review**
 
-This Phase 20A artifact defines candidate product-analytics purposes, event
-names, metadata allowlists, consent behavior, and retention classes. It does
-not enable collection. Operational telemetry, security/audit evidence,
+This artifact defines the Phase 20 analytics purposes, event names, metadata
+allowlists, consent behavior, and retention classes. The exact Phase 20B
+subset is implemented behind a default-off flag; no production collection is
+authorized. Operational telemetry, security/audit evidence,
 billable usage, billing records, and support cases remain separate domains.
 
 Related artifacts:
@@ -44,18 +45,19 @@ does not currently provide:
 - anonymous analytics evidence;
 - organization export.
 
-Decision for later implementation:
+Implemented Phase 20B decision:
 
 - keep `consent_records` authoritative for terms/privacy acceptance;
 - do not reinterpret terms/privacy acceptance as analytics consent;
-- add a purpose-specific immutable preference decision ledger only if 20B is
-  approved;
+- use a purpose-specific immutable preference decision ledger for the approved
+  `product_improvement` subset;
 - keep the existing account export/deletion routes and cleanup command as the
   lifecycle authorities, extended through Phase 20 projections/hooks;
 - implement organization export in 20H through the existing organization
   authorization/lifecycle service, not a competing service.
 
-This is an architecture decision, not privacy/legal approval.
+The implementation authority and production limitation are recorded in
+[`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
 
 ---
 
@@ -63,7 +65,7 @@ This is an architecture decision, not privacy/legal approval.
 
 | Purpose ID | Description | Domain | Consent/legal-basis position | Allowed data | Approval |
 | --- | --- | --- | --- | --- | --- |
-| `product_improvement` | Understand bounded use and failure of product capabilities | Optional product analytics | Default off; legal basis/consent unresolved | Code-owned event name, time, actor class, and exact allowlisted low-cardinality dimensions | **Blocked**: privacy/legal, product |
+| `product_improvement` | Understand bounded use and failure of product capabilities | Optional product analytics | Explicit authenticated-user opt-in for implementation/private validation; production activation requires qualified review | Code-owned event name, time, actor class, and exact allowlisted low-cardinality dimensions | **Implemented, production disabled** |
 | `onboarding_effectiveness` | Measure completion of approved onboarding steps | Optional product analytics | Default off; legal basis/consent unresolved | Step class and completion/failure class only; no email, auth subject, or form content | **Blocked**: privacy/legal, product |
 | `commercial_funnel` | Understand plan-view, sandbox-checkout, and subscription lifecycle at aggregate level | Optional product analytics, distinct from billing | No collection before 20G and legal/commercial approval | Approved stage class only; no provider customer/subscription/payment identifiers | **Blocked**: privacy/legal, finance, product |
 | `operational_reliability` | Detect availability, latency, queue, worker, storage, and retrieval failures | Phase 19 operational telemetry, not product analytics | Existing operational/security basis; analytics preference does not apply | Aggregate/redacted operational fields under Phase 19 | Existing Phase 19 authority |
@@ -82,15 +84,16 @@ state.
 
 ## 3. Draft retention classes
 
-Exact periods and regional rules require privacy/legal approval. The candidate
-maximums below are implementation bounds for review, not approved policy.
+The project owner approved the Phase 20B implementation bounds below. Their
+production use still requires qualified privacy/legal review for applicable
+jurisdictions.
 
 | Class | Candidate maximum | Intended records | Export | Deletion/withdrawal | Approval |
 | --- | --- | --- | --- | --- | --- |
 | `none` | No row | Disallowed or unapproved optional analytics | Not applicable | Nothing collected | Fail-closed default |
-| `analytics_short` | 30 days | High-volume optional feature events | User-readable summary or rows as approved | Stop immediately on withdrawal; delete or irreversibly anonymize existing rows according to approved policy | **Blocked** |
-| `analytics_standard` | 90 days | Low-volume optional adoption events | User-readable rows with safe dimensions | Same as above | **Blocked** |
-| `preference_evidence` | Account life plus an approved post-deletion evidence period | Granular grant/deny/withdraw decisions | Include purpose, decision, policy version, and timestamps | Preserve only if legally required; otherwise delete/anonymize through account cleanup | **Blocked** |
+| `analytics_short` | 30 days | Initial four optional feature events | Safe event projection in Phase 16 account export | Stop immediately; Phase 20B deletes existing rows in the withdrawal transaction | **Implemented, production disabled** |
+| `analytics_standard` | 30 days for the initial Phase 20B subset | Low-volume optional adoption events | Safe event projection in Phase 16 account export | Same as above | **Implemented only for approved four-event subset** |
+| `preference_evidence` | Account life plus 30 days after account deletion | Granular grant/deny/withdraw decisions | Include purpose, decision, policy version, and timestamps | Current projection removed on account deletion; immutable evidence removed by cleanup after 30 days | **Implemented, production disabled** |
 | `operational_security` | Existing Phase 19 policy | Operational/security telemetry and audit | Existing authorized projections only | Existing Phase 16/19 lifecycle | Existing authority; deployed policy remains external |
 | `quota_period` | Existing quota period plus current cleanup policy | `usage_quotas` | Existing `/api/usage`/account behavior | Existing Phase 16 lifecycle | Existing authority |
 | `usage_reconciliation` | Contractual reconciliation period, to be approved | Billable usage/reversals | User/org usage projection | Restricted retention or anonymization after deletion; no product serving | **Blocked** |
@@ -109,33 +112,26 @@ must be reviewed together.
 | Actor/context | Optional product analytics default | Decision authority | Required behavior |
 | --- | --- | --- | --- |
 | Anonymous public demo | Off | No decision mechanism approved | Emit no optional analytics event and create no stable analytics identifier |
-| Authenticated user | Off pending approval | The individual user | Check current purpose/policy decision at emission; record immutable decision and current projection only after 20B approval |
-| User acting in organization | Off pending individual decision | The individual user, not organization admin | Organization context may be a boolean/low-cardinality field only if approved; never expose organization ID/name |
+| Authenticated user | Off until explicit opt-in | The individual user | Check the current exact policy decision at every emission; record immutable decision and current projection atomically |
+| User acting in organization | Off pending individual opt-in | The individual user, not organization admin | Record only the approved `organization_context` class; never expose organization ID/name |
 | Platform administrator using product | Same as authenticated user | The individual administrator | Admin role does not imply analytics consent; security/admin audit remains separate |
 | Worker/service completing user job | No independent consent | Server evaluates the owning user's current decision at the approved event point | Never treat worker identity as analytics subject; no event after deletion or authorization revocation |
 | Organization service account | Not implemented | Not applicable | No Phase 20A or 20B service-account analytics |
 | Security/audit/operations processing | Not controlled by optional analytics preference | Existing security/operational authority | Stay in existing domain and retention; never copy raw data into analytics |
 | Billing/usage processing | Not controlled by optional analytics preference | Verified contractual/server-owned state | Stay in billing/usage domain; optional commercial analytics needs a separate approved event |
 
-Open decisions:
-
-- whether consent or another documented legal basis applies to each optional
-  purpose and jurisdiction;
-- whether deny decisions require the same retention as grants/withdrawals;
-- whether prior optional events are deleted or irreversibly anonymized after
-  withdrawal;
-- whether any anonymous measurement is justified; the technical default stays
-  off;
-- re-consent behavior when purpose, schema, processor, or policy version
-  changes;
-- exact privacy-copy and preference UI wording.
+Phase 20B decisions are explicit opt-in, deny/grant/withdraw evidence retained
+for account life plus 30 days, immediate hard deletion of optional events on
+withdrawal, no anonymous analytics, and re-consent after a material policy
+version change. Qualified review of jurisdictions and production-facing copy
+remains open; future purposes and processors require new decisions.
 
 ---
 
 ## 5. Candidate event registry
 
-All entries are `candidate`, not enabled. The initial 20B implementation must
-select a smaller approved subset.
+Only four entries are approved and implemented for Phase 20B. Every other
+candidate remains excluded or blocked.
 
 | Event | Domain decision | Candidate purpose | Server-owned trigger | Allowed dimensions | Retention | Status |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -143,11 +139,11 @@ select a smaller approved subset.
 | `email_verified` | Security/identity only | None | Existing verified identity path | None | Existing audit | Excluded |
 | `login_succeeded` | Security/identity only | None | Existing authentication/session path | None | Existing security | Excluded |
 | `analysis_started` | Optional analytics candidate; never usage/billing evidence | `product_improvement` | Accepted server analysis execution | `actor_class`, `execution_mode` | `analytics_short` | **Blocked** |
-| `analysis_completed` | Optional analytics candidate; later billable unit is separate | `product_improvement` | Durable/synchronous report commit succeeds | `actor_class`, `execution_mode`, `result_class` | `analytics_standard` | **Blocked** |
-| `analysis_failed` | Optional analytics candidate; operational failure remains separate | `product_improvement` | Server terminal failure classification | `actor_class`, `execution_mode`, `failure_class` | `analytics_short` | **Blocked** |
+| `analysis_completed` | Optional analytics; later billable unit is separate | `product_improvement` | Durable/synchronous report commit succeeds | `actor_class`, `execution_mode`, `result_class` | 30 days | **Implemented, production disabled** |
+| `analysis_failed` | Optional analytics; operational failure remains separate | `product_improvement` | Server terminal durable failure classification | `actor_class`, `execution_mode`, `failure_class` | 30 days | **Implemented, production disabled** |
 | `report_opened` | Optional analytics candidate | `product_improvement` | Authorized server/BFF report read, deduplicated per approved window | `actor_class`, `report_age_class` | `analytics_short` | **Blocked** |
-| `thesis_saved` | Optional analytics candidate | `product_improvement` | Successful authorized save commit | `actor_class`, `visibility_class` | `analytics_standard` | **Blocked** |
-| `watchlist_created` | Optional analytics candidate | `product_improvement` | Successful authorized watchlist commit | `actor_class`, `visibility_class` | `analytics_standard` | **Blocked** |
+| `thesis_saved` | Optional analytics | `product_improvement` | Successful authorized save commit | `actor_class`, `visibility_class` | 30 days | **Implemented, production disabled** |
+| `watchlist_created` | Optional analytics | `product_improvement` | Successful authorized watchlist commit | `actor_class`, `visibility_class` | 30 days | **Implemented, production disabled** |
 | `alert_triggered` | Operational/notification source; optional aggregate analytics deferred | None initially | Existing alert commit | None in analytics | Existing alert retention | Excluded initially |
 | `organization_created` | Audit first; optional adoption event | `product_improvement` | Successful organization commit | `actor_class` only | `analytics_standard` | **Blocked** |
 | `member_invited` | Organization audit first; optional adoption event deferred to 20H | `product_improvement` | Successful invitation commit | `actor_class`, `invitation_role_class` | `analytics_standard` | **Blocked** |
@@ -234,15 +230,17 @@ without idempotency.
 
 ## 8. Approval record
 
-No human approval is recorded yet.
+The project-owner decision is
+[`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
 
 | Review | Required decision | Status |
 | --- | --- | --- |
-| Product | Initial event subset, purposes, allowed dimensions, usefulness, and owner | **Blocked** |
-| Privacy/legal | Legal basis/consent by purpose and actor, retention, withdrawal, export/deletion, policy copy, jurisdictions | **Blocked** |
-| Security | Identifier strategy, schema enforcement, secrets, access, abuse and incident behavior | **Blocked** |
-| Engineering | Trigger semantics, idempotency, lifecycle integration, storage/index limits | **Blocked** |
-| Finance/commercial | `commercial_funnel` purpose and separation from billing/usage | **Blocked** |
+| Product | Initial event subset, purpose, allowed dimensions, usefulness, and owner | **Approved for 20B implementation/private validation** |
+| Privacy/legal | Applicable jurisdictions, production notice/copy, consent and retention | **Production activation blocked pending qualified review** |
+| Security | Identifier strategy, schema enforcement, access and failure behavior | **Approved at project level for 20B implementation/private validation** |
+| Engineering | Trigger semantics, idempotency, lifecycle integration, storage/index limits | **Approved and implemented for 20B** |
+| Finance/commercial | `commercial_funnel` purpose and separation from billing/usage | **Not part of 20B; remains blocked** |
 
-Until these reviews are recorded, optional analytics and anonymous analytics
-remain disabled and Phase 20B is not eligible.
+Anonymous analytics remains disabled. The authenticated first-party path is
+eligible only for synthetic/private validation and remains disabled by default;
+production activation is not authorized.

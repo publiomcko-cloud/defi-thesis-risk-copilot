@@ -13,9 +13,9 @@
       "execution_mode",
       "result_class"
     ],
-    "retention_class": "analytics_standard",
+    "retention_class": "analytics_30_day",
     "consent_rule": "approved_current_purpose_decision_required",
-    "status": "candidate"
+    "status": "implemented_disabled"
   },
   {
     "name": "analysis_failed",
@@ -31,25 +31,42 @@
       "execution_mode",
       "failure_class"
     ],
-    "retention_class": "analytics_short",
+    "retention_class": "analytics_30_day",
     "consent_rule": "approved_current_purpose_decision_required",
-    "status": "candidate"
+    "status": "implemented_disabled"
   },
   {
-    "name": "quota_exceeded",
+    "name": "thesis_saved",
     "schema_version": 1,
     "purpose": "product_improvement",
-    "trigger": "server_terminal_failure",
+    "trigger": "server_commit_succeeded",
     "actor_scopes": [
       "authenticated",
       "organization_context"
     ],
     "metadata_allowlist": [
       "actor_class",
-      "quota_action"
+      "visibility_class"
     ],
-    "retention_class": "analytics_short",
+    "retention_class": "analytics_30_day",
     "consent_rule": "approved_current_purpose_decision_required",
-    "status": "candidate"
+    "status": "implemented_disabled"
+  },
+  {
+    "name": "watchlist_created",
+    "schema_version": 1,
+    "purpose": "product_improvement",
+    "trigger": "server_commit_succeeded",
+    "actor_scopes": [
+      "authenticated",
+      "organization_context"
+    ],
+    "metadata_allowlist": [
+      "actor_class",
+      "visibility_class"
+    ],
+    "retention_class": "analytics_30_day",
+    "consent_rule": "approved_current_purpose_decision_required",
+    "status": "implemented_disabled"
   }
 ]

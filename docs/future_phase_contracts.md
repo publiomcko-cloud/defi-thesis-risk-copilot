@@ -3,7 +3,8 @@
 This document is the authoritative implementation contract for V1 Phases
 17–22. Phases 16–18 are complete on `main`; the Phase 19 repository
 foundations are merged with external completion gates still pending; Phase 20
-is in progress at its documentation-only 20A checkpoint.
+is in progress with Phase 20B locally implemented and production analytics
+disabled pending qualified privacy/legal review.
 
 Future implementation prompts should reference this file, [`development_plan.md`](development_plan.md), [`current_state.md`](current_state.md), and the selected phase section instead of restating the entire scope.
 

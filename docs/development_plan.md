@@ -501,12 +501,13 @@ Phase 20A is an `Implemented Foundation`: it adds the Phase 20 threat/evidence
 matrices, event-purpose/consent/retention taxonomy, machine-checkable event
 examples, usage-unit/entitlement registry, notification classification,
 provider ADR template/scorecards, and proposed `0023`–`0029` data-model review.
-It preserves Phase 16 lifecycle authority and documents missing granular
-analytics preference evidence, consent withdrawal, lifecycle registration, and
-organization export as later-slice gaps. Product, privacy/legal, security,
-engineering, finance/commercial, and operations approvals remain `Blocked`.
-There is no runtime behavior, migration, provider selection, event, send,
-payment, secret, or production configuration.
+Phase 20B is locally implemented under the scoped project-owner decision in
+[`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
+It adds migration `0023`, explicit opt-in preferences, append-only decisions
+and bounded events, preference API/UI, Phase 16 lifecycle integration, and
+30-day cleanup. Analytics remains disabled by default and production activation
+is `Blocked` pending qualified privacy/legal review. No external analytics
+provider, browser SDK, notification send, payment, or production secret exists.
 
 Core outcomes:
 

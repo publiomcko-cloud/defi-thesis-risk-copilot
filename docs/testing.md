@@ -507,8 +507,8 @@ assistive-technology, or chaos-test evidence.
 
 ## 9. Phase 20 validation
 
-Phase 20 is in progress at the documentation-only 20A checkpoint. Its
-validation authority is
+Phase 20 is in progress with Phase 20B locally implemented. Its validation
+authority is
 [`phase_20_execution_plan.md`](phase_20_execution_plan.md).
 
 ### Phase 20A documentation coverage
@@ -529,8 +529,36 @@ Phase 20A must validate:
 - workflow, lockfile, and security-exception policy checks;
 - baseline repository CI.
 
-Phase 20A does not require a migration cycle for a nonexistent migration, but
-CI must prove prior behavior still passes.
+Phase 20A did not require a migration. Phase 20B requires the following focused
+coverage in addition to the permanent repository suite:
+
+- SQLite and PostgreSQL `0023` upgrade/downgrade/upgrade cycles;
+- default-off, authenticated-only and no-anonymous preference behavior;
+- grant, deny, withdrawal, exact-policy re-consent and idempotent replay;
+- PostgreSQL concurrent first opt-in, event deduplication, and event-versus-
+  withdrawal serialization;
+- exact event/metadata allowlist rejection and no prohibited identifiers in
+  stored/exported metadata;
+- optional-emitter failure after the primary product commit;
+- owner-only export, immediate account deletion disposal, 30-day decision
+  evidence and dry-run event retention cleanup;
+- keyboard-accessible Account preference flow in the production browser build.
+
+Focused commands:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase20b_product_analytics.py \
+  app/tests/test_phase20b_migration.py
+RUN_POSTGRES_INTEGRATION=true \
+  python -m pytest -q app/tests/test_phase20b_postgres_analytics.py
+
+cd ../frontend
+npm run lint
+npm run build
+npm run test:e2e
+```
 
 Each later slice must add focused unit, PostgreSQL concurrency/isolation, API,
 BFF/browser, migration, and rollback evidence as applicable. Required coverage

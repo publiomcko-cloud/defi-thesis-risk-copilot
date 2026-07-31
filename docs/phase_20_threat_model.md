@@ -1,13 +1,13 @@
 # Phase 20 Threat Model
 
-Status: **Implemented Foundation — Phase 20A design review package; human
-security, privacy/legal, product, and finance approvals remain blocked**
+Status: **In Progress — Phase 20B controls locally implemented; production
+privacy/legal activation approval remains blocked**
 
 This threat model covers the planned Phase 20 product analytics, schedules,
 notifications, metering, entitlements, billing sandbox, organization
-commercial workflows, and customer operations. Phase 20A adds no runtime path,
-table, provider, credential, event, notification, payment, or production
-configuration.
+commercial workflows, and customer operations. Phase 20B adds a default-off,
+authenticated, first-party PostgreSQL analytics path without a provider,
+credential, browser SDK, payment, notification, or production activation.
 
 Authority:
 
@@ -82,13 +82,13 @@ organization ID establishes authorization or entitlement by itself.
 
 | ID | Boundary | Threat and impact | Required control before runtime | Phase 20A evidence | Residual owner/gate |
 | --- | --- | --- | --- | --- | --- |
-| `T20-01` | Analytics event entry | A browser forges identity, organization, event name, quantity, or plan metadata; events become a tenant side channel or billing input | Code-owned registry; server-owned trigger and scope; per-event metadata allowlist; event payload never authorizes access or billing | Event/privacy matrix and documentation schema | Security and product approval before 20B |
-| `T20-02` | Event metadata | Strategy text, protocol/source content, report identifiers, email, IP, URL, user agent, tokens, or free-form values leak into analytics | Denylist plus bounded typed allowlists; no arbitrary browser metadata; redaction and negative tests | Event/privacy matrix and schema examples | Privacy/legal and security approval before 20B |
-| `T20-03` | Pseudonymization | Stable anonymous or user identifiers enable re-identification, cross-purpose joining, or irreversible pepper rotation | Anonymous analytics off by default; short-lived purpose-specific identifier only after approval; server-only versioned pepper; no raw IP/email/session token | Anonymous policy in event/privacy matrix | Privacy/legal approval and Phase 19 secret-rotation evidence |
-| `T20-04` | Consent evidence | Mutable checkbox state, stale policy version, duplicate concurrent decisions, or missing withdrawal makes consent unverifiable | Immutable decision ledger plus current projection; idempotency; policy and purpose version; previous-decision linkage; audit; export and deletion hooks | Consent gap decision and proposed `0023` review | Privacy/legal approval; 20B PostgreSQL tests |
+| `T20-01` | Analytics event entry | A browser forges identity, organization, event name, quantity, or plan metadata; events become a tenant side channel or billing input | Code-owned registry; server-owned trigger and scope; per-event metadata allowlist; event payload never authorizes access or billing | Phase 20B registry, server emitters and negative tests | New review for any taxonomy expansion |
+| `T20-02` | Event metadata | Strategy text, protocol/source content, report identifiers, email, IP, URL, user agent, tokens, or free-form values leak into analytics | Denylist plus bounded typed allowlists; no arbitrary browser metadata; redaction and negative tests | Exact enum registry, safe export and prohibited-field tests | Qualified review before production activation |
+| `T20-03` | Pseudonymization | Stable anonymous or user identifiers enable re-identification, cross-purpose joining, or irreversible pepper rotation | Anonymous analytics absent; relational owner used only for consent/lifecycle; source boundary one-way hashed and not exported | Authenticated-only schema/API and export tests | New design required before any anonymous path |
+| `T20-04` | Consent evidence | Mutable checkbox state, stale policy version, duplicate concurrent decisions, or missing withdrawal makes consent unverifiable | Immutable decision ledger plus current projection; idempotency; policy and purpose version; previous-decision linkage; audit; export and deletion hooks | Migration `0023`, row locks, re-consent and PostgreSQL concurrency tests | Qualified review before production activation |
 | `T20-05` | Legal-document consent | A new analytics model replaces or corrupts Phase 16 terms/privacy acceptance records | Keep `consent_records` authoritative for terms/privacy; Phase 20 records only granular preferences not represented there; no duplicate account lifecycle | Data-model review | Architecture and privacy/legal approval |
-| `T20-06` | Retention/export/deletion | New rows are absent from export, survive deletion, are deleted despite legal hold, or create a second lifecycle authority | Extend existing account/organization lifecycle through registered projections/hooks; explicit retention class; dry-run cleanup; Phase 19 recovery guard; narrow legal hold | Lifecycle matrix and data-model review | Privacy/legal approval; later implementation tests |
-| `T20-07` | Analytics versus telemetry | Analytics opt-out suppresses security/reliability evidence, or operational telemetry becomes unconsented product tracking | Separate stores, purposes, access, retention, and emitters; analytics preference affects only optional analytics | Purpose registry | Security and privacy/legal approval |
+| `T20-06` | Retention/export/deletion | New rows are absent from export, survive deletion, are deleted despite legal hold, or create a second lifecycle authority | Extend existing account lifecycle through registered projections/hooks; fixed retention; dry-run cleanup; Phase 19 recovery guard | Safe export, immediate disposal, 30-day evidence and cleanup tests | Legal-hold policy remains a later qualified decision |
+| `T20-07` | Analytics versus telemetry | Analytics opt-out suppresses security/reliability evidence, or operational telemetry becomes unconsented product tracking | Separate stores, purposes, access, retention, and emitters; analytics preference affects only optional analytics | Separate service/table and non-critical-emitter tests | Continue permanent regression coverage |
 | `T20-08` | Durable scheduler | Browser/web-process timers lose or duplicate work; DST, missed runs, or concurrent claims create unexpected cost | Operator scheduler; PostgreSQL one-winner claim; unique scheduled occurrence; Phase 17 job idempotency; cadence, quota, cost, pause, cancellation, recovery controls | Execution plan and proposed `0024` review | 20C implementation and PostgreSQL evidence |
 | `T20-09` | Schedule authorization | Removed user/member or disabled organization continues to schedule or execute tenant work | Server-derived target; authorization at create, dispatch, and execution; authorization revocation follows Phase 17 active-job rules | Threat and data-model reviews | 20C implementation evidence |
 | `T20-10` | Notification preferences | Required security/billing notices are incorrectly optional, or marketing/product notices bypass consent and unsubscribe | Versioned category registry; legal-delivery class; explicit channel preference; verified destination; unsubscribe/revocation; purpose separation | Notification classification | Product and privacy/legal approval |
@@ -161,13 +161,14 @@ No approval is inferred from this document.
 
 | Decision | Required approvers | Status |
 | --- | --- | --- |
-| Analytics purposes, legal basis/consent, anonymous policy, retention, export, and deletion | Privacy/legal, product, security | **Blocked** |
-| Consent evidence design and relationship to `consent_records` | Privacy/legal, security, architecture owner | **Blocked** |
+| Phase 20B purpose, explicit opt-in, anonymous policy, retention, export, and deletion for implementation/private validation | Project owner for product, engineering and project-level security | **Approved in `decisions/phase_20b_analytics_approval.md`** |
+| Phase 20B production jurisdictions, legal basis, notice/copy, consent and retention | Qualified privacy/legal | **Blocked** |
+| Consent evidence design and relationship to `consent_records` | Project owner/security/architecture | **Approved and implemented for 20B** |
 | Usage units, meter points, entitlements, quota semantics, reversals, and commercial meaning | Product, finance/commercial, engineering, security | **Blocked** |
 | Notification categories, required-versus-optional treatment, external content, destinations, and retention | Product, privacy/legal, security | **Blocked** |
 | Provider selection, DPA/subprocessors/location, sandbox, secrets, cost, and exit plan | Capability owner, security, privacy/legal, finance where applicable | **Blocked** |
 | Retention periods, legal holds, billing evidence, tax/refund/trial/grace rules, and public copy | Privacy/legal and finance/commercial | **Blocked** |
 
-Review this model before any Phase 20 schema or runtime change and again before
+Review this model before each later Phase 20 schema/runtime change and before
 each provider ADR is accepted. Store no credentials, customer content, or
 private operational evidence in this file.

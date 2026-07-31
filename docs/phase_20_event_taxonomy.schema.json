@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://defi-thesis-risk-copilot.invalid/schemas/phase-20-event-definition.json",
-  "title": "Phase 20A candidate product analytics event definition",
-  "description": "Documentation schema only. It does not enable runtime collection.",
+  "title": "Phase 20B approved product analytics event definition",
+  "description": "Machine-readable documentation contract for the exact default-disabled Phase 20B registry.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,12 @@
   "properties": {
     "name": {
       "type": "string",
-      "pattern": "^[a-z][a-z0-9_]{2,63}$"
+      "enum": [
+        "analysis_completed",
+        "analysis_failed",
+        "thesis_saved",
+        "watchlist_created"
+      ]
     },
     "schema_version": {
       "type": "integer",
@@ -27,31 +32,23 @@
     },
     "purpose": {
       "type": "string",
-      "enum": [
-        "product_improvement",
-        "onboarding_effectiveness",
-        "commercial_funnel"
-      ]
+      "const": "product_improvement"
     },
     "trigger": {
       "type": "string",
       "enum": [
-        "server_action_accepted",
         "server_commit_succeeded",
-        "server_terminal_failure",
-        "authorized_server_read",
-        "reconciled_subscription_transition"
+        "server_terminal_failure"
       ]
     },
     "actor_scopes": {
       "type": "array",
       "minItems": 1,
-      "maxItems": 3,
+      "maxItems": 2,
       "uniqueItems": true,
       "items": {
         "type": "string",
         "enum": [
-          "anonymous",
           "authenticated",
           "organization_context"
         ]
@@ -59,7 +56,7 @@
     },
     "metadata_allowlist": {
       "type": "array",
-      "maxItems": 8,
+      "maxItems": 3,
       "uniqueItems": true,
       "items": {
         "type": "string",
@@ -68,21 +65,13 @@
           "execution_mode",
           "result_class",
           "failure_class",
-          "report_age_class",
-          "visibility_class",
-          "invitation_role_class",
-          "quota_action",
-          "commercial_stage",
-          "cadence_class"
+          "visibility_class"
         ]
       }
     },
     "retention_class": {
       "type": "string",
-      "enum": [
-        "analytics_short",
-        "analytics_standard"
-      ]
+      "const": "analytics_30_day"
     },
     "consent_rule": {
       "type": "string",
@@ -92,7 +81,7 @@
     },
     "status": {
       "type": "string",
-      "const": "candidate"
+      "const": "implemented_disabled"
     }
   }
 }

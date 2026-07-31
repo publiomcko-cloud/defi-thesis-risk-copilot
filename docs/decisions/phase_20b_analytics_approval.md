@@ -277,3 +277,11 @@ Therefore:
 - synthetic and private-environment validation is approved;
 - Phase 20B is not complete until its runtime implementation and evidence pass;
 - production must continue with `PRODUCT_ANALYTICS_ENABLED=false` until the production legal gate is explicitly recorded as approved.
+
+## 19. Implementation checkpoint
+
+The Phase 20B runtime and local evidence were implemented on 2026-07-31 under
+this decision. [`../phase_20_evidence_matrix.md`](../phase_20_evidence_matrix.md)
+records the migration, consent, concurrency, lifecycle, frontend and rollback
+checks. This does not change the approval boundary: production analytics stays
+disabled until the qualified privacy/legal gate is recorded separately.

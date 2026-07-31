@@ -1,19 +1,20 @@
-# Phase 20 Proposed Migration and Data-Model Review
+# Phase 20 Migration and Data-Model Review
 
-Status: **Implemented Foundation — design review only; no migration or model
-has been created**
+Status: **Phase 20B migration `0023` implemented; `0024`–`0029` remain proposed**
 
-Review date: 2026-07-30
+Review dates: 2026-07-30 (proposal), 2026-07-31 (Phase 20B implementation)
 
 Observed migration head:
 
 ```text
-20260728_0022
+20260731_0023
 ```
 
-The proposed `0023`–`0029` revisions are reservations. Their file dates,
-revision IDs, constraints, and split boundaries must be reconfirmed immediately
-before implementation. This document does not authorize a migration.
+Revision `0023` is implemented under the scoped approval in
+[`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
+Revisions `0024`–`0029` remain reservations whose identifiers, constraints and
+split boundaries must be reconfirmed before implementation; this document does
+not authorize those later migrations.
 
 ---
 
@@ -131,7 +132,7 @@ Decision:
 
 ## 2. Proposed `0023` — privacy decisions and product analytics
 
-This migration belongs to 20B, not 20A.
+Migration `20260731_0023` now implements this reviewed Phase 20B model.
 
 ### `privacy_preference_decisions`
 
@@ -235,6 +236,18 @@ Candidate constraints/indexes:
 Anonymous analytics requires a separate approved design for a short-lived,
 purpose-specific pseudonymous subject and versioned pepper. It is deliberately
 absent from the initial schema.
+
+Implementation resolution:
+
+- `owner_user_id` and `decision_id` are non-null because the approved slice is
+  authenticated and explicit-opt-in only;
+- no `organization_id` is stored; organization context is a bounded actor
+  class and individual consent remains authoritative;
+- no `anonymized_at` or `deleted_at` event state is stored because withdrawal,
+  account deletion, and expiry use idempotent hard deletion for optional event
+  rows;
+- immutable decisions remain until account life plus 30 days, then the shared
+  cleanup authority removes them.
 
 ### `0023` lifecycle
 

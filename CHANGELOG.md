@@ -11,10 +11,13 @@
   evidence matrices, event-purpose/consent/retention taxonomy, usage-unit and
   entitlement registry, notification classification, provider ADR
   template/scorecards, and proposed migration/data-model review.
-- Phase 20A adds no migration, runtime API, analytics event, notification,
-  billing behavior, provider, secret, or production configuration. Required
-  product, privacy/legal, security, engineering, finance, and operations
-  approvals remain explicit blockers.
+- Implemented Phase 20B locally with reversible migration `0023`, explicit
+  authenticated opt-in, append-only preference decisions and bounded analytics
+  events, four server-owned event triggers, an accessible Account preference,
+  Phase 16 export/deletion integration, and 30-day retention cleanup.
+- Product analytics remains disabled by default, anonymous collection is
+  absent, no external analytics provider or browser SDK is present, and
+  production activation remains blocked pending qualified privacy/legal review.
 - Network rate limits, product quotas, billable usage, and plan entitlements
   are explicitly separate controls and ledgers.
 

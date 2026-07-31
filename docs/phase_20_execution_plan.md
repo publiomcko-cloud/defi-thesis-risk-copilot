@@ -1,7 +1,7 @@
 # V1 Phase 20 Execution Plan — Product Analytics and Commercial Readiness
 
-Status: **In Progress — Phase 20A design artifacts implemented; required human
-approvals remain blocked; no Phase 20 runtime capability is implemented**
+Status: **In Progress — Phase 20B locally implemented; production analytics
+activation remains blocked pending qualified privacy/legal review**
 
 Branch: `agent/v1-phase-20-product-analytics-commercial-readiness`
 
@@ -225,10 +225,12 @@ Parallel work is allowed only when schemas and authorization boundaries are inde
 
 Gate to 20B: privacy/legal approves analytics purposes, legal basis/consent, immutable decision evidence, retention, export, and deletion. Missing approval blocks 20B, not unrelated 20C/20F work.
 
-Checkpoint status: the documentation artifacts are implemented. Phase 20A is
-an `Implemented Foundation`, not `Complete`, because product, engineering,
-security, privacy/legal, finance/commercial, and operations decisions remain
-unapproved. No dependent runtime slice may assume an approval.
+Checkpoint status: the documentation artifacts are implemented. The project
+owner subsequently approved the product, engineering, and project-level
+security boundaries required for Phase 20B in
+[`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
+That decision permits implementation and synthetic/private validation only;
+it does not approve production analytics or any later Phase 20 slice.
 
 ### Phase 20B — Consent-aware first-party product analytics
 
@@ -236,13 +238,21 @@ unapproved. No dependent runtime slice may assume an approval.
 | --- | --- |
 | Objective | Implement bounded first-party analytics without an external SDK. |
 | Dependencies | 20A analytics approval; Phase 16 identity/anonymous lifecycle; Phase 19 redaction/correlation. |
-| Data/migrations | Proposed `0023`: `privacy_preferences` current projection; append-only `privacy_preference_decisions` unless an existing Phase 16 record satisfies the full evidence contract; append-only `product_analytics_events`. Include purpose, schema/policy version, server-derived scope, bounded dimensions, consent/legal-basis snapshot, timestamps, expiry, and deletion/anonymization state. |
+| Data/migrations | Implemented `0023`: `privacy_preferences` current projection, append-only `privacy_preference_decisions`, and append-only `product_analytics_events`; exact approved purpose/policy, server-derived ownership, bounded dimensions, decision lineage, timestamps and expiry. |
 | Backend/frontend | Code-owned registry, server emitter, consent/legal-basis gate, preference APIs/UI, export projection, deletion/lifecycle hooks. Emit only at approved server-owned completion points. |
-| Configuration | Disabled by default; first-party mode; server-only pseudonymization pepper; approved versions; retention; bounded sampling. |
+| Configuration | Disabled by default; first-party PostgreSQL only; approved policy version; fixed 30-day event retention; no sampling or analytics pseudonym exposed outside relational ownership. |
 | Boundaries | No raw queries, strategies, sources, email, IP, URL, user agent, referrer query, identifiers in dimensions, or arbitrary browser events. |
 | Tests | Grant, withdrawal, re-consent, policy transition, concurrent updates, event allowlists, duplicate prevention, anonymous policy, tenant isolation, redaction, retention, export/deletion, and independence from audit/telemetry. |
 | Rollout | Deploy disabled; synthetic/private test scope; rollback disables emission while preserving approved evidence for lifecycle cleanup. |
 | Completion | Optional analytics obeys approved purpose and user decisions; immutable consent evidence, export/deletion, retention, and no-sensitive-data tests pass. |
+
+Checkpoint status: **Locally Implemented**. Migration `0023`, first-party
+PostgreSQL persistence, the strict four-event registry, preference API and
+accessible Account UI, account export/deletion hooks, 30-day cleanup, and
+PostgreSQL idempotency/withdrawal races are implemented. Collection remains
+disabled by default and is rejected in production configuration until the
+qualified privacy/legal activation gate is recorded. See
+[`phase_20_evidence_matrix.md`](phase_20_evidence_matrix.md).
 
 ### Phase 20C — Durable scheduled monitoring
 
@@ -533,17 +543,18 @@ Scaffolding, a pricing page, a plan label, a provider mock, an unverified webhoo
 
 ---
 
-## 12. Phase 20A checkpoint and next eligibility
+## 12. Phase 20 checkpoint and next eligibility
 
 Phase 20A produced the required threat/evidence, provider-decision,
 event/privacy, usage/entitlement, notification, and data-model artifacts plus
 machine-checkable taxonomy examples. It created no table, migration, API, SDK,
 event, provider secret, notification, payment, or production configuration.
 
-Next gate:
+Current gate:
 
-- 20B remains `Blocked` until privacy/legal approves analytics purpose, legal
-  basis/consent, immutable evidence, retention, export, and deletion;
+- 20B is locally implemented under the project-owner implementation approval;
+  production activation remains `Blocked` until qualified privacy/legal review
+  approves applicable jurisdictions, notice/copy, consent, and retention;
 - 20C becomes eligible only after product, engineering, security, and
   operations approve the applicable schedule, quota, and lifecycle definitions;
 - 20F becomes eligible only after product, finance/commercial, engineering, and

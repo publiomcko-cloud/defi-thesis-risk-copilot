@@ -679,24 +679,38 @@ separate usage and entitlement controls, billing sandbox processing,
 organization invitations/seats, support/status/privacy operations, and
 qualified legal review.
 
-Phase 20A defines the design boundary only:
+Phase 20A defines the shared design boundary. Phase 20B implements its first
+runtime slice:
 
 - Phase 16 `consent_records` remains terms/privacy acceptance authority;
-- granular optional analytics decisions require separate immutable evidence
-  only if 20B is approved;
+- granular optional analytics decisions use separate immutable
+  `privacy_preference_decisions` evidence and a rebuildable
+  `privacy_preferences` current projection;
+- four code-owned events may enter `product_analytics_events` only after an
+  authenticated user's exact current policy opt-in; ownership and source
+  deduplication inputs are server-derived and never analytics dimensions;
+- decision and event paths serialize on the owning PostgreSQL user row so a
+  withdrawal cannot race an event into storage afterward;
+- withdrawal and account deletion immediately remove optional events, while
+  the shared cleanup authority expires events at 30 days and decision evidence
+  30 days after account deletion;
+- optional emitter commits occur after the product transaction and fail closed
+  without rolling back a successful report, thesis, or watchlist action;
 - existing account export/deletion, organization deletion, retention cleanup,
   audit, quota, and job lifecycle remain authoritative;
 - proposed Phase 20 rows must register projections/lifecycle hooks rather than
   create a second account or organization lifecycle;
 - network rate limits, product quotas, billable usage, entitlements, analytics,
   audit, billing, and support remain separate domains;
-- no provider is selected and no runtime path, migration, table, SDK, event,
-  notification, payment, or production configuration exists.
+- no analytics provider or browser SDK is selected; collection is disabled by
+  default and production activation is blocked by configuration validation.
 
-The Phase 20A trust and data-model records are
+The Phase 20 trust and data-model records are
 [`phase_20_threat_model.md`](phase_20_threat_model.md) and
-[`phase_20_data_model_review.md`](phase_20_data_model_review.md). Human
-approvals remain blocked.
+[`phase_20_data_model_review.md`](phase_20_data_model_review.md). The approval
+boundary is
+[`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
+Qualified privacy/legal review remains blocked for production activation.
 
 ---
 

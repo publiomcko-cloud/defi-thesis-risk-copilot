@@ -23,7 +23,7 @@ The Render free-tier backend may cold-start after inactivity.
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–18
 Implemented foundation: V1 Phase 19 (merged; deployed-provider and operational evidence remains gated)
-In progress: V1 Phase 20A (documentation/governance foundation; human approvals blocked)
+In progress: V1 Phase 20 (20B locally implemented; production analytics disabled pending qualified review)
 Later: V1 Phases 21–22
 ```
 
@@ -57,10 +57,13 @@ controls, exact report-citation lineage display, safe private-knowledge export
 metadata, and administrator-only readiness metrics. Phase 19 operations and
 security foundations are merged into `main`; centralized telemetry, alert
 delivery, provider restore drills, secret rotation, protected-branch evidence,
-and controlled deployment evidence remain external gates. Phase 20A now defines
+and controlled deployment evidence remain external gates. Phase 20A defines
 the threat, privacy, event, usage, entitlement, notification, provider-decision,
-and proposed data-model contracts without runtime collection or provider
-activation. Human approvals remain blocked. Live private-bucket policy, final
+and proposed data-model contracts. Phase 20B now implements explicit default-off
+authenticated analytics preferences, immutable decision evidence, four bounded
+first-party PostgreSQL events, lifecycle integration, and an accessible Account
+control. Collection remains disabled in production pending qualified
+privacy/legal approval. Live private-bucket policy, final
 cutover verification, and launch approval remain Phase 22 gates.
 Durable source versions
 support atomic rollback and queued cleanup after tombstoning; those lifecycle
@@ -84,6 +87,8 @@ controls remain inactive until private storage is deliberately enabled.
 - admin-controlled Vast.ai dry-run/manual warm-up;
 - retrieval, ML, and HPC groundwork;
 - user, organization, thesis, quota, anonymous-session, account, and durable-job foundations.
+- optional authenticated first-party product analytics with explicit opt-in,
+  strict metadata, 30-day retention, and production-disabled rollout.
 
 ## Public Deployment Safety
 

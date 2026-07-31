@@ -13,8 +13,8 @@ Authoritative references:
 - [`phase_19_threat_model.md`](phase_19_threat_model.md) and [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) — Phase 19A–19I risk and evidence record;
 - [`phase_20_execution_plan.md`](phase_20_execution_plan.md) — active implementation sequence;
 - [`phase_20_threat_model.md`](phase_20_threat_model.md) and
-  [`phase_20_evidence_matrix.md`](phase_20_evidence_matrix.md) — Phase 20A
-  risk, design evidence, and approval blockers;
+  [`phase_20_evidence_matrix.md`](phase_20_evidence_matrix.md) — Phase 20 risk,
+  implementation evidence, and production approval blockers;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22 contract;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -65,7 +65,7 @@ V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
-V1 Phase 20 — In Progress on its implementation branch; Phase 20A documentation/governance artifacts exist, human approvals remain blocked, and no provider or runtime capability has been added
+V1 Phase 20 — In Progress on its implementation branch; Phase 20B consent-aware first-party analytics is locally implemented and disabled by default; qualified privacy/legal approval and deployed evidence remain required before production activation
 V1 Phase 21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -450,12 +450,17 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   processes, and legal readiness. Phase 20A implements the threat/evidence,
   event-purpose/consent/retention, usage/entitlement, notification,
   provider-decision, and proposed data-model artifacts. It reuses existing
-  Phase 16 terms/privacy consent plus account/organization lifecycle authority
-  and records missing granular analytics decisions, consent withdrawal,
-  lifecycle hooks, and organization export as later-slice gaps. No provider is
-  selected, no human approval is inferred, and no Phase 20 runtime behavior,
-  migration, API, event, send, payment, secret, or production configuration is
-  implemented;
+  Phase 16 terms/privacy consent plus account/organization lifecycle authority.
+  Phase 20B adds reversible migration `0023`, explicit default-off analytics
+  preferences, immutable decisions, four strictly bounded first-party events,
+  authenticated preference API/UI, account export/deletion hooks, 30-day event
+  retention, immediate withdrawal deletion, and PostgreSQL idempotency/race
+  controls. `PRODUCT_ANALYTICS_ENABLED=false`, anonymous analytics is absent,
+  no external analytics provider or browser SDK is selected, and production
+  activation remains blocked pending qualified privacy/legal review. The
+  2026-07-31 local checkpoint passes 304 SQLite/default-suite tests, all 23
+  PostgreSQL integration tests, migration rollback, frontend/browser/security,
+  lifecycle dry-run, smoke and Compose validation;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 

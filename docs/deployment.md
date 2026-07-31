@@ -1079,13 +1079,39 @@ controlled deployment evidence remain external gates.
 
 ### Phase 20
 
-Phase 20A requires no deployment and must not add environment variables or
-provider configuration. Its decision artifacts are linked from
-[`phase_20_execution_plan.md`](phase_20_execution_plan.md). Later slices may
-deploy analytics and notification processors, durable schedules, entitlement
-and billing sandbox handling, status/support systems, and legal/commercial
-controls only after their human and provider gates are approved. No provider
-is currently selected and no production flag changes.
+Phase 20B adds only first-party PostgreSQL analytics and remains disabled by
+default. No external analytics provider, browser SDK, cookie, or new public
+processor is configured. Keep this production value unchanged:
+
+```env
+PRODUCT_ANALYTICS_ENABLED=false
+```
+
+The remaining Phase 20B values are server-owned policy bounds:
+
+```env
+PRODUCT_ANALYTICS_POLICY_VERSION=phase20b-2026-07-31
+PRODUCT_ANALYTICS_RETENTION_DAYS=30
+PRODUCT_ANALYTICS_WITHDRAWAL_DELETION_HOURS=24
+PRODUCT_ANALYTICS_DECISION_RETENTION_DAYS=30
+```
+
+Migration `20260731_0023` is safe to deploy while collection is disabled. It
+does not backfill a consent decision or analytics event. After migration,
+verify the Account preference remains off for an authenticated synthetic user,
+anonymous preference routes return `401`, and account export includes empty or
+owner-only Phase 20B projections.
+
+Rollback first sets `PRODUCT_ANALYTICS_ENABLED=false`; this stops all optional
+event writes without affecting the product action. Keep `0023` in place while
+decision/event lifecycle cleanup is required. Schema downgrade is appropriate
+only after optional event and preference rows are deliberately disposed and no
+Phase 20B runtime revision depends on it.
+
+The production configuration validator rejects an enabled analytics flag until
+the qualified privacy/legal activation gate is changed in a separately reviewed
+task. Later Phase 20 slices may deploy other capabilities only after their own
+human and provider gates are approved.
 
 ### Phase 21
 

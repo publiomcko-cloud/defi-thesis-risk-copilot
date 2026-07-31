@@ -1,7 +1,7 @@
 # Phase 20 Evidence Matrix
 
-Status: **In Progress — Phase 20A artifacts implemented; human approvals
-remain blocked; no Phase 20 runtime capability exists**
+Status: **In Progress — Phase 20B locally implemented; production analytics
+activation remains blocked pending qualified privacy/legal review**
 
 Allowed status labels follow [`agent_execution_guide.md`](agent_execution_guide.md):
 `Planned`, `In Progress`, `Implemented Foundation`, `Complete`, or `Blocked`.
@@ -10,23 +10,26 @@ Allowed status labels follow [`agent_execution_guide.md`](agent_execution_guide.
 | --- | --- | --- | --- | --- |
 | Authoritative Phase 20 scope and dependency graph | Implemented Foundation | [`future_phase_contracts.md`](future_phase_contracts.md) and [`phase_20_execution_plan.md`](phase_20_execution_plan.md) | Re-review when a new dependency or failure mode is discovered | All |
 | Phase 20 threat model | Implemented Foundation | [`phase_20_threat_model.md`](phase_20_threat_model.md) covers analytics, lifecycle, schedules, notifications, metering, billing, organizations, support, providers, and prior-phase regressions | Security, privacy/legal, product, and finance review | All |
-| Event-purpose and metadata taxonomy | Implemented Foundation | [`phase_20_event_privacy_matrix.md`](phase_20_event_privacy_matrix.md), documentation JSON Schema, and bounded examples | Product and privacy/legal approval; 20B runtime registry and negative tests | 20B |
-| Analytics legal basis and consent policy | Blocked | Default is no optional analytics and no anonymous analytics; required decisions are enumerated | Qualified privacy/legal decision by purpose and jurisdiction; user-facing copy approval | 20B |
-| Immutable consent/preference evidence decision | Implemented Foundation | Existing `consent_records` gap analysis and proposed separate granular preference decision ledger in the data-model review | Privacy/legal and architecture approval; migration and concurrency tests | 20B |
-| Phase 16 account export reuse | Implemented Foundation | Existing `/api/account/export` remains authoritative; Phase 20 projections are specified, not implemented | Export contract/version design and implementation tests for each new domain | 20B and later |
-| Phase 16 account deletion reuse | Implemented Foundation | Existing `/api/account` deletion, retention cleanup, job disposal, and knowledge tombstones remain authoritative | Registered Phase 20 lifecycle hooks, legal-hold rules, cleanup and recovery-guard tests | 20B and later |
+| Event-purpose and metadata taxonomy | Complete | Phase 20B: `app/product_analytics/registry.py` enforces the exact four-event, five-field enum registry; negative tests reject undeclared events, fields and values | New approval required for any event, value, purpose, sampling or processor change | 20B |
+| Analytics legal basis and consent policy | Implemented Foundation | [`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md) permits explicit opt-in implementation and synthetic/private validation; default and anonymous paths are off | Qualified privacy/legal review by jurisdiction plus production notice/copy approval | 20B production activation |
+| Immutable consent/preference evidence decision | Complete | Phase 20B migration `0023`, append-only `privacy_preference_decisions`, current `privacy_preferences`, exact policy-version re-consent, row locking and PostgreSQL races | Production legal gate only; future policy changes require a new version/decision | 20B |
+| Phase 16 account export reuse | Complete | Phase 20B safe preference, decision and event projections are registered in existing `/api/account/export` without owner/source identifiers | Add projections for later Phase 20 domains as implemented | 20B and later |
+| Phase 16 account deletion reuse | Complete | Phase 20B hooks in existing `/api/account` immediately remove event/projection rows; shared cleanup retains decisions for exactly 30 days then removes them | Legal-hold behavior remains a later qualified-policy decision | 20B and later |
 | Organization lifecycle reuse | Implemented Foundation | Existing organization membership/deletion authority identified; no duplicate service proposed | Organization export is a documented gap for 20H; lifecycle/concurrency implementation evidence | 20H |
-| Retention classification | Blocked | Draft classes and event mappings are in the event/privacy matrix | Privacy/legal approval of periods, legal holds, and deletion/anonymization behavior | 20B and provider slices |
-| Anonymous analytics policy | Blocked | Fail-closed default is disabled; short-lived purpose-specific pseudonym is only a proposal | Privacy/legal, security, and product approval; secret rotation and browser behavior evidence | 20B |
-| Operational telemetry separation | Implemented Foundation | Purpose matrix keeps Phase 19 operational/security telemetry outside analytics consent | Runtime emitter separation and no-regression tests | 20B |
+| Retention classification | Complete | Phase 20B event expiry is 30 days; withdrawal deletes immediately; decision evidence is account life plus 30 days; dry-run cleanup is covered | Qualified privacy/legal production review; later domains need separate periods | 20B |
+| Anonymous analytics policy | Complete | Phase 20B has no anonymous schema/identifier/emitter/UI path and APIs require authentication | Any future anonymous proposal requires a separate reviewed design and migration | Future only |
+| Operational telemetry separation | Complete | Phase 20B optional emitter has separate tables/purpose, catches failures after primary commits, and does not suppress audit/operations/quota behavior | Continue regression checks in later slices | 20B |
 | Usage-unit registry | Implemented Foundation | [`phase_20_usage_entitlement_registry.md`](phase_20_usage_entitlement_registry.md) defines candidate units, meter points, idempotency, reversals, and non-billable defaults | Product/finance approval and runtime reconciliation | 20F |
 | Entitlement registry | Implemented Foundation | Candidate feature/limit keys and current `UserModel.plan`/environment fallback are documented | Product/security/finance approval; immutable plan schema and resolver shadow tests | 20F |
 | Four control domains remain separate | Implemented Foundation | Network rate limits, product quotas, billable usage, and plan entitlements have separate authorities and identifiers | 20F tests proving no cross-domain write or authorization | 20F |
 | Notification classification | Implemented Foundation | [`phase_20_notification_classification.md`](phase_20_notification_classification.md) defines categories, required/optional treatment, content classes, destinations, and verification | Product, privacy/legal, and security approval | 20D/20E |
 | Provider ADR process | Implemented Foundation | [`decisions/phase_20_provider_adr_template.md`](decisions/phase_20_provider_adr_template.md) requires data flow, security, privacy, cost, sandbox, failure, rollback, and exit evidence | Human approval of each completed capability ADR | Provider-dependent slices |
 | Provider alternatives and scorecards | Implemented Foundation | [`phase_20_provider_scorecards.md`](phase_20_provider_scorecards.md) records candidates, weighted method, hard gates, and `not assessed` results | Evidence collection and approvals; no provider selected | 20E/20G/20I |
-| Proposed migration/data-model review | Implemented Foundation | [`phase_20_data_model_review.md`](phase_20_data_model_review.md) confirms head `20260728_0022`, current authorities, proposed `0023`–`0029`, FKs, lifecycle, indexes, and rollback | Architecture/privacy/security review before migration implementation | 20B onward |
+| Migration/data-model review | Complete | Phase 20B reversible `20260731_0023` creates the three reviewed tables with deliberate FKs, checks, unique constraints and indexes; SQLite/PostgreSQL cycles pass | Reconfirm head and models before `0024` | 20B onward |
 | No migration or runtime change in 20A | Complete | Branch scope check contains documentation artifacts and living-document updates only | Repeat diff-scope check before merge | 20A |
+| Preference API and accessible UI | Complete | Phase 20B authenticated GET/PATCH endpoints, strict body, idempotency key, native keyboard switch, default-off/collection-disabled/re-consent states, browser E2E | Qualified review of production copy | 20B |
+| Event trigger and idempotency behavior | Complete | Phase 20B successful sync/durable report, terminal durable failure, thesis-save and watchlist-create commit points; source boundary is one-way hashed; concurrent duplicate and withdrawal tests pass | Continue worker failure-path regression in hosted CI | 20B |
+| Analytics disabled-by-default rollout | Complete | Phase 20B `.env.example` and both Compose files default false; production configuration fails closed if enabled before approval | Qualified approval and Phase 22 controlled deployed evidence | 20B activation |
 | Durable scheduled monitoring | Planned | 20A schedule terms, threat boundaries, proposed `0024`, and candidate usage/entitlement keys | 20A common-definition approval, then 20C schema/API/worker/PostgreSQL evidence | 20C |
 | In-app notification domain | Planned | 20A classification, threat boundaries, and proposed `0025` | Approved category model plus 20C outcomes or existing alert source | 20D |
 | External notification delivery | Blocked | ADR and scorecard process only | Approved provider/channel ADR, Phase 19 relevant gates, sandbox, and 20E tests | 20E |
@@ -56,18 +59,41 @@ Allowed status labels follow [`agent_execution_guide.md`](agent_execution_guide.
 
 ---
 
-## Phase 20A checkpoint
+## Phase 20B local validation — 2026-07-31
 
-Phase 20A has produced the required design and decision artifacts. It has not
-received the human approvals required by its completion gate. Therefore:
+| Validation | Result |
+| --- | --- |
+| Python compile and SQLite migration/focused lifecycle tests | Pass; `0023` is head and the reversible temporary-database test passes |
+| PostgreSQL `upgrade -> downgrade -1 -> upgrade` | Pass against the isolated local PostgreSQL 16/pgvector service |
+| Complete backend suite | Pass; 304 passed and 23 PostgreSQL-only tests skipped in the SQLite run |
+| Complete PostgreSQL integration suite | Pass; 23 passed, including three Phase 20B contention/idempotency tests |
+| Backend smoke, cleanup dry run and durable-job recovery dry run | Pass; no destructive cleanup was run |
+| Frontend install, type check, BFF, MFA, accessibility and security contracts | Pass; `npm ci` reports zero vulnerabilities and accessibility covers 31 route pages |
+| Production frontend build, browser E2E and route smoke | Pass; browser includes keyboard analytics opt-in/withdrawal and route smoke covers 11 account/auth pages |
+| Supply-chain workflow, lockfile and exception policies | Pass |
+| Phase 20B JSON Schema 2020-12 taxonomy | Pass; exactly four approved events validate |
+| Development, worker-profile and production Compose rendering | Pass |
 
-- Phase 20 is `In Progress`;
-- Phase 20A is an `Implemented Foundation`, not `Complete`;
-- 20B is `Blocked` on analytics privacy/legal approval;
+No production credential, customer data, external analytics processor, browser
+analytics SDK, notification send, payment or real Vast rental was used. Hosted
+PR checks and production activation evidence remain separate gates.
+
+---
+
+## Phase 20B checkpoint
+
+Phase 20A produced the design and decision artifacts, and the project owner
+recorded the scoped Phase 20B implementation approval. Therefore:
+
+- Phase 20 remains `In Progress`;
+- Phase 20B is locally implemented and validated;
+- production analytics activation remains `Blocked` on qualified privacy/legal
+  approval and controlled deployed evidence;
 - 20C, 20F, and provider-neutral portions of 20I require approval of their
   applicable common definitions before implementation;
 - no provider-dependent slice is eligible;
-- no production or runtime claim is made.
+- no analytics provider or browser SDK is selected, and no production
+  collection claim is made.
 
 Evidence must be updated with implementation files, migrations, automated
 tests, provider sandbox records, rollout owners, and rollback results as later
