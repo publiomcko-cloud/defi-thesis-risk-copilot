@@ -6,7 +6,7 @@ export default function AccountPage() {
       <section className="page-heading">
         <p className="eyebrow">Account</p>
         <h1>Account</h1>
-        <p>Manage profile, export account data, deletion workflow, and security settings.</p>
+        <p>Manage profile, privacy preferences, account data, and security settings.</p>
       </section>
       <AccountPanel />
     </main>

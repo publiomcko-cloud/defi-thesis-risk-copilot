@@ -120,6 +120,25 @@ summary:focus-visible {
   line-height: 1.5;
 }
 
+.privacy-switch {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.privacy-switch input {
+  accent-color: var(--accent-strong);
+  height: 22px;
+  margin: 0;
+  width: 22px;
+}
+
+.privacy-switch input:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
 .advanced-fields {
   border: 1px solid var(--line);
   border-radius: 8px;

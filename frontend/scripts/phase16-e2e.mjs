@@ -15,6 +15,7 @@ const state = {
   organization: null,
   memberships: [],
   consents: [],
+  privacyPreferences: new Map(),
   mfaFactors: [],
   knowledgeSources: [],
   knowledgeDocuments: [],
@@ -120,7 +121,7 @@ try {
   );
   assert(state.backendTokens.includes("access-owner-refreshed"), "BFF must forward the refreshed access token");
   assert(state.supabaseCookies.every((cookie) => cookie === ""), "browser cookies must not reach Supabase Auth");
-  console.log("Browser E2E passed: anonymous, BFF session, jobs, account, thesis, organization, knowledge workspace, recovery, MFA, and mobile flows.");
+  console.log("Browser E2E passed: anonymous, BFF session, jobs, account privacy preferences, thesis, organization, knowledge workspace, recovery, MFA, and mobile flows.");
 } catch (error) {
   await mkdir(artifactsDirectory, { recursive: true });
   if (activePage) {
@@ -209,6 +210,17 @@ async function runAuthenticatedFlow(browserInstance) {
   await page.getByRole("link", { name: "Open report" }).waitFor();
 
   await page.goto(`${appOrigin}/account`);
+  const analyticsSwitch = page.getByRole("switch", { name: "Share optional product events" });
+  await analyticsSwitch.waitFor();
+  assert.equal(await analyticsSwitch.isChecked(), false, "analytics must be opt-in and default off");
+  await analyticsSwitch.focus();
+  await page.keyboard.press("Space");
+  await page.getByText("Optional product analytics enabled.").waitFor();
+  assert.equal(await analyticsSwitch.isChecked(), true, "keyboard opt-in must update the preference");
+  await analyticsSwitch.focus();
+  await page.keyboard.press("Space");
+  await page.getByText("Optional product analytics disabled and existing events removed.").waitFor();
+  assert.equal(await analyticsSwitch.isChecked(), false, "withdrawal must update the preference immediately");
   await page.getByRole("button", { name: "Accept terms" }).click();
   await page.getByText("Terms consent recorded.").waitFor();
   const download = page.waitForEvent("download");
@@ -445,6 +457,33 @@ function handleBackend(method, url, payload, token, cookie, response) {
   }
   if (method === "GET" && url.pathname === "/api/consents") {
     return send(response, 200, { items: state.consents.filter((item) => item.userId === user.id) });
+  }
+  if (method === "GET" && url.pathname === "/api/account/privacy-preferences") {
+    return send(response, 200, {
+      items: [{
+        purpose: "product_improvement",
+        enabled: state.privacyPreferences.get(user.id) ?? false,
+        policy_version: "phase20b-2026-07-31",
+        collection_enabled: false,
+        requires_reconsent: false,
+        updated_at: null
+      }]
+    });
+  }
+  if (method === "PATCH" && url.pathname === "/api/account/privacy-preferences") {
+    state.privacyPreferences.set(user.id, payload.enabled);
+    return send(response, 200, {
+      preference: {
+        purpose: "product_improvement",
+        enabled: payload.enabled,
+        policy_version: "phase20b-2026-07-31",
+        collection_enabled: false,
+        requires_reconsent: false,
+        updated_at: now
+      },
+      decision: payload.enabled ? "grant" : "withdraw",
+      duplicate: false
+    });
   }
   if (method === "POST" && url.pathname === "/api/consents") {
     const consent = { document_type: payload.document_type, document_version: "2026-07-20", accepted_at: now, userId: user.id };
