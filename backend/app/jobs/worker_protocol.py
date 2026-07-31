@@ -14,6 +14,7 @@ from app.auth.security import constant_time_equal, hash_job_lease_token, redact_
 from app.auth.service import user_context
 from app.core.config import get_settings
 from app.jobs.errors import JobErrorCategory
+from app.product_analytics.service import emit_product_event_safely
 from app.jobs.control_service import (
     _release_capacity,
     move_pending_capacity_to_running,
@@ -328,7 +329,25 @@ def complete_job(
     attempt.outcome = "completed"
     _clear_lease(job)
     release_running_capacity(db, job)
+    analytics_completion = (
+        job.owner_user_id,
+        "organization_context" if job.visibility == "organization" else "authenticated",
+        job.id,
+    ) if job.job_type == "analysis.generate" and job.owner_user_id is not None else None
     db.commit()
+    if analytics_completion is not None:
+        owner_user_id, actor_class, source_boundary = analytics_completion
+        emit_product_event_safely(
+            db,
+            owner_user_id=owner_user_id,
+            event_name="analysis_completed",
+            metadata={
+                "actor_class": actor_class,
+                "execution_mode": "durable",
+                "result_class": "report_created",
+            },
+            source_boundary=source_boundary,
+        )
     return _mutation(job)
 
 
@@ -354,6 +373,7 @@ def fail_job(
         raise HTTPException(status_code=422, detail="Worker error category is not allowed for this job type.")
     should_reconcile = category == JobErrorCategory.UNCERTAIN_EXTERNAL_SIDE_EFFECT
     should_retry = category in spec.retryable_categories
+    terminal_analytics_failure: tuple[str, str, str, str] | None = None
     if (should_retry or should_reconcile) and job.attempt_count < job.max_attempts and _deadline_allows_retry(job):
         _cleanup_knowledge_job_outputs(db, job, retryable=True, terminal=False)
         transition_job(
@@ -384,9 +404,42 @@ def fail_job(
         )
         attempt.outcome = "dead_letter"
         release_running_capacity(db, job)
+        if job.job_type == "analysis.generate" and job.owner_user_id is not None:
+            terminal_analytics_failure = (
+                job.owner_user_id,
+                "organization_context" if job.visibility == "organization" else "authenticated",
+                job.id,
+                _analytics_failure_class(category),
+            )
     _clear_lease(job)
     db.commit()
+    if terminal_analytics_failure is not None:
+        owner_user_id, actor_class, source_boundary, failure_class = terminal_analytics_failure
+        emit_product_event_safely(
+            db,
+            owner_user_id=owner_user_id,
+            event_name="analysis_failed",
+            metadata={
+                "actor_class": actor_class,
+                "execution_mode": "durable",
+                "failure_class": failure_class,
+            },
+            source_boundary=source_boundary,
+        )
     return _mutation(job)
+
+
+def _analytics_failure_class(category: JobErrorCategory) -> str:
+    if category == JobErrorCategory.PERMANENT_INPUT:
+        return "validation"
+    if category in {
+        JobErrorCategory.PERMANENT_AUTHORIZATION,
+        JobErrorCategory.RETRYABLE_INFRASTRUCTURE,
+        JobErrorCategory.RETRYABLE_PROVIDER,
+        JobErrorCategory.UNCERTAIN_EXTERNAL_SIDE_EFFECT,
+    }:
+        return "dependency"
+    return "internal"
 
 
 def release_job(db: Session, identity: WorkerIdentity, job_id: str, request: WorkerLeaseRequest) -> WorkerMutationResponse:

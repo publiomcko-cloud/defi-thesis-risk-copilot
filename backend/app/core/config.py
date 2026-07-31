@@ -120,6 +120,11 @@ class Settings(BaseSettings):
     deleted_account_retention_days: int = 30
     current_terms_version: str = "2026-07-20"
     current_privacy_version: str = "2026-07-20"
+    product_analytics_enabled: bool = False
+    product_analytics_policy_version: str = "phase20b-2026-07-31"
+    product_analytics_retention_days: int = 30
+    product_analytics_withdrawal_deletion_hours: int = 24
+    product_analytics_decision_retention_days: int = 30
     default_user_plan: str = "free"
     quota_anonymous_analyses_per_day: int = 5
     quota_free_analyses_per_day: int = 25
@@ -289,6 +294,18 @@ class Settings(BaseSettings):
                 )
         if self.auth_enabled and self.app_env == "production" and not self.bff_audit_secret:
             raise ValueError("BFF_AUDIT_SECRET is required when production authentication is enabled")
+        if not self.product_analytics_policy_version.strip() or len(self.product_analytics_policy_version) > 32:
+            raise ValueError("PRODUCT_ANALYTICS_POLICY_VERSION must be between 1 and 32 characters")
+        if self.product_analytics_retention_days != 30:
+            raise ValueError("PRODUCT_ANALYTICS_RETENTION_DAYS must remain 30 for Phase 20B")
+        if self.product_analytics_decision_retention_days != 30:
+            raise ValueError("PRODUCT_ANALYTICS_DECISION_RETENTION_DAYS must remain 30 for Phase 20B")
+        if not 1 <= self.product_analytics_withdrawal_deletion_hours <= 24:
+            raise ValueError("PRODUCT_ANALYTICS_WITHDRAWAL_DELETION_HOURS must be between 1 and 24")
+        if self.app_env == "production" and self.product_analytics_enabled:
+            raise ValueError(
+                "PRODUCT_ANALYTICS_ENABLED cannot run in production before qualified privacy/legal approval"
+            )
         if self.knowledge_storage_enabled:
             if self.app_env == "production" and (
                 not self.supabase_url or not self.supabase_service_role_key

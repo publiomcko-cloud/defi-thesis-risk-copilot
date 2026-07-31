@@ -14,6 +14,11 @@ from app.models.artifact import ArtifactModel
 from app.models.job import JobAttemptModel, JobEventModel, JobModel
 from app.models.report import ReportModel
 from app.models.rate_limit import RateLimitBucketModel
+from app.models.product_analytics import (
+    PrivacyPreferenceDecisionModel,
+    PrivacyPreferenceModel,
+    ProductAnalyticsEventModel,
+)
 from app.models.saved_thesis import SavedThesisModel
 from app.models.user import UserModel
 from app.models.watchlist_item import WatchlistItemModel
@@ -36,6 +41,9 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
         _require_backup_evidence(settings.backup_restore_evidence_reference)
     now = datetime.now(UTC)
     deleted_cutoff = now - timedelta(days=settings.deleted_account_retention_days)
+    analytics_decision_cutoff = now - timedelta(
+        days=settings.product_analytics_decision_retention_days
+    )
     job_event_cutoff = now - timedelta(days=settings.job_event_retention_days)
     terminal_job_cutoff = now - timedelta(days=settings.job_terminal_retention_days)
     counts: dict[str, int] = {}
@@ -104,6 +112,45 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
         counts["expired_rate_limit_buckets"] = _count(
             db,
             select(RateLimitBucketModel).where(RateLimitBucketModel.expires_at <= now),
+        )
+        counts["expired_product_analytics_events"] = _count(
+            db,
+            select(ProductAnalyticsEventModel).where(ProductAnalyticsEventModel.expires_at <= now),
+        )
+        analytics_deleted_user_ids = db.execute(
+            select(UserModel.id)
+            .where(UserModel.deleted_at.is_not(None))
+            .where(UserModel.deleted_at <= analytics_decision_cutoff)
+        ).scalars().all()
+        counts["deleted_account_analytics_events"] = (
+            _count(
+                db,
+                select(ProductAnalyticsEventModel).where(
+                    ProductAnalyticsEventModel.owner_user_id.in_(analytics_deleted_user_ids)
+                ),
+            )
+            if analytics_deleted_user_ids
+            else 0
+        )
+        counts["deleted_account_privacy_preferences"] = (
+            _count(
+                db,
+                select(PrivacyPreferenceModel).where(
+                    PrivacyPreferenceModel.user_id.in_(analytics_deleted_user_ids)
+                ),
+            )
+            if analytics_deleted_user_ids
+            else 0
+        )
+        counts["expired_privacy_preference_decisions"] = (
+            _count(
+                db,
+                select(PrivacyPreferenceDecisionModel).where(
+                    PrivacyPreferenceDecisionModel.user_id.in_(analytics_deleted_user_ids)
+                ),
+            )
+            if analytics_deleted_user_ids
+            else 0
         )
         if dry_run:
             return counts
@@ -181,6 +228,25 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
             db.execute(delete(JobModel).where(JobModel.id.in_(terminal_job_ids)))
         db.execute(delete(JobEventModel).where(JobEventModel.created_at <= job_event_cutoff))
         db.execute(delete(RateLimitBucketModel).where(RateLimitBucketModel.expires_at <= now))
+        db.execute(
+            delete(ProductAnalyticsEventModel).where(ProductAnalyticsEventModel.expires_at <= now)
+        )
+        if analytics_deleted_user_ids:
+            db.execute(
+                delete(ProductAnalyticsEventModel).where(
+                    ProductAnalyticsEventModel.owner_user_id.in_(analytics_deleted_user_ids)
+                )
+            )
+            db.execute(
+                delete(PrivacyPreferenceModel).where(
+                    PrivacyPreferenceModel.user_id.in_(analytics_deleted_user_ids)
+                )
+            )
+            db.execute(
+                delete(PrivacyPreferenceDecisionModel).where(
+                    PrivacyPreferenceDecisionModel.user_id.in_(analytics_deleted_user_ids)
+                )
+            )
         db.commit()
     return counts
 
