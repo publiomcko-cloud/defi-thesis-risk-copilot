@@ -1,7 +1,8 @@
 # Phase 20 Evidence Matrix
 
-Status: **In Progress — Phase 20B locally implemented; production analytics
-activation remains blocked pending qualified privacy/legal review**
+Status: **In Progress — Phase 20B is implemented and validated in draft PR #22;
+production analytics activation remains blocked pending qualified privacy/legal
+review**
 
 Allowed status labels follow [`agent_execution_guide.md`](agent_execution_guide.md):
 `Planned`, `In Progress`, `Implemented Foundation`, `Complete`, or `Blocked`.
@@ -27,7 +28,7 @@ Allowed status labels follow [`agent_execution_guide.md`](agent_execution_guide.
 | Provider alternatives and scorecards | Implemented Foundation | [`phase_20_provider_scorecards.md`](phase_20_provider_scorecards.md) records candidates, weighted method, hard gates, and `not assessed` results | Evidence collection and approvals; no provider selected | 20E/20G/20I |
 | Migration/data-model review | Complete | Phase 20B reversible `20260731_0023` creates the three reviewed tables with deliberate FKs, checks, unique constraints and indexes; SQLite/PostgreSQL cycles pass | Reconfirm head and models before `0024` | 20B onward |
 | No migration or runtime change in 20A | Complete | Branch scope check contains documentation artifacts and living-document updates only | Repeat diff-scope check before merge | 20A |
-| Preference API and accessible UI | Complete | Phase 20B authenticated GET/PATCH endpoints, strict body, idempotency key, native keyboard switch, default-off/collection-disabled/re-consent states, browser E2E | Qualified review of production copy | 20B |
+| Preference API and accessible UI | Complete | Phase 20B authenticated GET/PATCH endpoints, strict body, idempotency key, native keyboard switch, default-off/collection-disabled/re-consent states, browser E2E; deployment-disabled new grants return `409`, while a stored grant remains withdrawable | Qualified review of production copy | 20B |
 | Event trigger and idempotency behavior | Complete | Phase 20B successful sync/durable report, terminal durable failure, thesis-save and watchlist-create commit points; source boundary is one-way hashed; concurrent duplicate and withdrawal tests pass | Continue worker failure-path regression in hosted CI | 20B |
 | Analytics disabled-by-default rollout | Complete | Phase 20B `.env.example` and both Compose files default false; production configuration fails closed if enabled before approval | Qualified approval and Phase 22 controlled deployed evidence | 20B activation |
 | Durable scheduled monitoring | Planned | 20A schedule terms, threat boundaries, proposed `0024`, and candidate usage/entitlement keys | 20A common-definition approval, then 20C schema/API/worker/PostgreSQL evidence | 20C |
@@ -59,13 +60,13 @@ Allowed status labels follow [`agent_execution_guide.md`](agent_execution_guide.
 
 ---
 
-## Phase 20B local validation — 2026-07-31
+## Phase 20B validation — 2026-08-01
 
 | Validation | Result |
 | --- | --- |
 | Python compile and SQLite migration/focused lifecycle tests | Pass; `0023` is head and the reversible temporary-database test passes |
 | PostgreSQL `upgrade -> downgrade -1 -> upgrade` | Pass against the isolated local PostgreSQL 16/pgvector service |
-| Complete backend suite | Pass; 304 passed and 23 PostgreSQL-only tests skipped in the SQLite run |
+| Complete backend suite | Pass; 305 passed and 23 PostgreSQL-only tests skipped in the SQLite run |
 | Complete PostgreSQL integration suite | Pass; 23 passed, including three Phase 20B contention/idempotency tests |
 | Backend smoke, cleanup dry run and durable-job recovery dry run | Pass; no destructive cleanup was run |
 | Frontend install, type check, BFF, MFA, accessibility and security contracts | Pass; `npm ci` reports zero vulnerabilities and accessibility covers 31 route pages |
@@ -73,10 +74,11 @@ Allowed status labels follow [`agent_execution_guide.md`](agent_execution_guide.
 | Supply-chain workflow, lockfile and exception policies | Pass |
 | Phase 20B JSON Schema 2020-12 taxonomy | Pass; exactly four approved events validate |
 | Development, worker-profile and production Compose rendering | Pass |
+| Hosted draft PR #22 checks | Pass; backend/PostgreSQL, frontend, Docker Compose, CodeQL, dependency/container security, secret scanning, isolated failure exercises, and Vercel preview |
 
 No production credential, customer data, external analytics processor, browser
 analytics SDK, notification send, payment or real Vast rental was used. Hosted
-PR checks and production activation evidence remain separate gates.
+PR checks pass; production activation evidence remains a separate gate.
 
 ---
 
@@ -86,7 +88,7 @@ Phase 20A produced the design and decision artifacts, and the project owner
 recorded the scoped Phase 20B implementation approval. Therefore:
 
 - Phase 20 remains `In Progress`;
-- Phase 20B is locally implemented and validated;
+- Phase 20B is implemented and validated by local and hosted draft-PR checks;
 - production analytics activation remains `Blocked` on qualified privacy/legal
   approval and controlled deployed evidence;
 - 20C, 20F, and provider-neutral portions of 20I require approval of their

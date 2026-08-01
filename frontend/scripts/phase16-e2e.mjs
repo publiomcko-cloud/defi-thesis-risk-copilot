@@ -16,6 +16,7 @@ const state = {
   memberships: [],
   consents: [],
   privacyPreferences: new Map(),
+  productAnalyticsCollectionEnabled: true,
   mfaFactors: [],
   knowledgeSources: [],
   knowledgeDocuments: [],
@@ -221,6 +222,20 @@ async function runAuthenticatedFlow(browserInstance) {
   await page.keyboard.press("Space");
   await page.getByText("Optional product analytics disabled and existing events removed.").waitFor();
   assert.equal(await analyticsSwitch.isChecked(), false, "withdrawal must update the preference immediately");
+  await analyticsSwitch.focus();
+  await page.keyboard.press("Space");
+  await page.getByText("Optional product analytics enabled.").waitFor();
+  assert.equal(await analyticsSwitch.isChecked(), true, "normal opt-in must remain available while collection is enabled");
+  state.productAnalyticsCollectionEnabled = false;
+  await page.reload();
+  await page.getByText("Collection is unavailable for this deployment. You can withdraw the previously recorded preference.").waitFor();
+  assert.equal(await analyticsSwitch.isChecked(), true, "an existing preference remains available for withdrawal");
+  assert.equal(await analyticsSwitch.isDisabled(), false, "withdrawal must remain available while collection is disabled");
+  await analyticsSwitch.focus();
+  await page.keyboard.press("Space");
+  await page.getByText("Stored optional product analytics preference withdrawn and existing events removed. Collection is unavailable for this deployment.").waitFor();
+  assert.equal(await analyticsSwitch.isChecked(), false, "withdrawal must immediately clear the stored preference");
+  assert.equal(await analyticsSwitch.isDisabled(), true, "deployment-disabled collection cannot be toggled on");
   await page.getByRole("button", { name: "Accept terms" }).click();
   await page.getByText("Terms consent recorded.").waitFor();
   const download = page.waitForEvent("download");
@@ -464,20 +479,23 @@ function handleBackend(method, url, payload, token, cookie, response) {
         purpose: "product_improvement",
         enabled: state.privacyPreferences.get(user.id) ?? false,
         policy_version: "phase20b-2026-07-31",
-        collection_enabled: false,
+        collection_enabled: state.productAnalyticsCollectionEnabled,
         requires_reconsent: false,
         updated_at: null
       }]
     });
   }
   if (method === "PATCH" && url.pathname === "/api/account/privacy-preferences") {
+    if (payload.enabled && !state.productAnalyticsCollectionEnabled) {
+      return send(response, 409, { detail: "Product analytics collection is unavailable for this deployment" });
+    }
     state.privacyPreferences.set(user.id, payload.enabled);
     return send(response, 200, {
       preference: {
         purpose: "product_improvement",
         enabled: payload.enabled,
         policy_version: "phase20b-2026-07-31",
-        collection_enabled: false,
+        collection_enabled: state.productAnalyticsCollectionEnabled,
         requires_reconsent: false,
         updated_at: now
       },

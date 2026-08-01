@@ -63,6 +63,11 @@ def set_privacy_preference(
 ) -> PrivacyPreferenceUpdateResponse:
     settings = get_settings()
     _lock_active_user(db, actor.id)
+    if enabled and not settings.product_analytics_enabled:
+        raise HTTPException(
+            status_code=409,
+            detail="Product analytics collection is unavailable for this deployment",
+        )
     normalized_key = _decision_idempotency_key(actor.id, idempotency_key)
     existing = db.execute(
         select(PrivacyPreferenceDecisionModel)

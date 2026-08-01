@@ -458,9 +458,13 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   controls. `PRODUCT_ANALYTICS_ENABLED=false`, anonymous analytics is absent,
   no external analytics provider or browser SDK is selected, and production
   activation remains blocked pending qualified privacy/legal review. The
-  2026-07-31 local checkpoint passes 304 SQLite/default-suite tests, all 23
+  2026-08-01 checkpoint passes 305 SQLite/default-suite tests, all 23
   PostgreSQL integration tests, migration rollback, frontend/browser/security,
-  lifecycle dry-run, smoke and Compose validation;
+  lifecycle dry-run, smoke and Compose validation. Hosted draft PR #22 checks
+  also pass for backend/PostgreSQL, frontend, Docker Compose, CodeQL,
+  dependency/container security, secret scanning, isolated failure exercises,
+  and the Vercel preview. Collection remains deployment-disabled: new grants
+  receive `409`, while a pre-existing grant can only be withdrawn;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 

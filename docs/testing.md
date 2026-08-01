@@ -534,6 +534,8 @@ coverage in addition to the permanent repository suite:
 
 - SQLite and PostgreSQL `0023` upgrade/downgrade/upgrade cycles;
 - default-off, authenticated-only and no-anonymous preference behavior;
+- deployment-disabled `409` grant rejection with no decision row, while a
+  pre-existing grant remains withdrawable;
 - grant, deny, withdrawal, exact-policy re-consent and idempotent replay;
 - PostgreSQL concurrent first opt-in, event deduplication, and event-versus-
   withdrawal serialization;

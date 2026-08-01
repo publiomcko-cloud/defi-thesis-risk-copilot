@@ -194,6 +194,68 @@ def test_opt_in_idempotency_withdrawal_reconsent_and_event_deduplication(
         ) is False
 
 
+def test_collection_disabled_rejects_new_grants_and_preserves_existing_withdrawal(
+    analytics_client,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, Session = analytics_client
+    with Session() as db:
+        existing = create_user(db, "phase20b-existing@example.test", token="phase20b-existing-token")
+        new_user = create_user(db, "phase20b-new@example.test", token="phase20b-new-token")
+        existing_user_id = existing.id
+        new_user_id = new_user.id
+
+    granted = client.patch(
+        "/api/account/privacy-preferences",
+        headers={**_auth("phase20b-existing-token"), "Idempotency-Key": "decision-existing-grant"},
+        json={"purpose": "product_improvement", "enabled": True},
+    )
+    assert granted.status_code == 200
+    monkeypatch.setenv("PRODUCT_ANALYTICS_ENABLED", "false")
+    get_settings.cache_clear()
+
+    rejected = client.patch(
+        "/api/account/privacy-preferences",
+        headers={**_auth("phase20b-new-token"), "Idempotency-Key": "decision-disabled-grant"},
+        json={"purpose": "product_improvement", "enabled": True},
+    )
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"] == "Product analytics collection is unavailable for this deployment"
+    with Session() as db:
+        assert db.scalar(
+            select(func.count()).select_from(PrivacyPreferenceDecisionModel).where(
+                PrivacyPreferenceDecisionModel.user_id == new_user_id
+            )
+        ) == 0
+        assert db.scalar(
+            select(func.count()).select_from(PrivacyPreferenceModel).where(
+                PrivacyPreferenceModel.user_id == new_user_id
+            )
+        ) == 0
+
+    preference = client.get(
+        "/api/account/privacy-preferences",
+        headers=_auth("phase20b-existing-token"),
+    ).json()["items"][0]
+    assert preference["enabled"] is True
+    assert preference["collection_enabled"] is False
+    withdrawn = client.patch(
+        "/api/account/privacy-preferences",
+        headers={**_auth("phase20b-existing-token"), "Idempotency-Key": "decision-existing-withdraw"},
+        json={"purpose": "product_improvement", "enabled": False},
+    )
+    assert withdrawn.status_code == 200
+    assert withdrawn.json()["decision"] == "withdraw"
+    assert withdrawn.json()["preference"]["enabled"] is False
+    with Session() as db:
+        decisions = db.execute(
+            select(PrivacyPreferenceDecisionModel.decision)
+            .where(PrivacyPreferenceDecisionModel.user_id == existing_user_id)
+            .order_by(PrivacyPreferenceDecisionModel.created_at)
+        ).scalars().all()
+        assert decisions == ["grant", "withdraw"]
+
+
 def test_only_approved_bounded_metadata_can_be_persisted(analytics_client) -> None:
     _client, Session = analytics_client
     with Session() as db:
