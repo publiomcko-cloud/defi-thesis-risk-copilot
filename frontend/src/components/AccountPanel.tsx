@@ -12,11 +12,26 @@ type SessionPayload = {
   };
 };
 
+type AnalyticsPreference = {
+  purpose: "product_improvement";
+  enabled: boolean;
+  policy_version: string;
+  collection_enabled: boolean;
+  requires_reconsent: boolean;
+  updated_at?: string | null;
+};
+
 export function AccountPanel() {
   const [session, setSession] = useState<SessionPayload | null>(null);
   const [usage, setUsage] = useState<{ items: Array<{ action: string; used: number; limit: number; remaining: number }> } | null>(null);
   const [consents, setConsents] = useState<Array<{ document_type: string; document_version: string; accepted_at: string; withdrawn_at?: string | null }>>([]);
+  const [analyticsPreference, setAnalyticsPreference] = useState<AnalyticsPreference | null>(null);
+  const [analyticsUpdating, setAnalyticsUpdating] = useState(false);
   const [message, setMessage] = useState("");
+  const analyticsCollectionUnavailable = analyticsPreference !== null && !analyticsPreference.collection_enabled;
+  const analyticsSwitchDisabled = analyticsPreference === null
+    || analyticsUpdating
+    || (analyticsCollectionUnavailable && !analyticsPreference.enabled);
 
   useEffect(() => {
     fetch("/api/auth/session", { cache: "no-store" })
@@ -31,6 +46,10 @@ export function AccountPanel() {
       .then((response) => (response.ok ? response.json() : { items: [] }))
       .then((payload) => setConsents(payload.items ?? []))
       .catch(() => setConsents([]));
+    fetch("/api/backend/api/account/privacy-preferences", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : { items: [] }))
+      .then((payload) => setAnalyticsPreference(payload.items?.[0] ?? null))
+      .catch(() => setAnalyticsPreference(null));
   }, []);
 
   async function logout() {
@@ -88,6 +107,38 @@ export function AccountPanel() {
     setMessage(`${documentType === "terms" ? "Terms" : "Privacy policy"} consent recorded.`);
   }
 
+  async function updateAnalyticsPreference(enabled: boolean) {
+    if (enabled && analyticsPreference && !analyticsPreference.collection_enabled) {
+      setMessage("Product analytics collection is unavailable for this deployment.");
+      return;
+    }
+    setAnalyticsUpdating(true);
+    setMessage("");
+    const response = await fetch("/api/backend/api/account/privacy-preferences", {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        "Idempotency-Key": `privacy-${crypto.randomUUID()}`
+      },
+      body: JSON.stringify({ purpose: "product_improvement", enabled })
+    }).catch(() => null);
+    const payload = await response?.json().catch(() => ({}));
+    if (!response?.ok || !payload?.preference) {
+      setMessage(payload?.detail ?? "Analytics preference could not be updated.");
+      setAnalyticsUpdating(false);
+      return;
+    }
+    setAnalyticsPreference(payload.preference);
+    setMessage(
+      !payload.preference.collection_enabled
+        ? "Stored optional product analytics preference withdrawn and existing events removed. Collection is unavailable for this deployment."
+        : enabled
+          ? "Optional product analytics enabled."
+          : "Optional product analytics disabled and existing events removed."
+    );
+    setAnalyticsUpdating(false);
+  }
+
   if (session === null) {
     return <section className="panel loading-panel">Loading account...</section>;
   }
@@ -136,6 +187,38 @@ export function AccountPanel() {
           <button className="secondary-action" onClick={() => void acceptConsent("terms")} type="button">Accept terms</button>
           <button className="secondary-action" onClick={() => void acceptConsent("privacy")} type="button">Accept privacy</button>
         </div>
+      </article>
+      <article className="panel">
+        <h2>Product analytics</h2>
+        <label className="privacy-switch" htmlFor="product-analytics-preference">
+          <input
+            aria-describedby="product-analytics-description product-analytics-status"
+            checked={analyticsPreference?.enabled ?? false}
+            disabled={analyticsSwitchDisabled}
+            id="product-analytics-preference"
+            onChange={(event) => void updateAnalyticsPreference(event.currentTarget.checked)}
+            role="switch"
+            type="checkbox"
+          />
+          <span>Share optional product events</span>
+        </label>
+        <p id="product-analytics-description">
+          Helps improve core workflows using four bounded event types. Strategy text, emails,
+          addresses, URLs, tokens, and resource identifiers are never included.
+        </p>
+        <p className="muted-small" id="product-analytics-status" role="status">
+          {analyticsUpdating
+            ? "Updating preference..."
+            : analyticsCollectionUnavailable
+              ? analyticsPreference?.enabled
+                ? "Collection is unavailable for this deployment. You can withdraw the previously recorded preference."
+                : "Collection is unavailable for this deployment."
+              : analyticsPreference?.requires_reconsent
+                ? "The privacy terms changed. Turn sharing on again to opt in to the current version."
+                : analyticsPreference?.enabled
+                  ? "Optional product analytics is enabled."
+                  : "Collection is available and remains off until you opt in."}
+        </p>
       </article>
       <article className="panel">
         <h2>Usage</h2>

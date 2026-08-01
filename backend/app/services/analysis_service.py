@@ -14,6 +14,7 @@ from app.models.artifact import ArtifactModel
 from app.models.job import JobModel
 from app.models.report import ReportModel
 from app.quotas.service import ACTION_ANALYSIS, consume_quota
+from app.product_analytics.service import emit_product_event_safely
 from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.reports import ReportResponse
@@ -66,6 +67,19 @@ def analyze_strategy(
         expires_at=expires_at,
     )
     db.commit()
+
+    if actor is not None and actor.anonymous_session_id is None:
+        emit_product_event_safely(
+            db,
+            owner_user_id=actor.id,
+            event_name="analysis_completed",
+            metadata={
+                "actor_class": "authenticated",
+                "execution_mode": "synchronous",
+                "result_class": "report_created",
+            },
+            source_boundary=workflow_result.report.report_id,
+        )
 
     return AnalysisResponse(
         report_id=workflow_result.report.report_id,

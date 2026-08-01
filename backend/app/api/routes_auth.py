@@ -26,6 +26,11 @@ from app.models.consent_record import ConsentRecordModel
 from app.models.organization import OrganizationMembershipModel
 from app.models.job import JobEventModel, JobModel
 from app.models.report import ReportModel
+from app.models.product_analytics import (
+    PrivacyPreferenceDecisionModel,
+    PrivacyPreferenceModel,
+    ProductAnalyticsEventModel,
+)
 from app.models.saved_thesis import SavedThesisModel
 from app.models.user import UserModel
 from app.models.knowledge import (
@@ -36,6 +41,7 @@ from app.models.knowledge import (
 from app.knowledge.service import tombstone_knowledge_for_account
 from app.models.watchlist_item import WatchlistItemModel
 from app.quotas.service import usage_summary
+from app.product_analytics.service import dispose_product_analytics_for_account
 from app.core.config import get_settings
 
 router = APIRouter(tags=["auth"])
@@ -125,6 +131,19 @@ def export_account(
         )
     consents = db.execute(
         select(ConsentRecordModel).where(ConsentRecordModel.user_id == current_user.id)
+    ).scalars().all()
+    privacy_preferences = db.execute(
+        select(PrivacyPreferenceModel).where(PrivacyPreferenceModel.user_id == current_user.id)
+    ).scalars().all()
+    privacy_decisions = db.execute(
+        select(PrivacyPreferenceDecisionModel)
+        .where(PrivacyPreferenceDecisionModel.user_id == current_user.id)
+        .order_by(PrivacyPreferenceDecisionModel.occurred_at)
+    ).scalars().all()
+    analytics_events = db.execute(
+        select(ProductAnalyticsEventModel)
+        .where(ProductAnalyticsEventModel.owner_user_id == current_user.id)
+        .order_by(ProductAnalyticsEventModel.occurred_at)
     ).scalars().all()
     audits = db.execute(
         select(AccessAuditEventModel)
@@ -305,6 +324,38 @@ def export_account(
             }
             for item in knowledge_document_versions
         ],
+        privacy_preferences=[
+            {
+                "purpose": item.purpose,
+                "enabled": item.enabled,
+                "policy_version": item.policy_version,
+                "updated_at": item.updated_at,
+            }
+            for item in privacy_preferences
+        ],
+        privacy_preference_decisions=[
+            {
+                "purpose": item.purpose,
+                "decision": item.decision,
+                "policy_version": item.policy_version,
+                "source": item.source,
+                "occurred_at": item.occurred_at,
+                "created_at": item.created_at,
+            }
+            for item in privacy_decisions
+        ],
+        product_analytics_events=[
+            {
+                "event_name": item.event_name,
+                "schema_version": item.schema_version,
+                "purpose": item.purpose,
+                "metadata": {"actor_class": item.actor_class, **item.dimensions_json},
+                "policy_version": item.policy_version,
+                "occurred_at": item.occurred_at,
+                "expires_at": item.expires_at,
+            }
+            for item in analytics_events
+        ],
     )
     record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)
     return response
@@ -316,7 +367,11 @@ def delete_account(
     db: Session = Depends(get_db),
     current_user: UserContext = Depends(require_authenticated_user),
 ) -> AccountDeleteResponse:
-    user = _current_user_record(db, current_user)
+    user = db.execute(
+        select(UserModel).where(UserModel.id == current_user.id).with_for_update()
+    ).scalars().one_or_none()
+    if user is None or user.deleted_at is not None:
+        raise HTTPException(status_code=404, detail="Account not found")
     active_owner_memberships = db.execute(
         select(OrganizationMembershipModel)
         .where(OrganizationMembershipModel.user_id == current_user.id)
@@ -351,6 +406,7 @@ def delete_account(
     user.updated_at = now
     tombstone_knowledge_for_account(db, current_user.id, now=now)
     dispose_jobs_for_account_deletion(db, current_user.id, now=now)
+    dispose_product_analytics_for_account(db, current_user.id)
     db.commit()
     record_audit_event(db, current_user.id, "account.deletion_requested", "user", current_user.id)
     return AccountDeleteResponse(

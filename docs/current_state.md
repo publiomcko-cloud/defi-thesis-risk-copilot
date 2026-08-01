@@ -1,6 +1,7 @@
 # Current State — DeFi Thesis & Risk Copilot
 
-This document describes what is deployed on `main`, the active V1 implementation phase, and the remaining roadmap.
+This document describes what is deployed on `main`, the next V1 implementation
+phase, and the remaining roadmap.
 
 Authoritative references:
 
@@ -8,8 +9,12 @@ Authoritative references:
 - [`archive/v1_phase_16/`](archive/v1_phase_16/) — archived Phase 16 contract, execution plan, and deployment evidence;
 - [`archive/v1_phase_17/`](archive/v1_phase_17/) — archived Phase 17 plan, corrections, and validation evidence;
 - [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 plan, validation, correction, migration, and cutover evidence;
-- [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — active Phase 19 implementation plan;
+- [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — merged Phase 19 foundation and rollout gates;
 - [`phase_19_threat_model.md`](phase_19_threat_model.md) and [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) — Phase 19A–19I risk and evidence record;
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md) — active implementation sequence;
+- [`phase_20_threat_model.md`](phase_20_threat_model.md) and
+  [`phase_20_evidence_matrix.md`](phase_20_evidence_matrix.md) — Phase 20 risk,
+  implementation evidence, and production approval blockers;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22 contract;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -27,7 +32,9 @@ Authoritative references:
 
 The live production branch is `main`. It contains the completed Phase 15
 public-safety baseline, Phase 16 managed identity/ownership, Phase 17 durable
-jobs and worker control plane, and Phase 18 durable knowledge/retrieval code.
+jobs and worker control plane, Phase 18 durable knowledge/retrieval code, and
+the Phase 19 operations/security repository foundation. Phase 19 provider and
+control-plane evidence remains external.
 
 Render free-tier cold starts may delay the first request after inactivity.
 
@@ -46,14 +53,20 @@ Completed on `main`:
 - V1 Phase 17 durable jobs, workers, async analysis, and job workspace.
 - V1 Phase 18 production RAG and knowledge storage.
 
+Implemented foundation on `main`:
+
+- V1 Phase 19 operations, security, recovery, exercises, and controlled
+  durable-RAG readiness. External deployment gates remain open.
+
 Current status:
 
 ```text
 V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
-V1 Phase 19 — In progress; 19A–19I foundations are implemented locally, with final limiter/body-bound hardening and blocking high/critical CI checks added; centralized telemetry, alert delivery, restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
-V1 Phases 20–21 — Planned implementation work
+V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
+V1 Phase 20 — In Progress on its implementation branch; Phase 20B consent-aware first-party analytics is locally implemented and disabled by default; qualified privacy/legal approval and deployed evidence remain required before production activation
+V1 Phase 21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -379,9 +392,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   and the Knowledge workspace. The complete code remains feature-gated; JSON
   RAG remains the production fallback. The local top-1 retrieval gate has seven
   cases with 100% precision/recall and zero citation issues, but is not
-  production cutover evidence. Controlled deployment can occur during Phase 19;
-  final storage-policy, cutover, and launch approval remain Phase 22 gates;
-- Phase 19 — In Progress: 19A locally implements redacted structured logging,
+  production cutover evidence. Controlled deployment remains governed by the
+  Phase 19 operational gates; final storage-policy, cutover, and launch
+  approval remain Phase 22 gates;
+- Phase 19 — Implemented Foundation on `main`: 19A implements redacted structured logging,
   browser/BFF/API/job/worker correlation IDs, and non-mutating operational
   readiness. 19B adds a disabled-by-default PostgreSQL shared limiter for
   bounded compute and durable job admission. 19C adds exact CORS/origin and
@@ -423,8 +437,34 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   environment. It does not create tenant data or activate a feature. Deployed
   private-bucket/RLS, synthetic two-user/organization, trusted-worker,
   durable-versus-JSON, citation, monitoring, and rollback evidence remains an
-  external gate;
-- Phase 20 — analytics, notifications, plans, billing, support, and legal readiness;
+  external gate. The latest hosted PR validation passed, but centralized
+  telemetry, alert delivery, provider restore, secret rotation,
+  protected-branch enforcement, and controlled deployment are not evidenced
+  as complete;
+- Phase 20 — In Progress on
+  `agent/v1-phase-20-product-analytics-commercial-readiness` under
+  [`phase_20_execution_plan.md`](phase_20_execution_plan.md): privacy-conscious
+  analytics, durable schedules, user-controlled notifications, separate
+  product quotas/billable usage/versioned entitlements, billing sandbox
+  foundations, organization commercial workflows, support/status/privacy
+  processes, and legal readiness. Phase 20A implements the threat/evidence,
+  event-purpose/consent/retention, usage/entitlement, notification,
+  provider-decision, and proposed data-model artifacts. It reuses existing
+  Phase 16 terms/privacy consent plus account/organization lifecycle authority.
+  Phase 20B adds reversible migration `0023`, explicit default-off analytics
+  preferences, immutable decisions, four strictly bounded first-party events,
+  authenticated preference API/UI, account export/deletion hooks, 30-day event
+  retention, immediate withdrawal deletion, and PostgreSQL idempotency/race
+  controls. `PRODUCT_ANALYTICS_ENABLED=false`, anonymous analytics is absent,
+  no external analytics provider or browser SDK is selected, and production
+  activation remains blocked pending qualified privacy/legal review. The
+  2026-08-01 checkpoint passes 305 SQLite/default-suite tests, all 23
+  PostgreSQL integration tests, migration rollback, frontend/browser/security,
+  lifecycle dry-run, smoke and Compose validation. Hosted draft PR #22 checks
+  also pass for backend/PostgreSQL, frontend, Docker Compose, CodeQL,
+  dependency/container security, secret scanning, isolated failure exercises,
+  and the Vercel preview. Collection remains deployment-disabled: new grants
+  receive `409`, while a pre-existing grant can only be withdrawn;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 
