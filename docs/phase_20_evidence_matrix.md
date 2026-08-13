@@ -25,9 +25,9 @@ Production analytics remains disabled. Its later activation is a productization 
 
 ## Current branch maintenance
 
-The documentation-only portfolio refactor triggered fresh hosted checks on 2026-08-13. CI, CodeQL, Phase 19 failure exercises, dependency review, secret scan, workflow policy and SBOM checks pass. The Python dependency audit now reports newly known issues in existing dependencies that were not changed by this documentation refactor.
+The documentation-only portfolio refactor triggered fresh hosted checks on 2026-08-13. CI, CodeQL, Phase 19 failure exercises, dependency review, secret scan, workflow policy and SBOM checks passed before a fresh dependency audit identified newly known issues in existing dependencies.
 
-Dependency maintenance and a green rerun are required before this PR should be merged.
+The focused dependency maintenance updates `pypdf` from `6.14.2` to `6.15.0` and `cryptography` from `48.0.1` to `50.0.0`, and pins the production `nanoid` transitive dependency to `3.3.18`. Local `pip-audit` and production npm audit return no known high or critical findings. The supply-chain workflow now skips its npm-audit summary only when the npm-audit step was not reached, so a Python-audit failure remains precise. A fresh hosted CI run remains the PR merge gate.
 
 ## Next functional checkpoint
 

@@ -106,7 +106,7 @@ jobs:
         working-directory: frontend
         run: npm audit --omit=dev --audit-level=high --json > "$RUNNER_TEMP/npm-audit.json"
       - name: Summarize frontend audit result
-        if: always()
+        if: ${{ always() && steps.npm-audit.outcome != 'skipped' }}
         run: python3 scripts/supply_chain.py audit-summary --audit-file "$RUNNER_TEMP/npm-audit.json"
       - name: Scan repository configuration
         uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
