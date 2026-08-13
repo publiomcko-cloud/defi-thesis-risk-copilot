@@ -1,8 +1,8 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **In Progress — portfolio profile active; Phase 20A–20B implementation complete**
+Status: **In Progress — Phase 20C durable scheduled monitoring locally complete; Phase 20A–20B complete**
 
-Branch: `agent/v1-phase-20-product-analytics-commercial-readiness`
+Branch: `agent/v1-phase-20c-durable-scheduled-monitoring`
 
 Current authority:
 
@@ -69,7 +69,9 @@ Production analytics activation remains deferred to qualified productization rev
 
 ## 5. Phase 20C — Durable scheduled monitoring
 
-Required next slice.
+Locally complete implementation slice. Production dispatch remains disabled
+until its documented concurrency, recovery, DST, lifecycle, rollback, worker,
+and approval evidence has been reviewed. It is not a production activation.
 
 Initial policy:
 
@@ -89,6 +91,13 @@ Initial policy:
 - rollback disables dispatcher without corrupting history.
 
 Use Phase 17 jobs. Test restart survival, one-winner PostgreSQL claims, idempotency, worker loss, pause/resume/delete, authorization revocation, quota/cost denial, export/deletion, DST, and browser behavior.
+
+Implemented boundary: migration `0024`, private schedule/occurrence models,
+server-owned `watchlist.evaluate` registry input, `SKIP LOCKED` dispatch,
+feature-gated scheduler script/profile, account lifecycle/retention/export
+hooks, operations aggregates, and `/schedules`. Remaining checkpoint evidence
+is hosted CI plus a separately approved production rollout; organization
+schedules and all non-watchlist targets remain out of scope until later slices.
 
 ## 6. Phase 20D — In-app notifications
 

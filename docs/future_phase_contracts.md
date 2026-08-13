@@ -775,8 +775,10 @@ Each runbook defines detection, containment, eradication, recovery, communicatio
 
 # V1 Phase 20 — Product Analytics, Notifications, and Commercial Readiness
 
-Status: **In Progress — Phase 20A design artifacts implemented; human approval
-gates remain blocked; no runtime capability implemented**
+Status: **In Progress — Phases 20A–20B are implemented and Phase 20C durable
+scheduled monitoring is locally complete. Analytics collection and schedule
+dispatch remain deployment-disabled pending their separate approval and
+deployed-evidence gates.**
 
 Execution order: [`phase_20_execution_plan.md`](phase_20_execution_plan.md).
 The plan does not select or integrate a provider and must remain subordinate to

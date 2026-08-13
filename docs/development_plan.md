@@ -509,10 +509,22 @@ and bounded events, preference API/UI, Phase 16 lifecycle integration, and
 is `Blocked` pending qualified privacy/legal review. No external analytics
 provider, browser SDK, notification send, payment, or production secret exists.
 
+Phase 20C is locally complete with reversible migration `0024`. It supports
+only authenticated user-owned, enabled private watchlist evaluation targets;
+the browser selects neither arbitrary work nor dispatch timing. PostgreSQL
+claims schedule occurrences through owner-first locking and `SKIP LOCKED`, then
+atomically creates a server-derived Phase 17 `watchlist.evaluate` job. The
+current implementation covers IANA/DST-safe cadence, at-most-one coalesced
+replacement, over-24-hour missed-run recording, capacity/auth/target
+revalidation, schedule lifecycle cancellation, 30-day history cleanup, export,
+account deletion, operations aggregates, and `/schedules`. Automatic dispatch
+is default-off and production-rejected until a separately approved rollout;
+local preview requires an outbound trusted worker and scheduler process.
+
 Core outcomes:
 
 - consent-aware analytics;
-- scheduled jobs;
+- durable private-watchlist scheduled jobs;
 - email/webhook/Telegram preferences and delivery;
 - usage metering and entitlement rules;
 - billing webhook/idempotency foundation;

@@ -8,7 +8,7 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | --- | --- | --- |
 | 20A | Complete | Governance, threat model, taxonomy, provider-decision and data-model foundations exist |
 | 20B | Complete | Migration `0023`, consent-aware first-party analytics, lifecycle integration, PostgreSQL concurrency tests, browser coverage and hosted implementation checks passed before the portfolio-doc refactor |
-| 20C | Planned / required | Durable scheduling, DST, one-winner claims, Phase 17 jobs and lifecycle evidence needed |
+| 20C | Locally complete / required | Migration `0024`, durable private schedules, DST, PostgreSQL one-winner claims, Phase 17 jobs, lifecycle/export/retention, browser and operations aggregates are implemented and locally validated; production dispatch remains disabled pending hosted CI, controlled preview evidence and approval |
 | 20D | Planned / required | In-app preferences, intents, duplicate suppression, tenant and browser evidence needed |
 | 20E | Optional | Synthetic/provider-neutral delivery demonstration only |
 | 20F | Planned / required | Versioned entitlements and non-billable usage/reconciliation evidence needed |
@@ -29,9 +29,23 @@ The documentation-only portfolio refactor triggered fresh hosted checks on 2026-
 
 The focused dependency maintenance updates `pypdf` from `6.14.2` to `6.15.0` and `cryptography` from `48.0.1` to `50.0.0`, and pins the production `nanoid` transitive dependency to `3.3.18`. Local `pip-audit` and production npm audit return no known high or critical findings. The supply-chain workflow now skips its npm-audit summary only when the npm-audit step was not reached, so a Python-audit failure remains precise. A fresh hosted CI run remains the PR merge gate.
 
-## Next functional checkpoint
+## Phase 20C checkpoint
 
-After dependency maintenance is green, 20C is the next recommended required slice. It must prove durable user-owned schedules, code-owned targets, bounded cadence/timezone behavior, PostgreSQL concurrency/idempotency, Phase 17 job integration, missed-run handling, authorization/quota/cost revalidation, lifecycle cleanup, rollback and browser coverage.
+Phase 20C is limited to authenticated user-owned enabled private watchlist
+targets. It deliberately does not schedule arbitrary analysis prompts,
+organization work, discovery/review/RAG ingestion, notification delivery or
+provider jobs. The API rejects all schedule access when deployment
+authentication is disabled; it never reuses the public/demo identity.
+`SCHEDULE_DISPATCH_ENABLED=false` remains the default and the production
+configuration validator rejects activation. On 2026-08-13 the clean backend
+suite, all 26 PostgreSQL integration tests on a newly created pgvector-enabled
+local validation database, SQLite and PostgreSQL migration
+upgrade/downgrade/upgrade checks, smoke/cleanup/recovery dry runs, frontend
+lint/build/BFF/MFA/accessibility/security/browser tests, dependency and
+supply-chain checks, and default/profile/production Compose rendering passed
+locally. Hosted CI remains the merge gate.
+Before any production activation, approved policy, scoped worker/scheduler
+deployment and external operational evidence remain required.
 
 ## Portfolio closeout
 

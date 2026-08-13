@@ -65,7 +65,7 @@ V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
-V1 Phase 20 — In Progress on its implementation branch; Phase 20B consent-aware first-party analytics is locally implemented and disabled by default; qualified privacy/legal approval and deployed evidence remain required before production activation
+V1 Phase 20 — In Progress on its implementation branch; 20B analytics and 20C durable private monitoring are locally complete, both remain deployment-disabled by default; qualified approval and deployed evidence remain required before production activation
 V1 Phase 21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -442,7 +442,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   protected-branch enforcement, and controlled deployment are not evidenced
   as complete;
 - Phase 20 — In Progress on
-  `agent/v1-phase-20-product-analytics-commercial-readiness` under
+  `agent/v1-phase-20c-durable-scheduled-monitoring` under
   [`phase_20_execution_plan.md`](phase_20_execution_plan.md): privacy-conscious
   analytics, durable schedules, user-controlled notifications, separate
   product quotas/billable usage/versioned entitlements, billing sandbox
@@ -464,7 +464,19 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   also pass for backend/PostgreSQL, frontend, Docker Compose, CodeQL,
   dependency/container security, secret scanning, isolated failure exercises,
   and the Vercel preview. Collection remains deployment-disabled: new grants
-  receive `409`, while a pre-existing grant can only be withdrawn;
+  receive `409`, while a pre-existing grant can only be withdrawn. Phase 20C
+  adds migration `0024`, authenticated user-owned private-watchlist schedules
+  that reject the public/demo identity when deployment authentication is off,
+  hourly/six-hourly/daily/weekly IANA-timezone cadence calculation, immutable
+  occurrence identity, PostgreSQL one-winner dispatch, server-derived Phase 17
+  `watchlist.evaluate` jobs, dispatch/execution authorization and target
+  revalidation, capacity reservation, pause/resume/delete cancellation, 30-day
+  run-history retention, account export/deletion integration, aggregate Phase 19
+  operations visibility, and an accessible `/schedules` workspace. The slice
+  is locally complete but not deployed: `SCHEDULE_DISPATCH_ENABLED=false` by
+  default and production configuration rejects activation pending hosted CI,
+  approved production policy, controlled preview, worker, recovery,
+  concurrency, lifecycle, and rollback evidence;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 
