@@ -31,6 +31,10 @@ services:
       AUTH_ENABLED: ${AUTH_ENABLED:-false}
       AUTH_PROVIDER: ${AUTH_PROVIDER:-legacy_local}
       PRODUCT_ANALYTICS_ENABLED: ${PRODUCT_ANALYTICS_ENABLED:-false}
+      SCHEDULE_DISPATCH_ENABLED: ${SCHEDULE_DISPATCH_ENABLED:-false}
+      SCHEDULE_DISPATCH_BATCH_SIZE: ${SCHEDULE_DISPATCH_BATCH_SIZE:-25}
+      SCHEDULE_HISTORY_RETENTION_DAYS: ${SCHEDULE_HISTORY_RETENTION_DAYS:-30}
+      SCHEDULE_DISPATCH_POLL_SECONDS: ${SCHEDULE_DISPATCH_POLL_SECONDS:-5}
       SUPABASE_URL: ${SUPABASE_URL:-}
       SUPABASE_JWKS_URL: ${SUPABASE_JWKS_URL:-}
       SUPABASE_JWT_ISSUER: ${SUPABASE_JWT_ISSUER:-}
@@ -191,6 +195,29 @@ services:
     volumes:
       - ./backend:/workspace/backend:ro
       - ./knowledge_base:/workspace/knowledge_base:ro
+    restart: unless-stopped
+
+  scheduler:
+    profiles: ["scheduler"]
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    command: python -m scripts.dispatch_schedules
+    env_file:
+      - .env.example
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:postgres@postgres:5432/defi_copilot
+      JOBS_ENABLED: ${JOBS_ENABLED:-false}
+      WORKER_API_ENABLED: ${WORKER_API_ENABLED:-false}
+      SCHEDULE_DISPATCH_ENABLED: ${SCHEDULE_DISPATCH_ENABLED:-false}
+      SCHEDULE_DISPATCH_BATCH_SIZE: ${SCHEDULE_DISPATCH_BATCH_SIZE:-25}
+      SCHEDULE_HISTORY_RETENTION_DAYS: ${SCHEDULE_HISTORY_RETENTION_DAYS:-30}
+      SCHEDULE_DISPATCH_POLL_SECONDS: ${SCHEDULE_DISPATCH_POLL_SECONDS:-5}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/workspace/backend:ro
     restart: unless-stopped
 
   postgres:

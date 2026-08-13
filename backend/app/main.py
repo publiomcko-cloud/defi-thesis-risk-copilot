@@ -25,6 +25,7 @@ from app.api.routes_organizations import router as organizations_router
 from app.api.routes_protocols import router as protocols_router
 from app.api.routes_product_analytics import router as product_analytics_router
 from app.api.routes_reports import router as reports_router
+from app.api.routes_schedules import router as schedules_router
 from app.api.routes_simulation import router as simulation_router
 from app.api.routes_theses import router as theses_router
 from app.api.routes_vast import router as vast_router
@@ -148,6 +149,7 @@ def create_app() -> FastAPI:
     app.include_router(analysis_router, prefix="/api")
     app.include_router(jobs_router, prefix="/api")
     app.include_router(reports_router, prefix="/api")
+    app.include_router(schedules_router, prefix="/api")
     app.include_router(protocols_router, prefix="/api")
     app.include_router(product_analytics_router, prefix="/api")
     app.include_router(organizations_router, prefix="/api")

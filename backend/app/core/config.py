@@ -125,6 +125,10 @@ class Settings(BaseSettings):
     product_analytics_retention_days: int = 30
     product_analytics_withdrawal_deletion_hours: int = 24
     product_analytics_decision_retention_days: int = 30
+    schedule_dispatch_enabled: bool = False
+    schedule_dispatch_batch_size: int = 25
+    schedule_history_retention_days: int = 30
+    schedule_dispatch_poll_seconds: float = 5.0
     default_user_plan: str = "free"
     quota_anonymous_analyses_per_day: int = 5
     quota_free_analyses_per_day: int = 25
@@ -306,6 +310,16 @@ class Settings(BaseSettings):
             raise ValueError(
                 "PRODUCT_ANALYTICS_ENABLED cannot run in production before qualified privacy/legal approval"
             )
+        if self.schedule_dispatch_enabled and (not self.jobs_enabled or not self.worker_api_enabled):
+            raise ValueError("SCHEDULE_DISPATCH_ENABLED requires JOBS_ENABLED and WORKER_API_ENABLED")
+        if self.schedule_dispatch_enabled and self.app_env == "production":
+            raise ValueError("SCHEDULE_DISPATCH_ENABLED cannot run in production before Phase 20C approval")
+        if not 1 <= self.schedule_dispatch_batch_size <= 100:
+            raise ValueError("SCHEDULE_DISPATCH_BATCH_SIZE must be between 1 and 100")
+        if self.schedule_history_retention_days != 30:
+            raise ValueError("SCHEDULE_HISTORY_RETENTION_DAYS must remain 30 for Phase 20C")
+        if not 0.1 <= self.schedule_dispatch_poll_seconds <= 60:
+            raise ValueError("SCHEDULE_DISPATCH_POLL_SECONDS must be between 0.1 and 60")
         if self.knowledge_storage_enabled:
             if self.app_env == "production" and (
                 not self.supabase_url or not self.supabase_service_role_key

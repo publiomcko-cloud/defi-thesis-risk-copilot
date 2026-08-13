@@ -286,6 +286,8 @@ def _progress_message(job_type: str, stage: str) -> str:
         return "Preparing the approved document for controlled ingestion." if stage == "started" else "Validating immutable document chunks."
     if job_type == "document.embed":
         return "Creating local deterministic document embeddings." if stage == "started" else "Validating immutable embedding generation."
+    if job_type == "watchlist.evaluate":
+        return "Evaluating the server-approved watchlist target." if stage == "started" else "Recording schedule-run results."
     return "Preparing deterministic analysis inputs." if stage == "started" else "Persisting the deterministic report."
 
 
