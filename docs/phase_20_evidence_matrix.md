@@ -7,7 +7,7 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | Slice | Portfolio status | Evidence state |
 | --- | --- | --- |
 | 20A | Complete | Governance, threat model, taxonomy, provider-decision and data-model foundations exist |
-| 20B | Complete | Migration `0023`, consent-aware first-party analytics, lifecycle integration, PostgreSQL concurrency tests, browser coverage and hosted CI pass |
+| 20B | Complete | Migration `0023`, consent-aware first-party analytics, lifecycle integration, PostgreSQL concurrency tests, browser coverage and hosted implementation checks passed before the portfolio-doc refactor |
 | 20C | Planned / required | Durable scheduling, DST, one-winner claims, Phase 17 jobs and lifecycle evidence needed |
 | 20D | Planned / required | In-app preferences, intents, duplicate suppression, tenant and browser evidence needed |
 | 20E | Optional | Synthetic/provider-neutral delivery demonstration only |
@@ -19,14 +19,20 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 
 ## Phase 20B checkpoint
 
-Phase 20B is implementation-complete for the portfolio profile. The current branch includes the deployment-disabled consent correction, and backend, PostgreSQL, migration, frontend/browser, CodeQL, supply-chain/security, failure-exercise, Compose and preview checks pass.
+Phase 20B is implementation-complete for the portfolio profile. Commit `a7bcd42` contains the deployment-disabled consent correction and passed the required implementation validation at that checkpoint.
 
 Production analytics remains disabled. Its later activation is a productization task rather than a Phase 20 portfolio blocker.
 
-## Next checkpoint
+## Current branch maintenance
 
-20C is the next recommended required slice. It must prove durable user-owned schedules, code-owned targets, bounded cadence/timezone behavior, PostgreSQL concurrency/idempotency, Phase 17 job integration, missed-run handling, authorization/quota/cost revalidation, lifecycle cleanup, rollback and browser coverage.
+The documentation-only portfolio refactor triggered fresh hosted checks on 2026-08-13. CI, CodeQL, Phase 19 failure exercises, dependency review, secret scan, workflow policy and SBOM checks pass. The Python dependency audit now reports newly known issues in existing dependencies that were not changed by this documentation refactor.
+
+Dependency maintenance and a green rerun are required before this PR should be merged.
+
+## Next functional checkpoint
+
+After dependency maintenance is green, 20C is the next recommended required slice. It must prove durable user-owned schedules, code-owned targets, bounded cadence/timezone behavior, PostgreSQL concurrency/idempotency, Phase 17 job integration, missed-run handling, authorization/quota/cost revalidation, lifecycle cleanup, rollback and browser coverage.
 
 ## Portfolio closeout
 
-Phase 20 becomes **Complete — Portfolio Profile** after required 20C, 20D, 20F, 20H, reduced 20I and 20J evidence passes, optional work is accurately labeled, deferred work remains documented rather than falsely completed, no high/critical security regression remains, migrations and rollback are tested, public feature flags are safe, and CI is green.
+Phase 20 becomes **Complete — Portfolio Profile** after required 20C, 20D, 20F, 20H, reduced 20I and 20J evidence passes, optional work is accurately labeled, deferred work remains documented rather than falsely completed, no high/critical security regression remains, dependency/security checks are green, migrations and rollback are tested, public feature flags are safe, and CI is green.
