@@ -581,12 +581,14 @@ Phase 20C requires SQLite/API and PostgreSQL coverage for authenticated owner
 isolation, the five-active-schedule entitlement, fixed UTC hourly cadence,
 calendar daily/weekly DST behavior, pause/resume/delete idempotency, unique
 occurrence/job identity, public/demo authentication rejection,
-deployment-disabled dispatch,
-authorization/target/capacity denial, worker execution/retry history, 30-day
-retention, account export/deletion hooks, migration rollback, and a browser
-schedule workspace flow. The PostgreSQL suite must prove concurrent dispatch
-has exactly one winner and that pause or delete racing dispatch leaves no
-executable scheduled work.
+deployment-disabled dispatch, authorization/target/capacity/scheduled-quota
+denial, worker execution/retry history, authoritative control-plane completion,
+lease-loss recovery without false successful occurrences, 30-day retention,
+account export/deletion hooks, migration rollback, and a browser schedule
+workspace flow. The PostgreSQL suite must prove concurrent dispatch has exactly
+one winner, a concurrent dispatcher cannot exceed the 120-per-user UTC-day
+scheduled-run quota, final lease expiry records a failed occurrence, and pause
+or delete racing dispatch leaves no executable scheduled work.
 
 Focused commands:
 

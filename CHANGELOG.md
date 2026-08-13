@@ -20,12 +20,16 @@
   production activation remains blocked pending qualified privacy/legal review.
 - Network rate limits, product quotas, billable usage, and plan entitlements
   are explicitly separate controls and ledgers.
-- Completed Phase 20C locally with reversible migration `0024`, authenticated
+- Implemented Phase 20C with reversible migration `0024`, authenticated
   user-owned private-watchlist schedules, IANA/DST-safe cadence calculation,
   PostgreSQL one-winner dispatch, immutable occurrence identities, Phase 17
   `watchlist.evaluate` jobs, lifecycle/export/retention integration, and an
-  accessible schedule workspace. Automatic dispatch remains disabled by default
-  and production-disabled pending the documented approval and rollout evidence.
+  accessible schedule workspace. The original hosted implementation checks
+  passed; review corrections now require authoritative Phase 17 completion for
+  successful occurrences and a fixed server-owned 120-per-user UTC-day
+  scheduled-run quota. Automatic dispatch remains disabled by default and
+  production-disabled pending fresh hosted checks plus the documented approval
+  and rollout evidence.
 
 ## Phase 19 — Implemented Foundation
 

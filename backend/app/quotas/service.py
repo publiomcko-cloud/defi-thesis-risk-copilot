@@ -19,6 +19,8 @@ ACTION_ANALYSIS = "analysis"
 ACTION_SIMULATION = "simulation"
 ACTION_OPTIONS = "options_analysis"
 ACTION_MARKET_DATA = "market_data_fetch"
+ACTION_SCHEDULED_WATCHLIST_EVALUATION = "scheduled_watchlist_evaluation"
+SCHEDULED_WATCHLIST_EVALUATIONS_PER_DAY = 120
 RESOURCE_SAVED_THESES = "saved_theses"
 RESOURCE_WATCHLISTS = "watchlists"
 
@@ -96,6 +98,86 @@ def usage_summary(db: Session, actor: UserContext) -> dict:
     }
 
 
+def reserve_server_daily_user_quota(
+    db: Session,
+    actor: UserContext,
+    *,
+    action: str,
+    limit: int,
+    amount: int = 1,
+    now: datetime | None = None,
+) -> UsageQuotaModel:
+    """Reserve a non-billable, server-owned daily unit without committing.
+
+    Durable-job submission calls this inside its surrounding reservation
+    transaction. A later job, capacity, or idempotency failure therefore rolls
+    the quota increment back with the rest of the attempted submission.
+    """
+
+    if actor.anonymous_session_id:
+        raise HTTPException(status_code=403, detail="Scheduled monitoring requires an authenticated user.")
+    if amount <= 0:
+        raise ValueError("Quota reservation amount must be positive.")
+    timestamp = now or datetime.now(UTC)
+    period_start, period_end = _day_window(timestamp)
+    record: UsageQuotaModel | None = None
+    for _ in range(3):
+        record = db.execute(
+            select(UsageQuotaModel)
+            .where(UsageQuotaModel.subject_type == "user")
+            .where(UsageQuotaModel.subject_id == actor.id)
+            .where(UsageQuotaModel.action == action)
+            .where(UsageQuotaModel.period_start == period_start)
+            .where(UsageQuotaModel.period_end == period_end)
+            .with_for_update()
+        ).scalars().one_or_none()
+        if record is not None:
+            break
+        try:
+            # Do not roll back the caller's job reservation when another
+            # dispatcher creates the same daily row first.
+            with db.begin_nested():
+                record = UsageQuotaModel(
+                    id=f"quota_{uuid4().hex[:12]}",
+                    subject_type="user",
+                    subject_id=actor.id,
+                    plan=actor.plan,
+                    action=action,
+                    period_start=period_start,
+                    period_end=period_end,
+                    used=0,
+                    limit=limit,
+                    created_at=timestamp,
+                    updated_at=timestamp,
+                )
+                db.add(record)
+                db.flush()
+            break
+        except IntegrityError:
+            # The unique period key is the concurrent creation boundary. The
+            # next iteration locks and uses the winning row.
+            continue
+    if record is None:
+        raise HTTPException(status_code=409, detail="Quota record could not be initialized. Retry the request.")
+
+    # This policy is server-owned and fixed for Phase 20C. Correct a stale row
+    # rather than allowing an older configured value to weaken the ceiling.
+    record.limit = limit
+    if record.used + amount > record.limit:
+        raise HTTPException(
+            status_code=429,
+            detail="Daily scheduled monitoring quota exceeded.",
+            headers={
+                "X-Quota-Policy": action,
+                "X-Quota-Limit": str(record.limit),
+                "X-Quota-Remaining": str(max(record.limit - record.used, 0)),
+            },
+        )
+    record.used += amount
+    record.updated_at = timestamp
+    return record
+
+
 def enforce_resource_count_limit(db: Session, actor: UserContext, resource: str) -> None:
     settings = get_settings()
     if actor.is_admin and settings.quota_admin_exempt:
@@ -149,8 +231,8 @@ def _limit_for(plan: str, action: str) -> int | None:
     return mapping.get(action)
 
 
-def _day_window() -> tuple[datetime, datetime]:
-    now = datetime.now(UTC)
+def _day_window(now: datetime | None = None) -> tuple[datetime, datetime]:
+    now = now or datetime.now(UTC)
     start = datetime(now.year, now.month, now.day, tzinfo=UTC)
     return start, start + timedelta(days=1)
 

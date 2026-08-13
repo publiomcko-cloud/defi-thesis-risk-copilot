@@ -1,6 +1,6 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **In Progress — Phase 20C durable scheduled monitoring locally complete; Phase 20A–20B complete**
+Status: **In Progress — Phase 20C durable scheduled monitoring has review corrections in progress after its original hosted CI pass; Phase 20A–20B complete**
 
 Branch: `agent/v1-phase-20c-durable-scheduled-monitoring`
 
@@ -69,9 +69,12 @@ Production analytics activation remains deferred to qualified productization rev
 
 ## 5. Phase 20C — Durable scheduled monitoring
 
-Locally complete implementation slice. Production dispatch remains disabled
-until its documented concurrency, recovery, DST, lifecycle, rollback, worker,
-and approval evidence has been reviewed. It is not a production activation.
+Review-correction implementation slice. The original implementation passed
+hosted CI, but fresh hosted checks must validate the authoritative completion
+and scheduled-run quota corrections before it is merge-ready. Production
+dispatch remains disabled until its documented concurrency, recovery, DST,
+lifecycle, rollback, worker, and approval evidence has been reviewed. It is
+not a production activation.
 
 Initial policy:
 
@@ -85,7 +88,8 @@ Initial policy:
 - unique occurrence identity by schedule plus scheduled time;
 - missed runs coalesce to at most one replacement;
 - occurrences over 24 hours late are recorded as missed and skipped;
-- authorization, quota, capacity, and cost gates revalidate at dispatch/execution;
+- authorization, a fixed 120-per-user UTC-day non-billable scheduled-run quota,
+  capacity, and cost gates revalidate at dispatch/execution;
 - 30-day run history;
 - deletion cancels owned schedules/jobs;
 - rollback disables dispatcher without corrupting history.
@@ -95,9 +99,12 @@ Use Phase 17 jobs. Test restart survival, one-winner PostgreSQL claims, idempote
 Implemented boundary: migration `0024`, private schedule/occurrence models,
 server-owned `watchlist.evaluate` registry input, `SKIP LOCKED` dispatch,
 feature-gated scheduler script/profile, account lifecycle/retention/export
-hooks, operations aggregates, and `/schedules`. Remaining checkpoint evidence
-is hosted CI plus a separately approved production rollout; organization
-schedules and all non-watchlist targets remain out of scope until later slices.
+hooks, operations aggregates, and `/schedules`. Evaluation leaves its
+occurrence `running`; only the authoritative Phase 17 `complete_job()`
+transition records successful completion. Remaining checkpoint evidence is
+fresh hosted CI for the review corrections plus a separately approved
+production rollout; organization schedules and all non-watchlist targets remain
+out of scope until later slices.
 
 ## 6. Phase 20D — In-app notifications
 

@@ -14,11 +14,17 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.jobs.errors import JobExecutionError
 from app.jobs.schemas import WorkerClaimedJob, WorkerLeaseRequest
-from app.jobs.worker_protocol import WorkerIdentity, claim_next_job, recover_expired_jobs, start_job
+from app.jobs.worker_protocol import WorkerIdentity, claim_next_job, complete_job, recover_expired_jobs, start_job
 from app.main import app
-from app.models.job import JobModel
+from app.models.job import JobCapacityReservationModel, JobModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
+from app.models.usage_quota import UsageQuotaModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
+from app.quotas.service import (
+    ACTION_SCHEDULED_WATCHLIST_EVALUATION,
+    SCHEDULED_WATCHLIST_EVALUATIONS_PER_DAY,
+    _day_window,
+)
 from app.scheduling.calendar import first_due_after, next_due_after
 from app.scheduling.executor import WatchlistEvaluationJobExecutor
 from app.scheduling.service import cleanup_expired_schedule_history, dispatch_due_schedules
@@ -170,6 +176,13 @@ def test_dispatch_is_idempotent_coalesces_and_skips_runs_more_than_a_day_late(sc
         assert occurrences[0].reason == "coalesced_missed_runs"
         assert len(jobs) == 1
         assert jobs[0].reserved_cost_microusd == 0
+        scheduled_quota = db.execute(
+            select(UsageQuotaModel)
+            .where(UsageQuotaModel.subject_id == _user_for_token(db, token).id)
+            .where(UsageQuotaModel.action == ACTION_SCHEDULED_WATCHLIST_EVALUATION)
+        ).scalars().one()
+        assert scheduled_quota.used == 1
+        assert scheduled_quota.limit == SCHEDULED_WATCHLIST_EVALUATIONS_PER_DAY
 
         schedule.next_due_at = now - timedelta(hours=25)
         db.commit()
@@ -225,11 +238,90 @@ def test_dispatch_records_capacity_denial_without_leaking_a_partial_reservation(
         occurrence = db.scalar(select(MonitoringScheduleOccurrenceModel))
         assert result.denied == 1
         assert occurrence.status == "denied"
-        assert occurrence.reason == "quota_or_capacity_denied"
+        assert occurrence.reason == "capacity_denied"
         assert db.scalar(select(JobModel.id).where(JobModel.job_type == "watchlist.evaluate")) is None
 
 
-def test_pause_cancels_pending_work_executor_records_completion_and_retention_cleans_history(schedule_client) -> None:
+def test_dispatch_records_scheduled_quota_denial_without_creating_a_job(schedule_client) -> None:
+    client, Session = schedule_client
+    token, watchlist_id = _create_user_watchlist(Session, "scheduled-quota")
+    schedule_id = client.post("/api/schedules", headers=_auth(token), json=_payload(watchlist_id)).json()["schedule"]["id"]
+    now = datetime(2026, 8, 13, 15, tzinfo=UTC)
+    period_start, period_end = _day_window()
+    with Session() as db:
+        owner = _user_for_token(db, token)
+        db.add(
+            UsageQuotaModel(
+                id="quota_phase20c_exhausted",
+                subject_type="user",
+                subject_id=owner.id,
+                plan=owner.plan,
+                action=ACTION_SCHEDULED_WATCHLIST_EVALUATION,
+                period_start=period_start,
+                period_end=period_end,
+                used=SCHEDULED_WATCHLIST_EVALUATIONS_PER_DAY,
+                limit=SCHEDULED_WATCHLIST_EVALUATIONS_PER_DAY,
+                created_at=datetime.now(UTC),
+                updated_at=datetime.now(UTC),
+            )
+        )
+        schedule = db.get(MonitoringScheduleModel, schedule_id)
+        schedule.next_due_at = now - timedelta(minutes=1)
+        db.commit()
+
+        result = dispatch_due_schedules(db, now=now)
+        occurrence = db.scalar(select(MonitoringScheduleOccurrenceModel))
+        quota = db.get(UsageQuotaModel, "quota_phase20c_exhausted")
+        assert result.denied == 1
+        assert occurrence.status == "denied"
+        assert occurrence.reason == "scheduled_run_quota_exceeded"
+        assert occurrence.job_id is None
+        assert quota.used == SCHEDULED_WATCHLIST_EVALUATIONS_PER_DAY
+        assert db.scalar(select(JobModel.id).where(JobModel.job_type == "watchlist.evaluate")) is None
+        assert db.scalar(
+            select(JobCapacityReservationModel.pending_count)
+            .where(JobCapacityReservationModel.scope_type == "user")
+            .where(JobCapacityReservationModel.scope_id == owner.id)
+        ) in {None, 0}
+
+
+def test_failed_job_reservation_rolls_back_scheduled_quota_and_capacity(schedule_client, monkeypatch: pytest.MonkeyPatch) -> None:
+    client, Session = schedule_client
+    token, watchlist_id = _create_user_watchlist(Session, "scheduled-quota-rollback")
+    schedule_id = client.post("/api/schedules", headers=_auth(token), json=_payload(watchlist_id)).json()["schedule"]["id"]
+    now = datetime(2026, 8, 13, 15, tzinfo=UTC)
+
+    def fail_after_reservations(_job_type: str):
+        from fastapi import HTTPException
+
+        raise HTTPException(status_code=503, detail="simulated job preallocation failure")
+
+    monkeypatch.setattr("app.jobs.control_service._preallocate_result_resource", fail_after_reservations)
+    with Session() as db:
+        schedule = db.get(MonitoringScheduleModel, schedule_id)
+        schedule.next_due_at = now - timedelta(minutes=1)
+        db.commit()
+        result = dispatch_due_schedules(db, now=now)
+        owner = _user_for_token(db, token)
+        occurrence = db.scalar(select(MonitoringScheduleOccurrenceModel))
+        assert result.denied == 1
+        assert occurrence.status == "denied"
+        assert occurrence.reason == "dispatch_rejected"
+        assert occurrence.job_id is None
+        assert db.scalar(select(JobModel.id).where(JobModel.job_type == "watchlist.evaluate")) is None
+        assert db.scalar(
+            select(UsageQuotaModel.id)
+            .where(UsageQuotaModel.subject_id == owner.id)
+            .where(UsageQuotaModel.action == ACTION_SCHEDULED_WATCHLIST_EVALUATION)
+        ) is None
+        assert db.scalar(
+            select(JobCapacityReservationModel.pending_count)
+            .where(JobCapacityReservationModel.scope_type == "user")
+            .where(JobCapacityReservationModel.scope_id == owner.id)
+        ) in {None, 0}
+
+
+def test_executor_defers_completion_and_retention_cleans_history(schedule_client) -> None:
     client, Session = schedule_client
     token, watchlist_id = _create_user_watchlist(Session, "lifecycle")
     schedule_id = client.post("/api/schedules", headers=_auth(token), json=_payload(watchlist_id)).json()["schedule"]["id"]
@@ -256,7 +348,8 @@ def test_pause_cancels_pending_work_executor_records_completion_and_retention_cl
     assert result.result_json["watchlist_item_id"] == watchlist_id
     with Session() as db:
         occurrence = db.scalar(select(MonitoringScheduleOccurrenceModel))
-        assert occurrence.status == "completed"
+        assert occurrence.status == "running"
+        assert occurrence.completed_at is None
         occurrence.expires_at = now - timedelta(seconds=1)
         db.commit()
         assert cleanup_expired_schedule_history(db, now=now, apply=False)["expired_schedule_occurrences"] == 1
@@ -279,6 +372,97 @@ def test_pause_cancels_pending_work_executor_records_completion_and_retention_cl
             select(MonitoringScheduleOccurrenceModel).where(MonitoringScheduleOccurrenceModel.job_id == job.id)
         ).scalars().one()
         assert occurrence.status == "cancelled"
+
+
+def test_authoritative_worker_completion_marks_job_and_occurrence_completed(schedule_client) -> None:
+    client, Session = schedule_client
+    token, watchlist_id = _create_user_watchlist(Session, "authoritative-completion")
+    schedule_id = client.post("/api/schedules", headers=_auth(token), json=_payload(watchlist_id)).json()["schedule"]["id"]
+    with Session() as db:
+        schedule = db.get(MonitoringScheduleModel, schedule_id)
+        schedule.next_due_at = datetime.now(UTC) - timedelta(minutes=1)
+        db.commit()
+        dispatch_due_schedules(db)
+        identity = _add_schedule_worker(db, "completion")
+        claimed = _claim_and_start_schedule_job(db, identity)
+
+    result = WatchlistEvaluationJobExecutor(session_factory=Session).execute(claimed)
+    with Session() as db:
+        identity = _worker_identity(db, "completion")
+        completed = complete_job(
+            db,
+            identity,
+            claimed.id,
+            WorkerLeaseRequest(lease_generation=claimed.lease_generation, lease_token=claimed.lease_token),
+            result,
+        )
+        occurrence = db.scalar(select(MonitoringScheduleOccurrenceModel).where(MonitoringScheduleOccurrenceModel.job_id == claimed.id))
+        assert completed.status == "completed"
+        assert db.get(JobModel, claimed.id).status == "completed"
+        assert occurrence.status == "completed"
+        assert occurrence.completed_at is not None
+
+
+def test_executor_success_before_lease_loss_recovers_to_queued_occurrence(schedule_client) -> None:
+    client, Session = schedule_client
+    token, watchlist_id = _create_user_watchlist(Session, "executor-lease-loss")
+    schedule_id = client.post("/api/schedules", headers=_auth(token), json=_payload(watchlist_id)).json()["schedule"]["id"]
+    with Session() as db:
+        schedule = db.get(MonitoringScheduleModel, schedule_id)
+        schedule.next_due_at = datetime.now(UTC) - timedelta(minutes=1)
+        db.commit()
+        dispatch_due_schedules(db)
+        identity = _add_schedule_worker(db, "lease-loss")
+        claimed = _claim_and_start_schedule_job(db, identity)
+
+    WatchlistEvaluationJobExecutor(session_factory=Session).execute(claimed)
+    with Session() as db:
+        occurrence = db.scalar(select(MonitoringScheduleOccurrenceModel).where(MonitoringScheduleOccurrenceModel.job_id == claimed.id))
+        assert occurrence.status == "running"
+        job = db.get(JobModel, claimed.id)
+        job.lease_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+        assert recover_expired_jobs(db) == 1
+        db.commit()
+        assert db.get(JobModel, claimed.id).status == "retry_wait"
+        recovered = db.scalar(select(MonitoringScheduleOccurrenceModel).where(MonitoringScheduleOccurrenceModel.job_id == claimed.id))
+        assert recovered.status == "queued"
+        assert recovered.reason == "lease_expired_retry"
+        assert recovered.completed_at is None
+        quota = db.execute(
+            select(UsageQuotaModel)
+            .where(UsageQuotaModel.action == ACTION_SCHEDULED_WATCHLIST_EVALUATION)
+        ).scalars().one()
+        assert quota.used == 1
+
+
+def test_final_attempt_lease_loss_after_executor_success_marks_occurrence_failed(schedule_client) -> None:
+    client, Session = schedule_client
+    token, watchlist_id = _create_user_watchlist(Session, "executor-dead-letter")
+    schedule_id = client.post("/api/schedules", headers=_auth(token), json=_payload(watchlist_id)).json()["schedule"]["id"]
+    with Session() as db:
+        schedule = db.get(MonitoringScheduleModel, schedule_id)
+        schedule.next_due_at = datetime.now(UTC) - timedelta(minutes=1)
+        db.commit()
+        dispatch_due_schedules(db)
+        job = db.scalar(select(JobModel).where(JobModel.job_type == "watchlist.evaluate"))
+        job.max_attempts = 1
+        db.commit()
+        identity = _add_schedule_worker(db, "dead-letter")
+        claimed = _claim_and_start_schedule_job(db, identity)
+
+    WatchlistEvaluationJobExecutor(session_factory=Session).execute(claimed)
+    with Session() as db:
+        job = db.get(JobModel, claimed.id)
+        job.lease_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+        assert recover_expired_jobs(db) == 1
+        db.commit()
+        assert db.get(JobModel, claimed.id).status == "dead_letter"
+        occurrence = db.scalar(select(MonitoringScheduleOccurrenceModel).where(MonitoringScheduleOccurrenceModel.job_id == claimed.id))
+        assert occurrence.status == "failed"
+        assert occurrence.reason == "lease_expired"
+        assert occurrence.completed_at is not None
 
 
 def test_delete_cancels_pending_work_and_execution_revalidates_owner(schedule_client) -> None:
@@ -459,3 +643,47 @@ def _payload(watchlist_id: str, cadence: str = "daily") -> dict[str, str]:
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _add_schedule_worker(db, suffix: str) -> WorkerIdentity:
+    worker = WorkerModel(
+        id=f"wrk_phase20c_{suffix}",
+        name=f"phase20c-{suffix}",
+        status="active",
+        protocol_version="v1",
+        allowed_job_types=["watchlist.evaluate"],
+        max_concurrency=1,
+        last_seen_at=datetime.now(UTC),
+    )
+    credential = WorkerCredentialModel(
+        id=f"wrkcred_phase20c_{suffix}",
+        worker_id=worker.id,
+        token_prefix=f"fixture-{suffix}",
+        token_hash="test-only-hash",
+        allowed_job_types=["watchlist.evaluate"],
+        status="active",
+    )
+    db.add(worker)
+    db.flush()
+    db.add(credential)
+    db.commit()
+    return WorkerIdentity(credential=credential, worker=worker)
+
+
+def _worker_identity(db, suffix: str) -> WorkerIdentity:
+    worker = db.get(WorkerModel, f"wrk_phase20c_{suffix}")
+    credential = db.get(WorkerCredentialModel, f"wrkcred_phase20c_{suffix}")
+    assert worker is not None and credential is not None
+    return WorkerIdentity(credential=credential, worker=worker)
+
+
+def _claim_and_start_schedule_job(db, identity: WorkerIdentity) -> WorkerClaimedJob:
+    claimed = claim_next_job(db, identity).job
+    assert claimed is not None
+    start_job(
+        db,
+        identity,
+        claimed.id,
+        WorkerLeaseRequest(lease_generation=claimed.lease_generation, lease_token=claimed.lease_token),
+    )
+    return claimed

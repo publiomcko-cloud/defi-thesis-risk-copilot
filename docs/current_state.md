@@ -65,7 +65,7 @@ V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
-V1 Phase 20 — In Progress on its implementation branch; 20B analytics and 20C durable private monitoring are locally complete, both remain deployment-disabled by default; qualified approval and deployed evidence remain required before production activation
+V1 Phase 20 — In Progress on its implementation branch; 20B analytics is locally complete and 20C durable private monitoring has review corrections in progress after its original hosted CI pass. Both remain deployment-disabled by default; qualified approval and deployed evidence remain required before production activation
 V1 Phase 21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -472,11 +472,15 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   `watchlist.evaluate` jobs, dispatch/execution authorization and target
   revalidation, capacity reservation, pause/resume/delete cancellation, 30-day
   run-history retention, account export/deletion integration, aggregate Phase 19
-  operations visibility, and an accessible `/schedules` workspace. The slice
-  is locally complete but not deployed: `SCHEDULE_DISPATCH_ENABLED=false` by
-  default and production configuration rejects activation pending hosted CI,
-  approved production policy, controlled preview, worker, recovery,
-  concurrency, lifecycle, and rollback evidence;
+  operations visibility, and an accessible `/schedules` workspace. The
+  original implementation hosted checks passed, but Phase 20C has review
+  corrections in progress: only authoritative Phase 17 completion may mark a
+  successful occurrence complete, and dispatch reserves a fixed non-billable
+  120-per-user UTC-day scheduled-run quota. It is not merge-ready until fresh
+  hosted checks pass. `SCHEDULE_DISPATCH_ENABLED=false` by default and
+  production configuration rejects activation pending approved production
+  policy, controlled preview, worker, recovery, concurrency, lifecycle, and
+  rollback evidence;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 

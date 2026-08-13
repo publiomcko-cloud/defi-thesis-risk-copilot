@@ -97,16 +97,11 @@ class WatchlistEvaluationJobExecutor:
                 ) from exc
             cancellation.raise_if_cancelled()
 
-            refreshed = db.execute(
-                select(MonitoringScheduleOccurrenceModel)
-                .where(MonitoringScheduleOccurrenceModel.id == occurrence_id)
-                .with_for_update()
-            ).scalars().one_or_none()
-            if refreshed is not None:
-                refreshed.status = "completed"
-                refreshed.completed_at = _utc_now()
-                refreshed.updated_at = refreshed.completed_at
-                db.commit()
+            # Evaluation is only the worker-side effect. The control plane owns
+            # the durable successful terminal transition: complete_job() writes
+            # both the Phase 17 job and this occurrence in one transaction.
+            # Leaving the occurrence running here allows lease-loss recovery to
+            # safely queue or fail it instead of preserving a false success.
             return JobResultEnvelope(
                 result_schema_version="watchlist.evaluate.v1",
                 result_json={

@@ -356,7 +356,7 @@ def _dispatch_locked_schedule(
     except HTTPException as exc:
         db.refresh(occurrence)
         occurrence.status = "denied"
-        occurrence.reason = _denial_reason(exc.status_code)
+        occurrence.reason = _denial_reason(exc)
         occurrence.updated_at = now
         return "denied"
     job.result_resource_type = "watchlist_item"
@@ -559,10 +559,12 @@ def _occurrence_idempotency_key(schedule_id: str, scheduled_for: datetime) -> st
     return f"schedule:{schedule_id}:{scheduled_for.astimezone(UTC).isoformat()}"
 
 
-def _denial_reason(status_code: int) -> str:
-    if status_code == 429:
-        return "quota_or_capacity_denied"
-    if status_code in {401, 403, 404}:
+def _denial_reason(exc: HTTPException) -> str:
+    if (exc.headers or {}).get("X-Quota-Policy") == "scheduled_watchlist_evaluation":
+        return "scheduled_run_quota_exceeded"
+    if exc.status_code == 429:
+        return "capacity_denied"
+    if exc.status_code in {401, 403, 404}:
         return "authorization_or_target_denied"
     return "dispatch_rejected"
 

@@ -34,7 +34,14 @@ from app.models.usage_quota import UsageQuotaModel
 from app.models.user import UserModel
 from app.models.vast_session import VastSessionModel
 from app.models.worker import WorkerModel
-from app.quotas.service import ACTION_ANALYSIS, _day_window, _limit_for
+from app.quotas.service import (
+    ACTION_ANALYSIS,
+    ACTION_SCHEDULED_WATCHLIST_EVALUATION,
+    SCHEDULED_WATCHLIST_EVALUATIONS_PER_DAY,
+    _day_window,
+    _limit_for,
+    reserve_server_daily_user_quota,
+)
 
 
 PENDING_JOB_STATUSES = {"queued", "leased", "retry_wait", "cancel_requested"}
@@ -723,14 +730,20 @@ def _create_provider_cost_reservation(db: Session, job: JobModel, now: datetime)
 
 
 def _reserve_quota(db: Session, actor: UserContext, job_type: str) -> None:
+    if job_type == "watchlist.evaluate":
+        # This non-billable Phase 20C guard applies only to dispatcher-created
+        # durable jobs. It intentionally runs before the admin exemption so the
+        # maximum theoretical five-hourly-schedule volume is fixed per owner.
+        reserve_server_daily_user_quota(
+            db,
+            actor,
+            action=ACTION_SCHEDULED_WATCHLIST_EVALUATION,
+            limit=SCHEDULED_WATCHLIST_EVALUATIONS_PER_DAY,
+        )
+        return
     if actor.is_admin and get_settings().quota_admin_exempt:
         return
     if job_type in {"document.ingest", "document.embed"}:
-        return
-    if job_type == "watchlist.evaluate":
-        # Phase 20C has no billable monitoring unit yet. Its server-owned
-        # active-schedule entitlement is enforced by the schedule service;
-        # capacity is still reserved above for every dispatched occurrence.
         return
     action = ACTION_ANALYSIS if job_type == "analysis.generate" else None
     if action is None:
