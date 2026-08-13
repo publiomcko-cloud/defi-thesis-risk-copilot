@@ -8,6 +8,7 @@ Related contracts:
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
 - [`archive/v1_phase_18/`](archive/v1_phase_18/)
 - [`phase_19_execution_plan.md`](phase_19_execution_plan.md)
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -34,12 +35,15 @@ Live services:
 - deployment status: `/api/deployment/status`;
 - OpenAPI: `/docs`.
 
-The live deployment follows `main`; Phases 16–18 are complete there. Phase 18
-durable knowledge capabilities are merged but remain feature-gated while JSON
-RAG remains the production fallback. Phase 19 may run controlled readiness and
-shadow-mode validation without enabling all durable knowledge flags. Final
-deployed-provider, storage-policy, and legal launch checks remain V1 Phase 22
-work.
+The live deployment follows `main`; Phases 16–18 are complete there and the
+Phase 19 repository foundation is merged. Phase 18 durable knowledge
+capabilities remain feature-gated while JSON RAG remains the production
+fallback. Phase 19 centralized telemetry, alert delivery, provider restore,
+secret rotation, protected-branch, and controlled rollout evidence remains
+external. Phase 20A is documentation/governance only and adds no deployment
+variables, migrations, services, providers, secrets, events, sends, payments,
+or feature flags. Final deployed-provider, storage-policy, and legal launch
+checks remain V1 Phase 22 work.
 
 ## Phase 19A local-only observability
 
@@ -1067,11 +1071,47 @@ never restore retrieval visibility or expose an object key.
 
 ### Phase 19
 
-Deploy shared rate limiting, WAF, security headers, centralized observability, backups, restore drills, scanning, and incident operations.
+The repository foundation for shared rate limiting, security headers,
+observability hooks, recovery verification, scanning, incident operations, and
+bounded exercises is merged. Centralized telemetry, alert delivery, provider
+restore, production secret rotation, protected-branch enforcement, and
+controlled deployment evidence remain external gates.
 
 ### Phase 20
 
-Deploy analytics/notification processors, durable schedules, billing webhook handling, status/support systems, and legal/commercial controls.
+Phase 20B adds only first-party PostgreSQL analytics and remains disabled by
+default. No external analytics provider, browser SDK, cookie, or new public
+processor is configured. Keep this production value unchanged:
+
+```env
+PRODUCT_ANALYTICS_ENABLED=false
+```
+
+The remaining Phase 20B values are server-owned policy bounds:
+
+```env
+PRODUCT_ANALYTICS_POLICY_VERSION=phase20b-2026-07-31
+PRODUCT_ANALYTICS_RETENTION_DAYS=30
+PRODUCT_ANALYTICS_WITHDRAWAL_DELETION_HOURS=24
+PRODUCT_ANALYTICS_DECISION_RETENTION_DAYS=30
+```
+
+Migration `20260731_0023` is safe to deploy while collection is disabled. It
+does not backfill a consent decision or analytics event. After migration,
+verify the Account preference remains off for an authenticated synthetic user,
+anonymous preference routes return `401`, and account export includes empty or
+owner-only Phase 20B projections.
+
+Rollback first sets `PRODUCT_ANALYTICS_ENABLED=false`; this stops all optional
+event writes without affecting the product action. Keep `0023` in place while
+decision/event lifecycle cleanup is required. Schema downgrade is appropriate
+only after optional event and preference rows are deliberately disposed and no
+Phase 20B runtime revision depends on it.
+
+The production configuration validator rejects an enabled analytics flag until
+the qualified privacy/legal activation gate is changed in a separately reviewed
+task. Later Phase 20 slices may deploy other capabilities only after their own
+human and provider gates are approved.
 
 ### Phase 21
 

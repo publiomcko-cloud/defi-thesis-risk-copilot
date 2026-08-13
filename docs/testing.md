@@ -6,6 +6,7 @@ This file is the validation index. Detailed acceptance tests are defined in:
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
 - [`archive/v1_phase_18/`](archive/v1_phase_18/)
 - [`phase_19_execution_plan.md`](phase_19_execution_plan.md)
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`agent_execution_guide.md`](agent_execution_guide.md)
 
@@ -347,10 +348,9 @@ server-validated organization scope, database-outage policy, cleanup reporting,
 and PostgreSQL concurrent one-winner admission. It does not claim deployed
 proxy CIDR correctness, alert delivery, or a completed staged rollout.
 
-Phase 19 begins with non-mutating observability/readiness and controlled
-shadow-mode checks. It must retain JSON RAG as the fallback and must not claim
-Phase 18 production activation until the deployed policy and cutover gates are
-evidenced in Phase 22.
+The merged Phase 19 foundation retains JSON RAG as the fallback and does not
+claim Phase 18 production activation. Deployed policy and cutover gates remain
+external evidence for Phase 22.
 
 ### Phase 19I implemented coverage
 
@@ -507,7 +507,76 @@ assistive-technology, or chaos-test evidence.
 
 ## 9. Phase 20 validation
 
-Test analytics consent, notification preferences, signed webhooks, delivery retry, schedules/timezones, entitlements, billing event idempotency, organization seats, and data export/deletion integration.
+Phase 20 is in progress with Phase 20B locally implemented. Its validation
+authority is
+[`phase_20_execution_plan.md`](phase_20_execution_plan.md).
+
+### Phase 20A documentation coverage
+
+Phase 20A must validate:
+
+- all local Markdown links in changed Phase 20/living documents;
+- JSON syntax plus
+  [`phase_20_event_taxonomy.schema.json`](phase_20_event_taxonomy.schema.json)
+  validation of
+  [`phase_20_event_taxonomy_examples.json`](phase_20_event_taxonomy_examples.json);
+- threat-to-evidence IDs and required artifact presence;
+- explicit blocked human approvals and no provider selection;
+- migration head review without adding a revision;
+- no changes under runtime, migration, frontend, environment, or deployment
+  configuration paths;
+- `git diff --check`;
+- workflow, lockfile, and security-exception policy checks;
+- baseline repository CI.
+
+Phase 20A did not require a migration. Phase 20B requires the following focused
+coverage in addition to the permanent repository suite:
+
+- SQLite and PostgreSQL `0023` upgrade/downgrade/upgrade cycles;
+- default-off, authenticated-only and no-anonymous preference behavior;
+- deployment-disabled `409` grant rejection with no decision row, while a
+  pre-existing grant remains withdrawable;
+- grant, deny, withdrawal, exact-policy re-consent and idempotent replay;
+- PostgreSQL concurrent first opt-in, event deduplication, and event-versus-
+  withdrawal serialization;
+- exact event/metadata allowlist rejection and no prohibited identifiers in
+  stored/exported metadata;
+- optional-emitter failure after the primary product commit;
+- owner-only export, immediate account deletion disposal, 30-day decision
+  evidence and dry-run event retention cleanup;
+- keyboard-accessible Account preference flow in the production browser build.
+
+Focused commands:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase20b_product_analytics.py \
+  app/tests/test_phase20b_migration.py
+RUN_POSTGRES_INTEGRATION=true \
+  python -m pytest -q app/tests/test_phase20b_postgres_analytics.py
+
+cd ../frontend
+npm run lint
+npm run build
+npm run test:e2e
+```
+
+Each later slice must add focused unit, PostgreSQL concurrency/isolation, API,
+BFF/browser, migration, and rollback evidence as applicable. Required coverage
+includes:
+
+- analytics consent, taxonomy allowlists, retention, export, and deletion;
+- schedule timezone, idempotency, missed-run, cancellation, quota, and recovery behavior;
+- notification preference, destination verification, signed webhook, retry, dead-letter, unsubscribe, and deletion behavior;
+- explicit separation of network limits, product quotas, billable usage, and versioned plan entitlements;
+- server-owned entitlement resolution and exactly-once usage reconciliation;
+- billing sandbox signature, replay, out-of-order, lifecycle, portal, and rollback behavior;
+- organization invitation, seat, owner-transfer, billing-contact, export, deletion, audit, and concurrency boundaries;
+- support, status, feedback, abuse, and privacy-request ownership and retention.
+
+No provider test may use production customer data or be treated as provider
+selection before its ADR is approved.
 
 ## 10. Phase 21 validation
 

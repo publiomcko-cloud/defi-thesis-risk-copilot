@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://defi-thesis-risk-copilot.invalid/schemas/phase-20-event-definition.json",
+  "title": "Phase 20B approved product analytics event definition",
+  "description": "Machine-readable documentation contract for the exact default-disabled Phase 20B registry.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "name",
+    "schema_version",
+    "purpose",
+    "trigger",
+    "actor_scopes",
+    "metadata_allowlist",
+    "retention_class",
+    "consent_rule",
+    "status"
+  ],
+  "properties": {
+    "name": {
+      "type": "string",
+      "enum": [
+        "analysis_completed",
+        "analysis_failed",
+        "thesis_saved",
+        "watchlist_created"
+      ]
+    },
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "purpose": {
+      "type": "string",
+      "const": "product_improvement"
+    },
+    "trigger": {
+      "type": "string",
+      "enum": [
+        "server_commit_succeeded",
+        "server_terminal_failure"
+      ]
+    },
+    "actor_scopes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "authenticated",
+          "organization_context"
+        ]
+      }
+    },
+    "metadata_allowlist": {
+      "type": "array",
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "actor_class",
+          "execution_mode",
+          "result_class",
+          "failure_class",
+          "visibility_class"
+        ]
+      }
+    },
+    "retention_class": {
+      "type": "string",
+      "const": "analytics_30_day"
+    },
+    "consent_rule": {
+      "type": "string",
+      "enum": [
+        "approved_current_purpose_decision_required"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "const": "implemented_disabled"
+    }
+  }
+}

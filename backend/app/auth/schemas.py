@@ -68,7 +68,7 @@ class AccountResponse(BaseModel):
 
 class AccountExportResponse(BaseModel):
     # Preserve the established export contract while adding optional-safe
-    # Phase 18 metadata fields.
+    # Phase 18 and Phase 20 metadata fields.
     format_version: str = "phase17.account_export.v2"
     exported_at: datetime
     profile: dict
@@ -85,6 +85,9 @@ class AccountExportResponse(BaseModel):
     knowledge_sources: list[dict]
     knowledge_documents: list[dict]
     knowledge_document_versions: list[dict]
+    privacy_preferences: list[dict] = Field(default_factory=list)
+    privacy_preference_decisions: list[dict] = Field(default_factory=list)
+    product_analytics_events: list[dict] = Field(default_factory=list)
 
 
 class AccountDeleteRequest(BaseModel):

@@ -1,0 +1,223 @@
+# V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
+
+Status: **In Progress — portfolio profile active; Phase 20A–20B implementation complete**
+
+Branch: `agent/v1-phase-20-product-analytics-commercial-readiness`
+
+Current authority:
+
+- [`portfolio_profile.md`](portfolio_profile.md) — active implementation profile;
+- this plan — selected Phase 20 sequence;
+- [`phase_20_evidence_matrix.md`](phase_20_evidence_matrix.md) — evidence and completion state;
+- [`productization_backlog.md`](productization_backlog.md) — intentionally deferred product-only work;
+- [`future_phase_contracts.md`](future_phase_contracts.md) — broader product-capable target contract.
+
+The active goal is to demonstrate production-grade architecture, not to operate a commercial SaaS service. Security, tenant isolation, migrations, lifecycle, deterministic-risk, recovery, and rollback requirements are not reduced.
+
+## 1. Portfolio scope
+
+```text
+20A governance/threat/evidence foundation       COMPLETE
+  -> 20B consent-aware first-party analytics   COMPLETE
+
+20A
+  -> 20C durable scheduled monitoring          REQUIRED
+       -> 20D in-app notifications             REQUIRED
+            -> 20E secure synthetic adapter    OPTIONAL
+  -> 20F entitlements + non-billable usage     REQUIRED
+       -> 20H organization SaaS controls       REQUIRED
+  -> 20I minimal support/privacy/status        REQUIRED
+
+20G real billing/provider work                  DEFERRED
+
+required selected slices
+  -> 20J portfolio architecture closeout       REQUIRED
+       -> Phase 21
+```
+
+20C, 20F, and provider-free 20I may proceed independently.
+
+## 2. Permanent boundaries
+
+Preserve Phase 15–19 behavior and evidence boundaries. In particular:
+
+- server-derived identity, tenant scope, plan state, quantities, and provider state;
+- Phase 16 export/deletion authority;
+- Phase 17 durable jobs, retries, idempotency, cancellation, recovery, capacity, and cost controls;
+- Phase 18 JSON RAG fallback and tenant-safe retrieval boundaries;
+- Phase 19 request bounds, rate limits, redaction, security, incident, and recovery controls;
+- deterministic risk values remain authoritative;
+- no wallet, signing, custody, trade execution, or personalized financial advice;
+- no client-controlled entitlements or provider state;
+- no claim that a synthetic or disabled capability is commercially live.
+
+Safe production defaults remain disabled until separate activation gates pass, including analytics collection, private pgvector cutover, and real Vast rentals.
+
+## 3. Phase 20A
+
+Status: **Complete for portfolio profile**.
+
+Keep the existing threat model, evidence matrix, event/privacy matrix, usage/entitlement registry, notification classification, provider ADR process, scorecards, and data-model review. Product-only provider/commercial material remains useful as future productization evidence.
+
+## 4. Phase 20B
+
+Status: **Implementation complete for portfolio profile**.
+
+Migration `20260731_0023`, immutable consent decisions, current preference projection, four bounded first-party events, lifecycle integration, accessible UI, deployment-disabled consent correction, PostgreSQL concurrency/idempotency tests, and hosted CI are complete.
+
+Production analytics activation remains deferred to qualified productization review and does not block later portfolio slices.
+
+## 5. Phase 20C — Durable scheduled monitoring
+
+Required next slice.
+
+Initial policy:
+
+- authenticated user-owned schedules first;
+- organization scheduling waits for 20H authority;
+- only code-owned watchlist/monitoring targets;
+- cadence presets: hourly, six-hourly, daily, weekly;
+- minimum cadence: one hour;
+- validated IANA timezone and DST behavior;
+- maximum five active schedules per user;
+- unique occurrence identity by schedule plus scheduled time;
+- missed runs coalesce to at most one replacement;
+- occurrences over 24 hours late are recorded as missed and skipped;
+- authorization, quota, capacity, and cost gates revalidate at dispatch/execution;
+- 30-day run history;
+- deletion cancels owned schedules/jobs;
+- rollback disables dispatcher without corrupting history.
+
+Use Phase 17 jobs. Test restart survival, one-winner PostgreSQL claims, idempotency, worker loss, pause/resume/delete, authorization revocation, quota/cost denial, export/deletion, DST, and browser behavior.
+
+## 6. Phase 20D — In-app notifications
+
+Required after an approved alert/schedule outcome exists.
+
+Initial categories:
+
+- `monitoring.risk_alert`;
+- `schedule.status`;
+- `job.status`;
+- `account.lifecycle`.
+
+Product/status categories default off where user preference applies. Support informational/warning/critical severity, IANA timezone, optional quiet hours, daily digest, idempotent intents, duplicate suppression, lifecycle, accessibility, tenant isolation, and 30-day in-app retention.
+
+Content is minimal and code-owned. Do not include raw strategies, reports, sources, private documents, support bodies, credentials, or provider payloads.
+
+External providers are not required for 20D.
+
+## 7. Phase 20E — Secure delivery demonstration
+
+Optional portfolio slice.
+
+Prefer provider-neutral interfaces and fakes:
+
+```text
+NotificationAdapter
+  -> InAppAdapter
+  -> FakeEmailAdapter
+  -> optional SignedWebhookSandboxAdapter
+```
+
+A synthetic webhook adapter may demonstrate HTTPS validation, SSRF/private-IP defenses, redirect denial, bounded responses/timeouts, versioned signatures, replay protection, retries/dead letter, idempotency, redaction, and key rotation. No uncontrolled external send is required.
+
+Real email, webhook-delivery, and Telegram providers move to productization backlog.
+
+## 8. Phase 20F — Entitlements and non-billable usage
+
+Required portfolio slice.
+
+Implement immutable versioned plans/entitlements, effective server-owned assignments, shadow comparison with existing quotas, safe fallback, and immutable usage/reversal records.
+
+Initial `free-v1` limits:
+
+- 25 analyses/day;
+- 100 simulations/day;
+- 100 options analyses/day;
+- 100 market-data fetches/day;
+- 50 saved theses;
+- 25 watchlists;
+- 5 active schedules.
+
+An optional `portfolio-pro-preview-v1` may exist only for tests/demonstration. It has no price and cannot be purchased.
+
+Initial non-billable usage units:
+
+- completed report;
+- completed simulation;
+- completed options analysis;
+- successful schedule run.
+
+Failures, cancellations, rejections, quota denials, and incomplete work do not count. Retries cannot double meter. Corrections use linked reversals/adjustments. Usage remains separate from analytics, quotas, rate limits, and any future billing system.
+
+## 9. Phase 20G — Billing
+
+**Deferred from required portfolio scope.**
+
+Do not delay Phase 21 for real payment-provider integration, live checkout, public prices, tax/refund policy, or paid-plan activation.
+
+An optional `FakeBillingProvider` may demonstrate immutable synthetic receipts, normalized subscription states, stale/reordered-event handling, reconciliation, and entitlement updates from reconciled state only. It must remain clearly synthetic.
+
+All real billing work lives in [`productization_backlog.md`](productization_backlog.md).
+
+## 10. Phase 20H — Organization SaaS controls
+
+Required after 20F.
+
+Portfolio rules:
+
+- hashed one-time invitations;
+- seven-day expiry;
+- resend/revoke invalidates prior active tokens;
+- pending invitations reserve seats;
+- five active-or-reserved seats under the portfolio plan;
+- owner/admin invitation authority;
+- owner-only ownership transfer and full lifecycle authority;
+- recent-auth ownership transfer;
+- atomic final-seat checks;
+- existing over-limit organizations are not destructively modified; new invites are blocked until within the limit or assigned another test entitlement;
+- invitation input cannot assign a plan;
+- external invitation email is not required.
+
+## 11. Phase 20I — Minimal support/privacy/status
+
+Required reduced portfolio slice.
+
+Use first-party bounded request tracking for:
+
+- `support`;
+- `feedback`;
+- `abuse_report`;
+- `privacy_access_export`;
+- `privacy_deletion`.
+
+No attachments initially. Bound subject to 120 characters and description to 4,000 characters. Request text is excluded from product analytics, normal logs, and automatic LLM processing.
+
+Phase 20I tracks intake, verification, state, due dates, communication, and orchestration. Existing Phase 16 export/deletion services perform the actual account/organization operation.
+
+A simple public-safe status process is sufficient. External helpdesk/status providers and subscriber email collection are not required.
+
+## 12. Phase 20J — Portfolio architecture closeout
+
+Phase 20 may be marked **Complete — Portfolio Profile** when:
+
+- required 20A–20I selected slices pass their implementation, migration, tenant, concurrency, failure, recovery, lifecycle, rollback, and browser tests;
+- 20E, when omitted or synthetic, is accurately documented;
+- real 20G remains explicitly deferred rather than falsely completed;
+- no unresolved high/critical security regression exists;
+- public portfolio flags remain safe;
+- docs clearly separate implemented, enabled, synthetic, disabled, and productization-only capabilities;
+- CI is green.
+
+Qualified legal certification, real payments, external delivery providers, production analytics activation, and commercial launch are not portfolio-completion gates.
+
+## 13. Phase 21 handoff
+
+After 20J, move to Phase 21 rather than spending portfolio time on deferred commercial integrations.
+
+Prioritize model routing, model/prompt registries, evaluation-before-promotion, deterministic-field preservation, citation/source consistency, prompt-injection defenses, cost/latency evaluation, controlled human feedback, and thesis/catalyst/scenario intelligence.
+
+## 14. Return to product mode
+
+A future productization pass starts from [`productization_backlog.md`](productization_backlog.md): choose markets/business model, obtain qualified reviews, refresh provider ADR evidence, complete Phase 19 deployed operations evidence, validate provider sandboxes, integrate through existing adapters/state authorities, perform controlled deployment, then run expanded Phase 22 product-launch validation.

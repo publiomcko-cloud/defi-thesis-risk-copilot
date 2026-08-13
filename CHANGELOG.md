@@ -1,6 +1,27 @@
 # Changelog
 
-## Phase 19 — In Progress
+## Phase 20 — In Progress
+
+- Added the ordered Phase 20 execution plan for privacy-conscious product
+  analytics, durable monitoring schedules, user-controlled notifications,
+  usage metering, versioned entitlements, billing sandbox foundations,
+  organization commercial workflows, customer operations, and qualified
+  legal/commercial readiness.
+- Implemented the Phase 20A documentation/governance foundation: threat and
+  evidence matrices, event-purpose/consent/retention taxonomy, usage-unit and
+  entitlement registry, notification classification, provider ADR
+  template/scorecards, and proposed migration/data-model review.
+- Implemented Phase 20B locally with reversible migration `0023`, explicit
+  authenticated opt-in, append-only preference decisions and bounded analytics
+  events, four server-owned event triggers, an accessible Account preference,
+  Phase 16 export/deletion integration, and 30-day retention cleanup.
+- Product analytics remains disabled by default, anonymous collection is
+  absent, no external analytics provider or browser SDK is present, and
+  production activation remains blocked pending qualified privacy/legal review.
+- Network rate limits, product quotas, billable usage, and plan entitlements
+  are explicitly separate controls and ledgers.
+
+## Phase 19 — Implemented Foundation
 
 - Opened the production operations and security planning phase after Phase 18
   merged into `main`.
@@ -59,6 +80,10 @@
   Centralized telemetry, alert delivery, restore drills, secret rotation,
   protected-branch enforcement, and deployed durable-RAG evidence remain
   external Phase 19/22 gates.
+- Merged the Phase 19 repository foundations into `main`. This status does not
+  claim centralized telemetry, alert delivery, provider restore, production
+  secret rotation, protected-branch enforcement, or controlled deployment
+  evidence.
 
 ## Phase 18 — Merged
 

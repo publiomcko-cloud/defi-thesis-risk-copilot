@@ -11,8 +11,10 @@ Detailed implementation requirements live in:
   corrections, and validation evidence;
 - [`archive/v1_phase_18/`](archive/v1_phase_18/) — archived Phase 18 slices,
   gates, validation, migration, deployment, and rollback evidence;
-- [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — active Phase 19
-  operations and security implementation plan;
+- [`phase_19_execution_plan.md`](phase_19_execution_plan.md) — merged Phase 19
+  operations/security foundation and external rollout gates;
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md) — active
+  implementation sequence;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — how future agents use short prompts safely;
 - [`current_state.md`](current_state.md) — what the repository and deployed product actually implement now.
 
@@ -383,28 +385,30 @@ feature-gated and JSON remains the fallback. Phase 19 may collect controlled
 deployment evidence; final private-bucket policy verification, primary-path
 activation, and launch approval remain Phase 22 gates.
 
-## V1 Phase 19 — Production operations and security — Active
+## V1 Phase 19 — Production operations and security — Implemented Foundation
 
 Goal: make identity, API, jobs, workers, storage, and retrieval hardened, observable, recoverable, and supportable.
 
-The ordered implementation authority is
-[`phase_19_execution_plan.md`](phase_19_execution_plan.md). Begin with
-observability, readiness checks, and controlled shadow-mode validation. Do not
-enable all Phase 18 production flags as a Phase 19 starting condition.
+The repository foundation is merged into `main`; the implementation and
+external rollout authority remains
+[`phase_19_execution_plan.md`](phase_19_execution_plan.md). Centralized
+telemetry, alert delivery, provider restore drills, production secret rotation,
+protected-branch enforcement, and controlled deployment evidence remain
+external gates. Do not interpret the merged code as those gates being complete.
 
-Phase 19A is implemented locally: structured/redacted logs, safe correlation
+Phase 19A is implemented in the repository: structured/redacted logs, safe correlation
 from browser through workers, and read-only readiness evidence. It has no
 external telemetry exporter, dashboard, paging, or retention/access-policy
 approval yet. The evidence matrix and threat model are
 [`phase_19_evidence_matrix.md`](phase_19_evidence_matrix.md) and
 [`phase_19_threat_model.md`](phase_19_threat_model.md).
 
-Phase 19B is implemented locally: a disabled-by-default PostgreSQL shared
+Phase 19B is implemented in the repository: a disabled-by-default PostgreSQL shared
 limiter protects bounded compute and durable-job admission with burst/sustained
 windows, salted scope hashes, and shadow/enforce modes. Preview proxy-policy,
 alert, and staged-enforcement evidence remain pending.
 
-Phase 19C is implemented locally: explicit FastAPI CORS/browser-origin and
+Phase 19C is implemented in the repository: explicit FastAPI CORS/browser-origin and
 measured request-size controls for declared, chunked, and misleading-length
 bodies, report-only CSP and baseline headers, BFF exact
 origin/backend-target/redirect checks, and an opt-in required upload-scanner
@@ -412,14 +416,14 @@ contract. The scanner fails closed and production knowledge storage cannot be
 enabled without it. WAF/bot policy, scanner/quarantine deployment, final origin
 evidence, CSP reporting, and HSTS approval remain pending.
 
-Phase 19D is implemented locally: an aggregate-only administrator monitoring
+Phase 19D is implemented in the repository: an aggregate-only administrator monitoring
 snapshot covers queue/worker/retrieval/provider and fallback state; local alert
 candidates are deduplicated and have no delivery channel. The private operations
 page and fixed-path synthetic CLI are disabled by default. Telemetry/pager/status
 provider selection, dashboard RBAC, safe synthetic identity, alert escalation,
 and SLO/error-budget evidence remain deployment work.
 
-Phase 19E is implemented locally as a recovery-verification foundation: a
+Phase 19E is implemented in the repository as a recovery-verification foundation: a
 disabled metadata-only manifest tool compares salted durable metadata in an
 isolated restore target, and an optional evidence guard can block destructive
 retention cleanup. Provider database/object backup, encryption verification,
@@ -427,7 +431,7 @@ approved RPO/RTO, a provider restore drill, secret-store audit, emergency
 rotation exercise, and encryption-key migration remain required before any
 recovery claim.
 
-Phase 19F is implemented locally: workflows use immutable action SHAs and
+Phase 19F is implemented in the repository: workflows use immutable action SHAs and
 least-privilege permissions; repository policy checks reject mutable actions,
 unsafe pull-request triggers, persisted checkout credentials, and unlocked
 application manifests. CI generates a safe source-lockfile SBOM and adds
@@ -438,7 +442,7 @@ container, and repository findings now fail CI. Suppressions require an
 explicit owned, time-bounded registry entry. GitHub branch rules and first
 hosted scan evidence remain deployment gates.
 
-Phase 19G is implemented locally: versioned incident and security-operations
+Phase 19G is implemented in the repository: versioned incident and security-operations
 runbooks cover credential exposure, account takeover, tenant exposure,
 malicious sources, queue duplication, provider cost, database/object-storage
 outage, vector integrity, failed migration, and compromised workers. The
@@ -449,7 +453,7 @@ primary/backup owners, a communication authority, an approved private evidence
 location, alert delivery integration, and recorded tabletop exercises remain
 deployment gates.
 
-Phase 19H is implemented locally: a fail-closed fixed catalog runs only
+Phase 19H is implemented in the repository: a fail-closed fixed catalog runs only
 isolated tests for rate-limit saturation, queue admission, worker loss,
 fake-provider failure, storage outage, vector corruption recovery, migration
 rollback, authorization negatives, database recovery, and semantic
@@ -459,7 +463,7 @@ refuses production, non-isolated operation, arbitrary commands, and real Vast
 rentals. Production load/chaos, provider, customer-data, alert/pager, and full
 assistive-technology evidence remain external gates.
 
-Phase 19I is implemented locally: `check_controlled_rag_rollout` is a
+Phase 19I is implemented in the repository: `check_controlled_rag_rollout` is a
 read-only, explicit opt-in readiness validator for the narrow durable-RAG
 deployment sequence. It verifies the shadow prerequisites, pgvector, JSON
 fallback, worker/ingestion dependencies, and dry-run provider posture. A
@@ -483,9 +487,27 @@ Core outcomes:
 - incident runbooks;
 - PostgreSQL/browser/accessibility/load/failure tests.
 
-## V1 Phase 20 — Analytics, notifications, and commercial readiness — Planned
+## V1 Phase 20 — Analytics, notifications, and commercial readiness — In Progress
 
 Goal: add privacy-conscious product analytics, scheduled monitoring, controlled notifications, plan entitlements, billing foundations, support, and legal launch readiness.
+
+Phase 20 is active on its implementation branch. Its ordered, reviewable
+subphases and gates are defined by
+[`phase_20_execution_plan.md`](phase_20_execution_plan.md), subordinate to the
+authoritative Phase 20 contract in
+[`future_phase_contracts.md`](future_phase_contracts.md).
+
+Phase 20A is an `Implemented Foundation`: it adds the Phase 20 threat/evidence
+matrices, event-purpose/consent/retention taxonomy, machine-checkable event
+examples, usage-unit/entitlement registry, notification classification,
+provider ADR template/scorecards, and proposed `0023`–`0029` data-model review.
+Phase 20B is locally implemented under the scoped project-owner decision in
+[`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
+It adds migration `0023`, explicit opt-in preferences, append-only decisions
+and bounded events, preference API/UI, Phase 16 lifecycle integration, and
+30-day cleanup. Analytics remains disabled by default and production activation
+is `Blocked` pending qualified privacy/legal review. No external analytics
+provider, browser SDK, notification send, payment, or production secret exists.
 
 Core outcomes:
 

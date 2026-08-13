@@ -2,11 +2,13 @@
 
 [![CI](https://github.com/publiomcko-cloud/defi-thesis-risk-copilot/actions/workflows/ci.yml/badge.svg)](https://github.com/publiomcko-cloud/defi-thesis-risk-copilot/actions/workflows/ci.yml)
 
-A full-stack DeFi research and risk-analysis product that turns a strategy thesis into a structured, source-grounded report with deterministic risk scoring, visible assumptions, missing data, stress scenarios, and monitoring requirements.
+A full-stack DeFi research and risk-analysis portfolio project that turns a strategy thesis into a structured, source-grounded report with deterministic risk scoring, visible assumptions, missing data, stress scenarios, and monitoring requirements.
 
-The application demonstrates applied AI engineering without connecting wallets, signing transactions, holding funds, executing trades, allocating capital, or presenting personalized financial advice.
+The repository is intentionally engineered like a production-capable SaaS platform while the public deployment remains a constrained portfolio demo. It demonstrates applied AI, data, backend, security, multi-tenant, durable-workflow, RAG, and operational engineering without operating a paid financial product.
 
-## Live Product
+It does not connect wallets, sign transactions, hold funds, execute trades, allocate capital, or provide personalized financial advice.
+
+## Live Portfolio Demo
 
 - Frontend: https://defi-thesis-risk-copilot.vercel.app
 - Guided demo: https://defi-thesis-risk-copilot.vercel.app/demo
@@ -18,50 +20,37 @@ The application demonstrates applied AI engineering without connecting wallets, 
 
 The Render free-tier backend may cold-start after inactivity.
 
+## Current Development Profile
+
+The active implementation profile is **portfolio-first, product-capable**.
+
+The current goal is to demonstrate production-grade architecture and engineering decisions without taking on the ongoing legal, provider, payment, support, and production-operations burden of running a commercial SaaS service.
+
+The original productization requirements are preserved rather than deleted:
+
+- [Portfolio implementation profile](docs/portfolio_profile.md) — active scope and completion rules;
+- [Productization backlog](docs/productization_backlog.md) — deferred provider, legal, billing, operational, and launch work;
+- [Phase 20 execution plan](docs/phase_20_execution_plan.md) — active portfolio implementation sequence.
+
+A future return to product mode should activate reviewed adapters and policies through existing boundaries instead of requiring an architectural rewrite.
+
 ## Current Phase Status
 
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–18
-In progress: V1 Phase 19 (19A-19I operations/security foundations, recovery verification, supply-chain controls, incident response, isolated failure exercises, and controlled durable-RAG rollout checks)
-Planned:   V1 Phases 20–22
+Implemented foundation: V1 Phase 19 (merged; deployed operational evidence remains gated)
+In progress: V1 Phase 20 portfolio profile
+  - 20A governance/design foundation: complete
+  - 20B consent-aware first-party analytics: implemented and validated; production collection disabled
+  - next required portfolio slices: 20C, 20D, 20F, 20H, reduced 20I, 20J closeout
+  - 20E secure sandbox adapter: optional portfolio demonstration
+  - real 20G billing/provider work: deferred to productization backlog
+Later: V1 Phase 21 model/research intelligence, then portfolio release validation
 ```
 
-Phases 16 and 17 are complete on `main`. Phase 16 delivers managed identity,
-BFF, ownership, organization, quota, account, consent, retention, and frontend
-foundations. Phase 17 adds durable jobs, internal workers, asynchronous
-authenticated analysis, a private jobs workspace, and the administrator-only
-server-profiled Vast job. Their implementation records are archived in
-[`docs/archive/v1_phase_16/`](docs/archive/v1_phase_16/) and
-[`docs/archive/v1_phase_17/`](docs/archive/v1_phase_17/).
+## Engineering Capabilities
 
-Phase 18 is complete and merged into `main`; its implementation, correction,
-validation, migration, and cutover record is preserved in
-[`docs/archive/v1_phase_18/`](docs/archive/v1_phase_18/). Its eight slices are
-implemented, but production storage remains disabled by default:
-durable knowledge metadata, private-storage interfaces, tenant authorization,
-authenticated source/document APIs, bounded upload handling, and the
-feature-gated `document.ingest.v1` worker path are present. Versioned local-only
-pgvector embedding generations and an authenticated tenant-safe shadow
-retrieval/citation diagnostic are also implemented but disabled by default.
-Phase 18G adds an operator-only, convergent importer for the checked-in curated
-Markdown corpus, whole-import object compensation, fail-closed collision checks,
-and scheduled declared-lineage precision/recall/citation evaluation. The local
-top-1 gate includes an expected-empty case; it is quality evidence only, not a
-production cutover. It also adds a guarded
-durable report path. When explicitly enabled, authenticated analysis derives
-approved public, caller-owned private, and active-organization scope server-side;
-anonymous analysis remains public-only. JSON remains the automatic fallback.
-Phase 18H adds the authenticated Knowledge workspace, document/version lifecycle
-controls, exact report-citation lineage display, safe private-knowledge export
-metadata, and administrator-only readiness metrics. Phase 19 is now active and
-may gather controlled deployment, observability, and shadow-mode evidence. Live
-private-bucket policy, final cutover verification, and launch approval remain
-Phase 22 gates.
-Durable source versions
-support atomic rollback and queued cleanup after tombstoning; those lifecycle
-controls remain inactive until private storage is deliberately enabled.
-
-## Product Capabilities
+The repository currently demonstrates or provides foundations for:
 
 - structured DeFi strategy reports;
 - curated protocol retrieval;
@@ -70,38 +59,42 @@ controls remain inactive until private storage is deliberately enabled.
 - visible assumptions, missing data, confidence, and provenance;
 - lending-loop and fixed-yield stress simulation;
 - long call/put payoff analysis;
-- discovery and deterministic evaluation;
-- human review before knowledge trust;
-- explicit approved-source ingestion;
-- watchlists and in-app alerts;
+- discovery, deterministic evaluation, and human review before knowledge trust;
+- durable source and knowledge metadata with feature-gated private RAG/pgvector paths;
 - Markdown export;
 - optional local/OpenAI-compatible synthesis;
-- admin-controlled Vast.ai dry-run/manual warm-up;
-- retrieval, ML, and HPC groundwork;
-- user, organization, thesis, quota, anonymous-session, account, and durable-job foundations.
+- managed identity and BFF boundaries;
+- user, organization, thesis, quota, anonymous-session, account, consent, export, deletion, and audit foundations;
+- durable jobs, workers, retry/recovery, cancellation, idempotency, and capacity controls;
+- Phase 19 security, rate-limit, recovery, incident, and supply-chain foundations;
+- optional authenticated first-party product analytics with immutable consent decisions, strict metadata, lifecycle integration, and production-disabled rollout;
+- admin-controlled Vast.ai dry-run/manual warm-up with real rentals disabled.
+
+The remaining Phase 20 portfolio work focuses on durable schedules, in-app notifications, versioned entitlements/non-billable metering, organization seat/invitation controls, minimal first-party support/privacy workflows, and architecture closeout before moving to Phase 21 AI/research intelligence.
 
 ## Public Deployment Safety
 
-The deployed public portfolio environment is intentionally constrained.
+The deployed environment is intentionally constrained.
 
-Visitors may inspect public demo records and run bounded analysis, simulation, options, and market-data flows.
+Visitors may inspect public demo records and run bounded public analysis, simulation, options, and market-data flows.
 
-Public visitors cannot:
+The public portfolio environment does not imply that every implemented production-capable subsystem is activated.
 
-- run monitoring or global discovery;
-- create evaluations;
-- change review state;
-- ingest documents or RAG content;
-- mutate watchlists or alerts;
-- access credentials or audit records;
-- control Vast.ai sessions;
-- receive administrator identity.
+Depending on the current feature flags, public visitors cannot:
+
+- run private monitoring or privileged global discovery;
+- change trust/review state;
+- ingest private documents or activate private RAG content;
+- access another tenant's resources;
+- access credentials, audit evidence, internal worker routes, or administrative controls;
+- control real Vast.ai rentals;
+- activate analytics collection, payments, paid plans, or external notification providers.
 
 Do not submit sensitive personal, wallet, credential, private-position, or confidential research data to the public demo.
 
 ## Architecture
 
-Current deployment:
+Current public deployment:
 
 ```text
 Browser
@@ -117,13 +110,12 @@ Browser
   -> Vercel Next.js auth routes and BFF
   -> HttpOnly managed/anonymous cookies
   -> Render FastAPI token verification and authorization
-  -> Supabase PostgreSQL ownership and quota data
+  -> Supabase PostgreSQL server-owned identity/ownership/quota state
 ```
 
-Phase 18 adds private object/vector storage and durable ingestion. Later phases
-add operations/security, commercial workflows, and evaluated model intelligence.
+Extended architecture includes feature-gated durable jobs/workers, knowledge/object/vector storage interfaces, server-side analytics, operational controls, and future portfolio scheduling/notification/entitlement domains.
 
-See [`docs/architecture.md`](docs/architecture.md).
+See [Architecture](docs/architecture.md).
 
 ## Permanent Engineering Decisions
 
@@ -154,15 +146,21 @@ Managed identity establishes who the user is. The application database establish
 
 - platform role;
 - account status;
-- plan;
+- plan/entitlement state;
 - resource owner;
 - organization membership;
 - visibility;
 - quota.
 
+### Product architecture does not imply product activation
+
+An implemented adapter, migration, state machine, or feature flag is not proof that a provider or commercial capability is production-ready.
+
+Production-only activation requirements belong in [Productization backlog](docs/productization_backlog.md).
+
 ### Heavy infrastructure remains optional and controlled
 
-Normal deterministic analysis does not require an LLM, GPU rental, wallet, private key, or paid provider.
+Normal deterministic analysis does not require an LLM, GPU rental, wallet, private key, external notification provider, or billing provider.
 
 ## Local Quick Start
 
@@ -232,7 +230,7 @@ docker compose config
 docker compose -f docker-compose.production.yml config
 ```
 
-Phase-specific migration, browser, concurrency, worker, retrieval, security, and deployment checks are defined in [`docs/testing.md`](docs/testing.md) and the phase contracts.
+Phase-specific migration, PostgreSQL concurrency, browser, worker, retrieval, security, and deployment checks are defined in [Testing](docs/testing.md) and the active phase evidence matrices.
 
 ## Important Routes
 
@@ -254,7 +252,7 @@ Analysis:
 - `POST /api/simulation/run`
 - `POST /api/options/analyze`
 
-Phase 16 foundations:
+Identity/account foundations:
 
 - `/api/auth/*`
 - `/api/account*`
@@ -262,32 +260,34 @@ Phase 16 foundations:
 - `/api/theses*`
 - `/api/usage`
 - `/api/consents`
+- `/api/account/privacy-preferences`
 
-Phase 17 foundations:
+Durable-work foundations:
 
 - `/api/jobs*`
-- `/internal/workers/*` (trusted workers only; blocked by the browser BFF)
+- `/internal/workers/*` — trusted workers only; blocked by the browser BFF.
 
 Controlled research/admin routes remain explicitly protected.
 
 ## Authoritative Documentation
 
+- [Portfolio implementation profile](docs/portfolio_profile.md) — current scope and definition of done
+- [Productization backlog](docs/productization_backlog.md) — deferred commercial/provider/launch requirements
 - [Current state](docs/current_state.md) — deployed versus branch reality
-- [Development plan](docs/development_plan.md) — roadmap and phase status
-- [Archived Phase 16 records](docs/archive/v1_phase_16/) — implementation contract, execution plan, and deployment evidence
-- [Archived Phase 17 records](docs/archive/v1_phase_17/) — execution and validation evidence
-- [Archived Phase 18 records](docs/archive/v1_phase_18/) — implementation, validation, and cutover evidence
-- [Phase 19 execution plan](docs/phase_19_execution_plan.md) — active implementation authority
-- [Phase 19 monitoring runbook](docs/operations/monitoring_and_alerting.md) — local monitoring and external rollout gates
-- [Phase 19 backup/restore runbook](docs/operations/backup_restore_runbook.md) — isolated recovery drill and retention guard
-- [Phase 19 secret inventory](docs/operations/secret_inventory.md) — secret ownership and rotation boundaries
-- [Phase 19 incident runbooks](docs/operations/incidents/) — versioned containment and recovery procedures with safe tabletop scripts
-- [Phase 19 failure exercises](docs/operations/failure_exercises.md) — fixed isolated test catalog and rollback boundaries
-- [Future phase contracts](docs/future_phase_contracts.md) — full Phases 19–22 requirements
-- [Agent execution guide](docs/agent_execution_guide.md) — short-prompt workflow
+- [Development plan](docs/development_plan.md) — roadmap and phase history
+- [Phase 20 execution plan](docs/phase_20_execution_plan.md) — active portfolio sequence
+- [Phase 20 threat model](docs/phase_20_threat_model.md) — cross-domain risk boundaries
+- [Phase 20 evidence matrix](docs/phase_20_evidence_matrix.md) — current completion/evidence record
+- [Future phase contracts](docs/future_phase_contracts.md) — broader product-capable target requirements
+- [Phase 19 execution plan](docs/phase_19_execution_plan.md) — merged operational/security foundation and external gates
+- [Phase 19 monitoring runbook](docs/operations/monitoring_and_alerting.md)
+- [Phase 19 backup/restore runbook](docs/operations/backup_restore_runbook.md)
+- [Phase 19 secret inventory](docs/operations/secret_inventory.md)
+- [Phase 19 incident runbooks](docs/operations/incidents/)
 - [Architecture](docs/architecture.md)
 - [Deployment](docs/deployment.md)
 - [Testing](docs/testing.md)
+- [Agent execution guide](docs/agent_execution_guide.md)
 - [Demo walkthrough](docs/demo_walkthrough.md)
 - [RAG design](docs/rag_design.md)
 - [Agent design](docs/agent_design.md)
@@ -297,16 +297,16 @@ Controlled research/admin routes remain explicitly protected.
 
 ## Short Agent Prompt
 
-Future phase work can use:
+Future portfolio work should read the active profile before the broader product contracts:
 
 ```text
-Implement V1 Phase <N> on a new branch from current main.
-Read docs/current_state.md, docs/development_plan.md,
-the relevant phase contract, docs/architecture.md, docs/deployment.md,
-docs/testing.md, and docs/agent_execution_guide.md.
-Follow the contract exactly, preserve completed behavior, run all required
-checks, update the docs, commit logically, push the branch, open a draft PR,
-and do not merge.
+Implement the next approved V1 portfolio slice.
+Read docs/portfolio_profile.md, docs/current_state.md,
+docs/phase_20_execution_plan.md, docs/phase_20_evidence_matrix.md,
+docs/architecture.md, docs/deployment.md, docs/testing.md,
+and docs/agent_execution_guide.md.
+Preserve productization boundaries in docs/productization_backlog.md.
+Run all required checks, update evidence, commit logically, and do not merge.
 ```
 
 ## Safety Boundary
@@ -319,6 +319,7 @@ and do not merge.
 - no guaranteed-return language;
 - no model override of deterministic risk fields;
 - no automatic trust of discovered content;
-- no live Vast rental in automated tests.
+- no live Vast rental in automated tests;
+- no claim that synthetic or disabled provider paths are commercially live.
 
 All output is research-oriented and educational. Market data may be delayed, incomplete, cached, simulated, or manually entered.

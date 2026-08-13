@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.auth.policies import can_read_resource, can_update_resource, has_org_role
 from app.auth.schemas import UserContext
 from app.models.saved_thesis import SavedThesisModel
+from app.product_analytics.service import emit_product_event_safely
 from app.quotas.service import RESOURCE_SAVED_THESES, enforce_resource_count_limit
 from app.theses.schemas import ThesisCreateRequest, ThesisResponse, ThesisUpdateRequest
 
@@ -35,7 +36,19 @@ def create_thesis(db: Session, actor: UserContext, request: ThesisCreateRequest)
     db.add(record)
     db.commit()
     db.refresh(record)
-    return thesis_response(record)
+    response = thesis_response(record)
+    emit_product_event_safely(
+        db,
+        owner_user_id=actor.id,
+        event_name="thesis_saved",
+        metadata={
+            "actor_class": "organization_context" if record.visibility == "organization" else "authenticated",
+            "visibility_class": record.visibility,
+        },
+        source_boundary=record.id,
+        occurred_at=record.created_at,
+    )
+    return response
 
 
 def list_theses(db: Session, actor: UserContext) -> list[ThesisResponse]:

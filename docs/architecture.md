@@ -6,6 +6,7 @@ This document defines the system architecture and permanent trust boundaries. Ph
 - [`archive/v1_phase_17/`](archive/v1_phase_17/)
 - [`archive/v1_phase_18/`](archive/v1_phase_18/)
 - [`phase_19_execution_plan.md`](phase_19_execution_plan.md)
+- [`phase_20_execution_plan.md`](phase_20_execution_plan.md)
 - [`future_phase_contracts.md`](future_phase_contracts.md)
 - [`current_state.md`](current_state.md)
 
@@ -63,10 +64,12 @@ Render startup
 ```
 
 The deployed `main` branch includes the Phase 15 public-safe baseline, Phase
-16 identity/ownership, Phase 17 durable job control plane, and Phase 18
-durable knowledge/retrieval implementation. Phase 18's durable path remains
-feature-gated; local JSON RAG remains the production fallback while Phase 19
-gathers controlled operations and deployment evidence.
+16 identity/ownership, Phase 17 durable job control plane, Phase 18 durable
+knowledge/retrieval implementation, and the Phase 19 operations/security
+repository foundation. Phase 18's durable path remains feature-gated; local
+JSON RAG remains the production fallback. Phase 19's centralized telemetry,
+alert delivery, provider restore, secret rotation, protected-branch, and
+controlled deployment evidence remains external.
 
 Phase 19A adds a local-only operational correlation path:
 
@@ -589,7 +592,7 @@ include document content, embeddings, storage keys, or signed URLs.
 
 ---
 
-## 18. Phase 19 target — operations/security
+## 18. Phase 19 implemented foundation — operations/security
 
 Adds:
 
@@ -603,7 +606,7 @@ Adds:
 - incident response;
 - load/failure/browser/PostgreSQL testing.
 
-Phase 19C is locally implemented as a feature-gated edge boundary: Next.js
+Phase 19C is implemented as a feature-gated edge boundary: Next.js
 emits a report-only CSP and minimum browser headers, FastAPI accepts exact CORS
 origins and rejects browser mutations from other origins, and the BFF keeps a
 fixed backend origin/path allowlist while rejecting redirects. Private source
@@ -667,9 +670,47 @@ and rollback records remain external operational evidence.
 
 ---
 
-## 19. Phase 20 target — commercial product
+## 19. Phase 20 in progress — commercial product
 
-Adds privacy-conscious analytics, durable scheduling, notifications, entitlements, billing webhook processing, organization invitations/seats, support/status, and qualified legal review.
+The ordered design is
+[`phase_20_execution_plan.md`](phase_20_execution_plan.md). It adds
+privacy-conscious analytics, durable scheduling, user-controlled notifications,
+separate usage and entitlement controls, billing sandbox processing,
+organization invitations/seats, support/status/privacy operations, and
+qualified legal review.
+
+Phase 20A defines the shared design boundary. Phase 20B implements its first
+runtime slice:
+
+- Phase 16 `consent_records` remains terms/privacy acceptance authority;
+- granular optional analytics decisions use separate immutable
+  `privacy_preference_decisions` evidence and a rebuildable
+  `privacy_preferences` current projection;
+- four code-owned events may enter `product_analytics_events` only after an
+  authenticated user's exact current policy opt-in; ownership and source
+  deduplication inputs are server-derived and never analytics dimensions;
+- decision and event paths serialize on the owning PostgreSQL user row so a
+  withdrawal cannot race an event into storage afterward;
+- withdrawal and account deletion immediately remove optional events, while
+  the shared cleanup authority expires events at 30 days and decision evidence
+  30 days after account deletion;
+- optional emitter commits occur after the product transaction and fail closed
+  without rolling back a successful report, thesis, or watchlist action;
+- existing account export/deletion, organization deletion, retention cleanup,
+  audit, quota, and job lifecycle remain authoritative;
+- proposed Phase 20 rows must register projections/lifecycle hooks rather than
+  create a second account or organization lifecycle;
+- network rate limits, product quotas, billable usage, entitlements, analytics,
+  audit, billing, and support remain separate domains;
+- no analytics provider or browser SDK is selected; collection is disabled by
+  default and production activation is blocked by configuration validation.
+
+The Phase 20 trust and data-model records are
+[`phase_20_threat_model.md`](phase_20_threat_model.md) and
+[`phase_20_data_model_review.md`](phase_20_data_model_review.md). The approval
+boundary is
+[`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
+Qualified privacy/legal review remains blocked for production activation.
 
 ---
 

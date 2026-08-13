@@ -9,6 +9,7 @@ from app.auth.policies import can_read_resource, can_update_resource
 from app.auth.schemas import UserContext
 from app.models.alert_event import AlertEventModel
 from app.models.watchlist_item import WatchlistItemModel
+from app.product_analytics.service import emit_product_event_safely
 from app.quotas.service import RESOURCE_WATCHLISTS, enforce_resource_count_limit
 from app.watchlist.rules import evaluate_rules
 from app.watchlist.schemas import (
@@ -48,7 +49,20 @@ def create_watchlist_item(
     db.add(item)
     db.commit()
     db.refresh(item)
-    return WatchlistCreateResponse(item=_item_schema(item))
+    response = WatchlistCreateResponse(item=_item_schema(item))
+    if actor is not None and item.owner_user_id is not None:
+        emit_product_event_safely(
+            db,
+            owner_user_id=item.owner_user_id,
+            event_name="watchlist_created",
+            metadata={
+                "actor_class": "organization_context" if item.visibility == "organization" else "authenticated",
+                "visibility_class": item.visibility,
+            },
+            source_boundary=item.id,
+            occurred_at=item.created_at,
+        )
+    return response
 
 
 def list_watchlist_items(db: Session, actor: UserContext | None = None) -> list[WatchlistItem]:
