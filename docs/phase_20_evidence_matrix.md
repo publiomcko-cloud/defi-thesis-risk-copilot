@@ -8,7 +8,7 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | --- | --- | --- |
 | 20A | Complete | Governance, threat model, taxonomy, provider-decision and data-model foundations exist |
 | 20B | Complete | Migration `0023`, consent-aware first-party analytics, lifecycle integration, PostgreSQL concurrency tests, browser coverage and hosted implementation checks passed before the portfolio-doc refactor |
-| 20C | Review corrections in progress / required | The original Phase 20C implementation passed hosted CI. Migration `0024`, durable private schedules, DST, PostgreSQL one-winner claims, Phase 17 jobs, lifecycle/export/retention, browser and operations aggregates are implemented; authoritative completion and daily scheduled-run quota corrections now require fresh hosted checks. Production dispatch remains disabled. |
+| 20C | Locally complete / required | The original Phase 20C implementation and the authoritative-completion/daily-scheduled-run-quota correction both passed hosted CI. Migration `0024`, durable private schedules, DST, PostgreSQL one-winner claims, Phase 17 jobs, lifecycle/export/retention, browser and operations aggregates are implemented. PR #23 remains deliberately draft; production dispatch remains disabled. |
 | 20D | Planned / required | In-app preferences, intents, duplicate suppression, tenant and browser evidence needed |
 | 20E | Optional | Synthetic/provider-neutral delivery demonstration only |
 | 20F | Planned / required | Versioned entitlements and non-billable usage/reconciliation evidence needed |
@@ -47,11 +47,11 @@ supply-chain checks, and default/profile/production Compose rendering passed
 locally. The remaining review findings require that successful evaluation leave
 the occurrence `running` until Phase 17 control-plane completion atomically
 marks both job and occurrence complete, and require the fixed server-owned
-120-per-user UTC-day scheduled-run quota. Fresh hosted CI for those corrections
-remains the merge gate; Phase 20C is not complete or merge-ready yet.
-The current local correction validation passes the complete 28-test PostgreSQL
-integration suite; this is not a substitute for fresh hosted CI or production
-operational evidence.
+120-per-user UTC-day scheduled-run quota. Fresh hosted CI passed for correction
+commit `cc8278c`; the current local correction validation also passes the
+complete 28-test PostgreSQL integration suite. Phase 20C is locally complete,
+but PR #23 remains deliberately draft pending owner review and this evidence is
+not a substitute for production operational validation.
 Before any production activation, approved policy, scoped worker/scheduler
 deployment and external operational evidence remain required.
 

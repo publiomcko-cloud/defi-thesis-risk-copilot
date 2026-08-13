@@ -25,11 +25,11 @@
   PostgreSQL one-winner dispatch, immutable occurrence identities, Phase 17
   `watchlist.evaluate` jobs, lifecycle/export/retention integration, and an
   accessible schedule workspace. The original hosted implementation checks
-  passed; review corrections now require authoritative Phase 17 completion for
-  successful occurrences and a fixed server-owned 120-per-user UTC-day
-  scheduled-run quota. Automatic dispatch remains disabled by default and
-  production-disabled pending fresh hosted checks plus the documented approval
-  and rollout evidence.
+  passed. The correction hosted CI also passed after making authoritative Phase
+  17 completion the sole successful occurrence transition and adding a fixed
+  server-owned 120-per-user UTC-day scheduled-run quota. Automatic dispatch
+  remains disabled by default and production-disabled pending the documented
+  approval and rollout evidence.
 
 ## Phase 19 — Implemented Foundation
 

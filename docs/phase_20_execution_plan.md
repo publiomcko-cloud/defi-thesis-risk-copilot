@@ -1,6 +1,6 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **In Progress — Phase 20C durable scheduled monitoring has review corrections in progress after its original hosted CI pass; Phase 20A–20B complete**
+Status: **In Progress — Phase 20C durable scheduled monitoring is locally complete after original and correction hosted CI passes; PR #23 remains draft; Phase 20A–20B complete**
 
 Branch: `agent/v1-phase-20c-durable-scheduled-monitoring`
 
@@ -69,12 +69,11 @@ Production analytics activation remains deferred to qualified productization rev
 
 ## 5. Phase 20C — Durable scheduled monitoring
 
-Review-correction implementation slice. The original implementation passed
-hosted CI, but fresh hosted checks must validate the authoritative completion
-and scheduled-run quota corrections before it is merge-ready. Production
-dispatch remains disabled until its documented concurrency, recovery, DST,
-lifecycle, rollback, worker, and approval evidence has been reviewed. It is
-not a production activation.
+Locally complete implementation slice. The original implementation and the
+authoritative-completion/scheduled-run-quota correction both passed hosted CI;
+PR #23 remains deliberately draft. Production dispatch remains disabled until
+its documented concurrency, recovery, DST, lifecycle, rollback, worker, and
+approval evidence has been reviewed. It is not a production activation.
 
 Initial policy:
 
@@ -101,10 +100,9 @@ server-owned `watchlist.evaluate` registry input, `SKIP LOCKED` dispatch,
 feature-gated scheduler script/profile, account lifecycle/retention/export
 hooks, operations aggregates, and `/schedules`. Evaluation leaves its
 occurrence `running`; only the authoritative Phase 17 `complete_job()`
-transition records successful completion. Remaining checkpoint evidence is
-fresh hosted CI for the review corrections plus a separately approved
-production rollout; organization schedules and all non-watchlist targets remain
-out of scope until later slices.
+transition records successful completion. Remaining checkpoint evidence is a
+separately approved production rollout; organization schedules and all
+non-watchlist targets remain out of scope until later slices.
 
 ## 6. Phase 20D — In-app notifications
 

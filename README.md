@@ -42,7 +42,7 @@ Implemented foundation: V1 Phase 19 (merged; deployed operational evidence remai
 In progress: V1 Phase 20 portfolio profile
   - 20A governance/design foundation: complete
   - 20B consent-aware first-party analytics: implemented and validated; production collection disabled
-  - 20C durable user-owned monitoring: review corrections in progress after original hosted CI pass; production dispatch disabled
+  - 20C durable user-owned monitoring: locally complete after correction hosted CI; PR #23 draft and production dispatch disabled
   - next required portfolio slices: 20D, 20F, 20H, reduced 20I, 20J closeout
   - 20E secure sandbox adapter: optional portfolio demonstration
   - real 20G billing/provider work: deferred to productization backlog

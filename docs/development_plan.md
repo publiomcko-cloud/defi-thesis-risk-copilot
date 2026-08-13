@@ -509,8 +509,8 @@ and bounded events, preference API/UI, Phase 16 lifecycle integration, and
 is `Blocked` pending qualified privacy/legal review. No external analytics
 provider, browser SDK, notification send, payment, or production secret exists.
 
-Phase 20C has review corrections in progress after its original hosted CI pass,
-with reversible migration `0024`. It supports
+Phase 20C is locally complete after its original implementation and correction
+hosted CI passes, with reversible migration `0024`. It supports
 only authenticated user-owned, enabled private watchlist evaluation targets;
 the browser selects neither arbitrary work nor dispatch timing. PostgreSQL
 claims schedule occurrences through owner-first locking and `SKIP LOCKED`, then
@@ -523,8 +523,8 @@ checkpoint makes Phase 17 control-plane completion the sole successful terminal
 occurrence transition and reserves a fixed 120 scheduled evaluations per
 authenticated user per UTC day without introducing billing or entitlements.
 Automatic dispatch is default-off and production-rejected until a separately
-approved rollout; fresh hosted checks must pass before 20C is merge-ready.
-Local preview requires an outbound trusted worker and scheduler process.
+approved rollout. PR #23 remains deliberately draft. Local preview requires an
+outbound trusted worker and scheduler process.
 
 Core outcomes:
 
