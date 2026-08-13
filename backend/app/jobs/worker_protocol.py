@@ -42,6 +42,7 @@ from app.models.user import UserModel
 from app.models.vast_session import VastSessionModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
 from app.services.analysis_service import persist_async_analysis_completion
+from app.scheduling.lifecycle import synchronize_schedule_occurrence
 
 
 @dataclass(frozen=True)
@@ -325,6 +326,7 @@ def complete_job(
     job.progress_percent = 100
     job.progress_message = "Worker completed the job."
     transition_job(db, job, "completed", worker_id=identity.worker.id, message="Worker completed the job.")
+    synchronize_schedule_occurrence(db, job, "completed")
     attempt.ended_at = datetime.now(UTC)
     attempt.outcome = "completed"
     _clear_lease(job)
@@ -385,6 +387,7 @@ def fail_job(
             metadata={"error_code": job.error_code, "error_category": request.error_category},
         )
         attempt.outcome = "retry_wait"
+        synchronize_schedule_occurrence(db, job, "queued", reason="retry_scheduled")
         if should_reconcile:
             _mark_provider_reservation_reconciliation_required(db, job)
         move_running_capacity_to_pending(db, job)
@@ -403,6 +406,7 @@ def fail_job(
             metadata={"error_code": job.error_code},
         )
         attempt.outcome = "dead_letter"
+        synchronize_schedule_occurrence(db, job, "failed", reason=job.error_code)
         release_running_capacity(db, job)
         if job.job_type == "analysis.generate" and job.owner_user_id is not None:
             terminal_analytics_failure = (
@@ -449,6 +453,7 @@ def release_job(db: Session, identity: WorkerIdentity, job_id: str, request: Wor
     if job.status not in {"leased", "running"}:
         raise HTTPException(status_code=409, detail="Job cannot be released from its current state.")
     transition_job(db, job, "retry_wait", worker_id=identity.worker.id, message="Worker released the lease for retry.")
+    synchronize_schedule_occurrence(db, job, "queued", reason="lease_released")
     attempt.ended_at = datetime.now(UTC)
     attempt.outcome = "released"
     move_running_capacity_to_pending(db, job)
@@ -512,6 +517,7 @@ def recover_expired_jobs(
                 attempt.outcome = "lease_expired_dead_letter"
             release_running_capacity(db, job)
             _clear_lease(job)
+            synchronize_schedule_occurrence(db, job, "failed", reason="lease_expired")
         else:
             attempt = _attempt_for_lease(db, job)
             _cleanup_knowledge_job_outputs(db, job, retryable=True, terminal=False)
@@ -522,6 +528,7 @@ def recover_expired_jobs(
             move_running_capacity_to_pending(db, job)
             job.available_at = timestamp + timedelta(seconds=_retry_delay_seconds(job.attempt_count, job.id))
             _clear_lease(job)
+            synchronize_schedule_occurrence(db, job, "queued", reason="lease_expired_retry")
         recovered += 1
     return recovered
 
@@ -691,6 +698,7 @@ def _fail_revoked_job(db: Session, job: JobModel) -> None:
     job.error_summary = "Job authorization was revoked before worker execution."
     _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
     _release_capacity(db, job)
+    synchronize_schedule_occurrence(db, job, "denied", reason="authorization_revoked")
 
 
 def _job_schema_is_supported(job: JobModel) -> bool:
@@ -717,6 +725,7 @@ def _fail_unsupported_schema_job(db: Session, job: JobModel) -> None:
     job.error_code = "unsupported_schema"
     job.error_summary = "Job input schema is unsupported and was not executed."
     _release_capacity(db, job)
+    synchronize_schedule_occurrence(db, job, "failed", reason="unsupported_schema")
 
 
 def _expire_queued_job(db: Session, job: JobModel) -> None:
@@ -725,6 +734,7 @@ def _expire_queued_job(db: Session, job: JobModel) -> None:
     job.error_code = "queue_expired"
     job.error_summary = "No eligible worker accepted the job before its queue deadline."
     _release_capacity(db, job)
+    synchronize_schedule_occurrence(db, job, "failed", reason="queue_expired")
 
 
 def _cancel_leased_job(
@@ -741,6 +751,7 @@ def _cancel_leased_job(
     _cleanup_provider_for_terminal_job(db, job, perform_external_cleanup=perform_external_cleanup)
     _finalize_provider_cost(db, job)
     transition_job(db, job, "cancelled", worker_id=worker_id, message="Worker acknowledged job cancellation.")
+    synchronize_schedule_occurrence(db, job, "cancelled", reason="job_cancelled")
     if attempt:
         attempt.ended_at = datetime.now(UTC)
         attempt.outcome = "cancelled"

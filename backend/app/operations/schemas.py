@@ -26,6 +26,9 @@ class OperationsMonitoringResponse(BaseModel):
     stale_workers: int = Field(ge=0)
     overdue_active_workers: int = Field(ge=0)
     provider_cleanup_failures: int = Field(ge=0)
+    active_monitoring_schedules: int = Field(ge=0)
+    due_monitoring_schedules: int = Field(ge=0)
+    schedule_dispatch_enabled: bool
     retrieval_events: int = Field(ge=0)
     retrieval_empty_rate_percent: float | None = Field(default=None, ge=0, le=100)
     retrieval_average_latency_ms: float | None = Field(default=None, ge=0)
