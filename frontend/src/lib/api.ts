@@ -21,6 +21,10 @@ import type {
   WatchlistItemUpdate,
   WatchlistItemsResponse,
   WatchlistUpdateResponse,
+  MonitoringScheduleActionResponse,
+  MonitoringScheduleCreateRequest,
+  MonitoringScheduleRunsResponse,
+  MonitoringSchedulesResponse,
   AlertEventsResponse,
   AlertStatus,
   AlertStatusUpdateResponse,
@@ -890,6 +894,77 @@ export async function fetchAlertEvents(): Promise<AlertEventsResponse> {
     throw new Error(`Alert fetch failed with status ${response.status}`);
   }
 
+  return response.json();
+}
+
+export async function fetchMonitoringSchedules(): Promise<MonitoringSchedulesResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/schedules`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Monitoring schedules could not be loaded."));
+  }
+  return response.json();
+}
+
+export async function createMonitoringSchedule(
+  payload: MonitoringScheduleCreateRequest
+): Promise<MonitoringScheduleActionResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/schedules`, {
+    method: "POST",
+    ...requestInit({
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(payload)
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Monitoring schedule could not be created."));
+  }
+  return response.json();
+}
+
+export async function pauseMonitoringSchedule(scheduleId: string): Promise<MonitoringScheduleActionResponse> {
+  return changeMonitoringSchedule(scheduleId, "pause");
+}
+
+export async function resumeMonitoringSchedule(scheduleId: string): Promise<MonitoringScheduleActionResponse> {
+  return changeMonitoringSchedule(scheduleId, "resume");
+}
+
+export async function deleteMonitoringSchedule(scheduleId: string): Promise<MonitoringScheduleActionResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/schedules/${scheduleId}`, {
+    method: "DELETE",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Monitoring schedule could not be deleted."));
+  }
+  return response.json();
+}
+
+export async function fetchMonitoringScheduleRuns(scheduleId: string): Promise<MonitoringScheduleRunsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/schedules/${scheduleId}/runs`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Monitoring schedule history could not be loaded."));
+  }
+  return response.json();
+}
+
+async function changeMonitoringSchedule(
+  scheduleId: string,
+  action: "pause" | "resume"
+): Promise<MonitoringScheduleActionResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/schedules/${scheduleId}/${action}`, {
+    method: "POST",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Monitoring schedule could not be ${action}d.`));
+  }
   return response.json();
 }
 

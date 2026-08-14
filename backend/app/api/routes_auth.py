@@ -40,8 +40,10 @@ from app.models.knowledge import (
 )
 from app.knowledge.service import tombstone_knowledge_for_account
 from app.models.watchlist_item import WatchlistItemModel
+from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.quotas.service import usage_summary
 from app.product_analytics.service import dispose_product_analytics_for_account
+from app.scheduling.service import dispose_schedules_for_account_deletion
 from app.core.config import get_settings
 
 router = APIRouter(tags=["auth"])
@@ -145,6 +147,21 @@ def export_account(
         .where(ProductAnalyticsEventModel.owner_user_id == current_user.id)
         .order_by(ProductAnalyticsEventModel.occurred_at)
     ).scalars().all()
+    monitoring_schedules = db.execute(
+        select(MonitoringScheduleModel)
+        .where(MonitoringScheduleModel.owner_user_id == current_user.id)
+        .order_by(MonitoringScheduleModel.created_at.desc())
+    ).scalars().all()
+    monitoring_schedule_ids = [item.id for item in monitoring_schedules]
+    monitoring_schedule_runs = (
+        db.execute(
+            select(MonitoringScheduleOccurrenceModel)
+            .where(MonitoringScheduleOccurrenceModel.schedule_id.in_(monitoring_schedule_ids))
+            .order_by(MonitoringScheduleOccurrenceModel.scheduled_for.desc())
+        ).scalars().all()
+        if monitoring_schedule_ids
+        else []
+    )
     audits = db.execute(
         select(AccessAuditEventModel)
         .where(AccessAuditEventModel.actor_user_id == current_user.id)
@@ -356,6 +373,33 @@ def export_account(
             }
             for item in analytics_events
         ],
+        monitoring_schedules=[
+            {
+                "id": item.id,
+                "target_type": item.target_type,
+                "target_id": item.target_id,
+                "cadence": item.cadence,
+                "timezone": item.timezone,
+                "status": item.status,
+                "next_due_at": item.next_due_at,
+                "created_at": item.created_at,
+                "deleted_at": item.deleted_at,
+            }
+            for item in monitoring_schedules
+        ],
+        monitoring_schedule_runs=[
+            {
+                "id": item.id,
+                "schedule_id": item.schedule_id,
+                "scheduled_for": item.scheduled_for,
+                "status": item.status,
+                "reason": item.reason,
+                "job_id": item.job_id,
+                "created_at": item.created_at,
+                "completed_at": item.completed_at,
+            }
+            for item in monitoring_schedule_runs
+        ],
     )
     record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)
     return response
@@ -405,6 +449,7 @@ def delete_account(
     user.email = f"deleted-{user.id}@deleted.local"
     user.updated_at = now
     tombstone_knowledge_for_account(db, current_user.id, now=now)
+    dispose_schedules_for_account_deletion(db, current_user.id, now=now)
     dispose_jobs_for_account_deletion(db, current_user.id, now=now)
     dispose_product_analytics_for_account(db, current_user.id)
     db.commit()

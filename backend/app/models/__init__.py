@@ -33,6 +33,7 @@ from app.models.product_analytics import (
 )
 from app.models.review_item import ReviewItemModel
 from app.models.saved_thesis import SavedThesisModel
+from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.source_watch import SourceWatchModel
 from app.models.usage_quota import UsageQuotaModel
 from app.models.watchlist_item import WatchlistItemModel
@@ -77,6 +78,8 @@ __all__ = [
     "ProductAnalyticsEventModel",
     "ReviewItemModel",
     "SavedThesisModel",
+    "MonitoringScheduleModel",
+    "MonitoringScheduleOccurrenceModel",
     "SourceWatchModel",
     "UsageQuotaModel",
     "UserModel",

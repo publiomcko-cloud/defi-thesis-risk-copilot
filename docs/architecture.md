@@ -712,6 +712,30 @@ boundary is
 [`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
 Qualified privacy/legal review remains blocked for production activation.
 
+Phase 20C adds a separate durable monitoring domain without changing Phase 16
+ownership or Phase 17 job authority. `monitoring_schedules` is a private
+user-owned projection limited to the code-owned `watchlist.evaluate` target;
+`monitoring_schedule_occurrences` records a unique `(schedule_id,
+scheduled_for)` execution identity and optional Phase 17 job link. The
+dispatcher derives all timing, owner, target, job input, quota/capacity and
+zero-cost deterministic execution context on the server. Schedule routes fail
+closed when deployment authentication is disabled and never fall back to the
+public/demo identity. It locks the owner
+before the schedule, uses PostgreSQL `SKIP LOCKED` for concurrent dispatchers,
+and commits each occurrence/job claim together. It reserves a fixed,
+server-owned, non-billable 120-per-user UTC-day quota for each newly created
+scheduled durable job; retries and recovery reuse that reservation. A
+worker-side evaluator can mark an occurrence running but cannot mark it
+successfully complete: the authoritative Phase 17 `complete_job()` transaction
+transitions the job and occurrence together. A paused/deleted schedule cancels
+or requests cancellation of its pending work, while a worker rechecks owner,
+schedule and target before evaluation. Daily/weekly cadence retains the
+selected IANA wall-clock intent across DST; hourly/six-hourly cadence uses
+elapsed UTC intervals. The local JSON RAG fallback, tenant boundaries and real
+Vast.ai disabled posture are unchanged. Dispatch remains feature-gated and
+production-disabled; the scheduler is an outbound process, never a browser or
+web-request timer.
+
 ---
 
 ## 20. Phase 21 target — model/research expansion

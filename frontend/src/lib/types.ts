@@ -297,6 +297,9 @@ export type OperationsMonitoring = {
   stale_workers: number;
   overdue_active_workers: number;
   provider_cleanup_failures: number;
+  active_monitoring_schedules: number;
+  due_monitoring_schedules: number;
+  schedule_dispatch_enabled: boolean;
   retrieval_events: number;
   retrieval_empty_rate_percent?: number | null;
   retrieval_average_latency_ms?: number | null;
@@ -687,6 +690,67 @@ export type WatchlistEvaluationResponse = {
   watchlist_item: WatchlistItem;
   created_alerts: AlertEvent[];
   evaluated_rules: string[];
+};
+
+export type MonitoringScheduleCadence = "hourly" | "six_hourly" | "daily" | "weekly";
+export type MonitoringScheduleStatus = "active" | "paused" | "deleted";
+export type MonitoringScheduleRunStatus =
+  | "claimed"
+  | "queued"
+  | "running"
+  | "completed"
+  | "failed"
+  | "denied"
+  | "missed"
+  | "cancel_requested"
+  | "cancelled";
+
+export type MonitoringSchedule = {
+  id: string;
+  target_type: "watchlist.evaluate";
+  target_id: string;
+  cadence: MonitoringScheduleCadence;
+  timezone: string;
+  status: MonitoringScheduleStatus;
+  next_due_at: string;
+  paused_at?: string | null;
+  last_dispatched_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  dispatch_enabled: boolean;
+};
+
+export type MonitoringScheduleRun = {
+  id: string;
+  scheduled_for: string;
+  status: MonitoringScheduleRunStatus;
+  reason?: string | null;
+  job_id?: string | null;
+  job_status?: JobStatus | null;
+  claimed_at?: string | null;
+  dispatched_at?: string | null;
+  completed_at?: string | null;
+  created_at: string;
+};
+
+export type MonitoringScheduleCreateRequest = {
+  target_type: "watchlist.evaluate";
+  target_id: string;
+  cadence: MonitoringScheduleCadence;
+  timezone: string;
+};
+
+export type MonitoringScheduleActionResponse = {
+  schedule: MonitoringSchedule;
+};
+
+export type MonitoringSchedulesResponse = {
+  items: MonitoringSchedule[];
+  dispatch_enabled: boolean;
+};
+
+export type MonitoringScheduleRunsResponse = {
+  items: MonitoringScheduleRun[];
 };
 
 export type AlertEventsResponse = {

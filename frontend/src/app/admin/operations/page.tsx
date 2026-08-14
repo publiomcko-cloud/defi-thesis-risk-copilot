@@ -83,6 +83,9 @@ function PrivateOperationsAdminPage() {
                 <Metric label="Active workers" value={String(monitoring.active_workers)} />
                 <Metric label="Stale workers" value={String(monitoring.stale_workers + monitoring.overdue_active_workers)} />
                 <Metric label="Provider cleanup failures" value={String(monitoring.provider_cleanup_failures)} />
+                <Metric label="Active schedules" value={String(monitoring.active_monitoring_schedules)} />
+                <Metric label="Due schedules" value={String(monitoring.due_monitoring_schedules)} />
+                <Metric label="Schedule dispatch" value={String(monitoring.schedule_dispatch_enabled)} />
               </div>
             </section>
             <section className="panel">

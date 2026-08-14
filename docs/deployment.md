@@ -1113,6 +1113,38 @@ the qualified privacy/legal activation gate is changed in a separately reviewed
 task. Later Phase 20 slices may deploy other capabilities only after their own
 human and provider gates are approved.
 
+### Phase 20C durable schedule preview
+
+Migration `20260813_0024` creates `monitoring_schedules` and
+`monitoring_schedule_occurrences`. It is safe to deploy with dispatch disabled:
+
+```env
+SCHEDULE_DISPATCH_ENABLED=false
+SCHEDULE_DISPATCH_BATCH_SIZE=25
+SCHEDULE_HISTORY_RETENTION_DAYS=30
+SCHEDULE_DISPATCH_POLL_SECONDS=5
+```
+
+Do not enable `SCHEDULE_DISPATCH_ENABLED` in production. The configuration
+validator fails closed there until Phase 20C approval and deployed evidence are
+recorded. Local isolated preview also requires `JOBS_ENABLED=true`,
+`WORKER_API_ENABLED=true`, a scoped outbound worker credential, and a worker
+registered for `watchlist.evaluate`. Start the non-public dispatcher only in
+that environment:
+
+```bash
+docker compose --profile worker --profile scheduler up -d --build
+# Or perform one bounded local preview batch:
+cd backend && python -m scripts.dispatch_schedules --once
+```
+
+The scheduler has no inbound port. Pause/delete preserves run history and
+cancels or requests cancellation for linked pending work. Rollback first sets
+`SCHEDULE_DISPATCH_ENABLED=false`, then stops the scheduler; this leaves
+schedules, occurrences and jobs intact for inspection and cleanup. Downgrade
+`0024` only after schedule data has been retained/exported or deliberately
+disposed, because dropping the tables discards their history.
+
 ### Phase 21
 
 Deploy evaluated model registry/routing and safe worker-based model execution with rollback and cost/privacy controls.

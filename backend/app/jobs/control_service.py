@@ -34,7 +34,14 @@ from app.models.usage_quota import UsageQuotaModel
 from app.models.user import UserModel
 from app.models.vast_session import VastSessionModel
 from app.models.worker import WorkerModel
-from app.quotas.service import ACTION_ANALYSIS, _day_window, _limit_for
+from app.quotas.service import (
+    ACTION_ANALYSIS,
+    ACTION_SCHEDULED_WATCHLIST_EVALUATION,
+    SCHEDULED_WATCHLIST_EVALUATIONS_PER_DAY,
+    _day_window,
+    _limit_for,
+    reserve_server_daily_user_quota,
+)
 
 
 PENDING_JOB_STATUSES = {"queued", "leased", "retry_wait", "cancel_requested"}
@@ -71,7 +78,10 @@ def submit_job(
     allow_provider_job: bool = False,
     allow_document_ingest: bool = False,
     allow_document_embedding: bool = False,
+    allow_scheduled_watchlist: bool = False,
     before_commit: Callable[[JobModel], None] | None = None,
+    commit: bool = True,
+    extra_server_context: dict[str, str] | None = None,
 ) -> tuple[JobModel, bool]:
     """Create one queued job and its reservation in a single database transaction.
 
@@ -87,12 +97,46 @@ def submit_job(
         raise HTTPException(status_code=403, detail="Document ingestion requires the dedicated source endpoint.")
     if request.job_type == "document.embed" and not allow_document_embedding:
         raise HTTPException(status_code=403, detail="Document embedding requires the dedicated source endpoint.")
+    if request.job_type == "watchlist.evaluate" and not allow_scheduled_watchlist:
+        raise HTTPException(status_code=403, detail="Watchlist evaluation jobs require the durable schedule dispatcher.")
+    if extra_server_context and request.job_type != "watchlist.evaluate":
+        raise HTTPException(status_code=403, detail="Additional server context is not allowed for this job type.")
     if len(idempotency_key.strip()) < 8 or len(idempotency_key) > 128:
         raise HTTPException(status_code=422, detail="Idempotency-Key must be between 8 and 128 characters.")
     _validate_submission_input(request.input_json)
     validate_submission_schema(request.job_type, request.input_schema_version, request.input_json)
     scope = _resolve_scope(db, actor, request.organization_id)
     fingerprint = _request_fingerprint(request, scope["organization_id"])
+
+    if not commit:
+        existing = _idempotent_job(db, scope, request.job_type, idempotency_key)
+        if existing is not None:
+            if existing.request_fingerprint != fingerprint:
+                raise HTTPException(status_code=409, detail="Idempotency conflict: the key was used with different input.")
+            return existing, True
+        job = _create_reserved_job(
+            db,
+            actor=actor,
+            request=request,
+            scope=scope,
+            idempotency_key=idempotency_key,
+            fingerprint=fingerprint,
+            replay_of_job_id=replay_of_job_id,
+            created_by_user_id=created_by_user_id or actor.id,
+            extra_server_context=extra_server_context,
+        )
+        record_audit_event(
+            db,
+            created_by_user_id or actor.id,
+            "job.replayed" if replay_of_job_id else "job.submitted",
+            "job",
+            job.id,
+            {"job_type": job.job_type, "organization_id": job.organization_id, "replay_of_job_id": replay_of_job_id},
+            commit=False,
+        )
+        if before_commit is not None:
+            before_commit(job)
+        return job, False
 
     for _ in range(3):
         existing = _idempotent_job(db, scope, request.job_type, idempotency_key)
@@ -110,6 +154,7 @@ def submit_job(
                 fingerprint=fingerprint,
                 replay_of_job_id=replay_of_job_id,
                 created_by_user_id=created_by_user_id or actor.id,
+                extra_server_context=extra_server_context,
             )
             record_audit_event(
                 db,
@@ -381,6 +426,7 @@ def _create_reserved_job(
     fingerprint: str,
     replay_of_job_id: str | None,
     created_by_user_id: str,
+    extra_server_context: dict[str, str] | None = None,
 ) -> JobModel:
     _validate_enabled_job_type(request.job_type)
     estimated_cost_microusd = _estimated_job_cost_microusd(request.job_type)
@@ -399,6 +445,7 @@ def _create_reserved_job(
             "submitted_by_user_id": created_by_user_id,
             "correlation_id": correlation_id,
             **extra_context,
+            **(extra_server_context or {}),
         },
     }
     job = JobModel(
@@ -683,6 +730,17 @@ def _create_provider_cost_reservation(db: Session, job: JobModel, now: datetime)
 
 
 def _reserve_quota(db: Session, actor: UserContext, job_type: str) -> None:
+    if job_type == "watchlist.evaluate":
+        # This non-billable Phase 20C guard applies only to dispatcher-created
+        # durable jobs. It intentionally runs before the admin exemption so the
+        # maximum theoretical five-hourly-schedule volume is fixed per owner.
+        reserve_server_daily_user_quota(
+            db,
+            actor,
+            action=ACTION_SCHEDULED_WATCHLIST_EVALUATION,
+            limit=SCHEDULED_WATCHLIST_EVALUATIONS_PER_DAY,
+        )
+        return
     if actor.is_admin and get_settings().quota_admin_exempt:
         return
     if job_type in {"document.ingest", "document.embed"}:
@@ -734,6 +792,8 @@ def _validate_enabled_job_type(job_type: str) -> None:
         return
     if job_type == "document.embed" and get_settings().knowledge_embeddings_enabled:
         return
+    if job_type == "watchlist.evaluate" and get_settings().schedule_dispatch_enabled:
+        return
     raise HTTPException(status_code=403, detail="This job type is not enabled.")
 
 
@@ -751,6 +811,8 @@ def _preallocate_result_resource(job_type: str) -> tuple[str, str, dict[str, str
         return "knowledge_document_version", "pending", {}
     if job_type == "document.embed":
         return "knowledge_embedding_generation", "pending", {}
+    if job_type == "watchlist.evaluate":
+        return "watchlist_item", "pending", {}
     raise HTTPException(status_code=403, detail="This job type is not enabled.")
 
 

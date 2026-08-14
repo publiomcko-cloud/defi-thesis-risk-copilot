@@ -20,6 +20,18 @@ const state = {
   mfaFactors: [],
   knowledgeSources: [],
   knowledgeDocuments: [],
+  watchlist: [{
+    id: "watch-browser-1",
+    item_type: "strategy",
+    title: "Browser monitoring target",
+    protocol: "aave",
+    rules: { borrow_apy_above_threshold: 0.08 },
+    snapshot: { borrow_apy: 0.1 },
+    enabled: true,
+    created_at: now,
+    last_evaluated_at: null
+  }],
+  schedules: [],
   jobs: [
     {
       id: "job-browser-queued",
@@ -122,7 +134,7 @@ try {
   );
   assert(state.backendTokens.includes("access-owner-refreshed"), "BFF must forward the refreshed access token");
   assert(state.supabaseCookies.every((cookie) => cookie === ""), "browser cookies must not reach Supabase Auth");
-  console.log("Browser E2E passed: anonymous, BFF session, jobs, account privacy preferences, thesis, organization, knowledge workspace, recovery, MFA, and mobile flows.");
+  console.log("Browser E2E passed: anonymous, BFF session, jobs, schedules, account privacy preferences, thesis, organization, knowledge workspace, recovery, MFA, and mobile flows.");
 } catch (error) {
   await mkdir(artifactsDirectory, { recursive: true });
   if (activePage) {
@@ -209,6 +221,18 @@ async function runAuthenticatedFlow(browserInstance) {
   await page.getByRole("button", { name: "Cancel job" }).click();
   await page.getByText("cancelled", { exact: true }).waitFor();
   await page.getByRole("link", { name: "Open report" }).waitFor();
+
+  await page.goto(`${appOrigin}/schedules`);
+  await page.getByRole("heading", { name: "Schedules", exact: true }).waitFor();
+  await page.getByRole("button", { name: "Create schedule" }).click();
+  await page.getByText("Monitoring schedule created.").waitFor();
+  await page.getByText("watch-browser-1").waitFor();
+  await page.getByRole("button", { name: "Runs" }).click();
+  await page.getByText("No runs have been recorded yet.").waitFor();
+  await page.getByRole("button", { name: "Pause" }).click();
+  await page.getByText("Monitoring schedule paused.").waitFor();
+  await page.getByRole("button", { name: "Resume" }).click();
+  await page.getByText("Monitoring schedule resumed.").waitFor();
 
   await page.goto(`${appOrigin}/account`);
   const analyticsSwitch = page.getByRole("switch", { name: "Share optional product events" });
@@ -457,6 +481,47 @@ function handleBackend(method, url, payload, token, cookie, response) {
   }
   if (method === "GET" && url.pathname === "/api/jobs") {
     return send(response, 200, { items: state.jobs });
+  }
+  if (method === "GET" && url.pathname === "/api/watchlist/items") {
+    return send(response, 200, { items: state.watchlist });
+  }
+  if (method === "GET" && url.pathname === "/api/schedules") {
+    return send(response, 200, { items: state.schedules, dispatch_enabled: true });
+  }
+  if (method === "POST" && url.pathname === "/api/schedules") {
+    const schedule = {
+      id: `sched-browser-${state.schedules.length + 1}`,
+      target_type: "watchlist.evaluate",
+      target_id: payload.target_id,
+      cadence: payload.cadence,
+      timezone: payload.timezone,
+      status: "active",
+      next_due_at: now,
+      paused_at: null,
+      last_dispatched_at: null,
+      created_at: now,
+      updated_at: now,
+      dispatch_enabled: false
+    };
+    state.schedules.push(schedule);
+    return send(response, 201, { schedule });
+  }
+  if (method === "GET" && /^\/api\/schedules\/[^/]+\/runs$/.test(url.pathname)) {
+    return send(response, 200, { items: [] });
+  }
+  if (method === "POST" && /^\/api\/schedules\/[^/]+\/(pause|resume)$/.test(url.pathname)) {
+    const [, , , scheduleId, action] = url.pathname.split("/");
+    const schedule = state.schedules.find((item) => item.id === scheduleId);
+    if (!schedule) return send(response, 404, { detail: "Monitoring schedule not found" });
+    schedule.status = action === "pause" ? "paused" : "active";
+    return send(response, 200, { schedule });
+  }
+  if (method === "DELETE" && /^\/api\/schedules\/[^/]+$/.test(url.pathname)) {
+    const scheduleId = url.pathname.split("/").pop();
+    const schedule = state.schedules.find((item) => item.id === scheduleId);
+    if (!schedule) return send(response, 404, { detail: "Monitoring schedule not found" });
+    schedule.status = "deleted";
+    return send(response, 200, { schedule });
   }
   if (method === "GET" && /^\/api\/jobs\/[^/]+\/events$/.test(url.pathname)) {
     const jobId = url.pathname.split("/")[3];

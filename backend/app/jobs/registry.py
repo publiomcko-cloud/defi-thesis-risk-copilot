@@ -155,7 +155,52 @@ def _document_embed_result(value: dict) -> None:
         raise HTTPException(status_code=422, detail="document.embed result values are invalid.")
 
 
+def _watchlist_evaluate_input(value: dict) -> None:
+    if set(value) != {"watchlist_item_id"}:
+        raise HTTPException(status_code=422, detail="watchlist.evaluate input must contain only watchlist_item_id.")
+    item_id = value["watchlist_item_id"]
+    if not isinstance(item_id, str) or not item_id.startswith("watch_") or len(item_id) > 64:
+        raise HTTPException(status_code=422, detail="watchlist.evaluate watchlist item is invalid.")
+
+
+def _watchlist_evaluate_result(value: dict) -> None:
+    required = {"watchlist_item_id", "evaluated_rule_count", "created_alert_count", "scheduled_for"}
+    if set(value) != required:
+        raise HTTPException(status_code=422, detail="watchlist.evaluate result shape is invalid.")
+    if (
+        not isinstance(value["watchlist_item_id"], str)
+        or not value["watchlist_item_id"].startswith("watch_")
+        or not isinstance(value["evaluated_rule_count"], int)
+        or isinstance(value["evaluated_rule_count"], bool)
+        or value["evaluated_rule_count"] < 0
+        or not isinstance(value["created_alert_count"], int)
+        or isinstance(value["created_alert_count"], bool)
+        or value["created_alert_count"] < 0
+        or not isinstance(value["scheduled_for"], str)
+        or len(value["scheduled_for"]) > 64
+    ):
+        raise HTTPException(status_code=422, detail="watchlist.evaluate result values are invalid.")
+
+
 JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
+    "watchlist.evaluate": JobTypeSpec(
+        job_type="watchlist.evaluate",
+        input_schema_versions=frozenset({"watchlist.evaluate.v1"}),
+        result_schema_versions=frozenset({"watchlist.evaluate.v1"}),
+        input_validator=_watchlist_evaluate_input,
+        result_validator=_watchlist_evaluate_result,
+        executor_name="watchlist_evaluate",
+        cost_estimator_name="deterministic_zero_cost",
+        retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
+        accepted_failure_categories=frozenset(
+            {
+                JobErrorCategory.PERMANENT_INPUT,
+                JobErrorCategory.PERMANENT_AUTHORIZATION,
+                JobErrorCategory.RETRYABLE_INFRASTRUCTURE,
+            }
+        ),
+        requires_provider=False,
+    ),
     "analysis.generate": JobTypeSpec(
         job_type="analysis.generate",
         input_schema_versions=frozenset({"analysis.generate.v1"}),
@@ -265,4 +310,8 @@ def executor_for_job_type(job_type: str):
         from app.knowledge.embedding_executor import DocumentEmbedJobExecutor
 
         return DocumentEmbedJobExecutor()
+    if spec.executor_name == "watchlist_evaluate":
+        from app.scheduling.executor import WatchlistEvaluationJobExecutor
+
+        return WatchlistEvaluationJobExecutor()
     raise HTTPException(status_code=422, detail="No durable executor is registered for this job type.")

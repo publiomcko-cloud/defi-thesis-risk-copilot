@@ -24,6 +24,7 @@ from app.models.user import UserModel
 from app.models.watchlist_item import WatchlistItemModel
 from app.models.worker import WorkerCredentialModel
 from app.jobs.constants import TERMINAL_JOB_STATUSES
+from app.scheduling.service import cleanup_expired_schedule_history
 
 
 def main() -> int:
@@ -152,6 +153,7 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
             if analytics_deleted_user_ids
             else 0
         )
+        counts.update(cleanup_expired_schedule_history(db, now=now, apply=False))
         if dry_run:
             return counts
         expired_watchlist_ids = [
@@ -247,6 +249,7 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
                     PrivacyPreferenceDecisionModel.user_id.in_(analytics_deleted_user_ids)
                 )
             )
+        cleanup_expired_schedule_history(db, now=now, apply=True)
         db.commit()
     return counts
 

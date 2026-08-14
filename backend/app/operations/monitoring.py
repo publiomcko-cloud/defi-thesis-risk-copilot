@@ -16,6 +16,7 @@ from app.core.config import Settings, get_settings
 from app.jobs.control_service import job_operations_summary
 from app.models.job import JobModel
 from app.models.knowledge import KnowledgeRetrievalEventModel
+from app.models.scheduled_monitoring import MonitoringScheduleModel
 from app.models.worker import WorkerModel
 from app.operations.schemas import MonitoringAlertResponse, OperationsMonitoringResponse
 from app.rag.vector_store import JsonVectorStore
@@ -54,6 +55,25 @@ def operations_monitoring_snapshot(
     overdue_active_workers = _overdue_active_workers(db, settings, now)
     retrieval = _retrieval_metrics(db, settings, now)
     storage_state = _knowledge_storage_state(settings)
+    active_monitoring_schedules = int(
+        db.execute(
+            select(func.count())
+            .select_from(MonitoringScheduleModel)
+            .where(MonitoringScheduleModel.status == "active")
+            .where(MonitoringScheduleModel.deleted_at.is_(None))
+        ).scalar_one()
+        or 0
+    )
+    due_monitoring_schedules = int(
+        db.execute(
+            select(func.count())
+            .select_from(MonitoringScheduleModel)
+            .where(MonitoringScheduleModel.status == "active")
+            .where(MonitoringScheduleModel.deleted_at.is_(None))
+            .where(MonitoringScheduleModel.next_due_at <= now)
+        ).scalar_one()
+        or 0
+    )
     alerts = _evaluate_alerts(
         settings,
         database_ready=database_ready,
@@ -86,6 +106,9 @@ def operations_monitoring_snapshot(
         stale_workers=operations.stale_workers,
         overdue_active_workers=overdue_active_workers,
         provider_cleanup_failures=operations.provider_cleanup_failures,
+        active_monitoring_schedules=active_monitoring_schedules,
+        due_monitoring_schedules=due_monitoring_schedules,
+        schedule_dispatch_enabled=settings.schedule_dispatch_enabled,
         retrieval_events=retrieval.events,
         retrieval_empty_rate_percent=retrieval.empty_rate_percent,
         retrieval_average_latency_ms=retrieval.average_latency_ms,

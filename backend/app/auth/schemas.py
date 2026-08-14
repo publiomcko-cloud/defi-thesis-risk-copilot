@@ -88,6 +88,8 @@ class AccountExportResponse(BaseModel):
     privacy_preferences: list[dict] = Field(default_factory=list)
     privacy_preference_decisions: list[dict] = Field(default_factory=list)
     product_analytics_events: list[dict] = Field(default_factory=list)
+    monitoring_schedules: list[dict] = Field(default_factory=list)
+    monitoring_schedule_runs: list[dict] = Field(default_factory=list)
 
 
 class AccountDeleteRequest(BaseModel):

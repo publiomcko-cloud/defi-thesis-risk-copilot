@@ -507,7 +507,7 @@ assistive-technology, or chaos-test evidence.
 
 ## 9. Phase 20 validation
 
-Phase 20 is in progress with Phase 20B locally implemented. Its validation
+Phase 20 is in progress with Phase 20B and 20C locally implemented. Its validation
 authority is
 [`phase_20_execution_plan.md`](phase_20_execution_plan.md).
 
@@ -574,6 +574,41 @@ includes:
 - billing sandbox signature, replay, out-of-order, lifecycle, portal, and rollback behavior;
 - organization invitation, seat, owner-transfer, billing-contact, export, deletion, audit, and concurrency boundaries;
 - support, status, feedback, abuse, and privacy-request ownership and retention.
+
+### Phase 20C durable schedule coverage
+
+Phase 20C requires SQLite/API and PostgreSQL coverage for authenticated owner
+isolation, the five-active-schedule entitlement, fixed UTC hourly cadence,
+calendar daily/weekly DST behavior, pause/resume/delete idempotency, unique
+occurrence/job identity, public/demo authentication rejection,
+deployment-disabled dispatch, authorization/target/capacity/scheduled-quota
+denial, worker execution/retry history, authoritative control-plane completion,
+lease-loss recovery without false successful occurrences, 30-day retention,
+account export/deletion hooks, migration rollback, and a browser schedule
+workspace flow. The PostgreSQL suite must prove concurrent dispatch has exactly
+one winner, a concurrent dispatcher cannot exceed the 120-per-user UTC-day
+scheduled-run quota, final lease expiry records a failed occurrence, and pause
+or delete racing dispatch leaves no executable scheduled work.
+
+Focused commands:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase20c_scheduled_monitoring.py \
+  app/tests/test_phase20c_migration.py
+RUN_POSTGRES_INTEGRATION=true \
+  python -m pytest -q app/tests/test_phase20c_postgres_schedules.py
+
+cd ../frontend
+npm run lint
+npm run build
+npm run test:e2e
+```
+
+Production dispatch remains an external activation gate. Local/CI proof must
+not be described as worker, scheduler, alert-delivery, or customer-data
+production evidence.
 
 No provider test may use production customer data or be treated as provider
 selection before its ADR is approved.
