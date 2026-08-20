@@ -56,6 +56,17 @@ def transition_job(
         worker_id=worker_id,
         metadata={"previous_status": previous_status, **(metadata or {})},
     )
+    if target_status in {"completed", "failed", "cancelled", "dead_letter"}:
+        from app.notifications.service import emit_job_notification
+
+        emit_job_notification(
+            db,
+            owner_user_id=job.owner_user_id,
+            organization_id=job.organization_id,
+            job_id=job.id,
+            status=target_status,
+            occurred_at=now,
+        )
     db.flush()
     return job
 

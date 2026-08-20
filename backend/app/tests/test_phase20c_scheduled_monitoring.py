@@ -17,6 +17,7 @@ from app.jobs.schemas import WorkerClaimedJob, WorkerLeaseRequest
 from app.jobs.worker_protocol import WorkerIdentity, claim_next_job, complete_job, recover_expired_jobs, start_job
 from app.main import app
 from app.models.job import JobCapacityReservationModel, JobModel
+from app.models.notification import NotificationModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.usage_quota import UsageQuotaModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
@@ -401,6 +402,13 @@ def test_authoritative_worker_completion_marks_job_and_occurrence_completed(sche
         assert db.get(JobModel, claimed.id).status == "completed"
         assert occurrence.status == "completed"
         assert occurrence.completed_at is not None
+        notifications = db.execute(
+            select(NotificationModel).where(NotificationModel.source_id.in_([claimed.id, occurrence.id]))
+        ).scalars().all()
+        assert {(item.category, item.source_id) for item in notifications} == {
+            ("job.status", claimed.id),
+            ("schedule.status", occurrence.id),
+        }
 
 
 def test_executor_success_before_lease_loss_recovers_to_queued_occurrence(schedule_client) -> None:
@@ -429,6 +437,7 @@ def test_executor_success_before_lease_loss_recovers_to_queued_occurrence(schedu
         assert recovered.status == "queued"
         assert recovered.reason == "lease_expired_retry"
         assert recovered.completed_at is None
+        assert db.scalar(select(NotificationModel).where(NotificationModel.source_id == claimed.id)) is None
         quota = db.execute(
             select(UsageQuotaModel)
             .where(UsageQuotaModel.action == ACTION_SCHEDULED_WATCHLIST_EVALUATION)
@@ -463,6 +472,13 @@ def test_final_attempt_lease_loss_after_executor_success_marks_occurrence_failed
         assert occurrence.status == "failed"
         assert occurrence.reason == "lease_expired"
         assert occurrence.completed_at is not None
+        terminal_notifications = db.execute(
+            select(NotificationModel).where(NotificationModel.source_id.in_([claimed.id, occurrence.id]))
+        ).scalars().all()
+        assert {(item.category, item.source_id) for item in terminal_notifications} == {
+            ("job.status", claimed.id),
+            ("schedule.status", occurrence.id),
+        }
 
 
 def test_delete_cancels_pending_work_and_execution_revalidates_owner(schedule_client) -> None:
@@ -596,6 +612,13 @@ def test_worker_loss_recovery_retries_one_schedule_job_without_duplicate_occurre
                 MonitoringScheduleOccurrenceModel.schedule_id == schedule_id
             )
         ) == occurrence.id
+        queued_notifications = db.execute(
+            select(NotificationModel).where(
+                NotificationModel.source_id == occurrence.id,
+                NotificationModel.template_id == "schedule.status.queued",
+            )
+        ).scalars().all()
+        assert len(queued_notifications) == 1
 
 
 def test_dst_calendar_rules_preserve_elapsed_hourly_and_calendar_daily_wall_time() -> None:

@@ -52,6 +52,10 @@ import type {
   OperationsMonitoring,
   JobEventsResponse,
   JobsResponse,
+  NotificationPreferenceResponse,
+  NotificationPreferenceUpdateRequest,
+  NotificationUnreadCountResponse,
+  NotificationsResponse,
   KnowledgeDocument,
   KnowledgeReadiness,
   KnowledgeSource,
@@ -411,6 +415,85 @@ export async function cancelJob(jobId: string): Promise<JobResponse> {
   });
   if (!response.ok) {
     throw new Error(await errorDetail(response, `Job cancellation failed with status ${response.status}`));
+  }
+  return response.json();
+}
+
+export async function fetchNotifications(): Promise<NotificationsResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/notifications`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Notifications could not be loaded."));
+  }
+  return response.json();
+}
+
+export async function fetchNotificationUnreadCount(): Promise<NotificationUnreadCountResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/notifications/unread-count`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Notification count could not be loaded."));
+  }
+  return response.json();
+}
+
+export async function markNotificationRead(notificationId: string): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/api/notifications/${notificationId}/read`, {
+    method: "POST",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Notification could not be marked read."));
+  }
+}
+
+export async function markNotificationUnread(notificationId: string): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/api/notifications/${notificationId}/unread`, {
+    method: "POST",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Notification could not be marked unread."));
+  }
+}
+
+export async function markAllNotificationsRead(): Promise<void> {
+  const response = await fetch(`${getApiBaseUrl()}/api/notifications/mark-all-read`, {
+    method: "POST",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Notifications could not be marked read."));
+  }
+}
+
+export async function fetchNotificationPreferences(): Promise<NotificationPreferenceResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/notifications/preferences`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Notification preferences could not be loaded."));
+  }
+  return response.json();
+}
+
+export async function updateNotificationPreferences(
+  payload: NotificationPreferenceUpdateRequest
+): Promise<NotificationPreferenceResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/notifications/preferences`, {
+    method: "PATCH",
+    ...requestInit({
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(payload)
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Notification preferences could not be updated."));
   }
   return response.json();
 }

@@ -163,6 +163,7 @@ Next.js frontend/BFF
   -> theses
   -> organizations/memberships
   -> watchlists/alerts
+  -> notifications/preferences
   -> discovery/review/admin tools
 
 FastAPI control plane
@@ -175,6 +176,7 @@ FastAPI control plane
   -> report persistence
   -> simulation/options
   -> organizations/theses/watchlists/alerts
+  -> server-owned notification projections
   -> quotas/account/consent/retention
   -> discovery/evaluation/review
   -> knowledge ingestion
@@ -186,6 +188,16 @@ Persistence
   -> curated Markdown sources
   -> local JSON RAG index in current phases
 ```
+
+### Notification authority
+
+In-app notifications are projections of existing server-side authorities, not a
+new decision engine. The approved Phase 20D registry maps watchlist alert,
+schedule occurrence, durable-job terminal, and account lifecycle events to
+bounded categories, severities, templates, source types, and same-origin
+navigation. Browser clients can list and mutate read/preference state only;
+they cannot create notification intents, choose recipients, forge severity or
+category, provide source identity, or grant access to linked resources.
 
 ---
 

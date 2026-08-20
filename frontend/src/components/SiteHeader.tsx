@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { fetchNotificationUnreadCount } from "@/lib/api";
+
 const publicLinks = [
   { href: "/demo", label: "Demo" },
   { href: "/analyze", label: "Analyze" },
@@ -16,6 +18,7 @@ const publicLinks = [
 
 const protectedLinks = [
   { href: "/account", label: "Account" },
+  { href: "/notifications", label: "Notifications" },
   { href: "/jobs", label: "Jobs" },
   { href: "/schedules", label: "Schedules" },
   { href: "/theses", label: "Theses" },
@@ -29,6 +32,7 @@ export function SiteHeader() {
   const pathname = usePathname();
   const publicDemoMode = process.env.NEXT_PUBLIC_PUBLIC_DEMO_MODE === "true";
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const refreshSession = useCallback(() => {
     if (publicDemoMode) {
       setAuthenticated(false);
@@ -36,7 +40,17 @@ export function SiteHeader() {
     }
     fetch("/api/auth/session", { cache: "no-store" })
       .then((response) => response.json())
-      .then((payload) => setAuthenticated(payload.authenticated === true))
+      .then((payload) => {
+        const isAuthenticated = payload.authenticated === true;
+        setAuthenticated(isAuthenticated);
+        if (isAuthenticated) {
+          void fetchNotificationUnreadCount()
+            .then((count) => setUnreadCount(count.unread_count))
+            .catch(() => setUnreadCount(0));
+        } else {
+          setUnreadCount(0);
+        }
+      })
       .catch(() => setAuthenticated(false));
   }, [publicDemoMode]);
 
@@ -65,7 +79,7 @@ export function SiteHeader() {
           const active = pathname === link.href || pathname.startsWith(`${link.href}/`);
           return (
             <Link aria-current={active ? "page" : undefined} href={link.href} key={link.href}>
-              {link.label}
+              {link.href === "/notifications" && unreadCount > 0 ? `${link.label} (${Math.min(unreadCount, 99)})` : link.label}
             </Link>
           );
         })}

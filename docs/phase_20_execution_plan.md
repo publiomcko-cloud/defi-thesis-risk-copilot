@@ -1,8 +1,8 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **In Progress — Phase 20C durable scheduled monitoring is locally complete after original and correction hosted CI passes; PR #23 remains draft; Phase 20A–20B complete**
+Status: **In Progress — Phase 20D in-app notifications implemented locally on its branch; Phase 20C remains locally complete with hosted correction CI passed**
 
-Branch: `agent/v1-phase-20c-durable-scheduled-monitoring`
+Branch: `agent/v1-phase-20d-in-app-notifications`
 
 Current authority:
 
@@ -71,7 +71,7 @@ Production analytics activation remains deferred to qualified productization rev
 
 Locally complete implementation slice. The original implementation and the
 authoritative-completion/scheduled-run-quota correction both passed hosted CI;
-PR #23 remains deliberately draft. Production dispatch remains disabled until
+it merged as `8aeb84cec0427765322cf44b3827eee319e8064e`. Production dispatch remains disabled until
 its documented concurrency, recovery, DST, lifecycle, rollback, worker, and
 approval evidence has been reviewed. It is not a production activation.
 
@@ -106,7 +106,7 @@ non-watchlist targets remain out of scope until later slices.
 
 ## 6. Phase 20D — In-app notifications
 
-Required after an approved alert/schedule outcome exists.
+Implementation slice active on `agent/v1-phase-20d-in-app-notifications`.
 
 Initial categories:
 
@@ -117,9 +117,33 @@ Initial categories:
 
 Product/status categories default off where user preference applies. Support informational/warning/critical severity, IANA timezone, optional quiet hours, daily digest, idempotent intents, duplicate suppression, lifecycle, accessibility, tenant isolation, and 30-day in-app retention.
 
+For suppressible categories, surfacing is deterministic: category enablement,
+then minimum severity, then daily digest availability (moved to the first
+permitted boundary when the digest time is quiet), then quiet-hour delay when
+digest is disabled. Critical severity does not bypass these preferences.
+`account.lifecycle` is mandatory and immediately available.
+
 Content is minimal and code-owned. Do not include raw strategies, reports, sources, private documents, support bodies, credentials, or provider payloads.
 
 External providers are not required for 20D.
+
+Implemented local boundary: migration `0025`, server-owned notification
+preference and notification records, a code-owned source-event registry,
+deterministic idempotency keys with database uniqueness, preference/quiet-hour/
+digest surfacing policy, authenticated `/notifications` API, account export and
+deletion integration, retention cleanup, and an accessible `/notifications`
+workspace with unread count. Source projections are attached to existing
+watchlist alert creation, schedule occurrence lifecycle, Phase 17 terminal job
+transitions, account export, and MFA lifecycle events. The browser cannot
+author category, severity, source, owner, recipient, template, navigation, or
+idempotency identity.
+
+Current evidence includes focused Phase 20D backend tests, frontend typecheck,
+production build, browser E2E, accessibility, selected watchlist/schedule/job
+regressions, and hosted implementation checks for PostgreSQL CI, frontend,
+Compose, CodeQL, Supply Chain Security/Gitleaks/Trivy, and Phase 19 exercises
+on `e06357f`. Production activation and external delivery evidence remain
+separate and are not claimed.
 
 ## 7. Phase 20E — Secure delivery demonstration
 

@@ -69,7 +69,7 @@ jobs:
         run: alembic upgrade head
 
       - name: Run tests
-        run: python -m pytest -q --tb=short 2>&1 | tee pytest-output.txt
+        run: set -o pipefail; python -m pytest -q --tb=short 2>&1 | tee pytest-output.txt
 
       - name: Evaluate public retrieval cutover gate
         run: python -m scripts.evaluate_public_corpus

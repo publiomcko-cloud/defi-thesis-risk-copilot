@@ -59,6 +59,30 @@ const state = {
       updated_at: now
     }
   ],
+  notifications: [{
+    id: "notif-browser-1",
+    category: "account.lifecycle",
+    severity: "informational",
+    title: "Account export is ready",
+    body: "Your account export is available.",
+    source_type: "account",
+    source_id: "owner",
+    navigation: { path: "/jobs", source_type: "account", source_id: "owner" },
+    policy_outcome: "mandatory",
+    available_at: now,
+    read_at: null,
+    created_at: now,
+    expires_at: "2026-08-20T12:00:00.000Z"
+  }],
+  notificationPreferences: {
+    categories: { "monitoring.risk_alert": true, "schedule.status": true, "job.status": true, "account.lifecycle": true },
+    minimum_severity: { "monitoring.risk_alert": "informational", "schedule.status": "informational", "job.status": "informational", "account.lifecycle": "informational" },
+    timezone: "UTC",
+    quiet_hours_start: null,
+    quiet_hours_end: null,
+    daily_digest_enabled: false,
+    mandatory_categories: ["account.lifecycle"]
+  },
   jobEvents: [{
     id: "job-event-browser-1",
     job_id: "job-browser-queued",
@@ -168,6 +192,8 @@ async function runAnonymousFlow(browserInstance) {
   await page.getByText("Loading account...").waitFor();
   assert.equal(await page.getByText("owner@example.test").count(), 0, "private account content must not flash before session resolution");
   await page.getByText("Sign in required").waitFor();
+  await page.goto(`${appOrigin}/notifications`);
+  await page.getByText("Sign in required").waitFor();
 
   await page.goto(`${appOrigin}/analyze`);
   await page.getByLabel("Strategy description").fill("Evaluate a hypothetical collateralized fixed-yield strategy with liquidity and liquidation assumptions.");
@@ -211,6 +237,32 @@ async function runAuthenticatedFlow(browserInstance) {
   await page.getByText("owner@example.test").waitFor();
   await page.getByRole("link", { name: "Account" }).waitFor();
   assert.equal(await page.getByRole("link", { name: "Login" }).count(), 0, "header must update after authentication");
+
+  await page.goto(`${appOrigin}/notifications`);
+  await page.getByRole("heading", { name: "Recent Notifications" }).waitFor();
+  await page.getByText("Account export is ready").waitFor();
+  await page.getByRole("link", { name: "Notifications (1)" }).waitFor();
+  await page.getByRole("button", { name: "Mark read" }).click();
+  await page.getByRole("button", { name: "Mark unread" }).click();
+  await page.getByRole("button", { name: "Mark all read" }).click();
+  const mandatoryGroup = page.getByRole("group", { name: "account.lifecycle" });
+  assert.equal(await mandatoryGroup.getByLabel("Enabled").isDisabled(), true, "mandatory notification categories cannot be disabled");
+  await page.getByLabel("Timezone").fill("not/a-zone");
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByText("Timezone must be a valid IANA timezone.").waitFor();
+  await page.getByLabel("Timezone").fill("America/New_York");
+  await page.getByLabel("Quiet start").fill("22:00");
+  await page.getByLabel("Quiet end").fill("07:00");
+  await page.getByLabel("Daily digest").check();
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByText("Notification preferences saved.").waitFor();
+  await page.getByLabel("Quiet start").fill("");
+  await page.getByLabel("Quiet end").fill("");
+  await page.getByRole("button", { name: "Save preferences" }).click();
+  await page.getByText("Notification preferences saved.").waitFor();
+  assert.equal(state.notificationPreferences.quiet_hours_start, null, "clearing both quiet-hour fields must persist explicit nulls");
+  await page.getByRole("link", { name: "Open" }).click();
+  await page.waitForURL(/\/jobs$/);
 
   await page.goto(`${appOrigin}/jobs`);
   await page.getByRole("heading", { name: "Jobs", exact: true }).waitFor();
@@ -475,6 +527,31 @@ function handleBackend(method, url, payload, token, cookie, response) {
   }
   if (!user) {
     return send(response, 401, { detail: "Authentication required" });
+  }
+  if (method === "GET" && url.pathname === "/api/notifications") {
+    return send(response, 200, { items: state.notifications, next_cursor: null });
+  }
+  if (method === "GET" && url.pathname === "/api/notifications/unread-count") {
+    return send(response, 200, { unread_count: state.notifications.filter((item) => !item.read_at).length });
+  }
+  if (method === "GET" && url.pathname === "/api/notifications/preferences") {
+    return send(response, 200, state.notificationPreferences);
+  }
+  if (method === "PATCH" && url.pathname === "/api/notifications/preferences") {
+    if (payload.timezone === "not/a-zone") return send(response, 422, { detail: "Timezone must be a valid IANA timezone." });
+    state.notificationPreferences = { ...state.notificationPreferences, ...payload };
+    return send(response, 200, state.notificationPreferences);
+  }
+  if (method === "POST" && url.pathname === "/api/notifications/mark-all-read") {
+    state.notifications.forEach((item) => { item.read_at = now; });
+    return send(response, 200, { updated_count: state.notifications.length });
+  }
+  if (method === "POST" && /^\/api\/notifications\/[^/]+\/(read|unread)$/.test(url.pathname)) {
+    const [, , , notificationId, action] = url.pathname.split("/");
+    const notification = state.notifications.find((item) => item.id === notificationId);
+    if (!notification) return send(response, 404, { detail: "Notification not found" });
+    notification.read_at = action === "read" ? now : null;
+    return send(response, 200, { notification });
   }
   if (method === "GET" && url.pathname === "/api/usage") {
     return send(response, 200, { items: [{ action: "analysis", used: 1, limit: 25, remaining: 24 }] });

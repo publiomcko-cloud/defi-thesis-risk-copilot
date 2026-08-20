@@ -23,7 +23,7 @@ from sqlalchemy.orm import sessionmaker
 from starlette.datastructures import Headers
 
 from app.auth.schemas import UserContext
-from app.auth.service import create_user, user_context
+from app.auth.service import create_user, ensure_bootstrap_admin, user_context
 from app.core.config import get_settings
 from app.db.session import create_database_engine, get_db
 from app.jobs.control_service import submit_job
@@ -245,6 +245,34 @@ def test_isolated_http_load_harness(
         with postgres_sessions() as db:
             db.execute(delete(AccessAuditEventModel).where(AccessAuditEventModel.actor_user_id == locals().get("user_id", "")))
             db.execute(delete(UserModel).where(UserModel.id == locals().get("user_id", "")))
+            db.commit()
+        get_settings.cache_clear()
+
+
+def test_bootstrap_admin_initialization_is_concurrency_safe(
+    postgres_sessions: sessionmaker,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _configure_exercise(monkeypatch, ADMIN_EMAIL=f"phase19-bootstrap-{uuid4().hex[:12]}@example.test")
+    email = get_settings().admin_email
+    barrier = Barrier(6)
+    try:
+        def initialize() -> str:
+            with postgres_sessions() as db:
+                barrier.wait()
+                admin = ensure_bootstrap_admin(db)
+                assert admin is not None
+                return admin.id
+
+        with ThreadPoolExecutor(max_workers=6) as executor:
+            ids = list(executor.map(lambda _: initialize(), range(6)))
+        assert len(set(ids)) == 1
+        with postgres_sessions() as db:
+            admin = db.scalar(select(UserModel).where(UserModel.email == email))
+            assert admin is not None and admin.id == ids[0]
+    finally:
+        with postgres_sessions() as db:
+            db.execute(delete(UserModel).where(UserModel.email == email))
             db.commit()
         get_settings.cache_clear()
 

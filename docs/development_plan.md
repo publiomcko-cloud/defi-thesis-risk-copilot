@@ -523,14 +523,26 @@ checkpoint makes Phase 17 control-plane completion the sole successful terminal
 occurrence transition and reserves a fixed 120 scheduled evaluations per
 authenticated user per UTC day without introducing billing or entitlements.
 Automatic dispatch is default-off and production-rejected until a separately
-approved rollout. PR #23 remains deliberately draft. Local preview requires an
+approved rollout. Phase 20C merged as `8aeb84cec0427765322cf44b3827eee319e8064e`. Local preview requires an
 outbound trusted worker and scheduler process.
+
+Phase 20D is implemented locally on its branch with reversible migration
+`0025`. It adds server-owned in-app notification preferences and records, a
+code-owned registry for the approved source events/categories/severities,
+deterministic idempotency, preference suppression, quiet-hour and daily-digest
+availability rules, 30-day retention, account export/deletion integration, an
+authenticated notification API, unread count, and an accessible notification
+center. It projects from existing watchlist alert, schedule occurrence, Phase
+17 terminal job, account export, and MFA lifecycle authorities. It does not
+add external notification delivery, webhooks, SMS, push, email, or Phase 20E
+adapter/retry/dead-letter infrastructure.
 
 Core outcomes:
 
 - consent-aware analytics;
 - durable private-watchlist scheduled jobs;
-- email/webhook/Telegram preferences and delivery;
+- in-app notifications and preferences;
+- email/webhook/Telegram delivery;
 - usage metering and entitlement rules;
 - billing webhook/idempotency foundation;
 - organization invitations and seat controls;
