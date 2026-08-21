@@ -1,8 +1,8 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **In Progress — Phase 20D in-app notifications implemented locally on its branch; Phase 20C remains locally complete with hosted correction CI passed**
+Status: **In Progress — Phase 20D merged; Phase 20F entitlements and non-billable usage is the next required slice**
 
-Branch: `agent/v1-phase-20d-in-app-notifications`
+Next implementation branch: `agent/v1-phase-20f-entitlements-usage`
 
 Current authority:
 
@@ -57,7 +57,7 @@ Safe production defaults remain disabled until separate activation gates pass, i
 
 Status: **Complete for portfolio profile**.
 
-Keep the existing threat model, evidence matrix, event/privacy matrix, usage/entitlement registry, notification classification, provider ADR process, scorecards, and data-model review. Product-only provider/commercial material remains useful as future productization evidence.
+Keep the existing threat model, evidence matrix, event-purpose/consent/retention taxonomy, machine-checkable event examples, usage-unit/entitlement registry, notification classification, provider ADR template/scorecards, and proposed `0023`–`0029` data-model review. Product-only provider/commercial material remains useful as future productization evidence.
 
 ## 4. Phase 20B
 
@@ -106,7 +106,7 @@ non-watchlist targets remain out of scope until later slices.
 
 ## 6. Phase 20D — In-app notifications
 
-Implementation slice active on `agent/v1-phase-20d-in-app-notifications`.
+Status: **Merged / production-disabled**.
 
 Initial categories:
 
@@ -127,10 +127,10 @@ Content is minimal and code-owned. Do not include raw strategies, reports, sourc
 
 External providers are not required for 20D.
 
-Implemented local boundary: migration `0025`, server-owned notification
-preference and notification records, a code-owned source-event registry,
-deterministic idempotency keys with database uniqueness, preference/quiet-hour/
-digest surfacing policy, authenticated `/notifications` API, account export and
+Implemented boundary: migration `0025`, server-owned notification preference
+and notification records, a code-owned source-event registry, deterministic
+idempotency keys with database uniqueness, preference/quiet-hour/digest
+surfacing policy, authenticated `/notifications` API, account export and
 deletion integration, retention cleanup, and an accessible `/notifications`
 workspace with unread count. Source projections are attached to existing
 watchlist alert creation, schedule occurrence lifecycle, Phase 17 terminal job
@@ -138,12 +138,12 @@ transitions, account export, and MFA lifecycle events. The browser cannot
 author category, severity, source, owner, recipient, template, navigation, or
 idempotency identity.
 
-Current evidence includes focused Phase 20D backend tests, frontend typecheck,
-production build, browser E2E, accessibility, selected watchlist/schedule/job
-regressions, and hosted implementation checks for PostgreSQL CI, frontend,
-Compose, CodeQL, Supply Chain Security/Gitleaks/Trivy, and Phase 19 exercises
-on `e06357f`. Production activation and external delivery evidence remain
-separate and are not claimed.
+Final Phase 20D head `6a943e1bc6293ba88bcd7a8ab6ca68baca822e37`
+passed hosted PostgreSQL-backed CI, frontend/browser and Compose checks,
+CodeQL, Supply Chain Security including Gitleaks and Trivy, and Phase 19
+Failure Exercises. It merged to `main` as
+`32dfb91ece2344be5dbbcd2c8d12723bc2378126` on 2026-08-21. Production
+activation and external delivery evidence remain separate and are not claimed.
 
 ## 7. Phase 20E — Secure delivery demonstration
 
