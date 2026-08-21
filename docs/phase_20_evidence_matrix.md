@@ -9,7 +9,7 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | 20A | Complete | Governance, threat model, taxonomy, provider-decision and data-model foundations exist |
 | 20B | Complete | Migration `0023`, consent-aware first-party analytics, lifecycle integration, PostgreSQL concurrency tests, browser coverage and hosted implementation checks passed before the portfolio-doc refactor |
 | 20C | Merged / production-disabled | The original Phase 20C implementation and the authoritative-completion/daily-scheduled-run-quota correction both passed hosted CI. Migration `0024`, durable private schedules, DST, PostgreSQL one-winner claims, Phase 17 jobs, lifecycle/export/retention, browser and operations aggregates merged as `8aeb84cec0427765322cf44b3827eee319e8064e`. Production dispatch remains disabled. |
-| 20D | Implemented / production-disabled | Migration `0025`, in-app preference and notification records, code-owned registry, authenticated API, notification center UI, source projections, lifecycle/export/deletion, retention cleanup, policy/access/pagination corrections, recovery coverage, focused local tests, and browser E2E are implemented on the Phase 20D branch. Hosted CI, PostgreSQL integration, browser, Compose, CodeQL, Supply Chain Security (including Gitleaks and Trivy), and Phase 19 exercises passed for implementation commit `e06357f`. Production activation and external delivery remain open. |
+| 20D | Merged / production-disabled | Migration `0025`, in-app preference and notification records, code-owned registry, authenticated API, notification center UI, source projections, lifecycle/export/deletion, retention cleanup, policy/access/pagination corrections, recovery coverage, PostgreSQL/browser/Compose/CodeQL/Supply Chain/Phase 19 exercise evidence merged as `32dfb91ece2344be5dbbcd2c8d12723bc2378126`. External delivery and production activation remain out of scope. |
 | 20E | Optional | Synthetic/provider-neutral delivery demonstration only |
 | 20F | Planned / required | Versioned entitlements and non-billable usage/reconciliation evidence needed |
 | 20G | Deferred | Not required for portfolio completion; preserved for future productization |
@@ -50,7 +50,7 @@ marks both job and occurrence complete, and require the fixed server-owned
 120-per-user UTC-day scheduled-run quota. Fresh hosted CI passed for correction
 commit `cc8278c`; the current local correction validation also passes the
 complete 28-test PostgreSQL integration suite. Phase 20C is locally complete,
- but production activation remains separately gated and this evidence is
+but production activation remains separately gated and this evidence is
 not a substitute for production operational validation.
 Before any production activation, approved policy, scoped worker/scheduler
 deployment and external operational evidence remain required.
@@ -75,13 +75,12 @@ create a notification or choose category, severity, owner, source, template, or
 idempotency identity. Quiet hours and digest behavior affect availability, not
 source-event durability.
 
-Focused local Phase 20D migration/API tests, Phase 17, Phase 20C schedule, and
-watchlist regressions passed; the local PostgreSQL concurrency test skips
-without a configured PostgreSQL database. Frontend typecheck, production build,
-browser E2E, accessibility and security checks passed. Hosted implementation
-commit `e06357f` passed CI (including PostgreSQL), frontend/browser, Compose,
-CodeQL, Supply Chain Security/Gitleaks/Trivy, and Phase 19 Failure Exercises
-on 2026-08-20. No production activation or external notification delivery is
+Final Phase 20D head `6a943e1bc6293ba88bcd7a8ab6ca68baca822e37`
+passed hosted CI with PostgreSQL integration and real pytest failure
+propagation, frontend/browser and Compose checks, CodeQL, Supply Chain Security
+including Gitleaks and Trivy, and Phase 19 Failure Exercises on 2026-08-20.
+The slice merged to `main` as `32dfb91ece2344be5dbbcd2c8d12723bc2378126`
+on 2026-08-21. No production activation or external notification delivery is
 claimed.
 
 ## Portfolio closeout
