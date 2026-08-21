@@ -191,7 +191,9 @@ Failures, cancellations, rejections, quota denials, and incomplete work do not c
 
 Implemented design: migration `0026` creates versioned plans, plan entitlements,
 user-only effective assignments, and an immutable non-billable usage ledger.
-`free-v1` is seeded lazily by server code and resolved only from database state.
+`free-v1` is seeded by migration `0026` and resolved only from database state;
+the authenticated read endpoint is read-only and users without an assignment
+resolve through an implicit server-owned default.
 The resolver compares its result to the existing `UserModel.plan` authority but
 never admits, rejects, or changes a legacy quota/resource decision. Missing,
 ambiguous, invalid, or unknown state returns bounded `free-v1` limits and a

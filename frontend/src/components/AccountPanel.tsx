@@ -27,6 +27,8 @@ type Entitlements = {
   provenance: string;
   limits: Record<string, number>;
   shadow: "parity" | "mismatch";
+  comparisons: Array<{ key: string; result: "parity" | "mismatch" | "fallback"; legacy_limit: number; entitlement_limit: number | null }>;
+  completed_usage: Record<string, number>;
 };
 
 export function AccountPanel() {
@@ -249,11 +251,22 @@ export function AccountPanel() {
         <h2>Entitlements</h2>
         {entitlements ? (
           <>
-            <p>{entitlements.plan} v{entitlements.version}</p>
+            <p>{entitlements.plan} {entitlements.version ? `v${entitlements.version}` : ""} ({entitlements.provenance})</p>
+            <p>Admission quota and completed usage are separate records.</p>
             <ul className="compact-list">
               {Object.entries(entitlements.limits).map(([key, limit]) => (
                 <li key={key}>{key}: {limit}</li>
               ))}
+            </ul>
+            <h3>Shadow comparison</h3>
+            <ul className="compact-list">
+              {entitlements.comparisons.map((comparison) => (
+                <li key={comparison.key}>{comparison.key}: {comparison.result}</li>
+              ))}
+            </ul>
+            <h3>Completed non-billable usage</h3>
+            <ul className="compact-list">
+              {Object.entries(entitlements.completed_usage).map(([unit, count]) => <li key={unit}>{unit}: {count}</li>)}
             </ul>
           </>
         ) : <p>Entitlement details are available after login.</p>}

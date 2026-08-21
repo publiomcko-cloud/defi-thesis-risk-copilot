@@ -43,7 +43,7 @@ from app.models.watchlist_item import WatchlistItemModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.notification import NotificationModel, NotificationPreferenceModel
 from app.models.entitlement import EntitlementAssignmentModel, UsageEventModel
-from app.entitlements.service import dispose_entitlements_for_account, resolve_entitlements
+from app.entitlements.service import dispose_entitlements_for_account, resolve_entitlements, usage_counts
 from app.quotas.service import usage_summary
 from app.product_analytics.service import dispose_product_analytics_for_account
 from app.notifications.service import (
@@ -559,7 +559,7 @@ def get_entitlements(
     """Server-resolved, read-only Phase 20F shadow projection."""
 
     resolved = resolve_entitlements(db, current_user.id)
-    db.commit()
+    resolved["completed_usage"] = usage_counts(db, current_user.id)
     return resolved
 
 
