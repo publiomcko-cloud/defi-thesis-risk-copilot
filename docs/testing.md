@@ -568,7 +568,11 @@ includes:
 
 - analytics consent, taxonomy allowlists, retention, export, and deletion;
 - schedule timezone, idempotency, missed-run, cancellation, quota, and recovery behavior;
-- notification preference, destination verification, signed webhook, retry, dead-letter, unsubscribe, and deletion behavior;
+- in-app notification preference, idempotency, quiet-hour, digest, lifecycle,
+  retention, export, deletion, and tenant-isolation behavior;
+- later external notification destination verification, signed webhook, retry,
+  dead-letter, unsubscribe, and provider-delivery behavior only when Phase 20E
+  or productization explicitly begins;
 - explicit separation of network limits, product quotas, billable usage, and versioned plan entitlements;
 - server-owned entitlement resolution and exactly-once usage reconciliation;
 - billing sandbox signature, replay, out-of-order, lifecycle, portal, and rollback behavior;
@@ -609,6 +613,34 @@ npm run test:e2e
 Production dispatch remains an external activation gate. Local/CI proof must
 not be described as worker, scheduler, alert-delivery, or customer-data
 production evidence.
+
+### Phase 20D in-app notification coverage
+
+Phase 20D requires migration, registry, authenticated API, preference,
+idempotency, source-projection, lifecycle, retention, export/deletion,
+frontend, and PostgreSQL concurrency coverage. PostgreSQL tests must prove
+unique notification identity and concurrent duplicate suppression for repeated
+alert, schedule, job retry/recovery, and schedule replay/recovery handling.
+
+Focused local commands:
+
+```bash
+cd backend
+source .venv/bin/activate
+python -m pytest -q app/tests/test_phase20d_migration.py \
+  app/tests/test_phase20d_notifications.py \
+  app/tests/test_phase20d_postgres_notifications.py
+
+cd ../frontend
+npm run lint
+npm run build
+npm run test:e2e
+npm run test:accessibility
+```
+
+The PostgreSQL test skips unless `RUN_POSTGRES_INTEGRATION=true` and a
+PostgreSQL `DATABASE_URL` are configured. These checks do not prove hosted CI,
+external delivery, or production activation.
 
 No provider test may use production customer data or be treated as provider
 selection before its ADR is approved.

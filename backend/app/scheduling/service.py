@@ -19,6 +19,7 @@ from app.models.job import JobModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.user import UserModel
 from app.models.watchlist_item import WatchlistItemModel
+from app.notifications.service import emit_schedule_notification
 from app.scheduling.calendar import first_due_after, initial_due_after, latest_due_not_after
 from app.scheduling.schemas import (
     MonitoringScheduleActionResponse,
@@ -306,10 +307,17 @@ def _dispatch_locked_schedule(
     if now - original_due > OVERDUE_SKIP_AFTER:
         schedule.next_due_at = first_due_after(now, schedule.cadence, schedule.timezone, original_due)
         schedule.updated_at = now
-        _new_occurrence(schedule, original_due, "missed", "overdue_more_than_24_hours", now, db)
+        occurrence = _new_occurrence(schedule, original_due, "missed", "overdue_more_than_24_hours", now, db)
         record_audit_event(
             db, schedule.owner_user_id, "schedule.run_missed", "monitoring_schedule", schedule.id,
             {"reason": "overdue_more_than_24_hours"}, commit=False,
+        )
+        emit_schedule_notification(
+            db,
+            owner_user_id=schedule.owner_user_id,
+            occurrence_id=occurrence.id,
+            status="missed",
+            occurred_at=now,
         )
         return "missed"
 
@@ -329,12 +337,26 @@ def _dispatch_locked_schedule(
         occurrence.status = "denied"
         occurrence.reason = "authorization_revoked"
         occurrence.updated_at = now
+        emit_schedule_notification(
+            db,
+            owner_user_id=schedule.owner_user_id,
+            occurrence_id=occurrence.id,
+            status="denied",
+            occurred_at=now,
+        )
         return "denied"
     target = _owned_watchlist_target(db, owner.id, schedule.target_id)
     if target is None:
         occurrence.status = "denied"
         occurrence.reason = "target_unavailable"
         occurrence.updated_at = now
+        emit_schedule_notification(
+            db,
+            owner_user_id=schedule.owner_user_id,
+            occurrence_id=occurrence.id,
+            status="denied",
+            occurred_at=now,
+        )
         return "denied"
     try:
         # A failed reservation must roll back its quota and capacity writes while
@@ -358,6 +380,13 @@ def _dispatch_locked_schedule(
         occurrence.status = "denied"
         occurrence.reason = _denial_reason(exc)
         occurrence.updated_at = now
+        emit_schedule_notification(
+            db,
+            owner_user_id=schedule.owner_user_id,
+            occurrence_id=occurrence.id,
+            status="denied",
+            occurred_at=now,
+        )
         return "denied"
     job.result_resource_type = "watchlist_item"
     job.result_resource_id = target.id
@@ -373,6 +402,13 @@ def _dispatch_locked_schedule(
         schedule.id,
         {"job_type": job.job_type, "occurrence_id": occurrence.id},
         commit=False,
+    )
+    emit_schedule_notification(
+        db,
+        owner_user_id=owner.id,
+        occurrence_id=occurrence.id,
+        status="queued",
+        occurred_at=now,
     )
     return "queued"
 

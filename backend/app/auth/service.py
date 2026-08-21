@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import AuditEventResponse, UserContext, UserResponse, UserRole
@@ -21,7 +22,7 @@ def ensure_bootstrap_admin(db: Session) -> UserModel | None:
     token = settings.admin_bootstrap_token or settings.admin_password
     token_hash = hash_token(token) if token else None
     if existing is None:
-        existing = UserModel(
+        candidate = UserModel(
             id=f"user_{uuid4().hex[:12]}",
             email=settings.admin_email,
             role="admin",
@@ -32,7 +33,17 @@ def ensure_bootstrap_admin(db: Session) -> UserModel | None:
             is_active=True,
             access_token_hash=token_hash,
         )
-        db.add(existing)
+        try:
+            # Concurrent legacy-local requests can provision this identity at
+            # once. Roll back only the duplicate insert savepoint.
+            with db.begin_nested():
+                db.add(candidate)
+                db.flush()
+            existing = candidate
+        except IntegrityError:
+            existing = db.execute(
+                select(UserModel).where(UserModel.email == settings.admin_email)
+            ).scalars().one()
     elif token_hash and existing.access_token_hash != token_hash:
         existing.access_token_hash = token_hash
         existing.updated_at = datetime.now(UTC)

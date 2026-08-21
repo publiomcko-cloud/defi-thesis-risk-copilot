@@ -9,6 +9,7 @@ from app.auth.policies import can_read_resource, can_update_resource
 from app.auth.schemas import UserContext
 from app.models.alert_event import AlertEventModel
 from app.models.watchlist_item import WatchlistItemModel
+from app.notifications.service import emit_watchlist_alert_notification
 from app.product_analytics.service import emit_product_event_safely
 from app.quotas.service import RESOURCE_WATCHLISTS, enforce_resource_count_limit
 from app.watchlist.rules import evaluate_rules
@@ -134,6 +135,13 @@ def evaluate_watchlist_item(
         )
         db.add(alert)
         created_alerts.append(alert)
+        emit_watchlist_alert_notification(
+            db,
+            owner_user_id=item.owner_user_id,
+            alert_id=alert.id,
+            severity=alert.severity,
+            occurred_at=now,
+        )
 
     item.last_evaluated_at = now
     db.commit()

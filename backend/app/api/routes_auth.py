@@ -41,8 +41,13 @@ from app.models.knowledge import (
 from app.knowledge.service import tombstone_knowledge_for_account
 from app.models.watchlist_item import WatchlistItemModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
+from app.models.notification import NotificationModel, NotificationPreferenceModel
 from app.quotas.service import usage_summary
 from app.product_analytics.service import dispose_product_analytics_for_account
+from app.notifications.service import (
+    dispose_notifications_for_account,
+    emit_notification_intent,
+)
 from app.scheduling.service import dispose_schedules_for_account_deletion
 from app.core.config import get_settings
 
@@ -162,6 +167,14 @@ def export_account(
         if monitoring_schedule_ids
         else []
     )
+    notification_preferences = db.execute(
+        select(NotificationPreferenceModel).where(NotificationPreferenceModel.user_id == current_user.id)
+    ).scalars().all()
+    notifications = db.execute(
+        select(NotificationModel)
+        .where(NotificationModel.owner_user_id == current_user.id)
+        .order_by(NotificationModel.created_at.desc())
+    ).scalars().all()
     audits = db.execute(
         select(AccessAuditEventModel)
         .where(AccessAuditEventModel.actor_user_id == current_user.id)
@@ -400,8 +413,45 @@ def export_account(
             }
             for item in monitoring_schedule_runs
         ],
+        notification_preferences=[
+            {
+                "categories": item.category_enabled_json,
+                "minimum_severity": item.minimum_severity_json,
+                "timezone": item.timezone,
+                "quiet_hours_start": item.quiet_hours_start,
+                "quiet_hours_end": item.quiet_hours_end,
+                "daily_digest_enabled": item.daily_digest_enabled,
+                "updated_at": item.updated_at,
+            }
+            for item in notification_preferences
+        ],
+        notifications=[
+            {
+                "id": item.id,
+                "category": item.category,
+                "severity": item.severity,
+                "template_id": item.template_id,
+                "source_type": item.source_type,
+                "source_id": item.source_id,
+                "policy_outcome": item.policy_outcome,
+                "available_at": item.available_at,
+                "read_at": item.read_at,
+                "created_at": item.created_at,
+                "expires_at": item.expires_at,
+            }
+            for item in notifications
+        ],
     )
-    record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)
+    export_audit = record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)
+    emit_notification_intent(
+        db,
+        owner_user_id=current_user.id,
+        template_id="account.lifecycle.exported",
+        source_id=current_user.id,
+        idempotency_key=f"account:{current_user.id}:export:{export_audit.id}",
+        occurred_at=export_audit.created_at,
+        commit=True,
+    )
     return response
 
 
@@ -452,6 +502,7 @@ def delete_account(
     dispose_schedules_for_account_deletion(db, current_user.id, now=now)
     dispose_jobs_for_account_deletion(db, current_user.id, now=now)
     dispose_product_analytics_for_account(db, current_user.id)
+    dispose_notifications_for_account(db, current_user.id)
     db.commit()
     record_audit_event(db, current_user.id, "account.deletion_requested", "user", current_user.id)
     return AccountDeleteResponse(
@@ -543,6 +594,15 @@ def record_mfa_audit_event(
         payload.action,
         "mfa_factor",
         payload.factor_id,
+    )
+    emit_notification_intent(
+        db,
+        owner_user_id=current_user.id,
+        template_id="account.lifecycle.mfa_changed",
+        source_id=payload.factor_id or current_user.id,
+        idempotency_key=f"account:{current_user.id}:{payload.action}:{payload.factor_id or 'account'}:{event.id}",
+        occurred_at=event.created_at,
+        commit=True,
     )
     return {"id": event.id, "status": "recorded"}
 

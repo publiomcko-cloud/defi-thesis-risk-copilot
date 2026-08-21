@@ -42,8 +42,9 @@ Implemented foundation: V1 Phase 19 (merged; deployed operational evidence remai
 In progress: V1 Phase 20 portfolio profile
   - 20A governance/design foundation: complete
   - 20B consent-aware first-party analytics: implemented and validated; production collection disabled
-  - 20C durable user-owned monitoring: locally complete after correction hosted CI; PR #23 draft and production dispatch disabled
-  - next required portfolio slices: 20D, 20F, 20H, reduced 20I, 20J closeout
+  - 20C durable user-owned monitoring: merged on `main`; production dispatch remains disabled
+  - 20D in-app notifications: implemented locally on branch; external delivery absent and PostgreSQL/hosted/browser evidence still gated
+  - next required portfolio slices: 20F, 20H, reduced 20I, 20J closeout
   - 20E secure sandbox adapter: optional portfolio demonstration
   - real 20G billing/provider work: deferred to productization backlog
 Later: V1 Phase 21 model/research intelligence, then portfolio release validation
@@ -70,9 +71,10 @@ The repository currently demonstrates or provides foundations for:
 - Phase 19 security, rate-limit, recovery, incident, and supply-chain foundations;
 - optional authenticated first-party product analytics with immutable consent decisions, strict metadata, lifecycle integration, and production-disabled rollout;
 - durable timezone-aware private watchlist schedules with PostgreSQL one-winner dispatch, Phase 17 jobs, account lifecycle hooks, and production-disabled rollout;
+- in-app notification preferences and notification center with server-owned intents, code-owned content, duplicate-safe identity, quiet hours, daily digest surfacing, lifecycle hooks, and 30-day retention;
 - admin-controlled Vast.ai dry-run/manual warm-up with real rentals disabled.
 
-The remaining Phase 20 portfolio work focuses on in-app notifications, versioned entitlements/non-billable metering, organization seat/invitation controls, minimal first-party support/privacy workflows, and architecture closeout before moving to Phase 21 AI/research intelligence.
+The remaining Phase 20 portfolio work focuses on versioned entitlements/non-billable metering, organization seat/invitation controls, minimal first-party support/privacy workflows, and architecture closeout before moving to Phase 21 AI/research intelligence.
 
 ## Public Deployment Safety
 

@@ -314,6 +314,58 @@ export type JobsResponse = {
   items: JobResponse[];
 };
 
+export type NotificationCategory =
+  | "monitoring.risk_alert"
+  | "schedule.status"
+  | "job.status"
+  | "account.lifecycle";
+
+export type NotificationSeverity = "informational" | "warning" | "critical";
+
+export type NotificationItem = {
+  id: string;
+  category: NotificationCategory;
+  severity: NotificationSeverity;
+  title: string;
+  body: string;
+  source_type: string;
+  source_id: string;
+  navigation: { path?: string; source_type?: string; source_id?: string };
+  policy_outcome: string;
+  available_at?: string | null;
+  read_at?: string | null;
+  created_at: string;
+  expires_at: string;
+};
+
+export type NotificationsResponse = {
+  items: NotificationItem[];
+  next_cursor?: string | null;
+};
+
+export type NotificationUnreadCountResponse = {
+  unread_count: number;
+};
+
+export type NotificationPreferenceResponse = {
+  categories: Record<NotificationCategory, boolean>;
+  minimum_severity: Record<NotificationCategory, NotificationSeverity>;
+  timezone: string;
+  quiet_hours_start?: string | null;
+  quiet_hours_end?: string | null;
+  daily_digest_enabled: boolean;
+  mandatory_categories: NotificationCategory[];
+};
+
+export type NotificationPreferenceUpdateRequest = Partial<{
+  categories: Partial<Record<NotificationCategory, boolean>>;
+  minimum_severity: Partial<Record<NotificationCategory, NotificationSeverity>>;
+  timezone: string;
+  quiet_hours_start: string | null;
+  quiet_hours_end: string | null;
+  daily_digest_enabled: boolean;
+}>;
+
 export type JobEvent = {
   id: string;
   job_id: string;

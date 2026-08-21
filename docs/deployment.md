@@ -1145,6 +1145,27 @@ schedules, occurrences and jobs intact for inspection and cleanup. Downgrade
 `0024` only after schedule data has been retained/exported or deliberately
 disposed, because dropping the tables discards their history.
 
+### Phase 20D in-app notification preview
+
+Migration `20260814_0025` creates `notification_preferences` and
+`notifications`. There is no external provider, delivery secret, webhook URL,
+browser push registration, or new runtime service for Phase 20D.
+
+In-app notification rows are durable server-owned projections from existing
+watchlist, schedule, durable-job, and account lifecycle authorities. Retention
+is fixed at 30 days and is enforced by the existing cleanup command:
+
+```bash
+cd backend
+python -m scripts.cleanup_expired_data --dry-run
+```
+
+Rollback removes only in-app notification preference/history tables after any
+required account export or data-disposal step. It does not alter authoritative
+watchlist alerts, schedule occurrences, jobs, or account audit records. Do not
+configure or claim email, webhook, SMS, Telegram, mobile push, browser push, or
+external notification retries in Phase 20D.
+
 ### Phase 21
 
 Deploy evaluated model registry/routing and safe worker-based model execution with rollback and cost/privacy controls.

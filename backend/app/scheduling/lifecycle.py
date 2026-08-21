@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from app.models.job import JobModel
 from app.models.scheduled_monitoring import MonitoringScheduleOccurrenceModel
+from app.models.scheduled_monitoring import MonitoringScheduleModel
+from app.notifications.service import emit_schedule_notification
 
 
 _TERMINAL_OCCURRENCE_STATUSES = {"completed", "failed", "denied", "missed", "cancelled"}
@@ -53,3 +55,13 @@ def synchronize_schedule_occurrence(
     occurrence.updated_at = timestamp
     if status in _TERMINAL_OCCURRENCE_STATUSES:
         occurrence.completed_at = timestamp
+    if status in {"completed", "failed", "denied"}:
+        schedule = db.get(MonitoringScheduleModel, schedule_id)
+        if schedule is not None:
+            emit_schedule_notification(
+                db,
+                owner_user_id=schedule.owner_user_id,
+                occurrence_id=occurrence.id,
+                status=status,
+                occurred_at=timestamp,
+            )

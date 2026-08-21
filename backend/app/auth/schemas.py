@@ -90,6 +90,8 @@ class AccountExportResponse(BaseModel):
     product_analytics_events: list[dict] = Field(default_factory=list)
     monitoring_schedules: list[dict] = Field(default_factory=list)
     monitoring_schedule_runs: list[dict] = Field(default_factory=list)
+    notification_preferences: list[dict] = Field(default_factory=list)
+    notifications: list[dict] = Field(default_factory=list)
 
 
 class AccountDeleteRequest(BaseModel):

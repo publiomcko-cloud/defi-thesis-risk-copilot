@@ -20,6 +20,7 @@ from app.api.routes_knowledge_base import router as knowledge_base_router
 from app.api.routes_knowledge import router as knowledge_router
 from app.api.routes_market_data import router as market_data_router
 from app.api.routes_monitoring import router as monitoring_router
+from app.api.routes_notifications import router as notifications_router
 from app.api.routes_options import router as options_router
 from app.api.routes_organizations import router as organizations_router
 from app.api.routes_protocols import router as protocols_router
@@ -158,6 +159,7 @@ def create_app() -> FastAPI:
     app.include_router(discovery_router, prefix="/api")
     app.include_router(market_data_router, prefix="/api")
     app.include_router(monitoring_router, prefix="/api")
+    app.include_router(notifications_router, prefix="/api")
     app.include_router(evaluation_router, prefix="/api")
     app.include_router(knowledge_base_router, prefix="/api")
     app.include_router(knowledge_router, prefix="/api")

@@ -30,6 +30,15 @@
   server-owned 120-per-user UTC-day scheduled-run quota. Automatic dispatch
   remains disabled by default and production-disabled pending the documented
   approval and rollout evidence.
+- Implemented Phase 20D locally with reversible migration `0025`, server-owned
+  in-app notification preferences and records, a code-owned registry for the
+  approved categories/severities/templates, deterministic idempotency,
+  preference suppression, quiet-hour and daily-digest availability handling,
+  authenticated notification APIs, a notification center with unread count,
+  source projections from watchlist alerts/schedules/jobs/account lifecycle,
+  account export/deletion hooks, and 30-day retention cleanup. No external
+  email, webhook, SMS, push, Telegram, provider retry, or delivery dead-letter
+  infrastructure is implemented.
 
 ## Phase 19 — Implemented Foundation
 

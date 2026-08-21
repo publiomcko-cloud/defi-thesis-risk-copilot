@@ -65,7 +65,7 @@ V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
-V1 Phase 20 — In Progress on its implementation branch; 20B analytics and 20C durable private monitoring are locally complete. The Phase 20C correction hosted CI passed and PR #23 remains draft; both features remain deployment-disabled by default, with qualified approval and deployed evidence required before production activation
+V1 Phase 20 — In Progress on its implementation branch; 20B analytics and 20C durable private monitoring are locally complete. Phase 20C merged as `8aeb84cec0427765322cf44b3827eee319e8064e`; both features remain deployment-disabled by default, with qualified approval and deployed evidence required before production activation
 V1 Phase 21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -442,7 +442,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   protected-branch enforcement, and controlled deployment are not evidenced
   as complete;
 - Phase 20 — In Progress on
-  `agent/v1-phase-20c-durable-scheduled-monitoring` under
+  `agent/v1-phase-20d-in-app-notifications` under
   [`phase_20_execution_plan.md`](phase_20_execution_plan.md): privacy-conscious
   analytics, durable schedules, user-controlled notifications, separate
   product quotas/billable usage/versioned entitlements, billing sandbox
@@ -477,10 +477,19 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   checkpoint makes only authoritative Phase 17 completion mark a successful
   occurrence complete and makes dispatch reserve a fixed non-billable
   120-per-user UTC-day scheduled-run quota; its fresh hosted CI passed at
-  `cc8278c`. PR #23 intentionally remains draft. `SCHEDULE_DISPATCH_ENABLED=false`
+  `cc8278c` before it merged as `8aeb84cec0427765322cf44b3827eee319e8064e`. `SCHEDULE_DISPATCH_ENABLED=false`
   by default and production configuration rejects activation pending approved
   production policy, controlled preview, worker, recovery, concurrency,
-  lifecycle, and rollback evidence;
+  lifecycle, and rollback evidence. Phase 20D adds local in-app notification
+  implementation with migration `0025`, server-owned preferences and durable
+  notification records, code-owned event/template registry, authenticated
+  notification API, `/notifications` workspace, unread count, timezone,
+  quiet-hour and digest preference handling, source projections from watchlist
+  alerts/schedules/jobs/account lifecycle, account export/deletion hooks, and
+  30-day cleanup. It introduces no email, webhook, SMS, push, Telegram, or
+  external delivery provider. Focused local tests and frontend typecheck pass;
+  PostgreSQL concurrency, full browser/E2E/accessibility, hosted CI, and
+  production activation evidence remain open;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 
