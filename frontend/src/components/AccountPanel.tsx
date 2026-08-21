@@ -21,9 +21,18 @@ type AnalyticsPreference = {
   updated_at?: string | null;
 };
 
+type Entitlements = {
+  plan: string;
+  version: number;
+  provenance: string;
+  limits: Record<string, number>;
+  shadow: "parity" | "mismatch";
+};
+
 export function AccountPanel() {
   const [session, setSession] = useState<SessionPayload | null>(null);
   const [usage, setUsage] = useState<{ items: Array<{ action: string; used: number; limit: number; remaining: number }> } | null>(null);
+  const [entitlements, setEntitlements] = useState<Entitlements | null>(null);
   const [consents, setConsents] = useState<Array<{ document_type: string; document_version: string; accepted_at: string; withdrawn_at?: string | null }>>([]);
   const [analyticsPreference, setAnalyticsPreference] = useState<AnalyticsPreference | null>(null);
   const [analyticsUpdating, setAnalyticsUpdating] = useState(false);
@@ -42,6 +51,10 @@ export function AccountPanel() {
       .then((response) => (response.ok ? response.json() : null))
       .then(setUsage)
       .catch(() => setUsage(null));
+    fetch("/api/backend/api/account/entitlements", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then(setEntitlements)
+      .catch(() => setEntitlements(null));
     fetch("/api/backend/api/consents", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : { items: [] }))
       .then((payload) => setConsents(payload.items ?? []))
@@ -231,6 +244,19 @@ export function AccountPanel() {
         ) : (
           <p>No quota usage recorded yet.</p>
         )}
+      </article>
+      <article className="panel">
+        <h2>Entitlements</h2>
+        {entitlements ? (
+          <>
+            <p>{entitlements.plan} v{entitlements.version}</p>
+            <ul className="compact-list">
+              {Object.entries(entitlements.limits).map(([key, limit]) => (
+                <li key={key}>{key}: {limit}</li>
+              ))}
+            </ul>
+          </>
+        ) : <p>Entitlement details are available after login.</p>}
       </article>
       {message ? <p className="form-success">{message}</p> : null}
     </section>

@@ -42,6 +42,8 @@ from app.knowledge.service import tombstone_knowledge_for_account
 from app.models.watchlist_item import WatchlistItemModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.notification import NotificationModel, NotificationPreferenceModel
+from app.models.entitlement import EntitlementAssignmentModel, UsageEventModel
+from app.entitlements.service import dispose_entitlements_for_account, resolve_entitlements
 from app.quotas.service import usage_summary
 from app.product_analytics.service import dispose_product_analytics_for_account
 from app.notifications.service import (
@@ -98,6 +100,16 @@ def export_account(
     user = _current_user_record(db, current_user)
     reports = db.execute(
         select(ReportModel).where(ReportModel.owner_user_id == current_user.id)
+    ).scalars().all()
+    entitlement_assignments = db.execute(
+        select(EntitlementAssignmentModel)
+        .where(EntitlementAssignmentModel.subject_id == current_user.id)
+        .order_by(EntitlementAssignmentModel.effective_from)
+    ).scalars().all()
+    usage_events = db.execute(
+        select(UsageEventModel)
+        .where(UsageEventModel.owner_user_id == current_user.id)
+        .order_by(UsageEventModel.occurred_at)
     ).scalars().all()
     jobs = db.execute(
         select(JobModel)
@@ -441,6 +453,25 @@ def export_account(
             }
             for item in notifications
         ],
+        entitlement_assignments=[
+            {
+                "plan_version_id": item.plan_version_id,
+                "effective_from": item.effective_from,
+                "effective_until": item.effective_until,
+                "source": item.source,
+            }
+            for item in entitlement_assignments
+        ],
+        non_billable_usage_events=[
+            {
+                "unit_key": item.unit_key,
+                "quantity": item.quantity,
+                "occurred_at": item.occurred_at,
+                "reverses_event_id": item.reverses_event_id,
+                "correction_code": item.correction_code,
+            }
+            for item in usage_events
+        ],
     )
     export_audit = record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)
     emit_notification_intent(
@@ -503,6 +534,7 @@ def delete_account(
     dispose_jobs_for_account_deletion(db, current_user.id, now=now)
     dispose_product_analytics_for_account(db, current_user.id)
     dispose_notifications_for_account(db, current_user.id)
+    dispose_entitlements_for_account(db, current_user.id)
     db.commit()
     record_audit_event(db, current_user.id, "account.deletion_requested", "user", current_user.id)
     return AccountDeleteResponse(
@@ -517,6 +549,18 @@ def get_usage(
     current_user: UserContext = Depends(require_authenticated_user),
 ) -> dict:
     return usage_summary(db, current_user)
+
+
+@router.get("/account/entitlements")
+def get_entitlements(
+    db: Session = Depends(get_db),
+    current_user: UserContext = Depends(require_authenticated_user),
+) -> dict:
+    """Server-resolved, read-only Phase 20F shadow projection."""
+
+    resolved = resolve_entitlements(db, current_user.id)
+    db.commit()
+    return resolved
 
 
 @router.get("/consents")

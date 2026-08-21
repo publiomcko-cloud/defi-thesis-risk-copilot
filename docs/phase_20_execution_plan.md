@@ -164,7 +164,7 @@ Real email, webhook-delivery, and Telegram providers move to productization back
 
 ## 8. Phase 20F — Entitlements and non-billable usage
 
-Required portfolio slice.
+Status: **Implementation in progress; shadow-only and non-billable.**
 
 Implement immutable versioned plans/entitlements, effective server-owned assignments, shadow comparison with existing quotas, safe fallback, and immutable usage/reversal records.
 
@@ -188,6 +188,20 @@ Initial non-billable usage units:
 - successful schedule run.
 
 Failures, cancellations, rejections, quota denials, and incomplete work do not count. Retries cannot double meter. Corrections use linked reversals/adjustments. Usage remains separate from analytics, quotas, rate limits, and any future billing system.
+
+Implemented design: migration `0026` creates versioned plans, plan entitlements,
+user-only effective assignments, and an immutable non-billable usage ledger.
+`free-v1` is seeded lazily by server code and resolved only from database state.
+The resolver compares its result to the existing `UserModel.plan` authority but
+never admits, rejects, or changes a legacy quota/resource decision. Missing,
+ambiguous, invalid, or unknown state returns bounded `free-v1` limits and a
+visible mismatch. The only active units are the four versioned units approved
+in the owner decision. Meter rows are inserted in the successful report,
+simulation, options, and authoritative Phase 17 schedule-completion
+transactions; uniqueness at `(unit_key, logical_key)` is the final exactly-once
+authority. Account export includes assignments/events and deletion disposes
+them. Organization entitlement semantics, billing and commercial retention
+remain deferred.
 
 ## 9. Phase 20G — Billing
 

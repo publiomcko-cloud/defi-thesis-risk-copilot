@@ -92,6 +92,8 @@ class AccountExportResponse(BaseModel):
     monitoring_schedule_runs: list[dict] = Field(default_factory=list)
     notification_preferences: list[dict] = Field(default_factory=list)
     notifications: list[dict] = Field(default_factory=list)
+    entitlement_assignments: list[dict] = Field(default_factory=list)
+    non_billable_usage_events: list[dict] = Field(default_factory=list)
 
 
 class AccountDeleteRequest(BaseModel):

@@ -32,6 +32,7 @@ from app.models.product_analytics import (
     ProductAnalyticsEventModel,
 )
 from app.models.notification import NotificationModel, NotificationPreferenceModel
+from app.models.entitlement import EntitlementAssignmentModel, PlanEntitlementModel, PlanVersionModel, UsageEventModel
 from app.models.review_item import ReviewItemModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
@@ -79,6 +80,10 @@ __all__ = [
     "ProductAnalyticsEventModel",
     "NotificationModel",
     "NotificationPreferenceModel",
+    "EntitlementAssignmentModel",
+    "PlanEntitlementModel",
+    "PlanVersionModel",
+    "UsageEventModel",
     "ReviewItemModel",
     "SavedThesisModel",
     "MonitoringScheduleModel",

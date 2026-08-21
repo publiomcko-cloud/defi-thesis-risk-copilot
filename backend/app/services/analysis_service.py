@@ -15,6 +15,7 @@ from app.models.job import JobModel
 from app.models.report import ReportModel
 from app.quotas.service import ACTION_ANALYSIS, consume_quota
 from app.product_analytics.service import emit_product_event_safely
+from app.entitlements.service import emit_usage
 from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.reports import ReportResponse
@@ -66,6 +67,14 @@ def analyze_strategy(
         anonymous_session_id=actor.anonymous_session_id if actor else None,
         expires_at=expires_at,
     )
+    if actor is not None and actor.auth_enabled and actor.anonymous_session_id is None:
+        emit_usage(
+            db,
+            owner_user_id=actor.id,
+            unit_key="usage.analysis.completed.v1",
+            source_type="report",
+            source_id=workflow_result.report.report_id,
+        )
     db.commit()
 
     if actor is not None and actor.anonymous_session_id is None:

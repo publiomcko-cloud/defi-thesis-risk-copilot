@@ -17,6 +17,7 @@ from app.models.analysis_request import AnalysisRequestModel
 from app.models.artifact import ArtifactModel
 from app.models.job import JobModel
 from app.models.report import ReportModel
+from app.models.entitlement import UsageEventModel
 from app.reports.templates import REQUIRED_REPORT_SECTIONS
 
 
@@ -78,6 +79,13 @@ def test_authenticated_analysis_queues_once_and_persists_one_report(phase17d_cli
         }
         artifact = db.get(ArtifactModel, f"artifact_{queued['job_id']}")
         assert artifact is not None
+        usage = db.execute(
+            select(UsageEventModel).where(
+                UsageEventModel.unit_key == "usage.analysis.completed.v1",
+                UsageEventModel.source_id == queued["job_id"],
+            )
+        ).scalars().all()
+        assert len(usage) == 1
         assert artifact.status == "available"
         assert artifact.storage_backend == "database"
         assert artifact.resource_type == "report"

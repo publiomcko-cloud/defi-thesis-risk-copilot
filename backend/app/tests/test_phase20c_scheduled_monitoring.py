@@ -20,6 +20,7 @@ from app.models.job import JobCapacityReservationModel, JobModel
 from app.models.notification import NotificationModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.usage_quota import UsageQuotaModel
+from app.models.entitlement import UsageEventModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
 from app.quotas.service import (
     ACTION_SCHEDULED_WATCHLIST_EVALUATION,
@@ -409,6 +410,13 @@ def test_authoritative_worker_completion_marks_job_and_occurrence_completed(sche
             ("job.status", claimed.id),
             ("schedule.status", occurrence.id),
         }
+        usage = db.execute(
+            select(UsageEventModel).where(
+                UsageEventModel.unit_key == "usage.schedule.run_completed.v1",
+                UsageEventModel.source_id == occurrence.id,
+            )
+        ).scalars().all()
+        assert len(usage) == 1
 
 
 def test_executor_success_before_lease_loss_recovers_to_queued_occurrence(schedule_client) -> None:
