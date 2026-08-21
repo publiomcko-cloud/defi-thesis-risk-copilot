@@ -441,8 +441,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   telemetry, alert delivery, provider restore, secret rotation,
   protected-branch enforcement, and controlled deployment are not evidenced
   as complete;
-- Phase 20 — In Progress on
-  `agent/v1-phase-20d-in-app-notifications` under
+- Phase 20 — In Progress; Phase 20D merged and Phase 20F correction is on
+  `agent/v1-phase-20f-entitlements-usage` under
   [`phase_20_execution_plan.md`](phase_20_execution_plan.md): privacy-conscious
   analytics, durable schedules, user-controlled notifications, separate
   product quotas/billable usage/versioned entitlements, billing sandbox
@@ -451,6 +451,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   event-purpose/consent/retention, usage/entitlement, notification,
   provider-decision, and proposed data-model artifacts. It reuses existing
   Phase 16 terms/privacy consent plus account/organization lifecycle authority.
+  Phase 20F currently adds migration-seeded `free-v1` entitlements and
+  non-billable completion usage in shadow mode only; legacy quota/resource
+  authorities remain authoritative and the resolver is read-only.
   Phase 20B adds reversible migration `0023`, explicit default-off analytics
   preferences, immutable decisions, four strictly bounded first-party events,
   authenticated preference API/UI, account export/deletion hooks, 30-day event
