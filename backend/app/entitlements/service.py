@@ -80,7 +80,7 @@ def resolve_entitlements(db: Session, user_id: str, now: datetime | None = None)
         for key in sorted(legacy)
     ]
     shadow = "parity" if all(item["result"] == "parity" for item in comparisons) else "mismatch"
-    logger.info("entitlement_shadow_comparison subject=%s result=%s keys=%s", user_id, shadow, ",".join(f"{item['key']}:{item['result']}" for item in comparisons))
+    logger.info("entitlement_shadow_comparison result=%s comparisons=%s", shadow, comparisons)
     return {"plan": catalog.plan_key, "version": catalog.version, "provenance": "assignment" if assignments else "implicit_server_default", "limits": limits, "shadow": shadow, "comparisons": comparisons}
 
 

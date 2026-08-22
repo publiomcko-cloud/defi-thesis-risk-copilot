@@ -14,7 +14,7 @@ from sqlalchemy.orm import sessionmaker
 from app.auth.service import create_user
 from app.db.session import create_database_engine
 from app.entitlements.service import emit_usage, resolve_entitlements, reverse_usage
-from app.models.entitlement import EntitlementAssignmentModel, UsageEventModel
+from app.models.entitlement import EntitlementAssignmentModel, PlanEntitlementModel, UsageEventModel
 from app.models.user import UserModel
 
 pytestmark = pytest.mark.postgres_integration
@@ -88,6 +88,17 @@ def test_postgres_assignment_overlap_is_rejected_and_corrupt_catalog_falls_back(
             db.commit()
         db.rollback()
         assert resolve_entitlements(db, user_id)["shadow"] == "parity"
+        removed = db.execute(select(PlanEntitlementModel).where(PlanEntitlementModel.plan_version_id == "plan_free_v1").limit(1)).scalars().one()
+        removed_payload = {"id": removed.id, "plan_version_id": removed.plan_version_id, "entitlement_key": removed.entitlement_key, "hard_limit": removed.hard_limit, "created_at": removed.created_at}
+        db.delete(removed)
+        db.commit()
+        fallback = resolve_entitlements(db, user_id)
+        assert fallback["provenance"] == "safe_fallback_incomplete_catalog"
+        assert fallback["shadow"] == "mismatch"
+        assert all(item["legacy_limit"] is not None for item in fallback["comparisons"])
+        assert not db.get(PlanEntitlementModel, removed_payload["id"])
+        db.add(PlanEntitlementModel(**removed_payload))
+        db.commit()
         db.execute(delete(EntitlementAssignmentModel).where(EntitlementAssignmentModel.subject_id == user_id))
         db.execute(delete(UserModel).where(UserModel.id == user_id))
         db.commit()

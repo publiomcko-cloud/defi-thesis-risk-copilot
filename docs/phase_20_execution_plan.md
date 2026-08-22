@@ -205,6 +205,11 @@ authority. Account export includes assignments/events and deletion disposes
 them. Organization entitlement semantics, billing and commercial retention
 remain deferred.
 
+Correction evidence also keeps shadow logs bounded to result, policy key, and
+numeric limit comparisons; no raw account identifier is emitted. Phase 20C
+lease-loss/retry coverage proves completion usage remains zero until the
+authoritative worker completion transaction succeeds, then remains exactly one.
+
 ## 9. Phase 20G — Billing
 
 **Deferred from required portfolio scope.**

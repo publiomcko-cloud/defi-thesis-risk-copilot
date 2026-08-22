@@ -454,6 +454,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   Phase 20F currently adds migration-seeded `free-v1` entitlements and
   non-billable completion usage in shadow mode only; legacy quota/resource
   authorities remain authoritative and the resolver is read-only.
+  Shadow comparison telemetry excludes raw user identifiers and records only
+  bounded policy parity/fallback evidence.
   Phase 20B adds reversible migration `0023`, explicit default-off analytics
   preferences, immutable decisions, four strictly bounded first-party events,
   authenticated preference API/UI, account export/deletion hooks, 30-day event
