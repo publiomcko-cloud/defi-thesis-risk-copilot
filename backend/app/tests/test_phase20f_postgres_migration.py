@@ -72,7 +72,7 @@ def _assert_phase20f_upgrade(database_url: str) -> None:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == PHASE20F_HEAD
         assert connection.scalar(text("SELECT status FROM plan_versions WHERE id = 'plan_free_v1'")) == "active"
         rows = connection.execute(text("SELECT entitlement_key, hard_limit FROM plan_entitlements WHERE plan_version_id = 'plan_free_v1'"))
-        assert dict(rows) == EXPECTED_LIMITS
+        assert {row.entitlement_key: row.hard_limit for row in rows} == EXPECTED_LIMITS
         assert connection.scalar(text("SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'ex_entitlement_assignments_no_overlap')")) is True
 
 
