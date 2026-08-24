@@ -10,7 +10,8 @@ from app.db.base import Base
 from app.models.entitlement import EntitlementAssignmentModel, PlanEntitlementModel, PlanVersionModel
 from app.models.organization import OrganizationInvitationModel, OrganizationMembershipModel, OrganizationModel
 from app.organizations.schemas import InvitationCreateRequest
-from app.organizations.service import create_invitation, seat_status
+from app.organizations.service import create_invitation, seat_status, resend_invitation
+from fastapi import HTTPException
 
 
 @pytest.fixture
@@ -51,14 +52,31 @@ def test_limit_higher_assignment_and_missing_catalog_fail_closed(seats):
             user = create_user(db, f"active-{index}@example.test")
             db.add(OrganizationMembershipModel(id=f"mbr_{index}", organization_id=org_id, user_id=user.id, role="member", status="active"))
         db.commit()
-        with pytest.raises(Exception): create_invitation(db, owner, org_id, InvitationCreateRequest(email="fifth@example.test"))
+        with pytest.raises(HTTPException, match="seat limit") as error: create_invitation(db, owner, org_id, InvitationCreateRequest(email="fifth@example.test"))
+        assert error.value.status_code == 409
         db.add(EntitlementAssignmentModel(id="org_high", subject_type="organization", subject_id=org_id, plan_version_id="plan_org_high", effective_from=datetime(2026,8,24,tzinfo=UTC), source="test")); db.commit()
         assert seat_status(db, org_id)["limit"] == 7
         assert create_invitation(db, owner, org_id, InvitationCreateRequest(email="fifth@example.test")).token
         db.delete(db.get(PlanEntitlementModel, "ent_portfolio_org_seats")); db.commit()
         # Explicit plan still resolves; deleting it proves new operations fail closed.
         db.delete(db.get(EntitlementAssignmentModel, "org_high")); db.commit()
-        with pytest.raises(Exception): create_invitation(db, owner, org_id, InvitationCreateRequest(email="blocked@example.test"))
+        with pytest.raises(HTTPException, match="entitlement") as error: create_invitation(db, owner, org_id, InvitationCreateRequest(email="blocked@example.test"))
+        assert error.value.status_code == 409
+
+
+def test_legacy_pending_identity_and_expired_resend_cannot_add_reservation(seats):
+    Session, owner_id, org_id = seats
+    with Session() as db:
+        owner = user_context(db.get(__import__('app.models.user', fromlist=['UserModel']).UserModel, owner_id))
+        pending = create_user(db, "same@example.test")
+        db.add(OrganizationMembershipModel(id="mbr_same", organization_id=org_id, user_id=pending.id, role="member", status="pending")); db.commit()
+        before = seat_status(db, org_id)["consumed"]
+        with pytest.raises(HTTPException, match="legacy pending") as error: create_invitation(db, owner, org_id, InvitationCreateRequest(email="same@example.test"))
+        assert error.value.status_code == 409 and seat_status(db, org_id)["consumed"] == before
+        expired = OrganizationInvitationModel(id="inv_expired_resend", organization_id=org_id, destination_email="expired@example.test", role="member", invited_by_user_id=owner_id, token_hash="d" * 64, status="pending", expires_at=datetime.now(UTC)-timedelta(seconds=1))
+        db.add(expired); db.commit()
+        with pytest.raises(HTTPException, match="Expired") as error: resend_invitation(db, owner, org_id, expired.id)
+        assert error.value.status_code == 409
 
 
 def _plans(db):

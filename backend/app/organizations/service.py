@@ -199,6 +199,9 @@ def create_invitation(db: Session, actor: UserContext, organization_id: str, req
     org = db.execute(select(OrganizationModel).where(OrganizationModel.id == org.id).with_for_update()).scalars().one()
     if org.status != "active": raise HTTPException(status_code=409, detail="Organization is not active")
     email, now = normalize_email(request.email), datetime.now(UTC)
+    legacy_pending = db.execute(select(OrganizationMembershipModel).join(UserModel).where(OrganizationMembershipModel.organization_id == org.id, OrganizationMembershipModel.status == "pending", UserModel.email == email)).scalars().one_or_none()
+    if legacy_pending is not None:
+        raise HTTPException(status_code=409, detail="Resolve the legacy pending membership before inviting this email")
     existing = db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.organization_id == org.id, OrganizationInvitationModel.destination_email == email, OrganizationInvitationModel.status == "pending", OrganizationInvitationModel.expires_at > now)).scalars().one_or_none()
     if existing is not None: return invitation_response(existing)
     seats = seat_status(db, org.id)
@@ -236,7 +239,8 @@ def resend_invitation(db: Session, actor: UserContext, organization_id: str, inv
     org = _get_visible_org(db, actor, organization_id)
     if not can_manage_members(db, actor, org.id): raise HTTPException(status_code=403, detail="Organization owner/admin role required")
     invitation = db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.id == invitation_id, OrganizationInvitationModel.organization_id == org.id).with_for_update()).scalars().one_or_none()
-    if invitation is None or invitation.status != "pending": raise HTTPException(status_code=409, detail="Invitation cannot be resent")
+    expires_at = invitation.expires_at.replace(tzinfo=UTC) if invitation is not None and invitation.expires_at.tzinfo is None else invitation.expires_at if invitation is not None else None
+    if invitation is None or invitation.status != "pending" or expires_at <= datetime.now(UTC): raise HTTPException(status_code=409, detail="Expired or invalid invitation cannot be resent")
     now, token = datetime.now(UTC), token_urlsafe(48)
     invitation.status, invitation.updated_at = "superseded", now
     replacement = OrganizationInvitationModel(id=f"inv_{uuid4().hex[:12]}", organization_id=org.id, destination_email=invitation.destination_email, role=invitation.role, invited_by_user_id=actor.id, token_hash=hashlib.sha256(token.encode()).hexdigest(), status="pending", expires_at=now + __import__('datetime').timedelta(days=7), supersedes_id=invitation.id, created_at=now, updated_at=now)

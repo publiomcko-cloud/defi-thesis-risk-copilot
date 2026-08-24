@@ -34,6 +34,7 @@ def upgrade() -> None:
     op.bulk_insert(sa.table("plan_entitlements", sa.column("id", sa.String), sa.column("plan_version_id", sa.String), sa.column("entitlement_key", sa.String), sa.column("hard_limit", sa.Integer), sa.column("created_at", sa.DateTime(timezone=True))), [{"id": "ent_portfolio_org_seats", "plan_version_id": "plan_portfolio_org_v1", "entitlement_key": "limit.organization.seats.count", "hard_limit": 5, "created_at": timestamp}])
 
 def downgrade() -> None:
+    op.execute("DELETE FROM entitlement_assignments WHERE subject_type = 'organization'")
     op.execute("DELETE FROM plan_entitlements WHERE plan_version_id = 'plan_portfolio_org_v1'")
     op.execute("DELETE FROM plan_versions WHERE id = 'plan_portfolio_org_v1'")
     op.drop_index("ix_organization_invitations_org_status", table_name="organization_invitations")
