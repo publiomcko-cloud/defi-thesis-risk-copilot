@@ -32,6 +32,8 @@ from app.organizations.service import (
     add_member,
     accept_invitation,
     create_invitation,
+    resend_invitation,
+    revoke_invitation,
     create_organization,
     delete_organization,
     get_organization,
@@ -56,6 +58,14 @@ def post_invitation(organization_id: str, request: InvitationCreateRequest, db: 
 @router.post("/organization-invitations/accept", response_model=MembershipResponse)
 def post_accept_invitation(request: InvitationAcceptRequest, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> MembershipResponse:
     return accept_invitation(db, actor, request)
+
+@router.post("/organizations/{organization_id}/invitations/{invitation_id}/resend", response_model=InvitationResponse)
+def post_resend_invitation(organization_id: str, invitation_id: str, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> InvitationResponse:
+    return resend_invitation(db, actor, organization_id, invitation_id)
+
+@router.post("/organizations/{organization_id}/invitations/{invitation_id}/revoke", response_model=InvitationResponse)
+def post_revoke_invitation(organization_id: str, invitation_id: str, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> InvitationResponse:
+    return revoke_invitation(db, actor, organization_id, invitation_id)
 
 
 @router.get(

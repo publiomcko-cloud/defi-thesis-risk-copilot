@@ -10,11 +10,12 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.auth.policies import can_manage_members, can_manage_organization
+from app.auth.policies import can_manage_members, can_manage_organization, is_organization_owner
 from app.auth.schemas import UserContext
 from app.auth.service import normalize_email, record_audit_event
 from app.jobs.lifecycle import dispose_jobs_for_organization_deletion, revoke_jobs_for_authorization_change
 from app.models.organization import OrganizationInvitationModel, OrganizationMembershipModel, OrganizationModel
+from app.models.entitlement import EntitlementAssignmentModel, PlanEntitlementModel, PlanVersionModel
 from app.models.user import UserModel
 from app.knowledge.service import tombstone_knowledge_for_organization
 from app.organizations.schemas import (
@@ -28,6 +29,26 @@ from app.organizations.schemas import (
     InvitationCreateRequest,
     InvitationResponse,
 )
+
+ORG_PLAN_ID = "plan_portfolio_org_v1"
+ORG_SEAT_KEY = "limit.organization.seats.count"
+
+
+def seat_status(db: Session, organization_id: str, *, lock: bool = False) -> dict[str, int]:
+    query = select(OrganizationModel).where(OrganizationModel.id == organization_id)
+    if lock: query = query.with_for_update()
+    org = db.execute(query).scalars().one_or_none()
+    if org is None: raise HTTPException(status_code=404, detail="Organization not found")
+    now = datetime.now(UTC)
+    active = db.scalar(select(func.count()).select_from(OrganizationMembershipModel).where(OrganizationMembershipModel.organization_id == organization_id, OrganizationMembershipModel.status == "active")) or 0
+    legacy_pending = db.scalar(select(func.count()).select_from(OrganizationMembershipModel).where(OrganizationMembershipModel.organization_id == organization_id, OrganizationMembershipModel.status == "pending")) or 0
+    invitations = db.scalar(select(func.count()).select_from(OrganizationInvitationModel).where(OrganizationInvitationModel.organization_id == organization_id, OrganizationInvitationModel.status == "pending", OrganizationInvitationModel.expires_at > now)) or 0
+    assignment = db.execute(select(EntitlementAssignmentModel).where(EntitlementAssignmentModel.subject_type == "organization", EntitlementAssignmentModel.subject_id == organization_id, EntitlementAssignmentModel.effective_from <= now).where((EntitlementAssignmentModel.effective_until.is_(None)) | (EntitlementAssignmentModel.effective_until > now))).scalars().all()
+    plan_id = assignment[0].plan_version_id if len(assignment) == 1 else ORG_PLAN_ID
+    limit = db.scalar(select(PlanEntitlementModel.hard_limit).join(PlanVersionModel).where(PlanEntitlementModel.plan_version_id == plan_id, PlanEntitlementModel.entitlement_key == ORG_SEAT_KEY, PlanVersionModel.status == "active"))
+    if limit is None or limit < 0 or len(assignment) > 1: raise HTTPException(status_code=409, detail="Organization seat entitlement is unavailable")
+    reserved, consumed = int(legacy_pending + invitations), int(active + legacy_pending + invitations)
+    return {"limit": int(limit), "active": int(active), "reserved": reserved, "consumed": consumed, "remaining": max(int(limit) - consumed, 0)}
 
 
 def create_organization(
@@ -115,6 +136,8 @@ def update_organization(
     if request.name is not None:
         org.name = request.name
     if request.status is not None:
+        if not is_organization_owner(db, actor, org.id):
+            raise HTTPException(status_code=403, detail="Organization owner role required for status changes")
         if request.status != "active":
             revoke_jobs_for_authorization_change(
                 db,
@@ -139,8 +162,8 @@ def update_organization(
 
 def delete_organization(db: Session, actor: UserContext, organization_id: str) -> OrganizationResponse:
     org = _get_visible_org(db, actor, organization_id)
-    if not can_manage_organization(db, actor, org.id):
-        raise HTTPException(status_code=403, detail="Organization admin role required")
+    if not is_organization_owner(db, actor, org.id):
+        raise HTTPException(status_code=403, detail="Organization owner role required")
     org.deleted_at = datetime.now(UTC)
     org.status = "disabled"
     tombstone_knowledge_for_organization(db, org.id, now=org.deleted_at)
@@ -176,6 +199,12 @@ def create_invitation(db: Session, actor: UserContext, organization_id: str, req
     org = db.execute(select(OrganizationModel).where(OrganizationModel.id == org.id).with_for_update()).scalars().one()
     if org.status != "active": raise HTTPException(status_code=409, detail="Organization is not active")
     email, now = normalize_email(request.email), datetime.now(UTC)
+    existing = db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.organization_id == org.id, OrganizationInvitationModel.destination_email == email, OrganizationInvitationModel.status == "pending", OrganizationInvitationModel.expires_at > now)).scalars().one_or_none()
+    if existing is not None: return invitation_response(existing)
+    seats = seat_status(db, org.id)
+    if seats["consumed"] >= seats["limit"]:
+        record_audit_event(db, actor.id, "invitation.seat_limit_denied", "organization", org.id, {"limit": seats["limit"], "consumed": seats["consumed"]})
+        raise HTTPException(status_code=409, detail="Organization seat limit reached")
     token = token_urlsafe(48); invitation = OrganizationInvitationModel(id=f"inv_{uuid4().hex[:12]}", organization_id=org.id, destination_email=email, role=request.role, invited_by_user_id=actor.id, token_hash=hashlib.sha256(token.encode()).hexdigest(), status="pending", expires_at=now.replace(microsecond=0) + __import__('datetime').timedelta(days=7), created_at=now, updated_at=now)
     db.add(invitation); db.commit(); record_audit_event(db, actor.id, "invitation.created", "organization_invitation", invitation.id, {"organization_id": org.id, "role": invitation.role})
     return invitation_response(invitation, token)
@@ -203,6 +232,28 @@ def list_invitations(db: Session, actor: UserContext, organization_id: str) -> l
     return [invitation_response(item) for item in db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.organization_id == org.id).order_by(OrganizationInvitationModel.created_at.desc())).scalars()]
 
 
+def resend_invitation(db: Session, actor: UserContext, organization_id: str, invitation_id: str) -> InvitationResponse:
+    org = _get_visible_org(db, actor, organization_id)
+    if not can_manage_members(db, actor, org.id): raise HTTPException(status_code=403, detail="Organization owner/admin role required")
+    invitation = db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.id == invitation_id, OrganizationInvitationModel.organization_id == org.id).with_for_update()).scalars().one_or_none()
+    if invitation is None or invitation.status != "pending": raise HTTPException(status_code=409, detail="Invitation cannot be resent")
+    now, token = datetime.now(UTC), token_urlsafe(48)
+    invitation.status, invitation.updated_at = "superseded", now
+    replacement = OrganizationInvitationModel(id=f"inv_{uuid4().hex[:12]}", organization_id=org.id, destination_email=invitation.destination_email, role=invitation.role, invited_by_user_id=actor.id, token_hash=hashlib.sha256(token.encode()).hexdigest(), status="pending", expires_at=now + __import__('datetime').timedelta(days=7), supersedes_id=invitation.id, created_at=now, updated_at=now)
+    db.add(replacement); db.commit(); record_audit_event(db, actor.id, "invitation.resent", "organization_invitation", replacement.id, {"organization_id": org.id, "role": replacement.role})
+    return invitation_response(replacement, token)
+
+
+def revoke_invitation(db: Session, actor: UserContext, organization_id: str, invitation_id: str) -> InvitationResponse:
+    org = _get_visible_org(db, actor, organization_id)
+    if not can_manage_members(db, actor, org.id): raise HTTPException(status_code=403, detail="Organization owner/admin role required")
+    invitation = db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.id == invitation_id, OrganizationInvitationModel.organization_id == org.id).with_for_update()).scalars().one_or_none()
+    if invitation is None: raise HTTPException(status_code=404, detail="Invitation not found")
+    if invitation.status == "pending":
+        now = datetime.now(UTC); invitation.status, invitation.revoked_at, invitation.updated_at = "revoked", now, now; db.commit(); record_audit_event(db, actor.id, "invitation.revoked", "organization_invitation", invitation.id, {"organization_id": org.id})
+    return invitation_response(invitation)
+
+
 def invitation_response(record: OrganizationInvitationModel, token: str | None = None) -> InvitationResponse:
     return InvitationResponse(id=record.id, organization_id=record.organization_id, destination_email=record.destination_email, role=record.role, status=record.status, expires_at=record.expires_at, created_at=record.created_at, token=token)
 
@@ -218,6 +269,8 @@ def update_member(
     if not can_manage_members(db, actor, org.id):
         raise HTTPException(status_code=403, detail="Organization owner/admin role required")
     membership = _get_membership(db, org.id, membership_id)
+    if request.role == "owner":
+        raise HTTPException(status_code=409, detail="Use ownership transfer to assign owner role")
     if _would_remove_final_owner(db, membership, request.role, request.status):
         record_audit_event(
             db,

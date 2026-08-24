@@ -31,13 +31,13 @@ class PlanEntitlementModel(Base):
 class EntitlementAssignmentModel(Base):
     __tablename__ = "entitlement_assignments"
     __table_args__ = (
-        CheckConstraint("subject_type = 'user'", name="ck_entitlement_assignments_user_only"),
+        CheckConstraint("subject_type IN ('user', 'organization')", name="ck_entitlement_assignments_subject_type"),
         UniqueConstraint("subject_type", "subject_id", "plan_version_id", "effective_from", name="uq_entitlement_assignment_identity"),
         Index("ix_entitlement_assignments_resolver", "subject_type", "subject_id", "effective_from", "effective_until"),
     )
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     subject_type: Mapped[str] = mapped_column(String(16), nullable=False, default="user")
-    subject_id: Mapped[str] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(64), nullable=False)
     plan_version_id: Mapped[str] = mapped_column(ForeignKey("plan_versions.id", ondelete="RESTRICT"), nullable=False)
     effective_from: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     effective_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
