@@ -21,9 +21,11 @@ from app.organizations.schemas import (
     MembershipUpdateRequest,
     InvitationAcceptRequest,
     InvitationCreateRequest,
+    InvitationTokenResponse,
     InvitationResponse,
     InvitationsResponse,
     OrganizationCreateRequest,
+    OrganizationExportResponse,
     OrganizationResponse,
     OrganizationsResponse,
     OrganizationUpdateRequest,
@@ -37,6 +39,7 @@ from app.organizations.service import (
     revoke_invitation,
     create_organization,
     delete_organization,
+    export_organization,
     get_organization,
     list_members,
     list_invitations,
@@ -53,16 +56,24 @@ router = APIRouter(tags=["organizations"])
 def get_invitations(organization_id: str, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> InvitationsResponse:
     return InvitationsResponse(items=list_invitations(db, actor, organization_id))
 
-@router.post("/organizations/{organization_id}/invitations", response_model=InvitationResponse)
-def post_invitation(organization_id: str, request: InvitationCreateRequest, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> InvitationResponse:
+@router.post(
+    "/organizations/{organization_id}/invitations",
+    response_model=InvitationTokenResponse,
+    response_model_exclude_none=True,
+)
+def post_invitation(organization_id: str, request: InvitationCreateRequest, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> InvitationTokenResponse:
     return create_invitation(db, actor, organization_id, request)
 
 @router.post("/organization-invitations/accept", response_model=MembershipResponse)
 def post_accept_invitation(request: InvitationAcceptRequest, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> MembershipResponse:
     return accept_invitation(db, actor, request)
 
-@router.post("/organizations/{organization_id}/invitations/{invitation_id}/resend", response_model=InvitationResponse)
-def post_resend_invitation(organization_id: str, invitation_id: str, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> InvitationResponse:
+@router.post(
+    "/organizations/{organization_id}/invitations/{invitation_id}/resend",
+    response_model=InvitationTokenResponse,
+    response_model_exclude_none=True,
+)
+def post_resend_invitation(organization_id: str, invitation_id: str, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> InvitationTokenResponse:
     return resend_invitation(db, actor, organization_id, invitation_id)
 
 @router.post("/organizations/{organization_id}/invitations/{invitation_id}/revoke", response_model=InvitationResponse)
@@ -134,6 +145,15 @@ def get_organization_route(
     actor: UserContext = Depends(require_authenticated_user),
 ) -> OrganizationResponse:
     return get_organization(db, actor, organization_id)
+
+
+@router.get("/organizations/{organization_id}/export", response_model=OrganizationExportResponse)
+def get_organization_export(
+    organization_id: str,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> OrganizationExportResponse:
+    return export_organization(db, actor, organization_id)
 
 
 @router.patch("/organizations/{organization_id}", response_model=OrganizationResponse)
