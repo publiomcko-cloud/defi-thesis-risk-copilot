@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 import re
+from secrets import token_urlsafe
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -12,7 +14,7 @@ from app.auth.policies import can_manage_members, can_manage_organization
 from app.auth.schemas import UserContext
 from app.auth.service import normalize_email, record_audit_event
 from app.jobs.lifecycle import dispose_jobs_for_organization_deletion, revoke_jobs_for_authorization_change
-from app.models.organization import OrganizationMembershipModel, OrganizationModel
+from app.models.organization import OrganizationInvitationModel, OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 from app.knowledge.service import tombstone_knowledge_for_organization
 from app.organizations.schemas import (
@@ -22,6 +24,9 @@ from app.organizations.schemas import (
     OrganizationCreateRequest,
     OrganizationResponse,
     OrganizationUpdateRequest,
+    InvitationAcceptRequest,
+    InvitationCreateRequest,
+    InvitationResponse,
 )
 
 
@@ -162,63 +167,44 @@ def add_member(
     organization_id: str,
     request: MembershipCreateRequest,
 ) -> MembershipResponse:
+    raise HTTPException(status_code=410, detail="Direct member creation is replaced by organization invitations.")
+
+
+def create_invitation(db: Session, actor: UserContext, organization_id: str, request: InvitationCreateRequest) -> InvitationResponse:
     org = _get_visible_org(db, actor, organization_id)
-    if not can_manage_members(db, actor, org.id):
-        raise HTTPException(status_code=403, detail="Organization owner/admin role required")
-    email = normalize_email(request.email)
-    user = db.execute(select(UserModel).where(UserModel.email == email)).scalars().first()
-    pending = False
-    if user is None:
-        user = UserModel(
-            id=f"user_{uuid4().hex[:12]}",
-            email=email,
-            role="common",
-            platform_role="user",
-            account_status="pending_invitation",
-            plan="free",
-            auth_provider="pending_invitation",
-            is_active=False,
-        )
-        db.add(user)
-        db.flush()
-        pending = True
-    existing = db.execute(
-        select(OrganizationMembershipModel)
-        .where(OrganizationMembershipModel.organization_id == org.id)
-        .where(OrganizationMembershipModel.user_id == user.id)
-    ).scalars().first()
-    now = datetime.now(UTC)
-    if existing is None:
-        existing = OrganizationMembershipModel(
-            id=f"mbr_{uuid4().hex[:12]}",
-            organization_id=org.id,
-            user_id=user.id,
-            role=request.role,
-            status="pending" if pending else "active",
-            created_at=now,
-            updated_at=now,
-        )
-        db.add(existing)
-    else:
-        existing.role = request.role
-        existing.status = "pending" if pending else "active"
-        existing.updated_at = now
-    db.commit()
-    db.refresh(existing)
-    record_audit_event(
-        db,
-        actor.id,
-        "organization.member_added",
-        "organization_membership",
-        existing.id,
-        {
-            "organization_id": org.id,
-            "user_id": existing.user_id,
-            "role": existing.role,
-            "status": existing.status,
-        },
-    )
-    return membership_response(db, existing)
+    if not can_manage_members(db, actor, org.id): raise HTTPException(status_code=403, detail="Organization owner/admin role required")
+    org = db.execute(select(OrganizationModel).where(OrganizationModel.id == org.id).with_for_update()).scalars().one()
+    if org.status != "active": raise HTTPException(status_code=409, detail="Organization is not active")
+    email, now = normalize_email(request.email), datetime.now(UTC)
+    token = token_urlsafe(48); invitation = OrganizationInvitationModel(id=f"inv_{uuid4().hex[:12]}", organization_id=org.id, destination_email=email, role=request.role, invited_by_user_id=actor.id, token_hash=hashlib.sha256(token.encode()).hexdigest(), status="pending", expires_at=now.replace(microsecond=0) + __import__('datetime').timedelta(days=7), created_at=now, updated_at=now)
+    db.add(invitation); db.commit(); record_audit_event(db, actor.id, "invitation.created", "organization_invitation", invitation.id, {"organization_id": org.id, "role": invitation.role})
+    return invitation_response(invitation, token)
+
+
+def accept_invitation(db: Session, actor: UserContext, request: InvitationAcceptRequest) -> MembershipResponse:
+    token_hash, now = hashlib.sha256(request.token.encode()).hexdigest(), datetime.now(UTC)
+    invitation = db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.token_hash == token_hash).with_for_update()).scalars().one_or_none()
+    if invitation is None or invitation.status != "pending" or invitation.expires_at <= now: raise HTTPException(status_code=409, detail="Invitation is invalid or expired")
+    if normalize_email(actor.email) != invitation.destination_email: raise HTTPException(status_code=403, detail="Invitation destination does not match authenticated user")
+    org = db.execute(select(OrganizationModel).where(OrganizationModel.id == invitation.organization_id).with_for_update()).scalars().one()
+    if org.status != "active" or org.deleted_at is not None: raise HTTPException(status_code=409, detail="Organization is unavailable")
+    membership = db.execute(select(OrganizationMembershipModel).where(OrganizationMembershipModel.organization_id == org.id, OrganizationMembershipModel.user_id == actor.id).with_for_update()).scalars().one_or_none()
+    if membership is None:
+        membership = OrganizationMembershipModel(id=f"mbr_{uuid4().hex[:12]}", organization_id=org.id, user_id=actor.id, role=invitation.role, status="active", created_at=now, updated_at=now); db.add(membership)
+    else: membership.role, membership.status, membership.updated_at = invitation.role, "active", now
+    invitation.status, invitation.accepted_at, invitation.updated_at = "accepted", now, now
+    db.commit(); record_audit_event(db, actor.id, "invitation.accepted", "organization_invitation", invitation.id, {"organization_id": org.id, "role": invitation.role})
+    return membership_response(db, membership)
+
+
+def list_invitations(db: Session, actor: UserContext, organization_id: str) -> list[InvitationResponse]:
+    org = _get_visible_org(db, actor, organization_id)
+    if not can_manage_members(db, actor, org.id): raise HTTPException(status_code=403, detail="Organization owner/admin role required")
+    return [invitation_response(item) for item in db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.organization_id == org.id).order_by(OrganizationInvitationModel.created_at.desc())).scalars()]
+
+
+def invitation_response(record: OrganizationInvitationModel, token: str | None = None) -> InvitationResponse:
+    return InvitationResponse(id=record.id, organization_id=record.organization_id, destination_email=record.destination_email, role=record.role, status=record.status, expires_at=record.expires_at, created_at=record.created_at, token=token)
 
 
 def update_member(

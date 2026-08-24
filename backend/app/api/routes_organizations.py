@@ -19,6 +19,10 @@ from app.organizations.schemas import (
     MembershipResponse,
     MembershipsResponse,
     MembershipUpdateRequest,
+    InvitationAcceptRequest,
+    InvitationCreateRequest,
+    InvitationResponse,
+    InvitationsResponse,
     OrganizationCreateRequest,
     OrganizationResponse,
     OrganizationsResponse,
@@ -26,10 +30,13 @@ from app.organizations.schemas import (
 )
 from app.organizations.service import (
     add_member,
+    accept_invitation,
+    create_invitation,
     create_organization,
     delete_organization,
     get_organization,
     list_members,
+    list_invitations,
     list_organizations,
     remove_member,
     update_member,
@@ -37,6 +44,18 @@ from app.organizations.service import (
 )
 
 router = APIRouter(tags=["organizations"])
+
+@router.get("/organizations/{organization_id}/invitations", response_model=InvitationsResponse)
+def get_invitations(organization_id: str, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> InvitationsResponse:
+    return InvitationsResponse(items=list_invitations(db, actor, organization_id))
+
+@router.post("/organizations/{organization_id}/invitations", response_model=InvitationResponse)
+def post_invitation(organization_id: str, request: InvitationCreateRequest, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> InvitationResponse:
+    return create_invitation(db, actor, organization_id, request)
+
+@router.post("/organization-invitations/accept", response_model=MembershipResponse)
+def post_accept_invitation(request: InvitationAcceptRequest, db: Session = Depends(get_db), actor: UserContext = Depends(require_authenticated_user)) -> MembershipResponse:
+    return accept_invitation(db, actor, request)
 
 
 @router.get(

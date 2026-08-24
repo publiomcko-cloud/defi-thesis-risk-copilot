@@ -66,6 +66,10 @@ def can_manage_members(db: Session, user: UserContext, organization_id: str) -> 
     return can_manage_organization(db, user, organization_id)
 
 
+def is_organization_owner(db: Session, user: UserContext, organization_id: str) -> bool:
+    return user.is_admin or has_org_role(db, user.id, organization_id, {"owner"})
+
+
 def can_manage_knowledge_base(db: Session, user: UserContext, organization_id: str | None) -> bool:
     if organization_id is None:
         return user.is_admin

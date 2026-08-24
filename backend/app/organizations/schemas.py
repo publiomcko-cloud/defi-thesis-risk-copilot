@@ -63,3 +63,29 @@ class MembershipResponse(BaseModel):
 
 class MembershipsResponse(BaseModel):
     items: list[MembershipResponse]
+
+
+class InvitationCreateRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=255)
+    role: Literal["admin", "member", "viewer"] = "member"
+    model_config = ConfigDict(extra="forbid")
+
+
+class InvitationAcceptRequest(BaseModel):
+    token: str = Field(min_length=32, max_length=512)
+    model_config = ConfigDict(extra="forbid")
+
+
+class InvitationResponse(BaseModel):
+    id: str
+    organization_id: str
+    destination_email: str
+    role: Literal["admin", "member", "viewer"]
+    status: str
+    expires_at: datetime
+    created_at: datetime
+    token: str | None = None
+
+
+class InvitationsResponse(BaseModel):
+    items: list[InvitationResponse]
