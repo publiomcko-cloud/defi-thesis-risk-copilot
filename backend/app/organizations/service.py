@@ -15,7 +15,7 @@ from app.auth.policies import (
     can_manage_organization,
     can_transfer_organization_ownership,
     has_recent_authentication,
-    is_organization_owner,
+    is_organization_lifecycle_owner,
 )
 from app.auth.schemas import UserContext
 from app.auth.service import normalize_email, record_audit_event
@@ -192,12 +192,14 @@ def update_organization(
     request: OrganizationUpdateRequest,
 ) -> OrganizationResponse:
     org = _get_visible_org(db, actor, organization_id)
-    if not can_manage_organization(db, actor, org.id):
+    if request.name is None and request.status is None and not can_manage_organization(db, actor, org.id):
         raise HTTPException(status_code=403, detail="Organization admin role required")
     if request.name is not None:
+        if not can_manage_organization(db, actor, org.id):
+            raise HTTPException(status_code=403, detail="Organization admin role required")
         org.name = request.name
     if request.status is not None:
-        if not is_organization_owner(db, actor, org.id):
+        if not is_organization_lifecycle_owner(db, actor, org.id):
             raise HTTPException(status_code=403, detail="Organization owner role required for status changes")
         if request.status != "active":
             revoke_jobs_for_authorization_change(
@@ -223,7 +225,7 @@ def update_organization(
 
 def delete_organization(db: Session, actor: UserContext, organization_id: str) -> OrganizationResponse:
     org = _get_visible_org(db, actor, organization_id)
-    if not is_organization_owner(db, actor, org.id):
+    if not is_organization_lifecycle_owner(db, actor, org.id):
         raise HTTPException(status_code=403, detail="Organization owner role required")
     org.deleted_at = datetime.now(UTC)
     org.status = "disabled"

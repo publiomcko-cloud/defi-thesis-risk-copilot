@@ -127,6 +127,70 @@ def test_owner_and_admin_can_administer_but_only_owner_can_destroy_or_transfer(o
             assert transfer.value.status_code == 403
 
 
+def test_lifecycle_owner_can_reactivate_and_delete_a_disabled_organization(ownership):
+    sessions, users = ownership
+    with sessions() as db:
+        owner = _actor(db, users["owner"])
+        admin = _actor(db, users["admin"])
+
+        assert update_organization(
+            db, owner, "org_ownership", OrganizationUpdateRequest(status="disabled")
+        ).status == "disabled"
+        with pytest.raises(HTTPException) as admin_reactivate:
+            update_organization(db, admin, "org_ownership", OrganizationUpdateRequest(status="active"))
+        assert admin_reactivate.value.status_code == 403
+
+        assert update_organization(
+            db, owner, "org_ownership", OrganizationUpdateRequest(status="active")
+        ).status == "active"
+        assert update_organization(
+            db, owner, "org_ownership", OrganizationUpdateRequest(status="disabled")
+        ).status == "disabled"
+        assert delete_organization(db, owner, "org_ownership").status == "disabled"
+
+        with pytest.raises(HTTPException) as deleted_reactivate:
+            update_organization(db, owner, "org_ownership", OrganizationUpdateRequest(status="active"))
+        assert deleted_reactivate.value.status_code == 404
+
+
+def test_lifecycle_owner_can_delete_an_active_organization(ownership):
+    sessions, users = ownership
+    with sessions() as db:
+        deleted = delete_organization(db, _actor(db, users["owner"]), "org_ownership")
+        assert deleted.status == "disabled"
+        assert db.get(OrganizationModel, "org_ownership").deleted_at is not None
+
+
+def test_disabled_organization_keeps_lifecycle_authority_owner_only(ownership):
+    sessions, users = ownership
+    with sessions() as db:
+        owner = _actor(db, users["owner"])
+        platform_admin = _actor(db, users["platform_admin"])
+        update_organization(db, owner, "org_ownership", OrganizationUpdateRequest(status="disabled"))
+
+        with pytest.raises(HTTPException) as platform_delete:
+            delete_organization(db, platform_admin, "org_ownership")
+        assert platform_delete.value.status_code == 403
+
+        with pytest.raises(HTTPException) as invite:
+            create_invitation(
+                db,
+                owner,
+                "org_ownership",
+                InvitationCreateRequest(email="disabled-organization@example.test"),
+            )
+        assert invite.value.status_code == 403
+
+        with pytest.raises(HTTPException) as transfer:
+            transfer_organization_ownership(
+                db,
+                owner,
+                "org_ownership",
+                OwnershipTransferRequest(target_membership_id="mbr_target"),
+            )
+        assert transfer.value.status_code == 403
+
+
 def test_members_and_viewers_cannot_administer_members(ownership):
     sessions, users = ownership
     with sessions() as db:
@@ -274,6 +338,31 @@ def test_verified_supabase_auth_time_controls_transfer(supabase_transfer_client)
     )
     assert response.status_code == 200
     assert response.json()["role"] == "owner"
+
+
+def test_api_lifecycle_owner_can_disable_and_reactivate_organization(supabase_transfer_client):
+    disabled = supabase_transfer_client.patch(
+        "/api/organizations/org_supabase",
+        json={"status": "disabled"},
+        headers=_auth("fresh"),
+    )
+    assert disabled.status_code == 200
+    assert disabled.json()["status"] == "disabled"
+
+    blocked_transfer = supabase_transfer_client.post(
+        "/api/organizations/org_supabase/transfer-ownership",
+        json={"target_membership_id": "mbr_supabase_target"},
+        headers=_auth("fresh"),
+    )
+    assert blocked_transfer.status_code == 403
+
+    reactivated = supabase_transfer_client.patch(
+        "/api/organizations/org_supabase",
+        json={"status": "active"},
+        headers=_auth("fresh"),
+    )
+    assert reactivated.status_code == 200
+    assert reactivated.json()["status"] == "active"
 
 
 @pytest.mark.parametrize("token", ["stale", "missing", "aal-only"])

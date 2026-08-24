@@ -79,6 +79,29 @@ def is_organization_owner(db: Session, user: UserContext, organization_id: str) 
     return has_org_role(db, user.id, organization_id, {"owner"})
 
 
+def is_organization_lifecycle_owner(
+    db: Session,
+    user: UserContext,
+    organization_id: str,
+) -> bool:
+    """Authorize an owner to recover or retire a non-deleted organization.
+
+    Normal organization access remains conditional on an active organization.
+    Lifecycle changes are the intentional exception so an owner can reactivate
+    or delete an organization after disabling it.
+    """
+    membership = db.execute(
+        select(OrganizationMembershipModel)
+        .join(OrganizationModel, OrganizationModel.id == OrganizationMembershipModel.organization_id)
+        .where(OrganizationMembershipModel.user_id == user.id)
+        .where(OrganizationMembershipModel.organization_id == organization_id)
+        .where(OrganizationMembershipModel.status == "active")
+        .where(OrganizationMembershipModel.role == "owner")
+        .where(OrganizationModel.deleted_at.is_(None))
+    ).scalars().first()
+    return membership is not None
+
+
 def can_transfer_organization_ownership(db: Session, user: UserContext, organization_id: str) -> bool:
     return is_organization_owner(db, user, organization_id)
 
