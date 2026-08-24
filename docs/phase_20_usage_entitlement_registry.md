@@ -147,13 +147,13 @@ hard limit, not observed usage.
 
 | Key | Unit | Candidate period/scope | Current fallback | Approval |
 | --- | --- | --- | --- | --- |
-| `limit.analysis.count` | Admissions | Day, user/anonymous | Existing analysis quota settings | **Blocked** |
-| `limit.simulation.count` | Admissions | Day, user | Existing simulation quota | **Blocked** |
-| `limit.options_analysis.count` | Admissions | Day, user | Existing options quota | **Blocked** |
-| `limit.market_data_fetch.count` | Admissions | Day, user | Existing market-data quota | **Blocked** |
-| `limit.saved_theses.active` | Active resources | User | Existing resource-count limit | **Blocked** |
-| `limit.watchlists.active` | Active resources | User | Existing resource-count limit | **Blocked** |
-| `limit.schedules.active` | Active resources | User/organization | Disabled/not implemented | **Blocked** |
+| `limit.analysis.count` | Admissions | Day, user/anonymous | Existing analysis quota settings | **Phase 20F shadow-only** |
+| `limit.simulation.count` | Admissions | Day, user | Existing simulation quota | **Phase 20F shadow-only** |
+| `limit.options.count` | Admissions | Day, user | Existing options quota | **Phase 20F shadow-only** |
+| `limit.market_data.count` | Admissions | Day, user | Existing market-data quota | **Phase 20F shadow-only** |
+| `limit.saved_thesis.count` | Active resources | User | Existing resource-count limit | **Phase 20F shadow-only** |
+| `limit.watchlist.count` | Active resources | User | Existing resource-count limit | **Phase 20F shadow-only** |
+| `limit.schedule.active_count` | Active resources | User | Existing active-schedule limit | **Phase 20F shadow-only** |
 | `limit.organization.members_active` | Active plus reserved seats | Organization | No commercial seat limit | **Blocked** |
 | `limit.knowledge.storage_bytes` | Retained bytes | User/organization | Existing storage feature gate/provider limits | **Blocked** |
 | `limit.jobs.pending` | Pending jobs | User/organization | Existing Phase 17 capacity policy | **Blocked** |

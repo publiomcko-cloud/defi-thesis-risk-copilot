@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import pytest
+from datetime import UTC, datetime, timedelta
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -12,11 +13,13 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.jobs.schemas import WorkerCredentialCreateRequest, WorkerRegistrationRequest
 from app.jobs.worker_service import issue_worker_credential, register_worker
+from app.jobs.worker_protocol import recover_expired_jobs
 from app.main import app
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.artifact import ArtifactModel
 from app.models.job import JobModel
 from app.models.report import ReportModel
+from app.models.entitlement import UsageEventModel
 from app.reports.templates import REQUIRED_REPORT_SECTIONS
 
 
@@ -78,6 +81,13 @@ def test_authenticated_analysis_queues_once_and_persists_one_report(phase17d_cli
         }
         artifact = db.get(ArtifactModel, f"artifact_{queued['job_id']}")
         assert artifact is not None
+        usage = db.execute(
+            select(UsageEventModel).where(
+                UsageEventModel.unit_key == "usage.analysis.completed.v1",
+                UsageEventModel.source_id == queued["job_id"],
+            )
+        ).scalars().all()
+        assert len(usage) == 1
         assert artifact.status == "available"
         assert artifact.storage_backend == "database"
         assert artifact.resource_type == "report"
@@ -110,6 +120,49 @@ def test_cancellation_wins_without_persisting_a_report(phase17d_client) -> None:
     with Session() as db:
         assert db.get(ReportModel, queued["report_id"]) is None
         assert db.execute(select(AnalysisRequestModel)).scalars().all() == []
+        assert not db.execute(select(UsageEventModel).where(UsageEventModel.unit_key == "usage.analysis.completed.v1")).scalars().all()
+
+
+def test_lease_loss_retry_meters_analysis_only_after_authoritative_completion(phase17d_client) -> None:
+    client, Session = phase17d_client
+    owner_token, worker_token = _seed_owner_and_worker(Session)
+    queued = client.post("/api/analyze", json=_analysis_payload(), headers={"Authorization": f"Bearer {owner_token}", "Idempotency-Key": "phase17d-recovery-key"}).json()
+    first = _claim(client, worker_token)
+    first_payload = {"lease_generation": first["lease_generation"], "lease_token": first["lease_token"]}
+    assert client.post(f"/internal/workers/v1/jobs/{first['id']}/start", json=first_payload, headers=_worker_auth(worker_token)).status_code == 200
+    with Session() as db:
+        db.get(JobModel, first["id"]).lease_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+    with Session() as db:
+        assert recover_expired_jobs(db) == 1
+        db.commit()
+        assert not db.execute(select(UsageEventModel).where(UsageEventModel.source_id == queued["job_id"])).scalars().all()
+        db.get(JobModel, queued["job_id"]).available_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+    second = _claim(client, worker_token)
+    second_payload = {"lease_generation": second["lease_generation"], "lease_token": second["lease_token"]}
+    assert client.post(f"/internal/workers/v1/jobs/{second['id']}/start", json=second_payload, headers=_worker_auth(worker_token)).status_code == 200
+    response = client.post(f"/internal/workers/v1/jobs/{second['id']}/complete", json={**second_payload, "result": {"result_schema_version": "analysis.generate.v1", "result_json": _worker_result(second)}}, headers=_worker_auth(worker_token))
+    assert response.status_code == 200
+    stale = client.post(f"/internal/workers/v1/jobs/{second['id']}/complete", json={**second_payload, "result": {"result_schema_version": "analysis.generate.v1", "result_json": _worker_result(second)}}, headers=_worker_auth(worker_token))
+    assert stale.status_code == 409
+    with Session() as db:
+        assert len(db.execute(select(UsageEventModel).where(UsageEventModel.unit_key == "usage.analysis.completed.v1", UsageEventModel.source_id == queued["job_id"])).scalars().all()) == 1
+
+
+def test_retry_exhaustion_dead_letters_analysis_without_usage(phase17d_client) -> None:
+    client, Session = phase17d_client
+    owner_token, worker_token = _seed_owner_and_worker(Session)
+    queued = client.post("/api/analyze", json=_analysis_payload(), headers={"Authorization": f"Bearer {owner_token}", "Idempotency-Key": "phase17d-dead-letter-key"}).json()
+    lease = _claim(client, worker_token)
+    payload = {"lease_generation": lease["lease_generation"], "lease_token": lease["lease_token"]}
+    assert client.post(f"/internal/workers/v1/jobs/{lease['id']}/start", json=payload, headers=_worker_auth(worker_token)).status_code == 200
+    with Session() as db:
+        job = db.get(JobModel, lease["id"]); job.max_attempts = 1; job.lease_expires_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit(); assert recover_expired_jobs(db) == 1; db.commit()
+        assert db.get(JobModel, lease["id"]).status == "dead_letter"
+        assert db.get(ReportModel, queued["report_id"]) is None
+        assert not db.execute(select(UsageEventModel).where(UsageEventModel.unit_key == "usage.analysis.completed.v1", UsageEventModel.source_id == lease["id"])).scalars().all()
 
 
 def test_disabling_async_flag_restores_authenticated_synchronous_analysis(phase17d_client, monkeypatch) -> None:

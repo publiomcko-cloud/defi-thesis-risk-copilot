@@ -20,6 +20,7 @@ from app.models.job import JobCapacityReservationModel, JobModel
 from app.models.notification import NotificationModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.usage_quota import UsageQuotaModel
+from app.models.entitlement import UsageEventModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
 from app.quotas.service import (
     ACTION_SCHEDULED_WATCHLIST_EVALUATION,
@@ -409,6 +410,13 @@ def test_authoritative_worker_completion_marks_job_and_occurrence_completed(sche
             ("job.status", claimed.id),
             ("schedule.status", occurrence.id),
         }
+        usage = db.execute(
+            select(UsageEventModel).where(
+                UsageEventModel.unit_key == "usage.schedule.run_completed.v1",
+                UsageEventModel.source_id == occurrence.id,
+            )
+        ).scalars().all()
+        assert len(usage) == 1
 
 
 def test_executor_success_before_lease_loss_recovers_to_queued_occurrence(schedule_client) -> None:
@@ -438,11 +446,24 @@ def test_executor_success_before_lease_loss_recovers_to_queued_occurrence(schedu
         assert recovered.reason == "lease_expired_retry"
         assert recovered.completed_at is None
         assert db.scalar(select(NotificationModel).where(NotificationModel.source_id == claimed.id)) is None
+        assert not db.execute(select(UsageEventModel).where(UsageEventModel.source_id == recovered.id)).scalars().all()
         quota = db.execute(
             select(UsageQuotaModel)
             .where(UsageQuotaModel.action == ACTION_SCHEDULED_WATCHLIST_EVALUATION)
         ).scalars().one()
         assert quota.used == 1
+        db.get(JobModel, claimed.id).available_at = datetime.now(UTC) - timedelta(seconds=1)
+        db.commit()
+        retried = _claim_and_start_schedule_job(db, _worker_identity(db, "lease-loss"))
+
+    result = WatchlistEvaluationJobExecutor(session_factory=Session).execute(retried)
+    with Session() as db:
+        completed = complete_job(db, _worker_identity(db, "lease-loss"), retried.id, WorkerLeaseRequest(lease_generation=retried.lease_generation, lease_token=retried.lease_token), result)
+        assert completed.status == "completed"
+        occurrence = db.scalar(select(MonitoringScheduleOccurrenceModel).where(MonitoringScheduleOccurrenceModel.job_id == retried.id))
+        usage = db.execute(select(UsageEventModel).where(UsageEventModel.unit_key == "usage.schedule.run_completed.v1", UsageEventModel.source_id == occurrence.id)).scalars().all()
+        assert len(usage) == 1
+        assert db.execute(select(UsageQuotaModel).where(UsageQuotaModel.action == ACTION_SCHEDULED_WATCHLIST_EVALUATION)).scalars().one().used == 1
 
 
 def test_final_attempt_lease_loss_after_executor_success_marks_occurrence_failed(schedule_client) -> None:
@@ -479,6 +500,7 @@ def test_final_attempt_lease_loss_after_executor_success_marks_occurrence_failed
             ("job.status", claimed.id),
             ("schedule.status", occurrence.id),
         }
+        assert not db.execute(select(UsageEventModel).where(UsageEventModel.unit_key == "usage.schedule.run_completed.v1", UsageEventModel.source_id == occurrence.id)).scalars().all()
 
 
 def test_delete_cancels_pending_work_and_execution_revalidates_owner(schedule_client) -> None:

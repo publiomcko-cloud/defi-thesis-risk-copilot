@@ -11,7 +11,12 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | 20C | Merged / production-disabled | The original Phase 20C implementation and the authoritative-completion/daily-scheduled-run-quota correction both passed hosted CI. Migration `0024`, durable private schedules, DST, PostgreSQL one-winner claims, Phase 17 jobs, lifecycle/export/retention, browser and operations aggregates merged as `8aeb84cec0427765322cf44b3827eee319e8064e`. Production dispatch remains disabled. |
 | 20D | Merged / production-disabled | Migration `0025`, in-app preference and notification records, code-owned registry, authenticated API, notification center UI, source projections, lifecycle/export/deletion, retention cleanup, policy/access/pagination corrections, recovery coverage, PostgreSQL/browser/Compose/CodeQL/Supply Chain/Phase 19 exercise evidence merged as `32dfb91ece2344be5dbbcd2c8d12723bc2378126`. External delivery and production activation remain out of scope. |
 | 20E | Optional | Synthetic/provider-neutral delivery demonstration only |
-| 20F | Planned / required | Versioned entitlements and non-billable usage/reconciliation evidence needed |
+| 20F | In progress / shadow-only | Migration `0026` seeds `free-v1`; read-only resolver compares seven documented limits against legacy authorities with bounded fallback; immutable ledger and real schedule lease-loss/retry completion evidence implemented; corrected hosted validation pending |
+
+Phase 20F additionally runs an isolated PostgreSQL migration-cycle test using a
+temporary database: `0025 -> 0026 -> 0025 -> 0026`. It verifies the seeded
+catalog, overlap exclusion constraint, downgrade preservation of Phase 20C/20D
+objects, and intentional retention of shared `btree_gist` extension support.
 | 20G | Deferred | Not required for portfolio completion; preserved for future productization |
 | 20H | Planned / required | Invitations, seats, ownership and PostgreSQL concurrency evidence needed |
 | 20I | Planned / required, reduced | First-party bounded support/privacy/status evidence needed |

@@ -491,6 +491,10 @@ Core outcomes:
 
 Goal: add privacy-conscious product analytics, scheduled monitoring, controlled notifications, plan entitlements, billing foundations, support, and legal launch readiness.
 
+Phase 20F is currently restricted to server-owned `free-v1` shadow comparison
+and non-billable completed-usage evidence; it does not authorize billing or
+commercial entitlement enforcement.
+
 Phase 20 is active on its implementation branch. Its ordered, reviewable
 subphases and gates are defined by
 [`phase_20_execution_plan.md`](phase_20_execution_plan.md), subordinate to the

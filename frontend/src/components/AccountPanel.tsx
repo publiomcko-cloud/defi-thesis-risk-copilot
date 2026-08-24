@@ -21,9 +21,20 @@ type AnalyticsPreference = {
   updated_at?: string | null;
 };
 
+type Entitlements = {
+  plan: string;
+  version: number;
+  provenance: string;
+  limits: Record<string, number>;
+  shadow: "parity" | "mismatch";
+  comparisons: Array<{ key: string; result: "parity" | "mismatch" | "fallback"; legacy_limit: number; entitlement_limit: number | null }>;
+  completed_usage: Record<string, number>;
+};
+
 export function AccountPanel() {
   const [session, setSession] = useState<SessionPayload | null>(null);
   const [usage, setUsage] = useState<{ items: Array<{ action: string; used: number; limit: number; remaining: number }> } | null>(null);
+  const [entitlements, setEntitlements] = useState<Entitlements | null>(null);
   const [consents, setConsents] = useState<Array<{ document_type: string; document_version: string; accepted_at: string; withdrawn_at?: string | null }>>([]);
   const [analyticsPreference, setAnalyticsPreference] = useState<AnalyticsPreference | null>(null);
   const [analyticsUpdating, setAnalyticsUpdating] = useState(false);
@@ -42,6 +53,10 @@ export function AccountPanel() {
       .then((response) => (response.ok ? response.json() : null))
       .then(setUsage)
       .catch(() => setUsage(null));
+    fetch("/api/backend/api/account/entitlements", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : null))
+      .then(setEntitlements)
+      .catch(() => setEntitlements(null));
     fetch("/api/backend/api/consents", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : { items: [] }))
       .then((payload) => setConsents(payload.items ?? []))
@@ -231,6 +246,30 @@ export function AccountPanel() {
         ) : (
           <p>No quota usage recorded yet.</p>
         )}
+      </article>
+      <article className="panel">
+        <h2>Entitlements</h2>
+        {entitlements ? (
+          <>
+            <p>{entitlements.plan} {entitlements.version ? `v${entitlements.version}` : ""} ({entitlements.provenance})</p>
+            <p>Admission quota and completed usage are separate records.</p>
+            <ul className="compact-list">
+              {Object.entries(entitlements.limits).map(([key, limit]) => (
+                <li key={key}>{key}: {limit}</li>
+              ))}
+            </ul>
+            <h3>Shadow comparison</h3>
+            <ul className="compact-list">
+              {entitlements.comparisons.map((comparison) => (
+                <li key={comparison.key}>{comparison.key}: {comparison.result}</li>
+              ))}
+            </ul>
+            <h3>Completed non-billable usage</h3>
+            <ul className="compact-list">
+              {Object.entries(entitlements.completed_usage).map(([unit, count]) => <li key={unit}>{unit}: {count}</li>)}
+            </ul>
+          </>
+        ) : <p>Entitlement details are available after login.</p>}
       </article>
       {message ? <p className="form-success">{message}</p> : null}
     </section>

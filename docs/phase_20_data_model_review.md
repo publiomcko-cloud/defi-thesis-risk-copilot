@@ -335,6 +335,12 @@ Lifecycle:
 
 ## 5. Proposed `0026` — plans, entitlements, and usage
 
+Implemented Phase 20F correction: `0026` seeds the immutable `free-v1`
+catalog and PostgreSQL applies an exclusion constraint preventing overlapping
+effective user assignments. Resolver reads do not initialize catalog or
+assignment rows; missing, partial, invalid, or ambiguous state falls back to
+the existing legacy authority in shadow mode.
+
 Candidate tables:
 
 - `plan_versions`;

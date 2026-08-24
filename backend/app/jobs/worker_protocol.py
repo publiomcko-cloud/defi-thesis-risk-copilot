@@ -15,6 +15,7 @@ from app.auth.service import user_context
 from app.core.config import get_settings
 from app.jobs.errors import JobErrorCategory
 from app.product_analytics.service import emit_product_event_safely
+from app.entitlements.service import emit_usage
 from app.jobs.control_service import (
     _release_capacity,
     move_pending_capacity_to_running,
@@ -327,6 +328,25 @@ def complete_job(
     job.progress_message = "Worker completed the job."
     transition_job(db, job, "completed", worker_id=identity.worker.id, message="Worker completed the job.")
     synchronize_schedule_occurrence(db, job, "completed")
+    if job.job_type == "analysis.generate":
+        emit_usage(
+            db,
+            owner_user_id=job.owner_user_id,
+            unit_key="usage.analysis.completed.v1",
+            source_type="job",
+            source_id=job.id,
+        )
+    if job.job_type == "watchlist.evaluate":
+        context = job.input_json.get("_server_context", {}) if isinstance(job.input_json, dict) else {}
+        occurrence_id = context.get("schedule_occurrence_id") if isinstance(context, dict) else None
+        if isinstance(occurrence_id, str):
+            emit_usage(
+                db,
+                owner_user_id=job.owner_user_id,
+                unit_key="usage.schedule.run_completed.v1",
+                source_type="schedule_occurrence",
+                source_id=occurrence_id,
+            )
     attempt.ended_at = datetime.now(UTC)
     attempt.outcome = "completed"
     _clear_lease(job)
