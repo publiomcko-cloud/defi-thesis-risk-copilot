@@ -22,7 +22,7 @@ from app.models.knowledge import (
     KnowledgeRetrievalEventModel,
     KnowledgeSourceModel,
 )
-from app.models.organization import OrganizationMembershipModel, OrganizationModel
+from app.models.organization import OrganizationInvitationModel, OrganizationMembershipModel, OrganizationModel
 from app.models.organization_knowledge_source import OrganizationKnowledgeSourceModel
 from app.models.report import ReportModel
 from app.models.rate_limit import RateLimitBucketModel
@@ -71,6 +71,7 @@ __all__ = [
     "KnowledgeRetrievalEventModel",
     "KnowledgeSourceModel",
     "OrganizationMembershipModel",
+    "OrganizationInvitationModel",
     "OrganizationModel",
     "OrganizationKnowledgeSourceModel",
     "ReportModel",
