@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.auth.schemas import UserContext
+from app.core.config import get_settings
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 
 
@@ -58,8 +59,16 @@ def can_update_resource(user: UserContext, resource: ScopedResource, db: Session
     return False
 
 
+def can_use_platform_admin_emergency_path(user: UserContext) -> bool:
+    return user.is_admin
+
+
+def can_administer_organization(db: Session, user: UserContext, organization_id: str) -> bool:
+    return has_org_role(db, user.id, organization_id, MANAGE_ORG_ROLES)
+
+
 def can_manage_organization(db: Session, user: UserContext, organization_id: str) -> bool:
-    return user.is_admin or has_org_role(db, user.id, organization_id, MANAGE_ORG_ROLES)
+    return can_use_platform_admin_emergency_path(user) or can_administer_organization(db, user, organization_id)
 
 
 def can_manage_members(db: Session, user: UserContext, organization_id: str) -> bool:
@@ -67,7 +76,27 @@ def can_manage_members(db: Session, user: UserContext, organization_id: str) -> 
 
 
 def is_organization_owner(db: Session, user: UserContext, organization_id: str) -> bool:
-    return user.is_admin or has_org_role(db, user.id, organization_id, {"owner"})
+    return has_org_role(db, user.id, organization_id, {"owner"})
+
+
+def can_transfer_organization_ownership(db: Session, user: UserContext, organization_id: str) -> bool:
+    return is_organization_owner(db, user, organization_id)
+
+
+def has_recent_authentication(user: UserContext, *, now: datetime | None = None) -> bool:
+    settings = get_settings()
+    authenticated_at = user.authenticated_at
+    if authenticated_at is None:
+        return False
+    if user.auth_provider == "legacy_local":
+        if settings.app_env == "production" or not settings.ownership_transfer_legacy_local_recent_auth_enabled:
+            return False
+    elif user.auth_provider != "supabase":
+        return False
+    authenticated_at = authenticated_at.replace(tzinfo=UTC) if authenticated_at.tzinfo is None else authenticated_at
+    current_time = now or datetime.now(UTC)
+    maximum_age = timedelta(seconds=settings.ownership_transfer_recent_auth_seconds)
+    return authenticated_at <= current_time and authenticated_at >= current_time - maximum_age
 
 
 def can_manage_knowledge_base(db: Session, user: UserContext, organization_id: str | None) -> bool:

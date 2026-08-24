@@ -21,6 +21,7 @@ class UserContext(BaseModel):
     auth_provider: str = "legacy_local"
     auth_subject: str | None = None
     email_verified: bool = False
+    authenticated_at: datetime | None = None
     anonymous_session_id: str | None = None
 
     @property

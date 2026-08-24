@@ -88,6 +88,8 @@ class Settings(BaseSettings):
     supabase_jwt_issuer: str = ""
     supabase_jwt_audience: str = "authenticated"
     supabase_service_role_key: str = ""
+    ownership_transfer_recent_auth_seconds: int = 600
+    ownership_transfer_legacy_local_recent_auth_enabled: bool = False
     knowledge_storage_enabled: bool = False
     supabase_storage_bucket: str = "private-knowledge"
     supabase_storage_timeout_seconds: float = 20.0
@@ -281,6 +283,10 @@ class Settings(BaseSettings):
             raise ValueError("AUTH_PROVIDER must be legacy_local or supabase")
         if self.auth_enabled and provider == "legacy_local" and self.app_env == "production":
             raise ValueError("legacy_local authentication is not allowed in production")
+        if not 1 <= self.ownership_transfer_recent_auth_seconds <= 600:
+            raise ValueError("OWNERSHIP_TRANSFER_RECENT_AUTH_SECONDS must be between 1 and 600")
+        if self.ownership_transfer_legacy_local_recent_auth_enabled and self.app_env == "production":
+            raise ValueError("Legacy local recent-auth support is not allowed in production")
         if self.auth_enabled and provider == "supabase":
             missing = [
                 name

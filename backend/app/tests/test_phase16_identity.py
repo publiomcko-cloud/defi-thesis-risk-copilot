@@ -24,6 +24,7 @@ from app.models.analysis_request import AnalysisRequestModel
 from app.models.access_audit_event import AccessAuditEventModel
 from app.models.anonymous_session import AnonymousSessionModel
 from app.models.consent_record import ConsentRecordModel
+from app.models.entitlement import PlanEntitlementModel, PlanVersionModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.report import ReportModel
 from app.models.saved_thesis import SavedThesisModel
@@ -185,15 +186,37 @@ def test_organization_lifecycle_events_are_recorded(phase16_client) -> None:
     client, Session = phase16_client
     with Session() as db:
         create_user(db, "audit-owner@example.test", token="audit-owner-token")
+        create_user(db, "audit-member@example.test", token="audit-member-token")
+        db.add_all([
+            PlanVersionModel(
+                id="plan_portfolio_org_v1",
+                plan_key="portfolio-org-v1",
+                version=1,
+                status="active",
+                effective_from=datetime(2025, 8, 24, tzinfo=UTC),
+            ),
+            PlanEntitlementModel(
+                id="ent_portfolio_org_seats",
+                plan_version_id="plan_portfolio_org_v1",
+                entitlement_key="limit.organization.seats.count",
+                hard_limit=5,
+            ),
+        ])
+        db.commit()
 
     org = client.post("/api/organizations", json={"name": "Audit Lab"}, headers=_auth("audit-owner-token"))
     org_id = org.json()["id"]
-    added = client.post(
-        f"/api/organizations/{org_id}/members",
+    invitation = client.post(
+        f"/api/organizations/{org_id}/invitations",
         json={"email": "audit-member@example.test", "role": "member"},
         headers=_auth("audit-owner-token"),
     )
-    membership_id = added.json()["id"]
+    accepted = client.post(
+        "/api/organization-invitations/accept",
+        json={"token": invitation.json()["token"]},
+        headers=_auth("audit-member-token"),
+    )
+    membership_id = accepted.json()["id"]
     assert client.patch(
         f"/api/organizations/{org_id}/members/{membership_id}",
         json={"role": "viewer"},
@@ -371,6 +394,7 @@ def test_supabase_jwt_validation_with_jwks(monkeypatch) -> None:
             return {"keys": [jwk]}
 
     monkeypatch.setattr("app.auth.supabase.httpx.get", lambda *args, **kwargs: FakeResponse())
+    auth_time = int(time.time()) - 30
     token = _signed_jwt(
         private_key,
         {
@@ -380,6 +404,7 @@ def test_supabase_jwt_validation_with_jwks(monkeypatch) -> None:
             "iss": settings.supabase_jwt_issuer,
             "aud": "authenticated",
             "exp": int(time.time()) + 300,
+            "auth_time": auth_time,
         },
     )
 
@@ -388,6 +413,7 @@ def test_supabase_jwt_validation_with_jwks(monkeypatch) -> None:
     assert claims.subject == "supabase-user-1"
     assert claims.email == "user@example.test"
     assert claims.email_verified is True
+    assert claims.authenticated_at == datetime.fromtimestamp(auth_time, UTC)
 
 
 def test_production_auth_requires_bff_audit_secret() -> None:

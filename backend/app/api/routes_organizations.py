@@ -27,6 +27,7 @@ from app.organizations.schemas import (
     OrganizationResponse,
     OrganizationsResponse,
     OrganizationUpdateRequest,
+    OwnershipTransferRequest,
 )
 from app.organizations.service import (
     add_member,
@@ -41,6 +42,7 @@ from app.organizations.service import (
     list_invitations,
     list_organizations,
     remove_member,
+    transfer_organization_ownership,
     update_member,
     update_organization,
 )
@@ -142,6 +144,19 @@ def patch_organization(
     actor: UserContext = Depends(require_authenticated_user),
 ) -> OrganizationResponse:
     return update_organization(db, actor, organization_id, request)
+
+
+@router.post(
+    "/organizations/{organization_id}/transfer-ownership",
+    response_model=MembershipResponse,
+)
+def post_transfer_organization_ownership(
+    organization_id: str,
+    request: OwnershipTransferRequest,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> MembershipResponse:
+    return transfer_organization_ownership(db, actor, organization_id, request)
 
 
 @router.delete("/organizations/{organization_id}", response_model=OrganizationResponse)

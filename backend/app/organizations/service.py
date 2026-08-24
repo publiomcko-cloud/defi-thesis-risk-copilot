@@ -10,7 +10,13 @@ from fastapi import HTTPException
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.auth.policies import can_manage_members, can_manage_organization, is_organization_owner
+from app.auth.policies import (
+    can_manage_members,
+    can_manage_organization,
+    can_transfer_organization_ownership,
+    has_recent_authentication,
+    is_organization_owner,
+)
 from app.auth.schemas import UserContext
 from app.auth.service import normalize_email, record_audit_event
 from app.jobs.lifecycle import dispose_jobs_for_organization_deletion, revoke_jobs_for_authorization_change
@@ -28,6 +34,7 @@ from app.organizations.schemas import (
     InvitationAcceptRequest,
     InvitationCreateRequest,
     InvitationResponse,
+    OwnershipTransferRequest,
 )
 
 ORG_PLAN_ID = "plan_portfolio_org_v1"
@@ -228,6 +235,77 @@ def delete_organization(db: Session, actor: UserContext, organization_id: str) -
     return organization_response(org)
 
 
+def transfer_organization_ownership(
+    db: Session,
+    actor: UserContext,
+    organization_id: str,
+    request: OwnershipTransferRequest,
+) -> MembershipResponse:
+    org = _get_visible_org(db, actor, organization_id)
+    if (
+        not actor.is_active
+        or not actor.auth_enabled
+        or not can_transfer_organization_ownership(db, actor, org.id)
+    ):
+        raise HTTPException(status_code=403, detail="Organization owner role required")
+    if not has_recent_authentication(actor):
+        raise HTTPException(status_code=403, detail="Recent authentication required")
+
+    org = db.execute(
+        select(OrganizationModel).where(OrganizationModel.id == org.id).with_for_update()
+    ).scalars().one()
+    if org.status != "active" or org.deleted_at is not None:
+        raise HTTPException(status_code=409, detail="Organization is unavailable")
+    actor_membership = db.execute(
+        select(OrganizationMembershipModel)
+        .where(OrganizationMembershipModel.organization_id == org.id)
+        .where(OrganizationMembershipModel.user_id == actor.id)
+        .with_for_update()
+    ).scalars().one_or_none()
+    if (
+        actor_membership is None
+        or actor_membership.status != "active"
+        or actor_membership.role != "owner"
+    ):
+        raise HTTPException(status_code=403, detail="Organization owner role required")
+    if request.target_membership_id == actor_membership.id:
+        raise HTTPException(status_code=409, detail="Ownership transfer target must be another active member")
+    target_membership = db.execute(
+        select(OrganizationMembershipModel)
+        .where(OrganizationMembershipModel.organization_id == org.id)
+        .where(OrganizationMembershipModel.id == request.target_membership_id)
+        .with_for_update()
+    ).scalars().one_or_none()
+    if target_membership is None:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    if target_membership.status != "active":
+        raise HTTPException(status_code=409, detail="Ownership transfer target must be active")
+
+    now = datetime.now(UTC)
+    target_membership.role = "owner"
+    target_membership.updated_at = now
+    actor_membership.role = "admin"
+    actor_membership.updated_at = now
+    db.commit()
+    db.refresh(target_membership)
+    record_audit_event(
+        db,
+        actor.id,
+        "organization.ownership_transferred",
+        "organization",
+        org.id,
+        {
+            "from_membership_id": actor_membership.id,
+            "from_user_id": actor_membership.user_id,
+            "to_membership_id": target_membership.id,
+            "to_user_id": target_membership.user_id,
+            "from_role": "owner",
+            "to_role": "owner",
+        },
+    )
+    return membership_response(db, target_membership)
+
+
 def list_members(db: Session, actor: UserContext, organization_id: str) -> list[MembershipResponse]:
     org = _get_visible_org(db, actor, organization_id)
     records = db.execute(
@@ -329,7 +407,21 @@ def update_member(
         raise HTTPException(status_code=403, detail="Organization owner/admin role required")
     membership = _get_membership(db, org.id, membership_id)
     if request.role == "owner":
-        raise HTTPException(status_code=409, detail="Use ownership transfer to assign owner role")
+        raise HTTPException(status_code=409, detail="Use ownership transfer to change an active owner")
+    if (
+        membership.role == "owner"
+        and membership.status == "active"
+        and (request.role is not None or request.status is not None)
+    ):
+        record_audit_event(
+            db,
+            actor.id,
+            "organization.member_removal_blocked",
+            "organization_membership",
+            membership.id,
+            {"organization_id": org.id, "reason": "ownership_transfer_required"},
+        )
+        raise HTTPException(status_code=409, detail="Use ownership transfer to change an active owner")
     if _would_remove_final_owner(db, membership, request.role, request.status):
         record_audit_event(
             db,

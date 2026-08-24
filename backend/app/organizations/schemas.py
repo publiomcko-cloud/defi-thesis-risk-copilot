@@ -5,6 +5,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 OrganizationRole = Literal["owner", "admin", "member", "viewer"]
+AssignableOrganizationRole = Literal["admin", "member", "viewer"]
 MembershipStatus = Literal["active", "pending", "removed"]
 
 
@@ -38,13 +39,13 @@ class OrganizationsResponse(BaseModel):
 
 class MembershipCreateRequest(BaseModel):
     email: str = Field(min_length=3, max_length=255)
-    role: OrganizationRole = "member"
+    role: AssignableOrganizationRole = "member"
 
     model_config = ConfigDict(extra="forbid")
 
 
 class MembershipUpdateRequest(BaseModel):
-    role: OrganizationRole | None = None
+    role: AssignableOrganizationRole | None = None
     status: MembershipStatus | None = None
 
     model_config = ConfigDict(extra="forbid")
@@ -63,6 +64,12 @@ class MembershipResponse(BaseModel):
 
 class MembershipsResponse(BaseModel):
     items: list[MembershipResponse]
+
+
+class OwnershipTransferRequest(BaseModel):
+    target_membership_id: str = Field(min_length=1, max_length=64)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class InvitationCreateRequest(BaseModel):
