@@ -17,6 +17,15 @@ def upgrade() -> None:
         op.drop_constraint("ck_entitlement_assignments_user_only", "entitlement_assignments", type_="check")
         op.drop_constraint("entitlement_assignments_subject_id_fkey", "entitlement_assignments", type_="foreignkey")
         op.create_check_constraint("ck_entitlement_assignments_subject_type", "entitlement_assignments", "subject_type IN ('user', 'organization')")
+    else:
+        with op.batch_alter_table(
+            "entitlement_assignments",
+            recreate="always",
+            naming_convention={"fk": "%(table_name)s_%(column_0_name)s_fkey"},
+        ) as batch:
+            batch.drop_constraint("ck_entitlement_assignments_user_only", type_="check")
+            batch.drop_constraint("entitlement_assignments_subject_id_fkey", type_="foreignkey")
+            batch.create_check_constraint("ck_entitlement_assignments_subject_type", "subject_type IN ('user', 'organization')")
     op.create_table("organization_invitations",
         sa.Column("id", sa.String(64), primary_key=True), sa.Column("organization_id", sa.String(64), nullable=False),
         sa.Column("destination_email", sa.String(255), nullable=False), sa.Column("role", sa.String(16), nullable=False),
@@ -43,3 +52,12 @@ def downgrade() -> None:
         op.drop_constraint("ck_entitlement_assignments_subject_type", "entitlement_assignments", type_="check")
         op.create_foreign_key("entitlement_assignments_subject_id_fkey", "entitlement_assignments", "users", ["subject_id"], ["id"], ondelete="CASCADE")
         op.create_check_constraint("ck_entitlement_assignments_user_only", "entitlement_assignments", "subject_type = 'user'")
+    else:
+        with op.batch_alter_table(
+            "entitlement_assignments",
+            recreate="always",
+            naming_convention={"fk": "%(table_name)s_%(column_0_name)s_fkey"},
+        ) as batch:
+            batch.drop_constraint("ck_entitlement_assignments_subject_type", type_="check")
+            batch.create_foreign_key("entitlement_assignments_subject_id_fkey", "users", ["subject_id"], ["id"], ondelete="CASCADE")
+            batch.create_check_constraint("ck_entitlement_assignments_user_only", "subject_type = 'user'")

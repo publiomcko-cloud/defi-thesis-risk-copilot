@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import re
 from secrets import token_urlsafe
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -43,12 +43,64 @@ def seat_status(db: Session, organization_id: str, *, lock: bool = False) -> dic
     active = db.scalar(select(func.count()).select_from(OrganizationMembershipModel).where(OrganizationMembershipModel.organization_id == organization_id, OrganizationMembershipModel.status == "active")) or 0
     legacy_pending = db.scalar(select(func.count()).select_from(OrganizationMembershipModel).where(OrganizationMembershipModel.organization_id == organization_id, OrganizationMembershipModel.status == "pending")) or 0
     invitations = db.scalar(select(func.count()).select_from(OrganizationInvitationModel).where(OrganizationInvitationModel.organization_id == organization_id, OrganizationInvitationModel.status == "pending", OrganizationInvitationModel.expires_at > now)) or 0
-    assignment = db.execute(select(EntitlementAssignmentModel).where(EntitlementAssignmentModel.subject_type == "organization", EntitlementAssignmentModel.subject_id == organization_id, EntitlementAssignmentModel.effective_from <= now).where((EntitlementAssignmentModel.effective_until.is_(None)) | (EntitlementAssignmentModel.effective_until > now))).scalars().all()
-    plan_id = assignment[0].plan_version_id if len(assignment) == 1 else ORG_PLAN_ID
-    limit = db.scalar(select(PlanEntitlementModel.hard_limit).join(PlanVersionModel).where(PlanEntitlementModel.plan_version_id == plan_id, PlanEntitlementModel.entitlement_key == ORG_SEAT_KEY, PlanVersionModel.status == "active"))
-    if limit is None or limit < 0 or len(assignment) > 1: raise HTTPException(status_code=409, detail="Organization seat entitlement is unavailable")
+    assignments = db.execute(
+        select(EntitlementAssignmentModel)
+        .where(
+            EntitlementAssignmentModel.subject_type == "organization",
+            EntitlementAssignmentModel.subject_id == organization_id,
+            EntitlementAssignmentModel.effective_from <= now,
+        )
+        .where(
+            (EntitlementAssignmentModel.effective_until.is_(None))
+            | (EntitlementAssignmentModel.effective_until > now)
+        )
+    ).scalars().all()
+    if len(assignments) > 1:
+        raise HTTPException(status_code=409, detail="Organization seat entitlement is unavailable")
+    plan_id = assignments[0].plan_version_id if assignments else ORG_PLAN_ID
+    limit = _organization_seat_limit(db, plan_id, now, require_default_identity=not assignments)
+    if limit is None:
+        raise HTTPException(status_code=409, detail="Organization seat entitlement is unavailable")
     reserved, consumed = int(legacy_pending + invitations), int(active + legacy_pending + invitations)
     return {"limit": int(limit), "active": int(active), "reserved": reserved, "consumed": consumed, "remaining": max(int(limit) - consumed, 0)}
+
+
+def _organization_seat_limit(
+    db: Session,
+    plan_id: str,
+    now: datetime,
+    *,
+    require_default_identity: bool,
+) -> int | None:
+    plan = db.get(PlanVersionModel, plan_id)
+    if plan is None or plan.status != "active" or not _contains_now(plan.effective_from, plan.effective_until, now):
+        return None
+    if require_default_identity and (
+        plan.id != ORG_PLAN_ID
+        or plan.plan_key != "portfolio-org-v1"
+        or plan.version != 1
+    ):
+        return None
+    entitlements = db.execute(
+        select(PlanEntitlementModel).where(PlanEntitlementModel.plan_version_id == plan.id)
+    ).scalars().all()
+    seat_entitlements = [item for item in entitlements if item.entitlement_key == ORG_SEAT_KEY]
+    if len(seat_entitlements) != 1:
+        return None
+    if require_default_identity and len(entitlements) != 1:
+        return None
+    limit = seat_entitlements[0].hard_limit
+    return limit if isinstance(limit, int) and limit >= 0 else None
+
+
+def _contains_now(starts_at: datetime, ends_at: datetime | None, now: datetime) -> bool:
+    starts_at = _as_utc(starts_at)
+    ends_at = _as_utc(ends_at) if ends_at is not None else None
+    return starts_at <= now and (ends_at is None or ends_at > now)
+
+
+def _as_utc(value: datetime) -> datetime:
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
 def create_organization(
@@ -78,7 +130,9 @@ def create_organization(
         created_at=now,
         updated_at=now,
     )
-    db.add_all([org, membership])
+    db.add(org)
+    db.flush()
+    db.add(membership)
     db.commit()
     db.refresh(org)
     record_audit_event(
@@ -208,7 +262,7 @@ def create_invitation(db: Session, actor: UserContext, organization_id: str, req
     if seats["consumed"] >= seats["limit"]:
         record_audit_event(db, actor.id, "invitation.seat_limit_denied", "organization", org.id, {"limit": seats["limit"], "consumed": seats["consumed"]})
         raise HTTPException(status_code=409, detail="Organization seat limit reached")
-    token = token_urlsafe(48); invitation = OrganizationInvitationModel(id=f"inv_{uuid4().hex[:12]}", organization_id=org.id, destination_email=email, role=request.role, invited_by_user_id=actor.id, token_hash=hashlib.sha256(token.encode()).hexdigest(), status="pending", expires_at=now.replace(microsecond=0) + __import__('datetime').timedelta(days=7), created_at=now, updated_at=now)
+    token = token_urlsafe(48); invitation = OrganizationInvitationModel(id=f"inv_{uuid4().hex[:12]}", organization_id=org.id, destination_email=email, role=request.role, invited_by_user_id=actor.id, token_hash=hashlib.sha256(token.encode()).hexdigest(), status="pending", expires_at=now.replace(microsecond=0) + timedelta(days=7), created_at=now, updated_at=now)
     db.add(invitation); db.commit(); record_audit_event(db, actor.id, "invitation.created", "organization_invitation", invitation.id, {"organization_id": org.id, "role": invitation.role})
     return invitation_response(invitation, token)
 
@@ -216,7 +270,8 @@ def create_invitation(db: Session, actor: UserContext, organization_id: str, req
 def accept_invitation(db: Session, actor: UserContext, request: InvitationAcceptRequest) -> MembershipResponse:
     token_hash, now = hashlib.sha256(request.token.encode()).hexdigest(), datetime.now(UTC)
     invitation = db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.token_hash == token_hash).with_for_update()).scalars().one_or_none()
-    if invitation is None or invitation.status != "pending" or invitation.expires_at <= now: raise HTTPException(status_code=409, detail="Invitation is invalid or expired")
+    expires_at = _as_utc(invitation.expires_at) if invitation is not None else None
+    if invitation is None or invitation.status != "pending" or expires_at <= now: raise HTTPException(status_code=409, detail="Invitation is invalid or expired")
     if normalize_email(actor.email) != invitation.destination_email: raise HTTPException(status_code=403, detail="Invitation destination does not match authenticated user")
     org = db.execute(select(OrganizationModel).where(OrganizationModel.id == invitation.organization_id).with_for_update()).scalars().one()
     if org.status != "active" or org.deleted_at is not None: raise HTTPException(status_code=409, detail="Organization is unavailable")
@@ -239,11 +294,11 @@ def resend_invitation(db: Session, actor: UserContext, organization_id: str, inv
     org = _get_visible_org(db, actor, organization_id)
     if not can_manage_members(db, actor, org.id): raise HTTPException(status_code=403, detail="Organization owner/admin role required")
     invitation = db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.id == invitation_id, OrganizationInvitationModel.organization_id == org.id).with_for_update()).scalars().one_or_none()
-    expires_at = invitation.expires_at.replace(tzinfo=UTC) if invitation is not None and invitation.expires_at.tzinfo is None else invitation.expires_at if invitation is not None else None
+    expires_at = _as_utc(invitation.expires_at) if invitation is not None else None
     if invitation is None or invitation.status != "pending" or expires_at <= datetime.now(UTC): raise HTTPException(status_code=409, detail="Expired or invalid invitation cannot be resent")
     now, token = datetime.now(UTC), token_urlsafe(48)
     invitation.status, invitation.updated_at = "superseded", now
-    replacement = OrganizationInvitationModel(id=f"inv_{uuid4().hex[:12]}", organization_id=org.id, destination_email=invitation.destination_email, role=invitation.role, invited_by_user_id=actor.id, token_hash=hashlib.sha256(token.encode()).hexdigest(), status="pending", expires_at=now + __import__('datetime').timedelta(days=7), supersedes_id=invitation.id, created_at=now, updated_at=now)
+    replacement = OrganizationInvitationModel(id=f"inv_{uuid4().hex[:12]}", organization_id=org.id, destination_email=invitation.destination_email, role=invitation.role, invited_by_user_id=actor.id, token_hash=hashlib.sha256(token.encode()).hexdigest(), status="pending", expires_at=now + timedelta(days=7), supersedes_id=invitation.id, created_at=now, updated_at=now)
     db.add(replacement); db.commit(); record_audit_event(db, actor.id, "invitation.resent", "organization_invitation", replacement.id, {"organization_id": org.id, "role": replacement.role})
     return invitation_response(replacement, token)
 

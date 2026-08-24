@@ -9,8 +9,8 @@ from app.auth.service import create_user, user_context
 from app.db.base import Base
 from app.models.entitlement import EntitlementAssignmentModel, PlanEntitlementModel, PlanVersionModel
 from app.models.organization import OrganizationInvitationModel, OrganizationMembershipModel, OrganizationModel
-from app.organizations.schemas import InvitationCreateRequest
-from app.organizations.service import create_invitation, seat_status, resend_invitation
+from app.organizations.schemas import InvitationAcceptRequest, InvitationCreateRequest
+from app.organizations.service import accept_invitation, create_invitation, resend_invitation, revoke_invitation, seat_status
 from fastapi import HTTPException
 
 
@@ -64,6 +64,43 @@ def test_limit_higher_assignment_and_missing_catalog_fail_closed(seats):
         assert error.value.status_code == 409
 
 
+def test_default_catalog_identity_and_explicit_assignment_corruption_fail_closed(seats):
+    Session, owner_id, org_id = seats
+    with Session() as db:
+        default_plan = db.get(PlanVersionModel, "plan_portfolio_org_v1")
+        default_plan.plan_key = "wrong-org-plan"
+        db.commit()
+        with pytest.raises(HTTPException, match="entitlement"):
+            seat_status(db, org_id)
+        default_plan.plan_key = "portfolio-org-v1"
+        db.commit()
+
+        db.add(PlanEntitlementModel(id="ent_unexpected_org", plan_version_id=default_plan.id, entitlement_key="limit.unexpected", hard_limit=1))
+        db.commit()
+        with pytest.raises(HTTPException, match="entitlement"):
+            seat_status(db, org_id)
+        db.delete(db.get(PlanEntitlementModel, "ent_unexpected_org"))
+        db.commit()
+
+        high_plan = db.get(PlanVersionModel, "plan_org_high")
+        high_plan.status = "retired"
+        db.add(EntitlementAssignmentModel(id="org_bad", subject_type="organization", subject_id=org_id, plan_version_id=high_plan.id, effective_from=datetime(2026, 8, 24, tzinfo=UTC), source="test"))
+        db.commit()
+        with pytest.raises(HTTPException, match="entitlement"):
+            seat_status(db, org_id)
+        high_plan.status = "active"
+        db.delete(db.get(EntitlementAssignmentModel, "org_bad"))
+        db.commit()
+
+        db.add_all([
+            EntitlementAssignmentModel(id="org_ambiguous_one", subject_type="organization", subject_id=org_id, plan_version_id="plan_org_high", effective_from=datetime(2025, 8, 24, tzinfo=UTC), source="test"),
+            EntitlementAssignmentModel(id="org_ambiguous_two", subject_type="organization", subject_id=org_id, plan_version_id="plan_portfolio_org_v1", effective_from=datetime(2025, 8, 25, tzinfo=UTC), source="test"),
+        ])
+        db.commit()
+        with pytest.raises(HTTPException, match="entitlement"):
+            seat_status(db, org_id)
+
+
 def test_legacy_pending_identity_and_expired_resend_cannot_add_reservation(seats):
     Session, owner_id, org_id = seats
     with Session() as db:
@@ -77,6 +114,54 @@ def test_legacy_pending_identity_and_expired_resend_cannot_add_reservation(seats
         db.add(expired); db.commit()
         with pytest.raises(HTTPException, match="Expired") as error: resend_invitation(db, owner, org_id, expired.id)
         assert error.value.status_code == 409
+        for index in range(3):
+            user = create_user(db, f"full-{index}@example.test")
+            db.add(OrganizationMembershipModel(id=f"mbr_full_{index}", organization_id=org_id, user_id=user.id, role="member", status="active"))
+        db.commit()
+        assert seat_status(db, org_id)["consumed"] == 5
+        with pytest.raises(HTTPException, match="seat limit"):
+            create_invitation(db, owner, org_id, InvitationCreateRequest(email="over-capacity@example.test"))
+
+
+def test_resend_preserves_one_reservation_and_invalidates_old_token(seats):
+    Session, owner_id, org_id = seats
+    with Session() as db:
+        owner = user_context(db.get(__import__('app.models.user', fromlist=['UserModel']).UserModel, owner_id))
+        recipient = create_user(db, "resend-recipient@example.test")
+        first = create_invitation(db, owner, org_id, InvitationCreateRequest(email=recipient.email))
+        assert seat_status(db, org_id) == {"limit": 5, "active": 1, "reserved": 1, "consumed": 2, "remaining": 3}
+        replacement = resend_invitation(db, owner, org_id, first.id)
+        assert replacement.id != first.id
+        assert db.get(OrganizationInvitationModel, first.id).status == "superseded"
+        assert seat_status(db, org_id) == {"limit": 5, "active": 1, "reserved": 1, "consumed": 2, "remaining": 3}
+        with pytest.raises(HTTPException, match="invalid"):
+            accept_invitation(db, user_context(recipient), InvitationAcceptRequest(token=first.token))
+
+
+def test_acceptance_converts_reservation_to_one_active_member_without_double_count(seats):
+    Session, owner_id, org_id = seats
+    with Session() as db:
+        owner = user_context(db.get(__import__('app.models.user', fromlist=['UserModel']).UserModel, owner_id))
+        recipient = create_user(db, "accept-recipient@example.test")
+        invitation = create_invitation(db, owner, org_id, InvitationCreateRequest(email=recipient.email))
+        assert seat_status(db, org_id)["consumed"] == 2
+        membership = accept_invitation(db, user_context(recipient), InvitationAcceptRequest(token=invitation.token))
+        assert membership.status == "active"
+        assert seat_status(db, org_id) == {"limit": 5, "active": 2, "reserved": 0, "consumed": 2, "remaining": 3}
+        with pytest.raises(HTTPException, match="invalid"):
+            accept_invitation(db, user_context(recipient), InvitationAcceptRequest(token=invitation.token))
+        assert db.query(OrganizationMembershipModel).filter_by(organization_id=org_id, user_id=recipient.id).count() == 1
+        assert seat_status(db, org_id)["consumed"] == 2
+
+
+def test_revoke_releases_pending_invitation_reservation(seats):
+    Session, owner_id, org_id = seats
+    with Session() as db:
+        owner = user_context(db.get(__import__('app.models.user', fromlist=['UserModel']).UserModel, owner_id))
+        invitation = create_invitation(db, owner, org_id, InvitationCreateRequest(email="revoke-recipient@example.test"))
+        assert seat_status(db, org_id)["consumed"] == 2
+        revoke_invitation(db, owner, org_id, invitation.id)
+        assert seat_status(db, org_id) == {"limit": 5, "active": 1, "reserved": 0, "consumed": 1, "remaining": 4}
 
 
 def _plans(db):
