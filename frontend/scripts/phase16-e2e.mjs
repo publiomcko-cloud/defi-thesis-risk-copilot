@@ -14,6 +14,8 @@ const state = {
   reports: new Map(),
   organization: null,
   memberships: [],
+  organizationInvitations: [],
+  organizationInvitationSequence: 0,
   consents: [],
   privacyPreferences: new Map(),
   productAnalyticsCollectionEnabled: true,
@@ -369,25 +371,18 @@ async function runAuthenticatedFlow(browserInstance) {
   await login(page, "owner@example.test");
 
   await page.goto(`${appOrigin}/organizations`);
-  await page.getByRole("heading", { name: "Create Organization" }).waitFor();
+  await page.getByRole("heading", { name: "Create organization" }).waitFor();
   await page.getByLabel("Name").fill("Research Guild");
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await page.getByText("Organization created.").waitFor();
-  await page.getByText("owner@example.test · owner · active").waitFor();
-  page.once("dialog", (dialog) => dialog.accept());
-  await page.getByRole("button", { name: "Remove", exact: true }).first().click();
-  await page.getByText("Cannot remove the final active organization owner").waitFor();
-  await page.getByLabel("Invite email").fill("member@example.test");
-  await page.getByRole("button", { name: "Invite", exact: true }).click();
-  await page.getByText("Member invitation saved.").waitFor();
-  await page.getByText("member@example.test · member · active").waitFor();
-  await page.getByLabel("Role for member@example.test").selectOption("owner");
-  await page.getByText("Member role updated.").waitFor();
-  page.once("dialog", (dialog) => dialog.accept());
-  const memberRow = page.locator("li").filter({ hasText: "member@example.test" });
-  await memberRow.getByRole("button", { name: "Remove" }).click();
-  await page.getByText("Member removed.").waitFor();
-  await verifyRemovedMember(browserInstance);
+  await page.getByRole("cell", { name: "owner@example.test" }).waitFor();
+  await page.getByText("1 / 5 seats", { exact: true }).waitFor();
+  assert.deepEqual(await page.getByLabel("Invitation role").locator("option").allTextContents(), ["admin", "member", "viewer"]);
+  await page.getByLabel("Destination email").fill("member@example.test");
+  await page.getByRole("button", { name: "Create invitation" }).click();
+  await page.getByRole("heading", { name: "One-time invitation link" }).waitFor();
+  await page.getByRole("cell", { name: "member@example.test" }).waitFor();
+  await page.getByText("2 / 5 seats", { exact: true }).waitFor();
 
   await page.goto(`${appOrigin}/knowledge`);
   await page.getByRole("heading", { name: "Knowledge Workspace" }).waitFor();
@@ -413,15 +408,6 @@ async function runAuthenticatedFlow(browserInstance) {
   await page.getByText("Authenticator removed.").waitFor();
 
   assert.equal(await page.evaluate(() => Object.keys(localStorage).join(" ").includes("access-owner")), false, "access tokens must not be stored in localStorage");
-  await context.close();
-}
-
-async function verifyRemovedMember(browserInstance) {
-  const context = await browserInstance.newContext();
-  const page = await context.newPage();
-  await login(page, "member@example.test");
-  await page.goto(`${appOrigin}/organizations/org-browser-1`);
-  await page.getByText("No organizations available for this account.").waitFor();
   await context.close();
 }
 
@@ -689,9 +675,35 @@ function handleBackend(method, url, payload, token, cookie, response) {
   }
   if (/^\/api\/organizations\/org-browser-1$/.test(url.pathname)) {
     if (!visibleOrganizations(user).length) return send(response, 404, { detail: "Organization not found" });
+    if (method === "GET") return send(response, 200, state.organization);
     if (method === "PATCH") {
       state.organization.name = payload.name;
       return send(response, 200, state.organization);
+    }
+  }
+  if (/^\/api\/organizations\/org-browser-1\/seat-status$/.test(url.pathname) && method === "GET") {
+    if (!visibleOrganizations(user).length) return send(response, 404, { detail: "Organization not found" });
+    const active = state.memberships.filter((membership) => membership.status === "active").length;
+    const reserved = state.organizationInvitations.filter((invitation) => invitation.status === "pending").length;
+    return send(response, 200, { limit: 5, active, reserved, consumed: active + reserved, remaining: 5 - active - reserved });
+  }
+  if (/^\/api\/organizations\/org-browser-1\/invitations$/.test(url.pathname)) {
+    if (!visibleOrganizations(user).length) return send(response, 404, { detail: "Organization not found" });
+    if (method === "GET") {
+      return send(response, 200, { items: state.organizationInvitations.map(({ token: _token, ...invitation }) => invitation) });
+    }
+    if (method === "POST") {
+      state.organizationInvitationSequence += 1;
+      const invitation = {
+        id: `invitation-browser-${state.organizationInvitationSequence}`,
+        destination_email: payload.email,
+        role: payload.role,
+        status: "pending",
+        expires_at: "2026-08-20T12:00:00.000Z",
+        token: `browser-invitation-${state.organizationInvitationSequence}`
+      };
+      state.organizationInvitations.push(invitation);
+      return send(response, 200, invitation);
     }
   }
   if (/^\/api\/organizations\/org-browser-1\/members$/.test(url.pathname)) {

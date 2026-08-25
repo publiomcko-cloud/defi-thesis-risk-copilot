@@ -37,6 +37,14 @@ class OrganizationsResponse(BaseModel):
     items: list[OrganizationResponse]
 
 
+class OrganizationSeatStatusResponse(BaseModel):
+    limit: int
+    active: int
+    reserved: int
+    consumed: int
+    remaining: int
+
+
 class MembershipCreateRequest(BaseModel):
     email: str = Field(min_length=3, max_length=255)
     role: AssignableOrganizationRole = "member"

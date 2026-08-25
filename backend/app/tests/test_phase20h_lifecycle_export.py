@@ -350,6 +350,41 @@ def test_disabled_lifecycle_owner_can_export_but_deleted_organization_cannot(lif
     ).status_code == 404
 
 
+def test_seat_projection_is_member_scoped_and_keeps_disabled_owner_recovery(lifecycle_export_client):
+    client, _, _ = lifecycle_export_client
+    for token in ("lifecycle-owner-token", "lifecycle-member-token", "lifecycle-viewer-token"):
+        response = client.get(
+            "/api/organizations/org_lifecycle_export/seat-status",
+            headers=_auth(token),
+        )
+        assert response.status_code == 200
+        assert response.json() == {
+            "limit": 5,
+            "active": 4,
+            "reserved": 0,
+            "consumed": 4,
+            "remaining": 1,
+        }
+    assert client.get(
+        "/api/organizations/org_lifecycle_export/seat-status",
+        headers=_auth("lifecycle-platform-admin-token"),
+    ).status_code == 404
+
+    assert client.patch(
+        "/api/organizations/org_lifecycle_export",
+        json={"status": "disabled"},
+        headers=_auth("lifecycle-owner-token"),
+    ).status_code == 200
+    assert client.get(
+        "/api/organizations/org_lifecycle_export/seat-status",
+        headers=_auth("lifecycle-owner-token"),
+    ).status_code == 200
+    assert client.get(
+        "/api/organizations/org_lifecycle_export/seat-status",
+        headers=_auth("lifecycle-admin-token"),
+    ).status_code == 404
+
+
 def test_invitation_responses_and_audits_never_serialize_tokens_or_hashes(lifecycle_export_client):
     client, Session, identities = lifecycle_export_client
     first = _invite(

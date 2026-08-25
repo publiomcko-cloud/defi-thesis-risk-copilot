@@ -27,6 +27,7 @@ from app.organizations.schemas import (
     OrganizationCreateRequest,
     OrganizationExportResponse,
     OrganizationResponse,
+    OrganizationSeatStatusResponse,
     OrganizationsResponse,
     OrganizationUpdateRequest,
     OwnershipTransferRequest,
@@ -41,6 +42,7 @@ from app.organizations.service import (
     delete_organization,
     export_organization,
     get_organization,
+    get_organization_seat_status,
     list_members,
     list_invitations,
     list_organizations,
@@ -145,6 +147,18 @@ def get_organization_route(
     actor: UserContext = Depends(require_authenticated_user),
 ) -> OrganizationResponse:
     return get_organization(db, actor, organization_id)
+
+
+@router.get(
+    "/organizations/{organization_id}/seat-status",
+    response_model=OrganizationSeatStatusResponse,
+)
+def get_organization_seat_status_route(
+    organization_id: str,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> OrganizationSeatStatusResponse:
+    return OrganizationSeatStatusResponse(**get_organization_seat_status(db, actor, organization_id))
 
 
 @router.get("/organizations/{organization_id}/export", response_model=OrganizationExportResponse)

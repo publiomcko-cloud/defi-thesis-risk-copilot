@@ -221,6 +221,25 @@ def get_organization(db: Session, actor: UserContext, organization_id: str) -> O
     return organization_response(org)
 
 
+def get_organization_seat_status(
+    db: Session,
+    actor: UserContext,
+    organization_id: str,
+) -> dict[str, int]:
+    org = _get_visible_org(db, actor, organization_id)
+    membership = db.execute(
+        select(OrganizationMembershipModel)
+        .where(OrganizationMembershipModel.organization_id == org.id)
+        .where(OrganizationMembershipModel.user_id == actor.id)
+        .where(OrganizationMembershipModel.status == "active")
+    ).scalars().one_or_none()
+    if membership is None:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    if org.status == "active" or (org.status == "disabled" and membership.role == "owner"):
+        return seat_status(db, org.id)
+    raise HTTPException(status_code=404, detail="Organization not found")
+
+
 def update_organization(
     db: Session,
     actor: UserContext,

@@ -584,6 +584,79 @@ select {
   padding: 0 10px;
 }
 
+.seat-summary {
+  border-top: 1px solid var(--line);
+  margin-top: 18px;
+  padding-top: 16px;
+}
+
+.seat-summary > strong {
+  font-size: 20px;
+}
+
+.seat-breakdown {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 14px 0 0;
+}
+
+.seat-breakdown div {
+  min-width: 0;
+}
+
+.seat-breakdown dt {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.seat-breakdown dd {
+  font-size: 18px;
+  font-weight: 800;
+  margin: 3px 0 0;
+}
+
+.table-actions {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.confirmation-dialog {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  max-width: min(520px, calc(100vw - 36px));
+  padding: 22px;
+}
+
+.confirmation-dialog::backdrop {
+  background: rgba(22, 33, 29, 0.34);
+}
+
+.confirmation-dialog h2,
+.confirmation-dialog p {
+  margin-top: 0;
+}
+
+.confirmation-dialog p {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.sr-only {
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
 .risk-panel h2 {
   font-size: 40px;
   margin: 0 0 8px;
@@ -642,5 +715,13 @@ code {
 
   .page {
     padding: 36px 18px;
+  }
+
+  .seat-breakdown {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .section-toolbar {
+    flex-direction: column;
   }
 }
