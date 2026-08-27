@@ -506,9 +506,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   fragment invitation links do not transmit the plaintext token in HTTP
   navigation URLs. No external invitation email, pricing, payments,
   subscriptions, checkout, invoices, or production commercial activation is
-  implemented. Phase 20G is **DEFERRED**. Phase 20H completion is gated on
-  exact-head hosted evidence; Phase 20I is the next reduced portfolio slice
-  after that gate;
+  implemented. Phase 20G is **DEFERRED**. DRAFT PR #27 passed all 13 hosted
+  checks at `2e25191d5807fe64ef425954eaa2cf9cdb9b7549`; Phase 20H completion
+  remains gated on exact-head hosted evidence, and Phase 20I is the next
+  reduced portfolio slice after that gate;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 

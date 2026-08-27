@@ -222,8 +222,9 @@ All real billing work lives in [`productization_backlog.md`](productization_back
 
 ## 10. Phase 20H — Organization invitations, seats, and ownership controls
 
-Status: **Implementation completion is gated on exact-head hosted evidence.
-Local validation is complete.** No production activation is claimed.
+Status: **Hosted evidence passed for `2e25191d5807fe64ef425954eaa2cf9cdb9b7549`;
+implementation completion remains gated on the current PR head's hosted
+evidence.** No production activation is claimed.
 
 Portfolio rules:
 

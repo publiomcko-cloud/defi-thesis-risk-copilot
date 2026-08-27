@@ -415,6 +415,11 @@ it is not sent in HTTP navigation URLs. No support impersonation, plan
 assignment through invitation input, external email delivery, pricing, payment,
 subscription, or commercial profile is implemented.
 
+DRAFT PR #27 passed its complete hosted validation set at
+`2e25191d5807fe64ef425954eaa2cf9cdb9b7549`; this is implementation evidence,
+not production activation or external-delivery evidence. Any later PR head
+remains subject to the same exact-head hosted gate.
+
 ---
 
 ## 8. Proposed `0029` — customer and privacy requests

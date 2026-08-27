@@ -13,7 +13,7 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | 20E | Optional | Synthetic/provider-neutral delivery demonstration only |
 | 20F | Merged / shadow-only | Migration `0026` seeds `free-v1`; read-only resolver compares seven documented limits against legacy authorities with bounded fallback; immutable ledger and real schedule lease-loss/retry completion evidence merged as `1e5ea045390b11c7b8dc933a48b40a562e3270da` |
 | 20G | Deferred | Not required for portfolio completion; preserved for future productization |
-| 20H | Exact-head hosted completion gate pending | Migration `0028`, organization invitations/seats/ownership/export, real PostgreSQL lifecycle races and browser token-fragment/manual-entry coverage. Local validation passed; implementation completes only when the DRAFT PR's exact-head hosted checks are green. |
+| 20H | Hosted evidence recorded; current-head gate applies | Migration `0028`, organization invitations/seats/ownership/export, real PostgreSQL lifecycle races and browser token-fragment/manual-entry coverage. PR #27 passed all 13 hosted checks at `2e25191d5807fe64ef425954eaa2cf9cdb9b7549`; implementation completion still requires green checks for the current PR head. |
 | 20I | Next required reduced slice | First-party bounded support/privacy/status evidence begins only after 20H completes |
 | 20J | Planned / required | Portfolio architecture closeout |
 
@@ -67,6 +67,14 @@ HTTP navigation URLs. The organization seat plan is non-billable: no pricing,
 payment, subscription, checkout, invoice, or production commercial-SaaS claim
 exists. Phase 20G is **DEFERRED**; Phase 20I is next only after exact-head
 hosted evidence completes Phase 20H.
+
+On 2026-08-27, DRAFT PR #27 passed all 13 hosted checks for
+`2e25191d5807fe64ef425954eaa2cf9cdb9b7549`: backend/PostgreSQL, frontend,
+Docker Compose config, CodeQL Python and JavaScript/TypeScript, Supply Chain
+workflow policy/SBOM, secret scan, dependency/container security and dependency
+review, Phase 19 Failure Exercises, and Vercel deployment/preview. This does
+not claim production activation or external delivery. Each later PR head,
+including documentation-only updates, must receive its own green hosted run.
 
 ## Phase 20B checkpoint
 
