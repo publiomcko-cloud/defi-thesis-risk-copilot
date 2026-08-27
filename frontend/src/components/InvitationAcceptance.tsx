@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 type AcceptanceResult = {
   organization_id: string;
@@ -10,20 +9,17 @@ type AcceptanceResult = {
 };
 
 export function InvitationAcceptance() {
-  const pathname = usePathname();
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const queryToken = searchParams.get("token") ?? "";
   const [token, setToken] = useState("");
   const [state, setState] = useState<"idle" | "loading" | "success" | "error" | "authentication_required">("idle");
   const [message, setMessage] = useState("");
   const [organizationId, setOrganizationId] = useState("");
 
   useEffect(() => {
-    if (!queryToken) return;
-    setToken(queryToken);
-    router.replace(pathname, { scroll: false });
-  }, [pathname, queryToken, router]);
+    const fragmentToken = invitationTokenFromHash(window.location.hash);
+    if (!fragmentToken) return;
+    setToken(fragmentToken);
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+  }, []);
 
   async function acceptInvitation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -42,7 +38,6 @@ export function InvitationAcceptance() {
     });
     const payload = await readJson<AcceptanceResult & { detail?: string }>(response);
     setToken("");
-    router.replace(pathname, { scroll: false });
     if (!response.ok || !payload) {
       if (response.status === 401) {
         setState("authentication_required");
@@ -97,6 +92,14 @@ export function InvitationAcceptance() {
       ) : null}
     </section>
   );
+}
+
+function invitationTokenFromHash(hash: string): string {
+  try {
+    return new URLSearchParams(hash.startsWith("#") ? hash.slice(1) : hash).get("token") ?? "";
+  } catch {
+    return "";
+  }
 }
 
 async function readJson<T>(response: Response): Promise<T | null> {

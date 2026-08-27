@@ -116,7 +116,9 @@ async function exerciseOwnerWorkflow(browserInstance) {
   await page.getByRole("button", { name: "Create invitation" }).click();
   await page.getByRole("heading", { name: "One-time invitation link" }).waitFor();
   const firstLink = await page.getByLabel(`Invitation link for ${users.invitee.email}`).inputValue();
-  assert(new URL(firstLink).searchParams.has("token"), "the one-time link must contain the invitation token only for the recipient");
+  const firstInvitationUrl = new URL(firstLink);
+  assert.equal(firstInvitationUrl.search, "", "invitation links must not put tokens in query parameters");
+  assert(firstInvitationUrl.hash.startsWith("#token="), "the one-time link must contain the token in a client-only fragment");
   await page.getByRole("button", { name: "Copy invitation link" }).click();
   await page.getByText(/Invitation link copied\.|Copy is unavailable in this browser/).waitFor();
   await page.getByText("5 / 5 seats", { exact: true }).waitFor();
@@ -182,8 +184,7 @@ async function exerciseInvitationAcceptance(browserInstance) {
   const anonymousContext = await browserInstance.newContext();
   const anonymousPage = await anonymousContext.newPage();
   activePage = anonymousPage;
-  await anonymousPage.goto(invitationLink);
-  await anonymousPage.waitForURL(`${appOrigin}/organization-invitations/accept`);
+  await openInvitationLink(anonymousPage, invitationLink);
   await anonymousPage.waitForFunction(() => document.getElementById("organization-invitation-token")?.value.length > 0);
   await anonymousPage.getByRole("button", { name: "Accept invitation" }).click();
   await anonymousPage.getByRole("heading", { name: "Authentication required" }).waitFor();
@@ -193,8 +194,7 @@ async function exerciseInvitationAcceptance(browserInstance) {
   const page = await context.newPage();
   activePage = page;
   await login(page, users.viewer.email);
-  await page.goto(invitationLink);
-  await page.waitForURL(`${appOrigin}/organization-invitations/accept`);
+  await openInvitationLink(page, invitationLink);
   await page.waitForFunction(() => document.getElementById("organization-invitation-token")?.value.length > 0);
   await page.getByRole("button", { name: "Accept invitation" }).click();
   await page.getByRole("alert").filter({ hasText: "different authenticated email" }).waitFor();
@@ -205,8 +205,7 @@ async function exerciseInvitationAcceptance(browserInstance) {
   const invitedPage = await invitedContext.newPage();
   activePage = invitedPage;
   await login(invitedPage, users.invitee.email);
-  await invitedPage.goto(invitationLink);
-  await invitedPage.waitForURL(`${appOrigin}/organization-invitations/accept`);
+  await openInvitationLink(invitedPage, invitationLink);
   await invitedPage.waitForFunction(() => document.getElementById("organization-invitation-token")?.value.length > 0);
   await invitedPage.getByRole("button", { name: "Accept invitation" }).click();
   await invitedPage.getByRole("heading", { name: "Invitation accepted" }).waitFor();
@@ -252,6 +251,21 @@ async function login(page, email) {
   await page.getByLabel("Password").fill("browser-test-password");
   await page.getByRole("button", { name: "Log in" }).click();
   await page.waitForURL(/\/account$/);
+}
+
+async function openInvitationLink(page, invitationLink) {
+  let navigationUrl = "";
+  const captureNavigation = (request) => {
+    if (request.isNavigationRequest() && new URL(request.url()).pathname === "/organization-invitations/accept") {
+      navigationUrl = request.url();
+    }
+  };
+  page.on("request", captureNavigation);
+  await page.goto(invitationLink);
+  await page.waitForURL(`${appOrigin}/organization-invitations/accept`);
+  page.off("request", captureNavigation);
+  assert.equal(navigationUrl, `${appOrigin}/organization-invitations/accept`, "the acceptance navigation must not transmit a token to the server");
+  assert.deepEqual(await page.evaluate(() => ({ hash: location.hash, search: location.search })), { hash: "", search: "" }, "the acceptance page must immediately clear its fragment and query state");
 }
 
 function handleSupabase(method, url, payload, response) {

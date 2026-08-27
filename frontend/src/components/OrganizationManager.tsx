@@ -460,6 +460,6 @@ function isManagerRole(role: string | undefined): boolean { return role === "own
 function invitationError(detail: string | undefined): string {
   return detail?.toLowerCase().includes("seat limit") ? "All organization seats are currently consumed. Revoke an invitation or wait for one to expire before inviting another member." : detail ?? "Invitation could not be completed.";
 }
-function invitationUrl(token: string): string { return typeof window === "undefined" ? token : `${window.location.origin}/organization-invitations/accept?token=${encodeURIComponent(token)}`; }
+function invitationUrl(token: string): string { return typeof window === "undefined" ? token : `${window.location.origin}/organization-invitations/accept#token=${encodeURIComponent(token)}`; }
 function formatDate(value: string): string { const date = new Date(value); return Number.isNaN(date.valueOf()) ? value : date.toLocaleString(); }
 async function readJson<T>(response: Response): Promise<T | null> { try { return await response.json() as T; } catch { return null; } }
