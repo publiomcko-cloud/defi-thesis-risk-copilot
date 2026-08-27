@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC, datetime
 
 import pytest
 from fastapi import HTTPException
@@ -19,6 +20,7 @@ from app.knowledge.service import create_document_upload, create_source
 from app.knowledge.upload_scanner import UploadScanError
 from app.main import app
 from app.models.access_audit_event import AccessAuditEventModel
+from app.models.entitlement import PlanEntitlementModel, PlanVersionModel
 from app.models.knowledge import (
     KnowledgeDocumentModel,
     KnowledgeDocumentVersionModel,
@@ -47,6 +49,24 @@ def knowledge_api_client(monkeypatch: pytest.MonkeyPatch):
         create_user(db, "owner@example.test", token="owner-token")
         create_user(db, "outsider@example.test", token="outsider-token")
         create_user(db, "admin@example.test", role="admin", token="admin-token")
+        db.add_all(
+            [
+                PlanVersionModel(
+                    id="plan_portfolio_org_v1",
+                    plan_key="portfolio-org-v1",
+                    version=1,
+                    status="active",
+                    effective_from=datetime(2025, 8, 24, tzinfo=UTC),
+                ),
+                PlanEntitlementModel(
+                    id="ent_portfolio_org_seats",
+                    plan_version_id="plan_portfolio_org_v1",
+                    entitlement_key="limit.organization.seats.count",
+                    hard_limit=5,
+                ),
+            ]
+        )
+        db.commit()
 
     storage = InMemoryPrivateObjectStorage()
     monkeypatch.setattr("app.knowledge.service.create_private_object_storage", lambda: storage)
@@ -326,10 +346,16 @@ def test_organization_uploads_are_member_visible_but_manager_controlled(
         json={"name": "Organization Knowledge"},
     )
     organization_id = organization.json()["id"]
-    assert client.post(
-        f"/api/organizations/{organization_id}/members",
+    invitation = client.post(
+        f"/api/organizations/{organization_id}/invitations",
         headers=_auth("owner-token"),
         json={"email": "member@example.test", "role": "member"},
+    )
+    assert invitation.status_code == 200
+    assert client.post(
+        "/api/organization-invitations/accept",
+        headers=_auth("member-token"),
+        json={"token": invitation.json()["token"]},
     ).status_code == 200
     source = client.post(
         "/api/knowledge/sources",

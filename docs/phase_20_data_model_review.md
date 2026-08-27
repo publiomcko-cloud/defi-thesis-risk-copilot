@@ -96,16 +96,17 @@ Current authority:
 - membership downgrade/removal authorization revocation for active jobs;
 - organization soft deletion, knowledge tombstone, durable-job disposal, and
   audit;
-- no organization export endpoint;
-- no expiring invitation token, commercial seat assignment, billing contact,
-  or commercial profile.
+- organization export endpoint, invitation lifecycle, and non-billable seat
+  projection;
+- no billing contact, commercial profile, pricing, payment, subscription, or
+  external invitation-email authority.
 
 Decision:
 
-- 20H adds organization export through the existing organization service and
-  authorization;
-- it does not create a second organization or membership authority;
-- plan/seat checks are separate from active membership and final-owner checks.
+- 20H uses the existing organization service and authorization; it does not
+  create a second organization or membership authority;
+- the server-owned organization seat plan is non-billable, and plan/seat checks
+  are separate from active membership and final-owner checks.
 
 ### Quota and plan state
 
@@ -365,7 +366,7 @@ ledgers have different semantics.
 
 ---
 
-## 6. Proposed `0027` — billing sandbox state
+## 6. Reserved `0027` — deferred billing sandbox state
 
 Candidate tables:
 
@@ -386,16 +387,18 @@ Key constraints:
 - authorized short-lived portal links are not stored durably;
 - sandbox/production mode separation.
 
-Downgrade fails closed if it would discard required billing evidence.
+`0027` is intentionally reserved/deferred for billing and has not been
+fabricated. The portfolio profile has no billing implementation.
 
 ---
 
-## 7. Proposed `0028` — organization commercial workflows
+## 7. Implemented `0028` — organization invitations and seat authority
 
-Candidate tables:
+Migration `20260824_0028` directly follows `20260821_0026`. It adds:
 
 - `organization_invitations`;
-- `organization_commercial_profiles`.
+- organization subject support in `entitlement_assignments`;
+- immutable `portfolio-org-v1` / `limit.organization.seats.count = 5` seed.
 
 Key constraints:
 
@@ -403,11 +406,14 @@ Key constraints:
 - expiry/status/role/inviter/destination binding;
 - atomic active-plus-reserved seat checks;
 - existing organization/membership/final-owner authority unchanged;
-- explicit billing owner/contact;
 - entitlement assignment linkage;
 - audit and organization export integration.
 
-No support impersonation and no plan assignment through invitation input.
+Plaintext is returned only to the immediate create/resend demo caller; hashes
+are never exposed. Browser links put the plaintext token in a URL fragment so
+it is not sent in HTTP navigation URLs. No support impersonation, plan
+assignment through invitation input, external email delivery, pricing, payment,
+subscription, or commercial profile is implemented.
 
 ---
 

@@ -1,8 +1,8 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **In Progress — Phase 20D merged; Phase 20F entitlements and non-billable usage is the next required slice**
+Status: **In Progress — Phase 20F merged; Phase 20H exact-head hosted evidence is the current completion gate**
 
-Next implementation branch: `agent/v1-phase-20f-entitlements-usage`
+Current implementation branch: `agent/v1-phase-20h-org-invitations-seats`
 
 Current authority:
 
@@ -164,7 +164,7 @@ Real email, webhook-delivery, and Telegram providers move to productization back
 
 ## 8. Phase 20F — Entitlements and non-billable usage
 
-Status: **Implementation in progress; shadow-only and non-billable.**
+Status: **Merged; shadow-only and non-billable.**
 
 Implement immutable versioned plans/entitlements, effective server-owned assignments, shadow comparison with existing quotas, safe fallback, and immutable usage/reversal records.
 
@@ -190,7 +190,7 @@ Initial non-billable usage units:
 Failures, cancellations, rejections, quota denials, and incomplete work do not count. Retries cannot double meter. Corrections use linked reversals/adjustments. Usage remains separate from analytics, quotas, rate limits, and any future billing system.
 
 Implemented design: migration `0026` creates versioned plans, plan entitlements,
-user-only effective assignments, and an immutable non-billable usage ledger.
+user-effective assignments, and an immutable non-billable usage ledger.
 `free-v1` is seeded by migration `0026` and resolved only from database state;
 the authenticated read endpoint is read-only and users without an assignment
 resolve through an implicit server-owned default.
@@ -202,8 +202,8 @@ in the owner decision. Meter rows are inserted in the successful report,
 simulation, options, and authoritative Phase 17 schedule-completion
 transactions; uniqueness at `(unit_key, logical_key)` is the final exactly-once
 authority. Account export includes assignments/events and deletion disposes
-them. Organization entitlement semantics, billing and commercial retention
-remain deferred.
+them. Phase 20F merged to `main` as
+`1e5ea045390b11c7b8dc933a48b40a562e3270da`.
 
 Correction evidence also keeps shadow logs bounded to result, policy key, and
 numeric limit comparisons; no raw account identifier is emitted. Phase 20C
@@ -220,9 +220,10 @@ An optional `FakeBillingProvider` may demonstrate immutable synthetic receipts, 
 
 All real billing work lives in [`productization_backlog.md`](productization_backlog.md).
 
-## 10. Phase 20H — Organization SaaS controls
+## 10. Phase 20H — Organization invitations, seats, and ownership controls
 
-Required after 20F.
+Status: **Implementation completion is gated on exact-head hosted evidence.
+Local validation is complete.** No production activation is claimed.
 
 Portfolio rules:
 
@@ -237,11 +238,24 @@ Portfolio rules:
 - atomic final-seat checks;
 - existing over-limit organizations are not destructively modified; new invites are blocked until within the limit or assigned another test entitlement;
 - invitation input cannot assign a plan;
-- external invitation email is not required.
+- external invitation email is not implemented;
+- `20260824_0028` directly follows `20260821_0026`; `0027` remains reserved
+  and deferred for billing, and was not fabricated;
+- the server returns plaintext only in the immediate create/resend demo response;
+  the durable record stores only its hash. Browser invitation links use a URL
+  fragment, so the plaintext token is never transmitted in an HTTP navigation
+  URL, and hashes are never exposed;
+- the server-owned `portfolio-org-v1` seat entitlement is non-billable. It has
+  no prices, payments, subscriptions, checkout, invoices, or other commercial
+  semantics.
+
+The portfolio profile is intentionally not a production commercial SaaS. Phase
+20G remains **DEFERRED**. Phase 20I is the next reduced portfolio slice only
+after Phase 20H completes its exact-head hosted evidence gate.
 
 ## 11. Phase 20I — Minimal support/privacy/status
 
-Required reduced portfolio slice.
+Next required reduced portfolio slice after Phase 20H completes.
 
 Use first-party bounded request tracking for:
 

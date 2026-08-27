@@ -8,6 +8,7 @@ const expiresAt = "2026-09-30T12:00:00.000Z";
 const users = {
   owner: { id: "user-owner", email: "owner@example.test" },
   admin: { id: "user-admin", email: "admin@example.test" },
+  manual: { id: "user-manual", email: "manual-accept@example.test" },
   member: { id: "user-member", email: "member@example.test" },
   viewer: { id: "user-viewer", email: "viewer@example.test" },
   invitee: { id: "user-invitee", email: "invitee@example.test" }
@@ -68,6 +69,7 @@ try {
   await exerciseOwnerWorkflow(browser);
   await exerciseInvitationAcceptance(browser);
   await exerciseAdminWorkflow(browser);
+  await exerciseManualInvitationAcceptance(browser);
 
   assert(state.calls.every((call) => !call.url.includes("token=")), "invitation tokens must never reach the backend in a URL");
   assert(state.calls.filter((call) => call.path.endsWith("/invitations") && call.method === "GET").every((call) => !JSON.stringify(call.response).includes("token")), "listed invitations must never include a token");
@@ -173,6 +175,7 @@ async function exerciseOwnerWorkflow(browserInstance) {
   await page.getByRole("button", { name: "Transfer ownership" }).click();
   await page.getByRole("dialog", { name: "Transfer ownership" }).getByRole("button", { name: "Confirm transfer" }).click();
   await page.getByText(`${users.member.email} is now the organization owner.`).waitFor();
+  await page.getByText("Current role: admin").waitFor();
   assert.equal(await page.getByRole("heading", { name: "Organization lifecycle" }).count(), 0, "a former owner must lose lifecycle controls after transfer");
   await page.getByRole("heading", { name: "Organization export" }).waitFor();
   await context.close();
@@ -239,9 +242,40 @@ async function exerciseAdminWorkflow(browserInstance) {
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Export organization data" }).click();
   await downloadPromise;
-  await page.getByLabel("Destination email").fill("admin-invite@example.test");
+  await page.getByLabel("Destination email").fill(users.manual.email);
   await page.getByRole("button", { name: "Create invitation" }).click();
   await page.getByRole("heading", { name: "One-time invitation link" }).waitFor();
+  const manualInvitationLink = await page.getByLabel(`Invitation link for ${users.manual.email}`).inputValue();
+  state.manualToken = new URLSearchParams(new URL(manualInvitationLink).hash.slice(1)).get("token");
+  await context.close();
+}
+
+async function exerciseManualInvitationAcceptance(browserInstance) {
+  assert(state.manualToken, "admin workflow must retain the immediate token only for the manual acceptance test");
+  const context = await browserInstance.newContext();
+  const page = await context.newPage();
+  activePage = page;
+  await login(page, users.manual.email);
+  let navigationUrl = "";
+  const captureNavigation = (request) => {
+    if (request.isNavigationRequest() && new URL(request.url()).pathname === "/organization-invitations/accept") {
+      navigationUrl = request.url();
+    }
+  };
+  page.on("request", captureNavigation);
+  await page.goto(`${appOrigin}/organization-invitations/accept`);
+  await page.waitForURL(`${appOrigin}/organization-invitations/accept`);
+  page.off("request", captureNavigation);
+  assert.equal(navigationUrl, `${appOrigin}/organization-invitations/accept`, "manual acceptance must begin without a token in the navigation URL");
+  assert.deepEqual(await page.evaluate(() => ({ hash: location.hash, search: location.search })), { hash: "", search: "" }, "manual acceptance must begin with no token URL state");
+  await page.getByLabel("Invitation token").fill(state.manualToken);
+  await page.getByRole("button", { name: "Accept invitation" }).click();
+  await page.getByRole("heading", { name: "Invitation accepted" }).waitFor();
+  assert.deepEqual(
+    await page.evaluate(() => ({ hash: location.hash, search: location.search, storage: [...Object.keys(localStorage), ...Object.keys(sessionStorage)] })),
+    { hash: "", search: "", storage: [] },
+    "manual acceptance must not retain the token in browser-visible state",
+  );
   await context.close();
 }
 

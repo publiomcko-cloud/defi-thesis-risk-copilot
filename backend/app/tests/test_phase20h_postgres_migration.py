@@ -49,6 +49,7 @@ def test_phase20h_postgres_migration_cycle_preserves_phase20f_catalog_and_user_a
     admin = create_engine(url.set(database="postgres"), isolation_level="AUTOCOMMIT")
     temporary_url = url.set(database=database_name).render_as_string(hide_password=False)
     try:
+        _assert_migration_lineage()
         with admin.connect() as connection:
             connection.execute(text(f'CREATE DATABASE "{database_name}"'))
         temp = create_engine(temporary_url, isolation_level="AUTOCOMMIT")
@@ -130,6 +131,9 @@ def _assert_first_upgrade(database_url: str, user_id: str, organization_id: str)
         ) == 1
         assert connection.scalar(text("SELECT COUNT(*) FROM plan_versions WHERE id = 'plan_portfolio_org_v1'")) == 1
         assert connection.scalar(
+            text("SELECT COUNT(*) FROM plan_entitlements WHERE plan_version_id = 'plan_portfolio_org_v1'")
+        ) == 1
+        assert connection.scalar(
             text("SELECT hard_limit FROM plan_entitlements WHERE plan_version_id = 'plan_portfolio_org_v1' AND entitlement_key = 'limit.organization.seats.count'")
         ) == 5
         assert connection.scalar(
@@ -174,6 +178,9 @@ def _assert_reupgrade(database_url: str, organization_id: str) -> None:
         assert "organization_invitations" in _tables(connection)
         assert connection.scalar(text("SELECT COUNT(*) FROM plan_versions WHERE id = 'plan_portfolio_org_v1'")) == 1
         assert connection.scalar(
+            text("SELECT COUNT(*) FROM plan_entitlements WHERE plan_version_id = 'plan_portfolio_org_v1'")
+        ) == 1
+        assert connection.scalar(
             text("SELECT hard_limit FROM plan_entitlements WHERE plan_version_id = 'plan_portfolio_org_v1' AND entitlement_key = 'limit.organization.seats.count'")
         ) == 5
         _assert_free_v1(connection)
@@ -207,6 +214,14 @@ def _assert_free_v1(connection) -> None:
 
 def _tables(connection) -> set[str]:
     return set(connection.scalars(text("SELECT tablename FROM pg_tables WHERE schemaname = 'public'")))
+
+
+def _assert_migration_lineage() -> None:
+    versions = BACKEND_DIR / "migrations" / "versions"
+    assert not list(versions.glob("*0027*"))
+    phase20h_migration = next(versions.glob("*20260824_0028*.py"))
+    assert 'revision = "20260824_0028"' in phase20h_migration.read_text()
+    assert 'down_revision = "20260821_0026"' in phase20h_migration.read_text()
 
 
 def _alembic(database_url: str, command: str, revision: str) -> None:

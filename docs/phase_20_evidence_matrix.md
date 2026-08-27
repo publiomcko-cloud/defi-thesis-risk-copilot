@@ -11,16 +11,62 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | 20C | Merged / production-disabled | The original Phase 20C implementation and the authoritative-completion/daily-scheduled-run-quota correction both passed hosted CI. Migration `0024`, durable private schedules, DST, PostgreSQL one-winner claims, Phase 17 jobs, lifecycle/export/retention, browser and operations aggregates merged as `8aeb84cec0427765322cf44b3827eee319e8064e`. Production dispatch remains disabled. |
 | 20D | Merged / production-disabled | Migration `0025`, in-app preference and notification records, code-owned registry, authenticated API, notification center UI, source projections, lifecycle/export/deletion, retention cleanup, policy/access/pagination corrections, recovery coverage, PostgreSQL/browser/Compose/CodeQL/Supply Chain/Phase 19 exercise evidence merged as `32dfb91ece2344be5dbbcd2c8d12723bc2378126`. External delivery and production activation remain out of scope. |
 | 20E | Optional | Synthetic/provider-neutral delivery demonstration only |
-| 20F | In progress / shadow-only | Migration `0026` seeds `free-v1`; read-only resolver compares seven documented limits against legacy authorities with bounded fallback; immutable ledger and real schedule lease-loss/retry completion evidence implemented; corrected hosted validation pending |
+| 20F | Merged / shadow-only | Migration `0026` seeds `free-v1`; read-only resolver compares seven documented limits against legacy authorities with bounded fallback; immutable ledger and real schedule lease-loss/retry completion evidence merged as `1e5ea045390b11c7b8dc933a48b40a562e3270da` |
+| 20G | Deferred | Not required for portfolio completion; preserved for future productization |
+| 20H | Exact-head hosted completion gate pending | Migration `0028`, organization invitations/seats/ownership/export, real PostgreSQL lifecycle races and browser token-fragment/manual-entry coverage. Local validation passed; implementation completes only when the DRAFT PR's exact-head hosted checks are green. |
+| 20I | Next required reduced slice | First-party bounded support/privacy/status evidence begins only after 20H completes |
+| 20J | Planned / required | Portfolio architecture closeout |
 
 Phase 20F additionally runs an isolated PostgreSQL migration-cycle test using a
 temporary database: `0025 -> 0026 -> 0025 -> 0026`. It verifies the seeded
 catalog, overlap exclusion constraint, downgrade preservation of Phase 20C/20D
 objects, and intentional retention of shared `btree_gist` extension support.
-| 20G | Deferred | Not required for portfolio completion; preserved for future productization |
-| 20H | Planned / required | Invitations, seats, ownership and PostgreSQL concurrency evidence needed |
-| 20I | Planned / required, reduced | First-party bounded support/privacy/status evidence needed |
-| 20J | Planned / required | Portfolio architecture closeout |
+
+## Phase 20H checkpoint
+
+Phase 20H adds the non-billable, server-owned `portfolio-org-v1` plan with the
+`limit.organization.seats.count` entitlement. Existing user `free-v1` semantics
+remain unchanged. Seat consumption is active memberships plus unexpired pending
+invitations plus legacy pending memberships; a PostgreSQL organization-row lock
+serializes seat-consuming invitation creation. Acceptance converts a reservation
+to a membership without double counting. Existing over-limit organizations are
+preserved and new invitations fail closed when the entitlement is missing or
+corrupt.
+
+The local evidence commands and results are recorded exactly as follows:
+
+```bash
+cd backend && DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5435/defi_copilot RUN_POSTGRES_INTEGRATION=true .venv/bin/python -m pytest app/tests/test_phase20h_postgres.py app/tests/test_phase20h_postgres_migration.py app/tests/test_phase20h_sqlite_migration.py -q
+# 9 passed: final-seat, resend/revoke, resend/accept, revoke/accept, duplicate-accept,
+# explicit-entitlement, PostgreSQL 0026 -> 0028 -> 0026 -> 0028, and SQLite migration cycles
+
+cd frontend && npm run test:phase20h
+# passed: fragment link handling, manual token entry, token-free URL/storage, and POST { token }
+
+cd backend && DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5435/defi_copilot RUN_POSTGRES_INTEGRATION=true APP_ENV=test PUBLIC_DEMO_MODE=false AUTH_ENABLED=false VAST_ENABLED=false VAST_DRY_RUN=true .venv/bin/python -m pytest -q --tb=short
+# passed: complete backend suite with PostgreSQL integration
+
+cd frontend && npm run lint && npm run build && npm run test:e2e && npm run test:phase20h && npm run test:bff && npm run test:mfa && npm run test:mfa:routes && npm run test:accessibility && npm run test:security
+# passed: typecheck, production build, Phase 16 and 20H E2E, route/BFF/MFA/a11y/security contracts
+
+cd backend && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5435/defi_copilot_exercises RUN_POSTGRES_INTEGRATION=true APP_ENV=exercise PUBLIC_DEMO_MODE=false AUTH_ENABLED=false VAST_ENABLED=false VAST_DRY_RUN=true OPERATIONS_EXERCISES_ENABLED=true OPERATIONS_EXERCISES_ISOLATED=true python -m scripts.run_phase19_exercises --run
+# passed: all 11 isolated exercises, including the HTTP harness and worker-loss recovery
+```
+
+`20260824_0028` directly follows `20260821_0026`; no `0027` file exists.
+`0027` remains reserved/deferred for billing and was not fabricated. The
+migration cycle verifies the seven `free-v1` limits are unchanged, the
+organization default plan seeds once, organization assignments are removed for
+downgrade before the user-only constraint returns, and legitimate user
+assignments and Phase 20F PostgreSQL constraints survive.
+
+No external invitation email is sent. Plaintext invitation tokens appear only
+in the immediate create/resend demo response, durable token hashes are never
+exposed, and browser links use URL fragments so plaintext is not transmitted in
+HTTP navigation URLs. The organization seat plan is non-billable: no pricing,
+payment, subscription, checkout, invoice, or production commercial-SaaS claim
+exists. Phase 20G is **DEFERRED**; Phase 20I is next only after exact-head
+hosted evidence completes Phase 20H.
 
 ## Phase 20B checkpoint
 

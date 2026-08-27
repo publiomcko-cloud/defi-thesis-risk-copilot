@@ -18,6 +18,10 @@ PHASE20H_HEAD = "20260824_0028"
 
 
 def test_phase20h_sqlite_migration_cycle_updates_assignment_subject_semantics(tmp_path: Path) -> None:
+    versions = BACKEND_DIR / "migrations" / "versions"
+    assert not list(versions.glob("*0027*"))
+    phase20h_migration = next(versions.glob("*20260824_0028*.py"))
+    assert 'down_revision = "20260821_0026"' in phase20h_migration.read_text()
     database_url = f"sqlite:///{tmp_path / 'phase20h.sqlite'}"
     _alembic(database_url, "upgrade", PHASE20F_HEAD)
     engine = create_engine(database_url)
