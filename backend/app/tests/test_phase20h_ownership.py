@@ -220,7 +220,11 @@ def test_generic_member_requests_cannot_create_or_mutate_owner_authority(ownersh
                 "mbr_target",
                 MembershipUpdateRequest.model_construct(role="owner"),
             )
-        for request in (MembershipUpdateRequest(role="admin"), MembershipUpdateRequest(status="removed")):
+        for request in (
+            MembershipUpdateRequest(role="admin"),
+            MembershipUpdateRequest(status="removed"),
+            MembershipUpdateRequest(status="pending"),
+        ):
             with pytest.raises(HTTPException, match="ownership transfer"):
                 update_member(db, owner, "org_ownership", "mbr_owner", request)
 

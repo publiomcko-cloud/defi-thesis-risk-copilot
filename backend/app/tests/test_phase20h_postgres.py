@@ -16,7 +16,12 @@ from app.db.session import create_database_engine
 from app.models.entitlement import EntitlementAssignmentModel, PlanEntitlementModel, PlanVersionModel
 from app.models.organization import OrganizationInvitationModel, OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
-from app.organizations.schemas import InvitationAcceptRequest, InvitationCreateRequest, OrganizationCreateRequest
+from app.organizations.schemas import (
+    InvitationAcceptRequest,
+    InvitationCreateRequest,
+    MembershipUpdateRequest,
+    OrganizationCreateRequest,
+)
 from app.organizations.service import (
     accept_invitation,
     create_invitation,
@@ -24,6 +29,7 @@ from app.organizations.service import (
     resend_invitation,
     revoke_invitation,
     seat_status,
+    update_member,
 )
 
 EXPECTED_FREE_LIMITS = {
@@ -148,6 +154,79 @@ def test_postgres_active_member_duplicate_invites_cannot_reserve_another_seat(po
     finally:
         event.remove(engine, "before_cursor_execute", synchronize_org_lock)
         _cleanup_organization(postgres_sessions, suffix, organization_id)
+
+
+def test_postgres_generic_patch_cannot_bypass_invitation_reactivation(postgres_sessions: sessionmaker) -> None:
+    suffix = uuid4().hex[:12]
+    owner_id, organization_id = _seed_organization(postgres_sessions, suffix, active_count=4)
+    removed_id = pending_id = ""
+    try:
+        with postgres_sessions() as db:
+            owner = db.get(UserModel, owner_id)
+            removed = create_user(db, f"phase20h-removed-{suffix}@example.test")
+            pending = create_user(db, f"phase20h-pending-{suffix}@example.test")
+            removed_id, pending_id = removed.id, pending.id
+            db.add_all([
+                OrganizationMembershipModel(id=f"mbr_removed_{suffix}", organization_id=organization_id, user_id=removed.id, role="viewer", status="removed"),
+                OrganizationMembershipModel(id=f"mbr_pending_{suffix}", organization_id=organization_id, user_id=pending.id, role="member", status="pending"),
+            ])
+            db.commit()
+            before = seat_status(db, organization_id)
+            assert before == {"limit": 5, "active": 4, "reserved": 1, "consumed": 5, "remaining": 0}
+            for membership_id in (f"mbr_removed_{suffix}", f"mbr_pending_{suffix}"):
+                with pytest.raises(HTTPException, match="invitation") as error:
+                    update_member(
+                        db,
+                        user_context(owner),
+                        organization_id,
+                        membership_id,
+                        MembershipUpdateRequest(status="active"),
+                    )
+                assert error.value.status_code == 409
+                db.rollback()
+            assert seat_status(db, organization_id) == before
+            assert db.get(OrganizationMembershipModel, f"mbr_removed_{suffix}").status == "removed"
+            assert db.get(OrganizationMembershipModel, f"mbr_pending_{suffix}").status == "pending"
+
+            assert update_member(
+                db,
+                user_context(owner),
+                organization_id,
+                f"mbr_pending_{suffix}",
+                MembershipUpdateRequest(status="removed"),
+            ).status == "removed"
+            invitation = create_invitation(
+                db,
+                user_context(owner),
+                organization_id,
+                InvitationCreateRequest(email=removed.email, role="admin"),
+            )
+            reactivated = accept_invitation(
+                db,
+                user_context(removed),
+                InvitationAcceptRequest(token=invitation.token),
+            )
+            assert (reactivated.id, reactivated.role, reactivated.status) == (f"mbr_removed_{suffix}", "admin", "active")
+            assert db.execute(
+                select(func.count())
+                .select_from(OrganizationMembershipModel)
+                .where(OrganizationMembershipModel.organization_id == organization_id)
+                .where(OrganizationMembershipModel.user_id == removed.id)
+            ).scalar_one() == 1
+            assert seat_status(db, organization_id) == {
+                "limit": 5,
+                "active": 5,
+                "reserved": 0,
+                "consumed": 5,
+                "remaining": 0,
+            }
+    finally:
+        _cleanup_organization(
+            postgres_sessions,
+            suffix,
+            organization_id,
+            extra_user_ids=[item for item in (removed_id, pending_id) if item],
+        )
 
 
 def test_postgres_organization_creation_flushes_before_owner_membership(postgres_sessions: sessionmaker) -> None:

@@ -654,7 +654,6 @@ def update_member(
         raise HTTPException(status_code=409, detail="Use ownership transfer to change an active owner")
     if (
         membership.role == "owner"
-        and membership.status == "active"
         and (request.role is not None or request.status is not None)
     ):
         record_audit_event(
@@ -676,6 +675,7 @@ def update_member(
             {"organization_id": org.id, "reason": "final_active_owner"},
         )
         raise HTTPException(status_code=409, detail="Cannot remove the final active organization owner")
+    _validate_generic_membership_update(membership, request)
     next_role = request.role if request.role is not None else membership.role
     next_status = request.status if request.status is not None else membership.status
     if next_status != "active" or next_role not in {"owner", "admin", "member"}:
@@ -798,6 +798,37 @@ def _would_remove_final_owner(
         .where(OrganizationMembershipModel.status == "active")
     ).scalar_one()
     return active_owner_count <= 1
+
+
+def _validate_generic_membership_update(
+    membership: OrganizationMembershipModel,
+    request: MembershipUpdateRequest,
+) -> None:
+    """Keep activation and reactivation behind authenticated invitation acceptance."""
+
+    if membership.status == "active":
+        if request.status == "pending":
+            raise HTTPException(
+                status_code=409,
+                detail="Use the organization invitation workflow to manage membership activation",
+            )
+        return
+
+    if request.role is not None:
+        raise HTTPException(
+            status_code=409,
+            detail="Use the organization invitation workflow to change a non-active membership",
+        )
+    if request.status == "active":
+        raise HTTPException(
+            status_code=409,
+            detail="Use the organization invitation workflow to activate a membership",
+        )
+    if membership.status == "removed" and request.status == "pending":
+        raise HTTPException(
+            status_code=409,
+            detail="Use the organization invitation workflow to manage membership activation",
+        )
 
 
 def _slugify(value: str) -> str:

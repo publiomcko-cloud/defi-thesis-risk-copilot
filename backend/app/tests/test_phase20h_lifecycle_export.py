@@ -503,6 +503,90 @@ def test_api_active_members_cannot_be_reinvited_or_mutated_by_corrupt_invitation
         assert db.get(OrganizationInvitationModel, "inv_api_corrupt_member").status == "pending"
 
 
+def test_api_member_patch_requires_invitation_for_activation(lifecycle_export_client):
+    client, Session, _ = lifecycle_export_client
+    with Session() as db:
+        removed = create_user(db, "lifecycle-removed-patch@example.test", token="lifecycle-removed-patch-token")
+        pending = create_user(db, "lifecycle-pending-patch@example.test", token="lifecycle-pending-patch-token")
+        removed_id = removed.id
+        db.add_all([
+            OrganizationMembershipModel(id="mbr_lifecycle_removed_patch", organization_id="org_lifecycle_export", user_id=removed.id, role="viewer", status="removed"),
+            OrganizationMembershipModel(id="mbr_lifecycle_pending_patch", organization_id="org_lifecycle_export", user_id=pending.id, role="member", status="pending"),
+        ])
+        db.commit()
+
+    before = client.get(
+        "/api/organizations/org_lifecycle_export/seat-status",
+        headers=_auth("lifecycle-owner-token"),
+    ).json()
+    with Session() as db:
+        user_count = db.query(UserModel).count()
+    for membership_id, payload in (
+        ("mbr_lifecycle_removed_patch", {"status": "active"}),
+        ("mbr_lifecycle_pending_patch", {"status": "active"}),
+        ("mbr_lifecycle_removed_patch", {"status": "pending"}),
+        ("mbr_lifecycle_member", {"status": "pending"}),
+    ):
+        response = client.patch(
+            f"/api/organizations/org_lifecycle_export/members/{membership_id}",
+            json=payload,
+            headers=_auth("lifecycle-owner-token"),
+        )
+        assert response.status_code == 409
+        assert "invitation" in response.json()["detail"].lower()
+        assert "token" not in response.text.lower()
+        assert "hash" not in response.text.lower()
+
+    assert client.patch(
+        "/api/organizations/org_lifecycle_export/members/mbr_lifecycle_admin",
+        json={"role": "viewer"},
+        headers=_auth("lifecycle-owner-token"),
+    ).status_code == 200
+    assert client.patch(
+        "/api/organizations/org_lifecycle_export/members/mbr_lifecycle_viewer",
+        json={"status": "removed"},
+        headers=_auth("lifecycle-owner-token"),
+    ).status_code == 200
+    after_removal = client.get(
+        "/api/organizations/org_lifecycle_export/seat-status",
+        headers=_auth("lifecycle-owner-token"),
+    ).json()
+    assert after_removal == {"limit": 5, "active": 3, "reserved": 1, "consumed": 4, "remaining": 1}
+
+    invitation = client.post(
+        "/api/organizations/org_lifecycle_export/invitations",
+        json={"email": "lifecycle-removed-patch@example.test", "role": "admin"},
+        headers=_auth("lifecycle-owner-token"),
+    )
+    assert invitation.status_code == 200
+    accepted = client.post(
+        "/api/organization-invitations/accept",
+        json={"token": invitation.json()["token"]},
+        headers=_auth("lifecycle-removed-patch-token"),
+    )
+    assert accepted.status_code == 200
+    assert accepted.json()["id"] == "mbr_lifecycle_removed_patch"
+    assert (accepted.json()["role"], accepted.json()["status"]) == ("admin", "active")
+
+    with Session() as db:
+        removed_memberships = db.execute(
+            select(OrganizationMembershipModel).where(
+                OrganizationMembershipModel.organization_id == "org_lifecycle_export",
+                OrganizationMembershipModel.user_id == removed_id,
+            )
+        ).scalars().all()
+        assert len(removed_memberships) == 1
+        assert db.query(UserModel).count() == user_count
+        assert db.get(OrganizationMembershipModel, "mbr_lifecycle_pending_patch").status == "pending"
+        assert seat_status(db, "org_lifecycle_export") == {
+            "limit": 5,
+            "active": 4,
+            "reserved": 1,
+            "consumed": 5,
+            "remaining": 0,
+        }
+
+
 def _invite(client: TestClient, organization_id: str, token: str, email: str) -> dict:
     response = client.post(
         f"/api/organizations/{organization_id}/invitations",

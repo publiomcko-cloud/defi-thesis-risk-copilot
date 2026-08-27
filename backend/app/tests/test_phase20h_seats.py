@@ -10,8 +10,15 @@ from app.auth.service import create_user, user_context
 from app.db.base import Base
 from app.models.entitlement import EntitlementAssignmentModel, PlanEntitlementModel, PlanVersionModel
 from app.models.organization import OrganizationInvitationModel, OrganizationMembershipModel, OrganizationModel
-from app.organizations.schemas import InvitationAcceptRequest, InvitationCreateRequest
-from app.organizations.service import accept_invitation, create_invitation, resend_invitation, revoke_invitation, seat_status
+from app.organizations.schemas import InvitationAcceptRequest, InvitationCreateRequest, MembershipUpdateRequest
+from app.organizations.service import (
+    accept_invitation,
+    create_invitation,
+    resend_invitation,
+    revoke_invitation,
+    seat_status,
+    update_member,
+)
 from fastapi import HTTPException
 
 
@@ -186,6 +193,74 @@ def test_removed_membership_can_be_reactivated_by_a_normal_invitation(seats):
         assert membership.role == "admin"
         assert membership.status == "active"
         assert seat_status(db, org_id) == {"limit": 5, "active": 2, "reserved": 0, "consumed": 2, "remaining": 3}
+
+
+def test_generic_member_updates_cannot_bypass_invitation_activation(seats):
+    Session, owner_id, org_id = seats
+    with Session() as db:
+        owner = user_context(db.get(__import__('app.models.user', fromlist=['UserModel']).UserModel, owner_id))
+        removed = create_user(db, "removed-patch@example.test")
+        pending = create_user(db, "pending-patch@example.test")
+        active = create_user(db, "active-patch@example.test")
+        db.add_all([
+            OrganizationMembershipModel(id="mbr_removed_patch", organization_id=org_id, user_id=removed.id, role="viewer", status="removed"),
+            OrganizationMembershipModel(id="mbr_pending_patch", organization_id=org_id, user_id=pending.id, role="member", status="pending"),
+            OrganizationMembershipModel(id="mbr_active_patch", organization_id=org_id, user_id=active.id, role="admin", status="active"),
+        ])
+        db.commit()
+
+        assert update_member(db, owner, org_id, "mbr_active_patch", MembershipUpdateRequest(role="viewer")).role == "viewer"
+        assert update_member(db, owner, org_id, "mbr_active_patch", MembershipUpdateRequest(status="active")).status == "active"
+        with pytest.raises(HTTPException, match="invitation") as error:
+            update_member(db, owner, org_id, "mbr_active_patch", MembershipUpdateRequest(status="pending"))
+        assert error.value.status_code == 409
+        db.rollback()
+        assert update_member(db, owner, org_id, "mbr_active_patch", MembershipUpdateRequest(status="removed")).status == "removed"
+        before = seat_status(db, org_id)
+        invitation_count = db.query(OrganizationInvitationModel).filter_by(organization_id=org_id).count()
+        user_count = db.query(__import__('app.models.user', fromlist=['UserModel']).UserModel).count()
+        for membership_id, request in (
+            ("mbr_removed_patch", MembershipUpdateRequest(status="active")),
+            ("mbr_pending_patch", MembershipUpdateRequest(status="active")),
+            ("mbr_removed_patch", MembershipUpdateRequest(status="pending")),
+            ("mbr_pending_patch", MembershipUpdateRequest(role="viewer")),
+        ):
+            with pytest.raises(HTTPException, match="invitation") as error:
+                update_member(db, owner, org_id, membership_id, request)
+            assert error.value.status_code == 409
+            db.rollback()
+        assert update_member(db, owner, org_id, "mbr_removed_patch", MembershipUpdateRequest(status="removed")).status == "removed"
+        assert update_member(db, owner, org_id, "mbr_pending_patch", MembershipUpdateRequest(status="removed")).status == "removed"
+        assert db.get(OrganizationMembershipModel, "mbr_removed_patch").status == "removed"
+        assert seat_status(db, org_id) == {**before, "reserved": 0, "consumed": before["consumed"] - 1, "remaining": before["remaining"] + 1}
+        assert db.query(OrganizationInvitationModel).filter_by(organization_id=org_id).count() == invitation_count
+        assert db.query(__import__('app.models.user', fromlist=['UserModel']).UserModel).count() == user_count
+
+
+def test_generic_patch_cannot_reactivate_removed_member_with_or_without_capacity(seats):
+    Session, owner_id, org_id = seats
+    with Session() as db:
+        owner = user_context(db.get(__import__('app.models.user', fromlist=['UserModel']).UserModel, owner_id))
+        removed = create_user(db, "full-removed-patch@example.test")
+        db.add(OrganizationMembershipModel(id="mbr_full_removed_patch", organization_id=org_id, user_id=removed.id, role="member", status="removed"))
+        for index in range(4):
+            user = create_user(db, f"full-patch-{index}@example.test")
+            db.add(OrganizationMembershipModel(id=f"mbr_full_patch_{index}", organization_id=org_id, user_id=user.id, role="member", status="active"))
+        db.commit()
+
+        for expected_consumed in (5, 4):
+            before = seat_status(db, org_id)
+            assert before["consumed"] == expected_consumed
+            with pytest.raises(HTTPException, match="invitation") as error:
+                update_member(db, owner, org_id, "mbr_full_removed_patch", MembershipUpdateRequest(status="active"))
+            assert error.value.status_code == 409
+            db.rollback()
+            assert db.get(OrganizationMembershipModel, "mbr_full_removed_patch").status == "removed"
+            assert seat_status(db, org_id) == before
+            assert db.query(OrganizationInvitationModel).filter_by(organization_id=org_id).count() == 0
+            if expected_consumed == 5:
+                db.get(OrganizationMembershipModel, "mbr_full_patch_0").status = "removed"
+                db.commit()
 
 
 def test_resend_preserves_one_reservation_and_invalidates_old_token(seats):
