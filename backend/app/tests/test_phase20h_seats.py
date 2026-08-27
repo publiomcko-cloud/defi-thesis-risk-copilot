@@ -1,3 +1,4 @@
+import hashlib
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -121,6 +122,70 @@ def test_legacy_pending_identity_and_expired_resend_cannot_add_reservation(seats
         assert seat_status(db, org_id)["consumed"] == 5
         with pytest.raises(HTTPException, match="seat limit"):
             create_invitation(db, owner, org_id, InvitationCreateRequest(email="over-capacity@example.test"))
+
+
+def test_active_members_cannot_be_reinvited_or_reserve_another_seat(seats):
+    Session, owner_id, org_id = seats
+    with Session() as db:
+        owner = user_context(db.get(__import__('app.models.user', fromlist=['UserModel']).UserModel, owner_id))
+        admin = create_user(db, "active-admin@example.test")
+        member = create_user(db, "active-member@example.test")
+        db.add_all([
+            OrganizationMembershipModel(id="mbr_active_admin", organization_id=org_id, user_id=admin.id, role="admin", status="active"),
+            OrganizationMembershipModel(id="mbr_active_member", organization_id=org_id, user_id=member.id, role="member", status="active"),
+        ])
+        db.commit()
+        before = seat_status(db, org_id)
+        users_before = db.query(__import__('app.models.user', fromlist=['UserModel']).UserModel).count()
+        for email in (owner.email, admin.email.upper(), member.email):
+            with pytest.raises(HTTPException, match="organization member") as error:
+                create_invitation(db, owner, org_id, InvitationCreateRequest(email=email))
+            assert error.value.status_code == 409
+        assert seat_status(db, org_id) == before
+        assert db.query(OrganizationInvitationModel).filter_by(organization_id=org_id).count() == 0
+        assert db.query(__import__('app.models.user', fromlist=['UserModel']).UserModel).count() == users_before
+
+
+def test_corrupt_active_member_invitation_cannot_change_roles_or_ownership(seats):
+    Session, owner_id, org_id = seats
+    with Session() as db:
+        owner_record = db.get(__import__('app.models.user', fromlist=['UserModel']).UserModel, owner_id)
+        member = create_user(db, "corrupt-active-member@example.test")
+        db.add(OrganizationMembershipModel(id="mbr_corrupt_active_member", organization_id=org_id, user_id=member.id, role="member", status="active"))
+        owner_token, member_token = "owner-corrupt-token-" + "a" * 40, "member-corrupt-token-" + "b" * 40
+        db.add_all([
+            OrganizationInvitationModel(id="inv_corrupt_owner", organization_id=org_id, destination_email=owner_record.email, role="member", invited_by_user_id=owner_id, token_hash=hashlib.sha256(owner_token.encode()).hexdigest(), status="pending", expires_at=datetime.now(UTC) + timedelta(days=1)),
+            OrganizationInvitationModel(id="inv_corrupt_member", organization_id=org_id, destination_email=member.email, role="admin", invited_by_user_id=owner_id, token_hash=hashlib.sha256(member_token.encode()).hexdigest(), status="pending", expires_at=datetime.now(UTC) + timedelta(days=1)),
+        ])
+        db.commit()
+        before = seat_status(db, org_id)
+        for user, token in ((owner_record, owner_token), (member, member_token)):
+            with pytest.raises(HTTPException, match="already an active") as error:
+                accept_invitation(db, user_context(user), InvitationAcceptRequest(token=token))
+            assert error.value.status_code == 409
+            db.rollback()
+        assert seat_status(db, org_id) == before
+        assert db.get(OrganizationMembershipModel, "mbr_owner").role == "owner"
+        assert db.get(OrganizationMembershipModel, "mbr_owner").status == "active"
+        assert db.get(OrganizationMembershipModel, "mbr_corrupt_active_member").role == "member"
+        assert db.get(OrganizationMembershipModel, "mbr_corrupt_active_member").status == "active"
+        assert db.get(OrganizationInvitationModel, "inv_corrupt_owner").status == "pending"
+        assert db.get(OrganizationInvitationModel, "inv_corrupt_member").status == "pending"
+
+
+def test_removed_membership_can_be_reactivated_by_a_normal_invitation(seats):
+    Session, owner_id, org_id = seats
+    with Session() as db:
+        owner = user_context(db.get(__import__('app.models.user', fromlist=['UserModel']).UserModel, owner_id))
+        removed = create_user(db, "removed-invitation-recipient@example.test")
+        db.add(OrganizationMembershipModel(id="mbr_removed_recipient", organization_id=org_id, user_id=removed.id, role="viewer", status="removed"))
+        db.commit()
+        invitation = create_invitation(db, owner, org_id, InvitationCreateRequest(email=removed.email, role="admin"))
+        membership = accept_invitation(db, user_context(removed), InvitationAcceptRequest(token=invitation.token))
+        assert membership.id == "mbr_removed_recipient"
+        assert membership.role == "admin"
+        assert membership.status == "active"
+        assert seat_status(db, org_id) == {"limit": 5, "active": 2, "reserved": 0, "consumed": 2, "remaining": 3}
 
 
 def test_resend_preserves_one_reservation_and_invalidates_old_token(seats):

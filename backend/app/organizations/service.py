@@ -47,6 +47,7 @@ from app.organizations.schemas import (
 
 ORG_PLAN_ID = "plan_portfolio_org_v1"
 ORG_SEAT_KEY = "limit.organization.seats.count"
+INVITABLE_ORGANIZATION_ROLES = {"admin", "member", "viewer"}
 
 
 def seat_status(db: Session, organization_id: str, *, lock: bool = False) -> dict[str, int]:
@@ -403,7 +404,10 @@ def create_invitation(
     org = db.execute(select(OrganizationModel).where(OrganizationModel.id == org.id).with_for_update()).scalars().one()
     if org.status != "active": raise HTTPException(status_code=409, detail="Organization is not active")
     email, now = normalize_email(request.email), datetime.now(UTC)
-    legacy_pending = db.execute(select(OrganizationMembershipModel).join(UserModel).where(OrganizationMembershipModel.organization_id == org.id, OrganizationMembershipModel.status == "pending", UserModel.email == email)).scalars().one_or_none()
+    active_member = _membership_for_normalized_email(db, org.id, email, status="active")
+    if active_member is not None:
+        raise HTTPException(status_code=409, detail="Invitation cannot be created for this organization member")
+    legacy_pending = _membership_for_normalized_email(db, org.id, email, status="pending")
     if legacy_pending is not None:
         raise HTTPException(status_code=409, detail="Resolve the legacy pending membership before inviting this email")
     existing = db.execute(select(OrganizationInvitationModel).where(OrganizationInvitationModel.organization_id == org.id, OrganizationInvitationModel.destination_email == email, OrganizationInvitationModel.status == "pending", OrganizationInvitationModel.expires_at > now)).scalars().one_or_none()
@@ -424,9 +428,13 @@ def accept_invitation(db: Session, actor: UserContext, request: InvitationAccept
     expires_at = _as_utc(invitation.expires_at) if invitation is not None else None
     if invitation is None or invitation.status != "pending" or expires_at <= now: raise HTTPException(status_code=409, detail="Invitation is invalid or expired")
     if normalize_email(actor.email) != invitation.destination_email: raise HTTPException(status_code=403, detail="Invitation destination does not match authenticated user")
+    if invitation.role not in INVITABLE_ORGANIZATION_ROLES:
+        raise HTTPException(status_code=409, detail="Invitation is invalid")
     org = db.execute(select(OrganizationModel).where(OrganizationModel.id == invitation.organization_id).with_for_update()).scalars().one()
     if org.status != "active" or org.deleted_at is not None: raise HTTPException(status_code=409, detail="Organization is unavailable")
     membership = db.execute(select(OrganizationMembershipModel).where(OrganizationMembershipModel.organization_id == org.id, OrganizationMembershipModel.user_id == actor.id).with_for_update()).scalars().one_or_none()
+    if membership is not None and membership.status == "active":
+        raise HTTPException(status_code=409, detail="Invitation recipient is already an active organization member")
     if membership is None:
         membership = OrganizationMembershipModel(id=f"mbr_{uuid4().hex[:12]}", organization_id=org.id, user_id=actor.id, role=invitation.role, status="active", created_at=now, updated_at=now); db.add(membership)
     else: membership.role, membership.status, membership.updated_at = invitation.role, "active", now
@@ -479,6 +487,22 @@ def invitation_response(record: OrganizationInvitationModel) -> InvitationRespon
         expires_at=record.expires_at,
         created_at=record.created_at,
     )
+
+
+def _membership_for_normalized_email(
+    db: Session,
+    organization_id: str,
+    email: str,
+    *,
+    status: str,
+) -> OrganizationMembershipModel | None:
+    return db.execute(
+        select(OrganizationMembershipModel)
+        .join(UserModel)
+        .where(OrganizationMembershipModel.organization_id == organization_id)
+        .where(OrganizationMembershipModel.status == status)
+        .where(func.lower(func.trim(UserModel.email)) == email)
+    ).scalars().first()
 
 
 def invitation_token_response(

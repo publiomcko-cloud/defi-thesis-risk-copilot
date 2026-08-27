@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime
+import hashlib
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
@@ -451,6 +452,55 @@ def test_invitation_responses_and_audits_never_serialize_tokens_or_hashes(lifecy
             assert value not in audit_payload
         assert "token" not in audit_payload.lower()
         assert "hash" not in audit_payload.lower()
+
+
+def test_api_active_members_cannot_be_reinvited_or_mutated_by_corrupt_invitations(lifecycle_export_client):
+    client, Session, _ = lifecycle_export_client
+    before = client.get(
+        "/api/organizations/org_lifecycle_export/seat-status",
+        headers=_auth("lifecycle-owner-token"),
+    ).json()
+    for email in ("lifecycle-owner@example.test", "LIFECYCLE-ADMIN@EXAMPLE.TEST", "lifecycle-member@example.test"):
+        response = client.post(
+            "/api/organizations/org_lifecycle_export/invitations",
+            json={"email": email, "role": "member"},
+            headers=_auth("lifecycle-owner-token"),
+        )
+        assert response.status_code == 409
+        assert "token" not in response.text.lower()
+        assert "hash" not in response.text.lower()
+    assert client.get(
+        "/api/organizations/org_lifecycle_export/seat-status",
+        headers=_auth("lifecycle-owner-token"),
+    ).json() == before
+
+    owner_token = "owner-corrupt-token-" + "c" * 40
+    member_token = "member-corrupt-token-" + "d" * 40
+    with Session() as db:
+        owner = db.execute(select(UserModel).where(UserModel.email == "lifecycle-owner@example.test")).scalars().one()
+        member = db.execute(select(UserModel).where(UserModel.email == "lifecycle-member@example.test")).scalars().one()
+        db.add_all([
+            OrganizationInvitationModel(id="inv_api_corrupt_owner", organization_id="org_lifecycle_export", destination_email=owner.email, role="member", invited_by_user_id=owner.id, token_hash=hashlib.sha256(owner_token.encode()).hexdigest(), status="pending", expires_at=datetime.now(UTC) + timedelta(days=1)),
+            OrganizationInvitationModel(id="inv_api_corrupt_member", organization_id="org_lifecycle_export", destination_email=member.email, role="admin", invited_by_user_id=owner.id, token_hash=hashlib.sha256(member_token.encode()).hexdigest(), status="pending", expires_at=datetime.now(UTC) + timedelta(days=1)),
+        ])
+        db.commit()
+
+    for token, auth_token in ((owner_token, "lifecycle-owner-token"), (member_token, "lifecycle-member-token")):
+        response = client.post(
+            "/api/organization-invitations/accept",
+            json={"token": token},
+            headers=_auth(auth_token),
+        )
+        assert response.status_code == 409
+        assert token not in response.text
+
+    with Session() as db:
+        owner_membership = db.get(OrganizationMembershipModel, "mbr_lifecycle_owner")
+        member_membership = db.get(OrganizationMembershipModel, "mbr_lifecycle_member")
+        assert (owner_membership.role, owner_membership.status) == ("owner", "active")
+        assert (member_membership.role, member_membership.status) == ("member", "active")
+        assert db.get(OrganizationInvitationModel, "inv_api_corrupt_owner").status == "pending"
+        assert db.get(OrganizationInvitationModel, "inv_api_corrupt_member").status == "pending"
 
 
 def _invite(client: TestClient, organization_id: str, token: str, email: str) -> dict:

@@ -96,6 +96,60 @@ def test_postgres_final_seat_race_has_one_winner_under_organization_row_lock(pos
         _cleanup_organization(postgres_sessions, suffix, organization_id)
 
 
+def test_postgres_active_member_duplicate_invites_cannot_reserve_another_seat(postgres_sessions: sessionmaker) -> None:
+    suffix = uuid4().hex[:12]
+    owner_id, organization_id = _seed_organization(postgres_sessions, suffix, active_count=1)
+    engine = postgres_sessions.kw["bind"]
+    lock_barrier = Barrier(2)
+    lock_selects = 0
+
+    def synchronize_org_lock(connection, cursor, statement, parameters, context, executemany):
+        nonlocal lock_selects
+        if "FROM organizations" in statement and "FOR UPDATE" in statement:
+            lock_selects += 1
+            lock_barrier.wait(timeout=10)
+
+    def invite_active_owner() -> tuple[str, int | str]:
+        with postgres_sessions() as db:
+            try:
+                owner = db.get(UserModel, owner_id)
+                create_invitation(
+                    db,
+                    user_context(owner),
+                    organization_id,
+                    InvitationCreateRequest(email=owner.email),
+                )
+                return "success", "unexpected"
+            except HTTPException as error:
+                db.rollback()
+                return "error", error.status_code
+
+    event.listen(engine, "before_cursor_execute", synchronize_org_lock)
+    try:
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _: invite_active_owner(), range(2)))
+        assert results == [("error", 409), ("error", 409)]
+        assert lock_selects == 2
+        with postgres_sessions() as db:
+            owner_membership = db.execute(
+                select(OrganizationMembershipModel)
+                .where(OrganizationMembershipModel.organization_id == organization_id)
+                .where(OrganizationMembershipModel.user_id == owner_id)
+            ).scalars().one()
+            assert (owner_membership.role, owner_membership.status) == ("owner", "active")
+            assert _pending_invitations(db, organization_id) == []
+            assert seat_status(db, organization_id) == {
+                "limit": 5,
+                "active": 1,
+                "reserved": 0,
+                "consumed": 1,
+                "remaining": 4,
+            }
+    finally:
+        event.remove(engine, "before_cursor_execute", synchronize_org_lock)
+        _cleanup_organization(postgres_sessions, suffix, organization_id)
+
+
 def test_postgres_organization_creation_flushes_before_owner_membership(postgres_sessions: sessionmaker) -> None:
     suffix = uuid4().hex[:12]
     organization_id = ""
