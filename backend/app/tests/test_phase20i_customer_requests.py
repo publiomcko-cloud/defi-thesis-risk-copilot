@@ -131,20 +131,86 @@ def test_exact_request_taxonomy_and_server_derived_states(customer_requests_clie
         assert record is not None and record.owner_user_id == identities["owner_id"]
 
 
-def test_request_input_is_bounded_and_cannot_author_server_fields(customer_requests_client):
-    client, _, _ = customer_requests_client
+def test_request_input_is_bounded_and_cannot_author_server_fields(customer_requests_client, caplog):
+    client, Session, _ = customer_requests_client
+    private_subject = "PRIVATE_SUBJECT_SECRET_20I_" + ("s" * 120)
+    private_description = "PRIVATE_DESCRIPTION_SECRET_20I_" + ("d" * 4000)
+    caplog.set_level(logging.INFO)
     for payload in (
         {"request_type": "unknown", "subject": "Subject", "description": "Description"},
-        {"request_type": "support", "subject": "S" * 121, "description": "Description"},
-        {"request_type": "support", "subject": "Subject", "description": "D" * 4001},
-        {"request_type": "support", "subject": "Subject", "description": "Description", "attachments": []},
-        {"request_type": "support", "subject": "Subject", "description": "Description", "owner_user_id": "other"},
+        {"request_type": "support", "subject": private_subject, "description": "Description"},
+        {"request_type": "support", "subject": "Subject", "description": private_description},
+        {
+            "request_type": "support",
+            "subject": "Subject",
+            "description": "Description",
+            "attachments": [],
+        },
+        {
+            "request_type": "support",
+            "subject": "Subject",
+            "description": "Description",
+            "PRIVATE_EXTRA_FIELD_SECRET_20I": "private extra field",
+        },
+        {
+            "request_type": "support",
+            "subject": "Subject",
+            "description": "Description",
+            "owner_user_id": "other",
+        },
         {"request_type": "support", "subject": "Subject", "description": "Description", "workflow_state": "closed"},
         {"request_type": "support", "subject": "Subject", "description": "Description", "verification_state": "authenticated"},
+        {"request_type": "support", "subject": "Subject", "description": "Description", "organization_id": {}},
     ):
         response = client.post("/api/customer-requests", json=payload, headers=_auth("customer-owner-token"))
         assert response.status_code == 422
-        assert "Subject" not in response.text and "Description" not in response.text
+        _assert_sanitized_validation_response(
+            response,
+            private_subject,
+            private_description,
+            "PRIVATE_EXTRA_FIELD_SECRET_20I",
+            "private extra field",
+        )
+
+    malformed_secret = "PRIVATE_MALFORMED_BODY_SECRET_20I"
+    malformed = client.post(
+        "/api/customer-requests",
+        content=f'{{"subject":"{malformed_secret}"',
+        headers={**_auth("customer-owner-token"), "Content-Type": "application/json"},
+    )
+    assert malformed.status_code == 422
+    _assert_sanitized_validation_response(malformed, malformed_secret)
+    assert private_subject not in caplog.text
+    assert private_description not in caplog.text
+    assert malformed_secret not in caplog.text
+    with Session() as db:
+        assert db.scalar(select(func.count()).select_from(CustomerRequestModel)) == 0
+        assert db.scalar(
+            select(func.count()).select_from(AccessAuditEventModel).where(
+                AccessAuditEventModel.action.like("customer_request.%")
+            )
+        ) == 0
+
+    valid = client.post(
+        "/api/customer-requests",
+        json={
+            "request_type": "support",
+            "subject": "Owner-visible customer request",
+            "description": "A valid owner request retains its private content.",
+        },
+        headers=_auth("customer-owner-token"),
+    )
+    assert valid.status_code == 201
+    assert valid.json()["subject"] == "Owner-visible customer request"
+    assert valid.json()["description"] == "A valid owner request retains its private content."
+
+    unrelated = client.post(
+        "/api/organizations",
+        json={"name": ""},
+        headers=_auth("customer-owner-token"),
+    )
+    assert unrelated.status_code == 422
+    assert unrelated.json()["detail"][0]["input"] == ""
 
     unauthenticated = client.post(
         "/api/customer-requests",
@@ -317,3 +383,14 @@ def _create(client: TestClient, *, request_type: str = "support", organization_i
 
 def _auth(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+def _assert_sanitized_validation_response(response, *private_values: str) -> None:
+    serialized = response.text
+    for value in private_values:
+        assert value not in serialized
+    errors = response.json()["detail"]
+    assert errors
+    for error in errors:
+        assert set(error) == {"loc", "msg", "type"}
+        assert error["loc"][0] == "body"
