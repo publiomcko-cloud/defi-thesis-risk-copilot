@@ -1,6 +1,6 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **In Progress — Phase 20H COMPLETE and merged; Phase 20I-2 is active**
+Status: **In Progress — Phase 20H COMPLETE and merged; Phase 20I-3 exact-head validation is active**
 
 Current implementation branch: `agent/v1-phase-20i-2-request-status-ui`
 
@@ -256,8 +256,9 @@ The portfolio profile is intentionally not a production commercial SaaS. Phase
 ## 11. Phase 20I — Minimal support/privacy/status
 
 Status: **20I-1 COMPLETE and merged as
-`8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`; checkpoint 20I-2 ACTIVE** on
-`agent/v1-phase-20i-2-request-status-ui` under
+`8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`; 20I-2 accepted as
+`1465601712c29988360d7017cd9a6e7f1a5d007f`; checkpoint 20I-3 exact-head
+validation ACTIVE** on `agent/v1-phase-20i-2-request-status-ui` under
 [`phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
 
 Migration `20260828_0029` implements only this approved reduced portfolio
@@ -304,6 +305,22 @@ provider, incident, customer-request, infrastructure, SLA, uptime-history, or
 subscriber detail. The BFF now uses curated backend route families, including
 the bounded `/customer-requests` paths and their existing methods; it is not a
 generic backend proxy.
+
+Checkpoint 20I-3 adds defense-in-depth at the BFF boundary: the bounded
+customer-request collection, detail, and close routes reject every non-empty
+query string with a bounded `400` response before an upstream request is made.
+This prevents unused query content from being forwarded or logged while leaving
+unrelated BFF route query behavior unchanged. Contract and browser evidence
+assert both rejection and absence from the upstream mock.
+
+The final local gate passed the full PostgreSQL backend suite, explicit SQLite
+and PostgreSQL `0028 -> 0029 -> 0028 -> 0029` evidence, all browser/security
+contracts, both Compose runtime paths, local workflow/lockfile/exception/SBOM
+checks, zero known high/critical pip/npm audit findings, and all eleven fixed
+Phase 19 isolated exercises. Phase 20I is complete only after every configured
+hosted check is green for the exact DRAFT PR head; it is not a claim of
+production activation, external delivery, commercial support, SLA, or uptime
+history.
 
 External helpdesk/status providers, subscriber email collection, production or
 commercial support claims, and legal retention policy are not implemented.

@@ -94,6 +94,9 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   if (!isAllowedBackendPath(targetPath) || !isAllowedBackendMethod(targetPath, request.method)) {
     return NextResponse.json({ detail: "Unsupported backend path." }, { status: 404 });
   }
+  if (isCustomerRequestRoute(targetPath) && request.nextUrl.search) {
+    return NextResponse.json({ detail: "Customer-request query parameters are not supported." }, { status: 400 });
+  }
   const bodyResult = request.method === "GET" || request.method === "HEAD"
     ? { ok: true as const, body: undefined }
     : await readBodyWithinLimit(request, bffBodyLimit(targetPath));
@@ -200,7 +203,7 @@ function isAllowedBackendPath(path: string): boolean {
   }
 
   if (path.startsWith("/api/customer-requests/")) {
-    return isCustomerRequestPath(path);
+    return isCustomerRequestRoute(path);
   }
   return ALLOWED_EXACT_PATHS.includes(path) || ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
@@ -209,7 +212,7 @@ function isAllowedBackendMethod(path: string, method: string): boolean {
   if (path === "/api/customer-requests") {
     return method === "GET" || method === "POST";
   }
-  if (!isCustomerRequestPath(path)) {
+  if (!isCustomerRequestRoute(path)) {
     return true;
   }
   if (path.endsWith("/close")) {
@@ -218,8 +221,8 @@ function isAllowedBackendMethod(path: string, method: string): boolean {
   return method === "GET";
 }
 
-function isCustomerRequestPath(path: string): boolean {
-  return CUSTOMER_REQUEST_DETAIL_PATH.test(path);
+function isCustomerRequestRoute(path: string): boolean {
+  return path === "/api/customer-requests" || CUSTOMER_REQUEST_DETAIL_PATH.test(path);
 }
 
 function normalizeCorrelationId(value: string | null): string {

@@ -13,6 +13,7 @@ const users = {
 const state = {
   customerRequests: [],
   customerCalls: [],
+  customerRequestPaths: [],
   backendCalls: [],
   healthHealthy: true,
   healthAuthHeaders: [],
@@ -231,6 +232,16 @@ async function exerciseBffContracts(browserInstance) {
   assert.equal(unsupportedMethod.status(), 404, "customer-request method restrictions must be enforced by the BFF");
   const inventedCustomerPath = await page.request.get(`${appOrigin}/api/backend/api/customer-requests/request-id/not-allowed`);
   assert.equal(inventedCustomerPath.status(), 404, "invented customer-request paths must be denied by the BFF");
+  const customerRequestPathsBeforeQuery = state.customerRequestPaths.length;
+  const queryRequests = [
+    page.request.get(`${appOrigin}/api/backend/api/customer-requests?private=PRIVATE_BFF_QUERY_20I`),
+    page.request.get(`${appOrigin}/api/backend/api/customer-requests/request-id?private=PRIVATE_BFF_QUERY_20I`),
+    page.request.post(`${appOrigin}/api/backend/api/customer-requests/request-id/close?private=PRIVATE_BFF_QUERY_20I`),
+  ];
+  for (const query of await Promise.all(queryRequests)) {
+    assert.equal(query.status(), 400, "customer-request query strings must be rejected by the BFF");
+  }
+  assert.equal(state.customerRequestPaths.length, customerRequestPathsBeforeQuery, "customer-request query content must not be forwarded upstream");
   const oversized = await page.request.post(`${appOrigin}/api/backend/api/customer-requests`, {
     data: { request_type: "support", subject: "limit", description: "x".repeat(1024) },
   });
@@ -254,6 +265,9 @@ function handleSupabase(method, url, payload, response) {
 }
 
 function handleBackend(method, url, payload, headers, response) {
+  if (url.pathname.startsWith("/api/customer-requests")) {
+    state.customerRequestPaths.push(url.href);
+  }
   if (url.pathname === "/health") {
     state.healthAuthHeaders.push(headers.authorization ?? "");
     return state.healthHealthy
