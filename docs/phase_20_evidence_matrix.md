@@ -13,8 +13,8 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | 20E | Optional | Synthetic/provider-neutral delivery demonstration only |
 | 20F | Merged / shadow-only | Migration `0026` seeds `free-v1`; read-only resolver compares seven documented limits against legacy authorities with bounded fallback; immutable ledger and real schedule lease-loss/retry completion evidence merged as `1e5ea045390b11c7b8dc933a48b40a562e3270da` |
 | 20G | Deferred | Not required for portfolio completion; preserved for future productization |
-| 20H | Hosted evidence recorded; current-head gate applies | Migration `0028`, organization invitations/seats/ownership/export, real PostgreSQL lifecycle races and browser token-fragment/manual-entry coverage. PR #27 passed all 13 hosted checks at `2e25191d5807fe64ef425954eaa2cf9cdb9b7549`; implementation completion still requires green checks for the current PR head. |
-| 20I | Next required reduced slice | First-party bounded support/privacy/status evidence begins only after 20H completes |
+| 20H | Complete / merged | Migration `0028`, organization invitations/seats/ownership/export, real PostgreSQL lifecycle races and browser token-fragment/manual-entry coverage merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`. No production activation is claimed. |
+| 20I | Active — checkpoint 20I-1 | Reduced first-party support/privacy request tracking on `agent/v1-phase-20i-support-privacy-status`, authorized by `docs/decisions/phase_20i_support_privacy_status_approval.md`. |
 | 20J | Planned / required | Portfolio architecture closeout |
 
 Phase 20F additionally runs an isolated PostgreSQL migration-cycle test using a
@@ -65,16 +65,62 @@ in the immediate create/resend demo response, durable token hashes are never
 exposed, and browser links use URL fragments so plaintext is not transmitted in
 HTTP navigation URLs. The organization seat plan is non-billable: no pricing,
 payment, subscription, checkout, invoice, or production commercial-SaaS claim
-exists. Phase 20G is **DEFERRED**; Phase 20I is next only after exact-head
-hosted evidence completes Phase 20H.
+exists. Phase 20G is **DEFERRED**. Phase 20H is COMPLETE for the portfolio
+profile and merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`; Phase 20I
+is active.
 
-On 2026-08-27, DRAFT PR #27 passed all 13 hosted checks for
-`2e25191d5807fe64ef425954eaa2cf9cdb9b7549`: backend/PostgreSQL, frontend,
-Docker Compose config, CodeQL Python and JavaScript/TypeScript, Supply Chain
-workflow policy/SBOM, secret scan, dependency/container security and dependency
-review, Phase 19 Failure Exercises, and Vercel deployment/preview. This does
-not claim production activation or external delivery. Each later PR head,
-including documentation-only updates, must receive its own green hosted run.
+Phase 20H exact-head hosted validation completed before its merge. This does
+not claim production activation or external delivery. Each Phase 20I head,
+including documentation-only updates, requires its own green hosted run.
+
+## Phase 20I checkpoint
+
+Phase 20I is **ACTIVE** for the reduced portfolio profile under
+[`phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
+Checkpoint 20I-1 is limited to bounded customer/privacy request authority and
+lifecycle integration. Migration `20260828_0029_add_customer_requests.py`
+directly follows `20260824_0028`; `0027` remains reserved/deferred for billing
+and was not fabricated. It creates owner-scoped `customer_requests` with the
+five code-owned types, API/schema and database text bounds, constrained
+workflow/verification states, `RESTRICT` user ownership, and optional `SET
+NULL` organization context.
+
+The authenticated first-party API exposes create, owner list/read, and
+requester close only. Request ownership is always server-derived; active
+membership validates optional organization context without allowing an
+organization or platform-admin content bypass. Privacy request context remains
+individual-only. Close uses a PostgreSQL row lock and is a deterministic no-op
+after the first close, which emits one bounded audit event.
+
+Subject and description are private application content. The implementation
+does not put them in logs, structured audit metadata, analytics, notifications,
+LLM prompts, embedding/retrieval paths, or provider payloads. There is no
+Phase 20I analytics event or automatic request processing. Existing Phase 16
+account export includes only the owner's request projection, account deletion
+removes owned rows, and organization deletion clears context while preserving
+owner isolation. No legal retention policy, production/legal approval, external
+helpdesk/status provider, or external delivery is claimed.
+
+Local evidence for this checkpoint:
+
+```bash
+cd backend && .venv/bin/python -m compileall -q app
+# passed
+
+cd backend && DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5435/defi_copilot RUN_POSTGRES_INTEGRATION=true .venv/bin/python -m pytest app/tests/test_phase20i_customer_requests.py app/tests/test_phase20i_sqlite_migration.py app/tests/test_phase20i_postgres.py app/tests/test_phase20i_postgres_migration.py -q
+# passed: 13 tests; SQLite and PostgreSQL 0028 -> 0029 -> 0028 -> 0029 cycles
+
+cd backend && DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5435/defi_copilot RUN_POSTGRES_INTEGRATION=true .venv/bin/python -m pytest app/tests/test_phase16_identity.py app/tests/test_phase16_knowledge_scope.py app/tests/test_phase16_migration_hardening.py app/tests/test_phase20b_product_analytics.py app/tests/test_phase20h_seats.py app/tests/test_phase20h_ownership.py app/tests/test_phase20h_lifecycle_export.py app/tests/test_phase20h_postgres.py app/tests/test_phase20h_postgres_ownership.py app/tests/test_phase20h_sqlite_migration.py app/tests/test_phase20h_postgres_migration.py -q
+# passed: 83 tests across affected Phase 16, 20B, and 20H authority/lifecycle paths
+
+cd frontend && npm run lint && npm run build
+# passed: TypeScript typecheck and production build
+```
+
+The migration cycles preserve Phase 20H invitations and organization plan
+state, preserve all seven `free-v1` limits, remove only Phase 20I schema on
+downgrade, and recreate the table cleanly on re-upgrade. Phase 20G remains
+**DEFERRED**. Public status and request-management UI remain for 20I-2.
 
 ## Phase 20B checkpoint
 

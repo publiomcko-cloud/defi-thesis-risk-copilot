@@ -1,20 +1,20 @@
 # Phase 20 Migration and Data-Model Review
 
-Status: **Phase 20B migration `0023` implemented; `0024`–`0029` remain proposed**
+Status: **Migrations `0023`–`0026`, `0028`, and Phase 20I `0029` implemented; `0027` remains reserved/deferred for billing**
 
-Review dates: 2026-07-30 (proposal), 2026-07-31 (Phase 20B implementation)
+Review dates: 2026-07-30 (proposal), 2026-07-31 (Phase 20B implementation),
+2026-08-28 (Phase 20I-1 implementation)
 
 Observed migration head:
 
 ```text
-20260731_0023
+20260828_0029
 ```
 
-Revision `0023` is implemented under the scoped approval in
-[`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
-Revisions `0024`–`0029` remain reservations whose identifiers, constraints and
-split boundaries must be reconfirmed before implementation; this document does
-not authorize those later migrations.
+Revisions `0023`–`0026` and `0028` are implemented under their respective
+scoped approvals. `0027` remains intentionally reserved/deferred for billing.
+`20260828_0029_add_customer_requests.py` follows `20260824_0028` under
+[`decisions/phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
 
 ---
 
@@ -415,40 +415,42 @@ it is not sent in HTTP navigation URLs. No support impersonation, plan
 assignment through invitation input, external email delivery, pricing, payment,
 subscription, or commercial profile is implemented.
 
-DRAFT PR #27 passed its complete hosted validation set at
-`2e25191d5807fe64ef425954eaa2cf9cdb9b7549`; this is implementation evidence,
-not production activation or external-delivery evidence. Any later PR head
-remains subject to the same exact-head hosted gate.
+Phase 20H is COMPLETE for the portfolio profile and merged as
+`54329c6911fa1fada2160cc98ac0a57a3aaa5acc`; this is implementation evidence,
+not production activation or external-delivery evidence.
 
 ---
 
-## 8. Proposed `0029` — customer and privacy requests
+## 8. Implemented `0029` — customer and privacy requests
 
-Candidate table:
+Implemented table:
 
-- `customer_requests`, or separate bounded tables only if lifecycle/roles
-  materially differ.
+- `customer_requests`.
 
 Key fields:
 
-- request type;
-- owner user/organization;
-- severity/state;
+- exact code-owned request type: `support`, `feedback`, `abuse_report`,
+  `privacy_access_export`, or `privacy_deletion`;
+- `owner_user_id` with `RESTRICT`, plus optional server-authorized
+  `organization_id` with `SET NULL`;
+- code-owned workflow and verification state;
 - bounded subject/description;
-- verified contact preference;
-- assigned team role, not private person/credential;
-- due/closed timestamps;
-- safe external reference;
-- retention/legal-hold state;
-- audit lineage.
+- closed timestamps and optional bounded resolution code;
+- safe audit lineage only.
 
 Authority boundary:
 
-- the row tracks intake, verification, status, deadlines, and communication;
+- the row tracks intake, server-derived verification, and bounded workflow state;
 - existing account/organization export and deletion services perform the
   actual operation;
 - no attachment in the initial schema;
-- no automatic LLM, analytics, or log forwarding.
+- no automatic LLM, analytics, or log forwarding;
+- no attachments, assignees, provider IDs, arbitrary metadata, legal hold, or
+  invented retention period. `0027` remains reserved/deferred for billing;
+  `0029` is implemented only for Phase 20I-1 on
+  `agent/v1-phase-20i-support-privacy-status` under
+  `docs/decisions/phase_20i_support_privacy_status_approval.md`. Phase 20G
+  remains **DEFERRED**.
 
 ---
 
@@ -463,7 +465,7 @@ Authority boundary:
 | Plan assignments | User or organization | Explicit subject representation | End assignment; retain required audit | End assignment; retain required audit | Existing account; future org export |
 | Usage | User or organization | Explicit subject representation with restricted evidence state | Delete/anonymize or legally restrict | Same | Existing account; future org export |
 | Billing | User/organization customer mapping | Explicit subject plus provider IDs | Cancel/end; retain only required evidence | Same; billing owner rules | Normalized account/org commercial export |
-| Customer/privacy request | User or organization | Explicit owner/org FKs | Continue verified deletion orchestration; retain request status by policy | Same | Existing account; future org export |
+| Customer/privacy request | User owner; optional organization context | `owner_user_id RESTRICT`; `organization_id SET NULL` plus explicit lifecycle cleanup | Existing authorized account deletion explicitly removes owned private rows | Clear organization context while preserving owner-only row | Existing account export for owner only; no organization export |
 
 `CASCADE` must not be chosen merely for convenience. `SET NULL` must not create
 unscoped rows accessible to normal product queries. Every FK and cleanup order

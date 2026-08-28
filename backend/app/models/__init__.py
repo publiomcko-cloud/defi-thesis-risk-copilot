@@ -5,6 +5,7 @@ from app.models.anonymous_session import AnonymousSessionModel
 from app.models.api_credential import ApiCredentialModel
 from app.models.artifact import ArtifactModel
 from app.models.consent_record import ConsentRecordModel
+from app.models.customer_request import CustomerRequestModel
 from app.models.discovered_item import DiscoveredItemModel
 from app.models.document_source import DocumentSourceModel
 from app.models.evaluation_result import EvaluationResultModel
@@ -51,6 +52,7 @@ __all__ = [
     "ApiCredentialModel",
     "ArtifactModel",
     "ConsentRecordModel",
+    "CustomerRequestModel",
     "DiscoveredItemModel",
     "DocumentSourceModel",
     "EvaluationResultModel",

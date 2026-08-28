@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 from app.api.routes_admin import router as admin_router
 from app.api.routes_analysis import router as analysis_router
 from app.api.routes_auth import router as auth_router
+from app.api.routes_customer_requests import router as customer_requests_router
 from app.api.routes_demo import router as demo_router
 from app.api.routes_deployment import router as deployment_router
 from app.api.routes_discovery import router as discovery_router
@@ -144,6 +145,7 @@ def create_app() -> FastAPI:
     register_error_handlers(app)
     app.include_router(health_router)
     app.include_router(auth_router, prefix="/api")
+    app.include_router(customer_requests_router, prefix="/api")
     app.include_router(demo_router, prefix="/api")
     app.include_router(deployment_router, prefix="/api")
     app.include_router(admin_router, prefix="/api")

@@ -1,8 +1,8 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **In Progress — Phase 20F merged; Phase 20H exact-head hosted evidence is the current completion gate**
+Status: **In Progress — Phase 20H COMPLETE and merged; Phase 20I-1 is active**
 
-Current implementation branch: `agent/v1-phase-20h-org-invitations-seats`
+Current implementation branch: `agent/v1-phase-20i-support-privacy-status`
 
 Current authority:
 
@@ -222,9 +222,9 @@ All real billing work lives in [`productization_backlog.md`](productization_back
 
 ## 10. Phase 20H — Organization invitations, seats, and ownership controls
 
-Status: **Hosted evidence passed for `2e25191d5807fe64ef425954eaa2cf9cdb9b7549`;
-implementation completion remains gated on the current PR head's hosted
-evidence.** No production activation is claimed.
+Status: **COMPLETE for the portfolio profile; merged as
+`54329c6911fa1fada2160cc98ac0a57a3aaa5acc`.** No production activation is
+claimed.
 
 Portfolio rules:
 
@@ -251,12 +251,17 @@ Portfolio rules:
   semantics.
 
 The portfolio profile is intentionally not a production commercial SaaS. Phase
-20G remains **DEFERRED**. Phase 20I is the next reduced portfolio slice only
-after Phase 20H completes its exact-head hosted evidence gate.
+20G remains **DEFERRED**.
 
 ## 11. Phase 20I — Minimal support/privacy/status
 
-Next required reduced portfolio slice after Phase 20H completes.
+Status: **ACTIVE — checkpoint 20I-1** on
+`agent/v1-phase-20i-support-privacy-status` under
+[`phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
+
+Migration `20260828_0029` implements only this approved reduced portfolio
+slice; it follows Phase 20H migration `20260824_0028`. `0027` remains reserved
+and deferred for billing.
 
 Use first-party bounded request tracking for:
 
@@ -266,11 +271,26 @@ Use first-party bounded request tracking for:
 - `privacy_access_export`;
 - `privacy_deletion`.
 
-No attachments initially. Bound subject to 120 characters and description to 4,000 characters. Request text is excluded from product analytics, normal logs, and automatic LLM processing.
+Checkpoint 20I-1 implements `20260828_0029_add_customer_requests.py`, a
+single owner-scoped table with optional server-authorized active-organization
+context. Creation is always `open`; privacy types derive `authenticated`
+verification and ordinary types derive `not_required`. The requester may
+close their own request through a locked, deterministic terminal transition.
+There are no attachments, assignees, provider IDs, arbitrary metadata, legal
+hold, invented retention period, or commercial fields. Subject is bounded to
+120 characters and description to 4,000 characters.
 
-Phase 20I tracks intake, verification, state, due dates, communication, and orchestration. Existing Phase 16 export/deletion services perform the actual account/organization operation.
+Request text is excluded from normal/structured logs, audit metadata, product
+analytics, notifications, LLM prompts, embeddings, and retrieval. Existing
+Phase 16 account export/deletion services remain authoritative: exports include
+only the authenticated owner's request records, account deletion explicitly
+removes their request rows, and organization deletion clears optional context
+while retaining user ownership. Privacy request rows are tracking only and do
+not trigger a second export/deletion implementation.
 
-A simple public-safe status process is sufficient. External helpdesk/status providers and subscriber email collection are not required.
+Public-safe status UI and request-management UI are deferred to 20I-2. External
+helpdesk/status providers and subscriber email collection are not implemented.
+Legal retention remains an unresolved production/legal decision.
 
 ## 12. Phase 20J — Portfolio architecture closeout
 

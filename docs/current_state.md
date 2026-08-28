@@ -65,7 +65,7 @@ V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
-V1 Phase 20 — In Progress on its implementation branch; 20B analytics and 20C durable private monitoring are locally complete. Phase 20C merged as `8aeb84cec0427765322cf44b3827eee319e8064e`; both features remain deployment-disabled by default, with qualified approval and deployed evidence required before production activation
+V1 Phase 20 — In Progress on `agent/v1-phase-20i-support-privacy-status`; Phase 20H is COMPLETE for the portfolio profile and merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`. Phase 20I-1 implements bounded private customer/privacy request authority in migration `20260828_0029`; Phase 20I remains ACTIVE, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
 V1 Phase 21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -444,8 +444,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   protected-branch enforcement, and controlled deployment are not evidenced
   as complete;
 - Phase 20 — In Progress; Phase 20D merged and Phase 20F merged to `main` as
-  `1e5ea045390b11c7b8dc933a48b40a562e3270da`; Phase 20H is on
-  `agent/v1-phase-20h-org-invitations-seats` under
+  `1e5ea045390b11c7b8dc933a48b40a562e3270da`; Phase 20H is COMPLETE for the
+  portfolio profile and merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`.
+  Phase 20I is ACTIVE on `agent/v1-phase-20i-support-privacy-status` under
   [`phase_20_execution_plan.md`](phase_20_execution_plan.md): privacy-conscious
   analytics, durable schedules, user-controlled notifications, separate
   product quotas/non-billable usage/versioned entitlements, organization
@@ -506,10 +507,18 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   fragment invitation links do not transmit the plaintext token in HTTP
   navigation URLs. No external invitation email, pricing, payments,
   subscriptions, checkout, invoices, or production commercial activation is
-  implemented. Phase 20G is **DEFERRED**. DRAFT PR #27 passed all 13 hosted
-  checks at `2e25191d5807fe64ef425954eaa2cf9cdb9b7549`; Phase 20H completion
-  remains gated on exact-head hosted evidence, and Phase 20I is the next
-  reduced portfolio slice after that gate;
+  implemented. Phase 20G is **DEFERRED**. Phase 20I is authorized by
+  [`phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
+  `20260828_0029_add_customer_requests.py` follows `20260824_0028`; `0027`
+  remains reserved/deferred for billing and was not fabricated. Phase 20I-1
+  adds owner-scoped `customer_requests` for the exact five approved request
+  types, bounded private subject/description, server-derived workflow and
+  verification, owner-only API access, account export/deletion integration,
+  and organization-context clearing on organization deletion. Request text is
+  excluded from logs, audit metadata, product analytics, notifications, LLM,
+  embedding, and retrieval paths. Privacy requests remain individual-only;
+  legal retention, external providers, public status UI, and request-management
+  UI remain deferred. No production/legal approval is claimed;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 

@@ -39,6 +39,7 @@ from app.models.knowledge import (
     KnowledgeSourceModel,
 )
 from app.knowledge.service import tombstone_knowledge_for_account
+from app.customer_requests.service import dispose_customer_requests_for_account, export_customer_requests
 from app.models.watchlist_item import WatchlistItemModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.notification import NotificationModel, NotificationPreferenceModel
@@ -188,6 +189,7 @@ def export_account(
         .where(NotificationModel.owner_user_id == current_user.id)
         .order_by(NotificationModel.created_at.desc())
     ).scalars().all()
+    customer_requests = export_customer_requests(db, current_user.id)
     audits = db.execute(
         select(AccessAuditEventModel)
         .where(AccessAuditEventModel.actor_user_id == current_user.id)
@@ -473,6 +475,7 @@ def export_account(
             }
             for item in usage_events
         ],
+        customer_requests=customer_requests,
     )
     export_audit = record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)
     emit_notification_intent(
@@ -537,6 +540,7 @@ def delete_account(
     dispose_product_analytics_for_account(db, current_user.id)
     dispose_notifications_for_account(db, current_user.id)
     dispose_entitlements_for_account(db, current_user.id)
+    dispose_customer_requests_for_account(db, current_user.id)
     revoked_invitation_count = revoke_pending_invitations_for_account_email(
         db,
         authenticated_email,
