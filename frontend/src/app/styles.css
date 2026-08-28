@@ -542,6 +542,106 @@ textarea {
   overflow-x: auto;
 }
 
+.support-form-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.notice-copy {
+  background: var(--warning-bg);
+  border: 1px solid #ead891;
+  border-radius: 8px;
+  color: var(--warning);
+  line-height: 1.5;
+  padding: 12px;
+}
+
+.request-state,
+.status-pill {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 5px 9px;
+  text-transform: capitalize;
+}
+
+.request-state-open,
+.request-state-in_progress,
+.status-pill-unknown {
+  background: var(--warning-bg);
+  border-color: #ead891;
+  color: var(--warning);
+}
+
+.request-state-closed,
+.request-state-resolved,
+.status-pill-available,
+.status-pill-operational {
+  background: #e8f5ee;
+  border-color: #a9d8bf;
+  color: var(--accent-strong);
+}
+
+.status-pill-unavailable {
+  background: #fff0ec;
+  border-color: #efb7a8;
+  color: #8d2f1d;
+}
+
+.request-detail h3 {
+  margin-bottom: 8px;
+}
+
+.request-description {
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.request-metadata {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  margin: 20px 0 0;
+}
+
+.request-metadata div {
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+
+.request-metadata dt {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.request-metadata dd {
+  margin: 4px 0 0;
+}
+
+.status-panel {
+  max-width: 680px;
+}
+
+.status-list {
+  list-style: none;
+  margin: 20px 0;
+  padding: 0;
+}
+
+.status-row {
+  align-items: center;
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  font-weight: 700;
+  justify-content: space-between;
+  min-height: 56px;
+}
+
 table {
   border-collapse: collapse;
   min-width: 760px;

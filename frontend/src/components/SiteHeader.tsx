@@ -24,6 +24,7 @@ const protectedLinks = [
   { href: "/theses", label: "Theses" },
   { href: "/knowledge", label: "Knowledge" },
   { href: "/organizations", label: "Organizations" },
+  { href: "/support", label: "Support" },
   { href: "/review", label: "Review" },
   { href: "/admin", label: "Admin" }
 ];

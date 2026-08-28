@@ -3,7 +3,7 @@
 Status: **Migrations `0023`–`0026`, `0028`, and Phase 20I `0029` implemented; `0027` remains reserved/deferred for billing**
 
 Review dates: 2026-07-30 (proposal), 2026-07-31 (Phase 20B implementation),
-2026-08-28 (Phase 20I-1 implementation)
+2026-08-28 (Phase 20I-1 implementation and 20I-2 browser/status checkpoint)
 
 Observed migration head:
 
@@ -447,10 +447,25 @@ Authority boundary:
 - no automatic LLM, analytics, or log forwarding;
 - no attachments, assignees, provider IDs, arbitrary metadata, legal hold, or
   invented retention period. `0027` remains reserved/deferred for billing;
-  `0029` is implemented only for Phase 20I-1 on
-  `agent/v1-phase-20i-support-privacy-status` under
+  `0029` is implemented for Phase 20I-1, merged as
+  `8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`. Phase 20I-2 is browser/status
+  work only on `agent/v1-phase-20i-2-request-status-ui`; it creates no new
+  migration or customer-request authority. Both checkpoints remain under
   `docs/decisions/phase_20i_support_privacy_status_approval.md`. Phase 20G
   remains **DEFERRED**.
+
+Browser boundary for 20I-2:
+
+- `/support` uses the existing owner-scoped API only through the curated
+  same-origin BFF customer-request routes; it does not author workflow,
+  verification, ownership, provider, or billing fields;
+- subject and description remain volatile unsaved browser state and are not
+  written to URLs, browser storage, cookies, titles, metadata, analytics,
+  notifications, logs, LLM/RAG, or external services;
+- `/status` consumes only safe health success/failure and presents coarse
+  availability, with no internal database/provider/tenant or customer detail;
+- no external helpdesk/status provider, subscriber collection, SLA/uptime
+  assertion, production support operation, or commercial claim is implemented.
 
 ---
 

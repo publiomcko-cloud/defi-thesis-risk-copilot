@@ -65,7 +65,7 @@ V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
-V1 Phase 20 — In Progress on `agent/v1-phase-20i-support-privacy-status`; Phase 20H is COMPLETE for the portfolio profile and merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`. Phase 20I-1 implements bounded private customer/privacy request authority in migration `20260828_0029`; Phase 20I remains ACTIVE, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
+V1 Phase 20 — In Progress on `agent/v1-phase-20i-2-request-status-ui`; Phase 20H is COMPLETE for the portfolio profile and merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`. Phase 20I-1 backend/lifecycle/privacy authority and migration `20260828_0029` merged as `8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`; Phase 20I-2 browser/status work is ACTIVE, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
 V1 Phase 21 — Planned implementation work
 V1 Phase 22 — Planned final release validation and launch approval
 ```
@@ -446,7 +446,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 - Phase 20 — In Progress; Phase 20D merged and Phase 20F merged to `main` as
   `1e5ea045390b11c7b8dc933a48b40a562e3270da`; Phase 20H is COMPLETE for the
   portfolio profile and merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`.
-  Phase 20I is ACTIVE on `agent/v1-phase-20i-support-privacy-status` under
+  Phase 20I-2 is ACTIVE on `agent/v1-phase-20i-2-request-status-ui` under
   [`phase_20_execution_plan.md`](phase_20_execution_plan.md): privacy-conscious
   analytics, durable schedules, user-controlled notifications, separate
   product quotas/non-billable usage/versioned entitlements, organization
@@ -514,11 +514,16 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   adds owner-scoped `customer_requests` for the exact five approved request
   types, bounded private subject/description, server-derived workflow and
   verification, owner-only API access, account export/deletion integration,
-  and organization-context clearing on organization deletion. Request text is
-  excluded from logs, audit metadata, product analytics, notifications, LLM,
-  embedding, and retrieval paths. Privacy requests remain individual-only;
-  legal retention, external providers, public status UI, and request-management
-  UI remain deferred. No production/legal approval is claimed;
+  and organization-context clearing on organization deletion; it merged as
+  `8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`. Phase 20I-2 adds the
+  authenticated `/support` workspace, a curated same-origin BFF
+  `/customer-requests` family, and public-safe `/status` availability surface.
+  Unsaved request text stays in volatile component state and is excluded from
+  URLs, browser storage, cookies, titles, metadata, analytics, notifications,
+  LLM, embedding, and retrieval paths. Privacy tracking links to existing
+  account export/deletion authority only. No external helpdesk/status provider,
+  subscriber collection, SLA, uptime claim, production/commercial support claim,
+  or production/legal approval is made;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 

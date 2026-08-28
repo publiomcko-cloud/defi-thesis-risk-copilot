@@ -14,7 +14,7 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | 20F | Merged / shadow-only | Migration `0026` seeds `free-v1`; read-only resolver compares seven documented limits against legacy authorities with bounded fallback; immutable ledger and real schedule lease-loss/retry completion evidence merged as `1e5ea045390b11c7b8dc933a48b40a562e3270da` |
 | 20G | Deferred | Not required for portfolio completion; preserved for future productization |
 | 20H | Complete / merged | Migration `0028`, organization invitations/seats/ownership/export, real PostgreSQL lifecycle races and browser token-fragment/manual-entry coverage merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`. No production activation is claimed. |
-| 20I | Active — checkpoint 20I-1 | Reduced first-party support/privacy request tracking on `agent/v1-phase-20i-support-privacy-status`, authorized by `docs/decisions/phase_20i_support_privacy_status_approval.md`. |
+| 20I | Active — checkpoint 20I-2 | 20I-1 backend/lifecycle/privacy authority and migration `0029` merged as `8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`; authenticated support workspace, BFF, and public-safe status work proceeds on `agent/v1-phase-20i-2-request-status-ui`. |
 | 20J | Planned / required | Portfolio architecture closeout |
 
 Phase 20F additionally runs an isolated PostgreSQL migration-cycle test using a
@@ -77,8 +77,10 @@ including documentation-only updates, requires its own green hosted run.
 
 Phase 20I is **ACTIVE** for the reduced portfolio profile under
 [`phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
-Checkpoint 20I-1 is limited to bounded customer/privacy request authority and
-lifecycle integration. Migration `20260828_0029_add_customer_requests.py`
+Checkpoint 20I-1 is complete and merged as
+`8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`. It is limited to bounded
+customer/privacy request authority and lifecycle integration. Migration
+`20260828_0029_add_customer_requests.py`
 directly follows `20260824_0028`; `0027` remains reserved/deferred for billing
 and was not fabricated. It creates owner-scoped `customer_requests` with the
 five code-owned types, API/schema and database text bounds, constrained
@@ -119,8 +121,33 @@ cd frontend && npm run lint && npm run build
 
 The migration cycles preserve Phase 20H invitations and organization plan
 state, preserve all seven `free-v1` limits, remove only Phase 20I schema on
-downgrade, and recreate the table cleanly on re-upgrade. Phase 20G remains
-**DEFERRED**. Public status and request-management UI remain for 20I-2.
+downgrade, and recreate the table cleanly on re-upgrade.
+
+Checkpoint 20I-2 is **ACTIVE** on `agent/v1-phase-20i-2-request-status-ui`.
+It adds authenticated `/support`, owner-only history/detail and close UI,
+privacy-type links to the existing account export/deletion workflow, a curated
+same-origin BFF `/customer-requests` family, and public `/status`. Private
+unsaved request text is volatile and is not placed in URLs, local/session
+storage, cookies, titles, metadata, analytics, notifications, logs, LLM/RAG, or
+external services. `/status` maps only public-safe health success/failure to
+coarse availability and exposes no customer, tenant, database, provider,
+incident, infrastructure, SLA, uptime-history, or subscriber information.
+There is no external helpdesk/status provider or production/commercial support
+claim.
+
+Local 20I-2 evidence:
+
+```bash
+cd frontend && npm run lint && npm run build && npm run test:phase20i && npm run test:e2e && npm run test:phase20h && npm run test:route-smoke && npm run test:bff && npm run test:mfa && npm run test:mfa:routes && npm run test:accessibility && npm run test:security
+# passed: typecheck, production build, Phase 20I workspace/status/BFF privacy E2E,
+# Phase 16 and 20H E2E, production-server route smoke, BFF/MFA/accessibility/security contracts
+
+cd backend && DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5435/defi_copilot RUN_POSTGRES_INTEGRATION=true .venv/bin/python -m pytest app/tests/test_phase20i_customer_requests.py app/tests/test_phase20i_sqlite_migration.py app/tests/test_phase20i_postgres.py app/tests/test_phase20i_postgres_migration.py app/tests/test_phase16_identity.py app/tests/test_phase16_knowledge_scope.py app/tests/test_phase16_migration_hardening.py app/tests/test_phase20h_seats.py app/tests/test_phase20h_ownership.py app/tests/test_phase20h_lifecycle_export.py app/tests/test_phase20h_postgres.py app/tests/test_phase20h_postgres_ownership.py app/tests/test_phase20h_sqlite_migration.py app/tests/test_phase20h_postgres_migration.py -q
+# passed: 87 affected backend tests with PostgreSQL integration
+```
+
+Phase 20G remains **DEFERRED**. Phase 20I remains active; this does not claim
+production activation, legal approval, or external delivery.
 
 ## Phase 20B checkpoint
 
