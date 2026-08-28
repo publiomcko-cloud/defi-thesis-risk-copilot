@@ -4,6 +4,7 @@ import base64
 import json
 import time
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -27,6 +28,7 @@ class SupabaseClaims:
     audience: str | list[str] | None
     expires_at: int
     raw: dict[str, Any]
+    authenticated_at: datetime | None = None
 
 
 _JWKS_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
@@ -68,6 +70,7 @@ def verify_supabase_jwt(token: str, settings: Settings) -> SupabaseClaims:
         audience=payload.get("aud"),
         expires_at=int(payload.get("exp")),
         raw=payload,
+        authenticated_at=_provider_auth_time(payload.get("auth_time")),
     )
 
 
@@ -138,3 +141,12 @@ def _normalized_email(value: object) -> str:
     if not isinstance(value, str):
         return ""
     return value.strip().lower()
+
+
+def _provider_auth_time(value: object) -> datetime | None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    try:
+        return datetime.fromtimestamp(value, UTC)
+    except (OverflowError, OSError, ValueError):
+        return None

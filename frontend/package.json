@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "tsc --noEmit --incremental false",
     "test:e2e": "node scripts/phase16-e2e.mjs",
+    "test:phase20h": "node scripts/phase20h-e2e.mjs",
     "test:route-smoke": "node scripts/e2e-smoke.mjs",
     "test:bff": "node scripts/bff-contract-check.mjs && node --experimental-strip-types scripts/bff-body-limit-check.ts",
     "test:accessibility": "node scripts/accessibility-contract-check.mjs",

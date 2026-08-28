@@ -373,7 +373,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
 - the production hybrid frontend exposes public demo/login routes alongside authenticated workspace
   navigation; platform-admin APIs remain role-protected by the backend rather than by hidden URLs;
 - provider backup/restore, deployed observability/WAF evidence, GitHub branch-protection/scanner-baseline evidence, and incident operations remain Phase 19/22 gates;
-- billing, notifications, and commercial support workflows are not implemented;
+- real billing, external delivery, and commercial support workflows are not
+  implemented; the portfolio profile is intentionally not a production
+  commercial SaaS;
 - model/research expansion remains later-phase work;
 - no wallet, signing, custody, private-key handling, or execution exists.
 
@@ -441,17 +443,18 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   telemetry, alert delivery, provider restore, secret rotation,
   protected-branch enforcement, and controlled deployment are not evidenced
   as complete;
-- Phase 20 — In Progress; Phase 20D merged and Phase 20F correction is on
-  `agent/v1-phase-20f-entitlements-usage` under
+- Phase 20 — In Progress; Phase 20D merged and Phase 20F merged to `main` as
+  `1e5ea045390b11c7b8dc933a48b40a562e3270da`; Phase 20H is on
+  `agent/v1-phase-20h-org-invitations-seats` under
   [`phase_20_execution_plan.md`](phase_20_execution_plan.md): privacy-conscious
   analytics, durable schedules, user-controlled notifications, separate
-  product quotas/billable usage/versioned entitlements, billing sandbox
-  foundations, organization commercial workflows, support/status/privacy
-  processes, and legal readiness. Phase 20A implements the threat/evidence,
+  product quotas/non-billable usage/versioned entitlements, organization
+  invitations/seats/ownership, support/status/privacy processes, and legal
+  readiness. Phase 20A implements the threat/evidence,
   event-purpose/consent/retention, usage/entitlement, notification,
   provider-decision, and proposed data-model artifacts. It reuses existing
   Phase 16 terms/privacy consent plus account/organization lifecycle authority.
-  Phase 20F currently adds migration-seeded `free-v1` entitlements and
+  Phase 20F adds migration-seeded `free-v1` entitlements and
   non-billable completion usage in shadow mode only; legacy quota/resource
   authorities remain authoritative and the resolver is read-only.
   Shadow comparison telemetry excludes raw user identifiers and records only
@@ -492,9 +495,21 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   quiet-hour and digest preference handling, source projections from watchlist
   alerts/schedules/jobs/account lifecycle, account export/deletion hooks, and
   30-day cleanup. It introduces no email, webhook, SMS, push, Telegram, or
-  external delivery provider. Focused local tests and frontend typecheck pass;
-  PostgreSQL concurrency, full browser/E2E/accessibility, hosted CI, and
-  production activation evidence remain open;
+  external delivery provider. Its final hosted evidence passed before its
+  merge, while production activation remains open. Phase 20H adds migration
+  `20260824_0028`, which directly follows `20260821_0026`; `0027` remains
+  reserved/deferred for billing and was not fabricated. It adds server-owned
+  non-billable `portfolio-org-v1` seat entitlements, hashed one-time
+  invitations, owner lifecycle/transfer controls, organization export, and
+  PostgreSQL serialization around seat consumption. Plaintext is returned only
+  in immediate create/resend demo responses; hashes are never exposed and
+  fragment invitation links do not transmit the plaintext token in HTTP
+  navigation URLs. No external invitation email, pricing, payments,
+  subscriptions, checkout, invoices, or production commercial activation is
+  implemented. Phase 20G is **DEFERRED**. DRAFT PR #27 passed all 13 hosted
+  checks at `2e25191d5807fe64ef425954eaa2cf9cdb9b7549`; Phase 20H completion
+  remains gated on exact-head hosted evidence, and Phase 20I is the next
+  reduced portfolio slice after that gate;
 - Phase 21 — evaluated model and research-intelligence expansion.
 - Phase 22 — final provider, legal, and launch validation.
 

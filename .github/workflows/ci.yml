@@ -120,8 +120,8 @@ jobs:
       - name: Type check
         run: npm run lint 2>&1 | tee typecheck-output.txt
 
-      - name: Validate BFF and MFA provider contracts
-        run: npm run test:bff && npm run test:mfa
+      - name: Validate frontend security and accessibility contracts
+        run: npm run test:bff && npm run test:mfa && npm run test:security && npm run test:accessibility
 
       - name: Upload frontend validation log
         if: always()
@@ -141,7 +141,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run browser E2E
-        run: npm run test:e2e
+        run: npm run test:e2e && npm run test:phase20h
 
       - name: Upload browser failure artifacts
         if: failure()

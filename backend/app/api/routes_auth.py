@@ -16,7 +16,7 @@ from app.auth.schemas import (
     UserContext,
 )
 from app.auth.security import constant_time_equal
-from app.auth.service import record_audit_event, user_response
+from app.auth.service import normalize_email, record_audit_event, user_response
 from app.db.session import get_db
 from app.jobs.lifecycle import dispose_jobs_for_account_deletion
 from app.models.artifact import ArtifactModel
@@ -51,6 +51,7 @@ from app.notifications.service import (
     emit_notification_intent,
 )
 from app.scheduling.service import dispose_schedules_for_account_deletion
+from app.organizations.service import revoke_pending_invitations_for_account_email
 from app.core.config import get_settings
 
 router = APIRouter(tags=["auth"])
@@ -524,6 +525,7 @@ def delete_account(
                 detail="Transfer or remove final organization ownership before deleting the account.",
             )
     now = datetime.now(UTC)
+    authenticated_email = normalize_email(user.email)
     user.account_status = "deleted"
     user.is_active = False
     user.deleted_at = now
@@ -535,7 +537,21 @@ def delete_account(
     dispose_product_analytics_for_account(db, current_user.id)
     dispose_notifications_for_account(db, current_user.id)
     dispose_entitlements_for_account(db, current_user.id)
+    revoked_invitation_count = revoke_pending_invitations_for_account_email(
+        db,
+        authenticated_email,
+        now=now,
+    )
     db.commit()
+    if revoked_invitation_count:
+        record_audit_event(
+            db,
+            current_user.id,
+            "account.invitations_revoked",
+            "user",
+            current_user.id,
+            {"revoked_count": revoked_invitation_count},
+        )
     record_audit_event(db, current_user.id, "account.deletion_requested", "user", current_user.id)
     return AccountDeleteResponse(
         status="pending_provider_deletion",

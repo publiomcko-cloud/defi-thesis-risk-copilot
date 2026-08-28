@@ -46,7 +46,13 @@ def require_user(
         user = user_from_token(db, credentials.credentials)
         if user is None:
             raise HTTPException(status_code=401, detail="Invalid authentication token")
-        context = user_context(user)
+        local_recent_auth = (
+            datetime.now(UTC)
+            if settings.ownership_transfer_legacy_local_recent_auth_enabled
+            and settings.app_env != "production"
+            else None
+        )
+        context = user_context(user, authenticated_at=local_recent_auth)
     elif settings.auth_provider == "supabase":
         if credentials is None or not credentials.credentials:
             raise HTTPException(status_code=401, detail="Authentication required")
@@ -64,7 +70,7 @@ def require_user(
             and claims.raw.get("aal") != "aal2"
         ):
             raise HTTPException(status_code=403, detail="Administrator MFA required")
-        context = user_context(user)
+        context = user_context(user, authenticated_at=claims.authenticated_at)
     else:
         raise HTTPException(status_code=500, detail="Unsupported authentication provider")
 

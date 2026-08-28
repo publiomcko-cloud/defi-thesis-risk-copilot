@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
@@ -12,6 +14,7 @@ from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
+from app.models.entitlement import PlanEntitlementModel, PlanVersionModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.user import UserModel
 from app.rag.embeddings import LocalHashEmbeddingProvider
@@ -42,6 +45,22 @@ def knowledge_client(monkeypatch):
         create_user(db, "org-admin@example.test", token="org-admin-token")
         create_user(db, "outsider@example.test", token="outsider-token")
         create_user(db, "platform-admin@example.test", role="admin", token="admin-token")
+        db.add_all([
+            PlanVersionModel(
+                id="plan_portfolio_org_v1",
+                plan_key="portfolio-org-v1",
+                version=1,
+                status="active",
+                effective_from=datetime(2025, 8, 24, tzinfo=UTC),
+            ),
+            PlanEntitlementModel(
+                id="ent_portfolio_org_seats",
+                plan_version_id="plan_portfolio_org_v1",
+                entitlement_key="limit.organization.seats.count",
+                hard_limit=5,
+            ),
+        ])
+        db.commit()
 
     def override_get_db():
         session = Session()
@@ -305,17 +324,27 @@ def _create_org_with_member(client: TestClient, name: str = "Risk Research Lab")
     assert organization.status_code == 200
     organization_id = organization.json()["id"]
     member = client.post(
-        f"/api/organizations/{organization_id}/members",
+        f"/api/organizations/{organization_id}/invitations",
         headers=_auth("owner-token"),
         json={"email": "member@example.test", "role": "member"},
     )
     assert member.status_code == 200
+    assert client.post(
+        "/api/organization-invitations/accept",
+        headers=_auth("member-token"),
+        json={"token": member.json()["token"]},
+    ).status_code == 200
     org_admin = client.post(
-        f"/api/organizations/{organization_id}/members",
+        f"/api/organizations/{organization_id}/invitations",
         headers=_auth("owner-token"),
         json={"email": "org-admin@example.test", "role": "admin"},
     )
     assert org_admin.status_code == 200
+    assert client.post(
+        "/api/organization-invitations/accept",
+        headers=_auth("org-admin-token"),
+        json={"token": org_admin.json()["token"]},
+    ).status_code == 200
     return organization_id
 
 

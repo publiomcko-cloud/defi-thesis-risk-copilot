@@ -16,6 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY --chown=app:app backend/ ./
 COPY --chown=app:app knowledge_base/ /workspace/knowledge_base/
+RUN mkdir -p /workspace/examples/reports \
+    && chown -R app:app /workspace/backend /workspace/examples
 
 USER app
 

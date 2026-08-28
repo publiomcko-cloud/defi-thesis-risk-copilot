@@ -148,7 +148,11 @@ def sync_supabase_user(db: Session, claims: SupabaseClaims) -> UserModel:
     return record
 
 
-def user_context(record: UserModel, auth_enabled: bool = True) -> UserContext:
+def user_context(
+    record: UserModel,
+    auth_enabled: bool = True,
+    authenticated_at: datetime | None = None,
+) -> UserContext:
     return UserContext(
         id=record.id,
         email=record.email,
@@ -160,6 +164,7 @@ def user_context(record: UserModel, auth_enabled: bool = True) -> UserContext:
         auth_provider=record.auth_provider,
         auth_subject=record.auth_subject,
         email_verified=record.email_verified_at is not None,
+        authenticated_at=authenticated_at,
     )
 
 
