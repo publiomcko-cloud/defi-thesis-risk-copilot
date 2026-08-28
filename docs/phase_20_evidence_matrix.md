@@ -192,6 +192,10 @@ DRAFT PR head; this does not claim production activation, legal approval,
 external delivery, an external provider, subscriber collection, billing, or an
 SLA/uptime history.
 
+The pull-request Frontend job runs the Phase 16, Phase 20H, and Phase 20I
+browser harnesses, so final hosted evidence includes the support/status and BFF
+privacy boundary rather than only the earlier browser slices.
+
 ## Phase 20B checkpoint
 
 Phase 20B is implementation-complete for the portfolio profile. Commit `a7bcd42` contains the deployment-disabled consent correction and passed the required implementation validation at that checkpoint.
