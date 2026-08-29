@@ -141,7 +141,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       - name: Run browser E2E
-        run: npm run test:e2e && npm run test:phase20h
+        run: npm run test:e2e && npm run test:phase20h && npm run test:phase20i
 
       - name: Upload browser failure artifacts
         if: failure()

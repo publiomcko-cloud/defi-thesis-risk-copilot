@@ -6,8 +6,51 @@ import { ANONYMOUS_COOKIE, backendApiBaseUrl, getValidAccessToken } from "@/lib/
 import { bffBodyLimit, readBodyWithinLimit } from "@/lib/request-body-limit";
 import { hasTrustedOrigin } from "@/lib/request-security";
 
-const ALLOWED_EXACT_PATHS = ["/health", "/ready"];
-const ALLOWED_PREFIXES = ["/api/"];
+const ALLOWED_EXACT_PATHS = [
+  "/health",
+  "/ready",
+  "/api/analyze",
+  "/api/account",
+  "/api/auth/me",
+  "/api/consents",
+  "/api/demo/scenarios",
+  "/api/demo/seed",
+  "/api/demo/status",
+  "/api/deployment/status",
+  "/api/discovery/candidates",
+  "/api/discovery/run",
+  "/api/jobs",
+  "/api/knowledge/readiness",
+  "/api/knowledge/sources",
+  "/api/monitoring/run",
+  "/api/notifications",
+  "/api/notifications/mark-all-read",
+  "/api/notifications/preferences",
+  "/api/notifications/unread-count",
+  "/api/options/analyze",
+  "/api/organization-invitations/accept",
+  "/api/organizations",
+  "/api/protocols",
+  "/api/schedules",
+  "/api/simulation/run",
+  "/api/theses",
+  "/api/usage",
+  "/api/watchlist/alerts",
+  "/api/watchlist/items",
+];
+const ALLOWED_PREFIXES = [
+  "/api/account/",
+  "/api/admin/",
+  "/api/evaluation/",
+  "/api/jobs/",
+  "/api/knowledge/",
+  "/api/notifications/",
+  "/api/organizations/",
+  "/api/reports/",
+  "/api/schedules/",
+  "/api/theses/",
+  "/api/watchlist/",
+];
 const SAFE_RESPONSE_HEADERS = [
   "content-type",
   "retry-after",
@@ -19,6 +62,7 @@ const SAFE_RESPONSE_HEADERS = [
   "x-ratelimit-reset"
 ];
 const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
+const CUSTOMER_REQUEST_DETAIL_PATH = /^\/api\/customer-requests\/[A-Za-z0-9_-]+(?:\/close)?$/;
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
@@ -47,8 +91,11 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   }
   const params = await context.params;
   const targetPath = `/${params.path.join("/")}`;
-  if (!isAllowedBackendPath(targetPath)) {
+  if (!isAllowedBackendPath(targetPath) || !isAllowedBackendMethod(targetPath, request.method)) {
     return NextResponse.json({ detail: "Unsupported backend path." }, { status: 404 });
+  }
+  if (isCustomerRequestRoute(targetPath) && request.nextUrl.search) {
+    return NextResponse.json({ detail: "Customer-request query parameters are not supported." }, { status: 400 });
   }
   const bodyResult = request.method === "GET" || request.method === "HEAD"
     ? { ok: true as const, body: undefined }
@@ -151,7 +198,31 @@ function isAllowedBackendPath(path: string): boolean {
   if (path.startsWith("/internal/")) {
     return false;
   }
+  if (path === "/api/customer-requests") {
+    return true;
+  }
+
+  if (path.startsWith("/api/customer-requests/")) {
+    return isCustomerRequestRoute(path);
+  }
   return ALLOWED_EXACT_PATHS.includes(path) || ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+function isAllowedBackendMethod(path: string, method: string): boolean {
+  if (path === "/api/customer-requests") {
+    return method === "GET" || method === "POST";
+  }
+  if (!isCustomerRequestRoute(path)) {
+    return true;
+  }
+  if (path.endsWith("/close")) {
+    return method === "POST";
+  }
+  return method === "GET";
+}
+
+function isCustomerRequestRoute(path: string): boolean {
+  return path === "/api/customer-requests" || CUSTOMER_REQUEST_DETAIL_PATH.test(path);
 }
 
 function normalizeCorrelationId(value: string | null): string {

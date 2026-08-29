@@ -14,7 +14,7 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | 20F | Merged / shadow-only | Migration `0026` seeds `free-v1`; read-only resolver compares seven documented limits against legacy authorities with bounded fallback; immutable ledger and real schedule lease-loss/retry completion evidence merged as `1e5ea045390b11c7b8dc933a48b40a562e3270da` |
 | 20G | Deferred | Not required for portfolio completion; preserved for future productization |
 | 20H | Complete / merged | Migration `0028`, organization invitations/seats/ownership/export, real PostgreSQL lifecycle races and browser token-fragment/manual-entry coverage merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`. No production activation is claimed. |
-| 20I | Active — checkpoint 20I-1 | Reduced first-party support/privacy request tracking on `agent/v1-phase-20i-support-privacy-status`, authorized by `docs/decisions/phase_20i_support_privacy_status_approval.md`. |
+| 20I | Final validation — checkpoint 20I-3 | 20I-1 backend/lifecycle/privacy authority and migration `0029` merged as `8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`; accepted 20I-2 UI/BFF/status implementation is `1465601712c29988360d7017cd9a6e7f1a5d007f`; query-hardening and full local validation are complete on `agent/v1-phase-20i-2-request-status-ui`. Exact-head hosted CI remains the completion gate. |
 | 20J | Planned / required | Portfolio architecture closeout |
 
 Phase 20F additionally runs an isolated PostgreSQL migration-cycle test using a
@@ -77,8 +77,10 @@ including documentation-only updates, requires its own green hosted run.
 
 Phase 20I is **ACTIVE** for the reduced portfolio profile under
 [`phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
-Checkpoint 20I-1 is limited to bounded customer/privacy request authority and
-lifecycle integration. Migration `20260828_0029_add_customer_requests.py`
+Checkpoint 20I-1 is complete and merged as
+`8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`. It is limited to bounded
+customer/privacy request authority and lifecycle integration. Migration
+`20260828_0029_add_customer_requests.py`
 directly follows `20260824_0028`; `0027` remains reserved/deferred for billing
 and was not fabricated. It creates owner-scoped `customer_requests` with the
 five code-owned types, API/schema and database text bounds, constrained
@@ -119,8 +121,80 @@ cd frontend && npm run lint && npm run build
 
 The migration cycles preserve Phase 20H invitations and organization plan
 state, preserve all seven `free-v1` limits, remove only Phase 20I schema on
-downgrade, and recreate the table cleanly on re-upgrade. Phase 20G remains
-**DEFERRED**. Public status and request-management UI remain for 20I-2.
+downgrade, and recreate the table cleanly on re-upgrade.
+
+Checkpoint 20I-2 is accepted at
+`1465601712c29988360d7017cd9a6e7f1a5d007f` on
+`agent/v1-phase-20i-2-request-status-ui`.
+It adds authenticated `/support`, owner-only history/detail and close UI,
+privacy-type links to the existing account export/deletion workflow, a curated
+same-origin BFF `/customer-requests` family, and public `/status`. Private
+unsaved request text is volatile and is not placed in URLs, local/session
+storage, cookies, titles, metadata, analytics, notifications, logs, LLM/RAG, or
+external services. `/status` maps only public-safe health success/failure to
+coarse availability and exposes no customer, tenant, database, provider,
+incident, infrastructure, SLA, uptime-history, or subscriber information.
+There is no external helpdesk/status provider or production/commercial support
+claim.
+
+Checkpoint 20I-3 adds a bounded BFF query-string rule: the customer-request
+collection, detail, and close paths reject any non-empty query string with
+`400` before creating an upstream request. It does not alter unrelated BFF
+query handling, logs no query content, and browser evidence proves a rejected
+query-bearing request never reaches the backend mock.
+
+Local 20I-3 evidence:
+
+```bash
+cd frontend && npm run lint && npm run build && npm run test:phase20i && npm run test:e2e && npm run test:phase20h && npm run test:bff && npm run test:mfa && npm run test:mfa:routes && npm run test:accessibility && npm run test:security
+# passed: typecheck, production build, Phase 20I workspace/status/BFF privacy E2E,
+# Phase 16 and 20H E2E, BFF/MFA/accessibility/security contracts
+
+cd frontend && npm run start -- --hostname 127.0.0.1 --port 3000
+cd frontend && npm run test:route-smoke
+# passed: production-server route smoke for 12 Phase 16 pages
+
+cd backend && DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:5435/defi_copilot RUN_POSTGRES_INTEGRATION=true APP_ENV=test PUBLIC_DEMO_MODE=false AUTH_ENABLED=false VAST_ENABLED=false VAST_DRY_RUN=true .venv/bin/python -m pytest -q --tb=short
+# passed: full PostgreSQL-enabled backend suite; 437 tests collected, zero failures
+
+cd backend && DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:5435/defi_copilot RUN_POSTGRES_INTEGRATION=true APP_ENV=test PUBLIC_DEMO_MODE=false AUTH_ENABLED=false .venv/bin/python -m pytest app/tests/test_phase20i_customer_requests.py app/tests/test_phase20i_postgres.py app/tests/test_phase20i_sqlite_migration.py app/tests/test_phase20i_postgres_migration.py app/tests/test_phase20h_postgres.py app/tests/test_phase20h_postgres_migration.py -q --tb=short
+# passed: 23 explicit Phase 20I/20H PostgreSQL owner-isolation, close, lifecycle,
+# invitation/plan interaction, and SQLite/PostgreSQL 0028 -> 0029 -> 0028 -> 0029 tests
+
+cd backend && PATH="$PWD/.venv/bin:$PATH" DATABASE_URL=postgresql+psycopg://postgres:postgres@127.0.0.1:5435/defi_copilot_exercises_20i APP_ENV=exercise OPERATIONS_EXERCISES_ENABLED=true OPERATIONS_EXERCISES_ISOLATED=true OPERATIONS_EXERCISE_TIMEOUT_SECONDS=180 VAST_ENABLED=false VAST_DRY_RUN=true VAST_REAL_RENTALS_ENABLED=false RUN_POSTGRES_INTEGRATION=true .venv/bin/python -m scripts.run_phase19_exercises --run --evidence-file /tmp/phase20i-phase19-exercise-evidence.json
+# passed: all 11 fixed isolated Phase 19 exercises
+
+docker compose config --quiet
+docker compose -f docker-compose.production.yml config --quiet
+docker compose up -d --build
+docker compose down
+docker compose -f docker-compose.production.yml up -d --build
+# passed: both Compose configurations, normal and production image/startup paths,
+# backend /health and /ready, and frontend /status and /support probes
+
+python3 scripts/supply_chain.py check-workflows
+python3 scripts/supply_chain.py check-lockfiles
+python3 scripts/supply_chain.py check-security-exceptions
+python3 scripts/supply_chain.py generate-sbom --output /tmp/phase20i-sbom.cdx.json
+cd backend && .venv/bin/pip-audit -r requirements.txt --format json
+cd frontend && npm audit --omit=dev --audit-level=high --json
+# passed: workflow/lockfile/exception policy, 74-component SBOM, and zero known
+# high/critical pip/npm audit findings
+```
+
+`0029` directly follows `0028`; no `0027` migration file exists. The explicit
+migration evidence preserves Phase 20H invitations, organization plan state,
+the exact seven-key `free-v1` contract, and all Phase 20H constraints while
+downgrade removes only Phase 20I schema and re-upgrade recreates it without FK
+or orphan corruption. Phase 20G remains **DEFERRED**. Phase 20I becomes
+complete only after all required hosted checks are green for the exact current
+DRAFT PR head; this does not claim production activation, legal approval,
+external delivery, an external provider, subscriber collection, billing, or an
+SLA/uptime history.
+
+The pull-request Frontend job runs the Phase 16, Phase 20H, and Phase 20I
+browser harnesses, so final hosted evidence includes the support/status and BFF
+privacy boundary rather than only the earlier browser slices.
 
 ## Phase 20B checkpoint
 

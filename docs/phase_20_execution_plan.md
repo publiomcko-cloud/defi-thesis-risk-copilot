@@ -1,8 +1,8 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **In Progress — Phase 20H COMPLETE and merged; Phase 20I-1 is active**
+Status: **In Progress — Phase 20H COMPLETE and merged; Phase 20I-3 exact-head validation is active**
 
-Current implementation branch: `agent/v1-phase-20i-support-privacy-status`
+Current implementation branch: `agent/v1-phase-20i-2-request-status-ui`
 
 Current authority:
 
@@ -255,8 +255,10 @@ The portfolio profile is intentionally not a production commercial SaaS. Phase
 
 ## 11. Phase 20I — Minimal support/privacy/status
 
-Status: **ACTIVE — checkpoint 20I-1** on
-`agent/v1-phase-20i-support-privacy-status` under
+Status: **20I-1 COMPLETE and merged as
+`8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`; 20I-2 accepted as
+`1465601712c29988360d7017cd9a6e7f1a5d007f`; checkpoint 20I-3 exact-head
+validation ACTIVE** on `agent/v1-phase-20i-2-request-status-ui` under
 [`phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
 
 Migration `20260828_0029` implements only this approved reduced portfolio
@@ -288,9 +290,41 @@ removes their request rows, and organization deletion clears optional context
 while retaining user ownership. Privacy request rows are tracking only and do
 not trigger a second export/deletion implementation.
 
-Public-safe status UI and request-management UI are deferred to 20I-2. External
-helpdesk/status providers and subscriber email collection are not implemented.
-Legal retention remains an unresolved production/legal decision.
+Checkpoint 20I-2 adds `/support`, an authenticated owner-only browser workspace
+for the exact five existing types. It sends only the server-authorized creation
+fields through the same-origin BFF, clears organization context before a privacy
+request submission, displays only the requester history/detail, and invokes the
+existing close endpoint after confirmation. Unsaved subject and description stay
+in volatile component state; they are not stored in URLs, browser storage,
+cookies, titles, metadata, analytics, notifications, or external services.
+
+Checkpoint 20I-2 also adds public `/status`. It maps only the existing safe
+`/health` result to coarse frontend/backend availability and degrades to an
+unavailable state if it cannot fetch that result. It shows no tenant, database,
+provider, incident, customer-request, infrastructure, SLA, uptime-history, or
+subscriber detail. The BFF now uses curated backend route families, including
+the bounded `/customer-requests` paths and their existing methods; it is not a
+generic backend proxy.
+
+Checkpoint 20I-3 adds defense-in-depth at the BFF boundary: the bounded
+customer-request collection, detail, and close routes reject every non-empty
+query string with a bounded `400` response before an upstream request is made.
+This prevents unused query content from being forwarded or logged while leaving
+unrelated BFF route query behavior unchanged. Contract and browser evidence
+assert both rejection and absence from the upstream mock.
+
+The final local gate passed the full PostgreSQL backend suite, explicit SQLite
+and PostgreSQL `0028 -> 0029 -> 0028 -> 0029` evidence, all browser/security
+contracts, both Compose runtime paths, local workflow/lockfile/exception/SBOM
+checks, zero known high/critical pip/npm audit findings, and all eleven fixed
+Phase 19 isolated exercises. Phase 20I is complete only after every configured
+hosted check is green for the exact DRAFT PR head; it is not a claim of
+production activation, external delivery, commercial support, SLA, or uptime
+history.
+
+External helpdesk/status providers, subscriber email collection, production or
+commercial support claims, and legal retention policy are not implemented.
+Phase 20I remains active until the later completion gate.
 
 ## 12. Phase 20J — Portfolio architecture closeout
 

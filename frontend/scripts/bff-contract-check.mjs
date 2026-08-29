@@ -2,8 +2,24 @@ import { readFile } from "node:fs/promises";
 
 const route = await readFile(new URL("../src/app/api/backend/[...path]/route.ts", import.meta.url), "utf8");
 
-if (route.includes('ALLOWED_PREFIXES = ["/"') || route.includes('"/", "/health"')) {
-  throw new Error("BFF route allowlist must not include a catch-all '/' prefix.");
+if (route.includes('ALLOWED_PREFIXES = ["/"') || route.includes('"/", "/health"') || route.includes('["/api/"]')) {
+  throw new Error("BFF route allowlist must not include a catch-all or broad '/api/' prefix.");
+}
+
+if (!route.includes('"/api/customer-requests"') || !route.includes('"/api/customer-requests/"')) {
+  throw new Error("BFF route must explicitly allow the bounded customer-request route family.");
+}
+
+if (!route.includes("isAllowedBackendMethod") || !route.includes("isCustomerRequestRoute") || !route.includes('path.endsWith("/close")')) {
+  throw new Error("BFF route must restrict customer-request paths and methods to the existing backend contract.");
+}
+
+if (!route.includes('isCustomerRequestRoute(targetPath) && request.nextUrl.search') || !route.includes("Customer-request query parameters are not supported.")) {
+  throw new Error("BFF route must reject query strings for the bounded customer-request family before forwarding.");
+}
+
+if (route.includes("console.log") || route.includes("console.error")) {
+  throw new Error("BFF route must not log request content.");
 }
 
 if (route.includes('request.headers.get("cookie")') || route.includes("headers.set(\"cookie\", incomingCookie)")) {

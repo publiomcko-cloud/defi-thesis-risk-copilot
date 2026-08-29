@@ -3,7 +3,8 @@
 Status: **Migrations `0023`–`0026`, `0028`, and Phase 20I `0029` implemented; `0027` remains reserved/deferred for billing**
 
 Review dates: 2026-07-30 (proposal), 2026-07-31 (Phase 20B implementation),
-2026-08-28 (Phase 20I-1 implementation)
+2026-08-28 (Phase 20I-1 implementation, 20I-2 browser/status checkpoint, and
+20I-3 final query-boundary validation)
 
 Observed migration head:
 
@@ -447,10 +448,32 @@ Authority boundary:
 - no automatic LLM, analytics, or log forwarding;
 - no attachments, assignees, provider IDs, arbitrary metadata, legal hold, or
   invented retention period. `0027` remains reserved/deferred for billing;
-  `0029` is implemented only for Phase 20I-1 on
-  `agent/v1-phase-20i-support-privacy-status` under
+  `0029` is implemented for Phase 20I-1, merged as
+  `8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`. Accepted Phase 20I-2 is
+  `1465601712c29988360d7017cd9a6e7f1a5d007f`. Phase 20I-2/3 is browser/status
+  and BFF-boundary work only on `agent/v1-phase-20i-2-request-status-ui`; it
+  creates no new migration or customer-request authority. Both checkpoints
+  remain under
   `docs/decisions/phase_20i_support_privacy_status_approval.md`. Phase 20G
   remains **DEFERRED**.
+
+Browser boundary for 20I-2:
+
+- `/support` uses the existing owner-scoped API only through the curated
+  same-origin BFF customer-request routes; it does not author workflow,
+  verification, ownership, provider, or billing fields;
+- the collection, detail, and close BFF paths reject non-empty query strings
+  before upstream forwarding, so this unused channel cannot carry or log
+  request content;
+- subject and description remain volatile unsaved browser state and are not
+  written to URLs, browser storage, cookies, titles, metadata, analytics,
+  notifications, logs, LLM/RAG, or external services;
+- `/status` consumes only safe health success/failure and presents coarse
+  availability, with no internal database/provider/tenant or customer detail;
+- no external helpdesk/status provider, subscriber collection, SLA/uptime
+  assertion, production support operation, commercial claim, or automatic
+  LLM/RAG processing is implemented. Phase 20I completes only after exact-head
+  hosted CI is green; Phase 20G remains **DEFERRED**.
 
 ---
 
