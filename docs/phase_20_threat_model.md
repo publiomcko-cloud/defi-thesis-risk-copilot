@@ -1,7 +1,7 @@
 # Phase 20 Threat Model
 
-Status: **In Progress — Phase 20B controls locally implemented; production
-privacy/legal activation approval remains blocked**
+Status: **Phase 20J closeout validation — Phase 20B controls are complete;
+production privacy/legal activation approval remains blocked**
 
 This threat model covers the planned Phase 20 product analytics, schedules,
 notifications, metering, entitlements, billing sandbox, organization

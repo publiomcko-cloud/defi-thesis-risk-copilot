@@ -1,6 +1,6 @@
 # Phase 20 Evidence Matrix
 
-Status: **In Progress — portfolio profile active**
+Status: **Phase 20J closeout validation in progress — 20A–20I complete and merged**
 
 Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [`phase_20_execution_plan.md`](phase_20_execution_plan.md). Requirements intentionally deferred from the portfolio are preserved in [`productization_backlog.md`](productization_backlog.md).
 
@@ -10,12 +10,12 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | 20B | Complete | Migration `0023`, consent-aware first-party analytics, lifecycle integration, PostgreSQL concurrency tests, browser coverage and hosted implementation checks passed before the portfolio-doc refactor |
 | 20C | Merged / production-disabled | The original Phase 20C implementation and the authoritative-completion/daily-scheduled-run-quota correction both passed hosted CI. Migration `0024`, durable private schedules, DST, PostgreSQL one-winner claims, Phase 17 jobs, lifecycle/export/retention, browser and operations aggregates merged as `8aeb84cec0427765322cf44b3827eee319e8064e`. Production dispatch remains disabled. |
 | 20D | Merged / production-disabled | Migration `0025`, in-app preference and notification records, code-owned registry, authenticated API, notification center UI, source projections, lifecycle/export/deletion, retention cleanup, policy/access/pagination corrections, recovery coverage, PostgreSQL/browser/Compose/CodeQL/Supply Chain/Phase 19 exercise evidence merged as `32dfb91ece2344be5dbbcd2c8d12723bc2378126`. External delivery and production activation remain out of scope. |
-| 20E | Optional | Synthetic/provider-neutral delivery demonstration only |
+| 20E | Omitted / optional | No synthetic delivery adapter or external provider is implemented; the documented provider-neutral boundary remains optional future work. |
 | 20F | Merged / shadow-only | Migration `0026` seeds `free-v1`; read-only resolver compares seven documented limits against legacy authorities with bounded fallback; immutable ledger and real schedule lease-loss/retry completion evidence merged as `1e5ea045390b11c7b8dc933a48b40a562e3270da` |
 | 20G | Deferred | Not required for portfolio completion; preserved for future productization |
 | 20H | Complete / merged | Migration `0028`, organization invitations/seats/ownership/export, real PostgreSQL lifecycle races and browser token-fragment/manual-entry coverage merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`. No production activation is claimed. |
-| 20I | Final validation — checkpoint 20I-3 | 20I-1 backend/lifecycle/privacy authority and migration `0029` merged as `8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`; accepted 20I-2 UI/BFF/status implementation is `1465601712c29988360d7017cd9a6e7f1a5d007f`; query-hardening and full local validation are complete on `agent/v1-phase-20i-2-request-status-ui`. Exact-head hosted CI remains the completion gate. |
-| 20J | Planned / required | Portfolio architecture closeout |
+| 20I | Complete / merged | Bounded first-party support/privacy/status merged as `f55ee37db98abfcf8a3d7651f81436bc63e6a9b8`. PR #29 was superseded only by the PR #30 merge vehicle; both used implementation head `3c8680e69cf0eb9e33bb940fd82fda80406da227`. |
+| 20J | Closeout validation | Final architecture audit, full-chain PostgreSQL migration regression, documentation reconciliation, local validation, and exact-head hosted CI. |
 
 Phase 20F additionally runs an isolated PostgreSQL migration-cycle test using a
 temporary database: `0025 -> 0026 -> 0025 -> 0026`. It verifies the seeded
@@ -67,15 +67,15 @@ HTTP navigation URLs. The organization seat plan is non-billable: no pricing,
 payment, subscription, checkout, invoice, or production commercial-SaaS claim
 exists. Phase 20G is **DEFERRED**. Phase 20H is COMPLETE for the portfolio
 profile and merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`; Phase 20I
-is active.
+is complete and merged as `f55ee37db98abfcf8a3d7651f81436bc63e6a9b8`.
 
 Phase 20H exact-head hosted validation completed before its merge. This does
-not claim production activation or external delivery. Each Phase 20I head,
+not claim production activation or external delivery. Each Phase 20J head,
 including documentation-only updates, requires its own green hosted run.
 
 ## Phase 20I checkpoint
 
-Phase 20I is **ACTIVE** for the reduced portfolio profile under
+Phase 20I is **COMPLETE** for the reduced portfolio profile under
 [`phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
 Checkpoint 20I-1 is complete and merged as
 `8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`. It is limited to bounded
@@ -124,8 +124,8 @@ state, preserve all seven `free-v1` limits, remove only Phase 20I schema on
 downgrade, and recreate the table cleanly on re-upgrade.
 
 Checkpoint 20I-2 is accepted at
-`1465601712c29988360d7017cd9a6e7f1a5d007f` on
-`agent/v1-phase-20i-2-request-status-ui`.
+`1465601712c29988360d7017cd9a6e7f1a5d007f` on its historical implementation
+branch, `agent/v1-phase-20i-2-request-status-ui`.
 It adds authenticated `/support`, owner-only history/detail and close UI,
 privacy-type links to the existing account export/deletion workflow, a curated
 same-origin BFF `/customer-requests` family, and public `/status`. Private
@@ -202,11 +202,38 @@ Phase 20B is implementation-complete for the portfolio profile. Commit `a7bcd42`
 
 Production analytics remains disabled. Its later activation is a productization task rather than a Phase 20 portfolio blocker.
 
+## Phase 20J closeout checkpoint
+
+The Phase 20J branch adds no schema migration. It adds
+`test_phase20j_postgres_migration_chain.py`, an isolated PostgreSQL regression
+for `0022 -> 0029 -> 0022 -> 0029`. It verifies the exact final revision,
+Phase 16 user/organization/membership and rate-limit authorities, all Phase 20
+table boundaries, `free-v1`'s seven immutable limits, `portfolio-org-v1`'s
+five-seat entitlement, and the key Phase 20 uniqueness/exclusion constraints.
+The downgrade removes only the intended post-`0022` schema; the re-upgrade
+reseeds both catalogs and recreates the constraints.
+
+The closeout audit confirms 20E is omitted, 20G remains **DEFERRED**, 20F is
+shadow-only/non-billable, 20D remains in-app only, and the public-safe flags
+remain disabled. Local 2026-09-02 validation passed the full PostgreSQL backend
+suite, all focused Phase 20 migration cycles, frontend/browser/BFF/MFA/a11y/
+security/route-smoke checks, both Compose runtime paths, all eleven fixed
+Phase 19 exercises, source-policy/SBOM checks, and zero-known-finding Python
+and production npm audits. `pypdf` is pinned at `6.16.1` to remediate the
+three advisories found in `6.15.0`. CodeQL, Gitleaks, and Trivy remain hosted
+authoritative checks for the exact Phase 20J draft-PR head.
+
 ## Current branch maintenance
 
 The documentation-only portfolio refactor triggered fresh hosted checks on 2026-08-13. CI, CodeQL, Phase 19 failure exercises, dependency review, secret scan, workflow policy and SBOM checks passed before a fresh dependency audit identified newly known issues in existing dependencies.
 
-The focused dependency maintenance updates `pypdf` from `6.14.2` to `6.15.0` and `cryptography` from `48.0.1` to `50.0.0`, and pins the production `nanoid` transitive dependency to `3.3.18`. Local `pip-audit` and production npm audit return no known high or critical findings. The supply-chain workflow now skips its npm-audit summary only when the npm-audit step was not reached, so a Python-audit failure remains precise. A fresh hosted CI run remains the PR merge gate.
+The focused dependency maintenance updates `pypdf` from `6.14.2` through
+`6.16.1`, `cryptography` from `48.0.1` to `50.0.0`, and pins the production
+`nanoid` transitive dependency to `3.3.18`. Local `pip-audit` and production
+npm audit return no known high or critical findings. The supply-chain workflow
+now skips its npm-audit summary only when the npm-audit step was not reached,
+so a Python-audit failure remains precise. A fresh hosted CI run remains the PR
+merge gate.
 
 ## Phase 20C checkpoint
 

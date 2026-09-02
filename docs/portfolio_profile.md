@@ -1,6 +1,6 @@
 # Portfolio Implementation Profile
 
-Status: **Active implementation profile**
+Status: **Phase 20J closeout validation in progress**
 
 This repository is currently developed as a production-grade portfolio anchor, not as an actively commercialized SaaS product.
 
@@ -56,12 +56,12 @@ The portfolio does not need to operate a real commercial business to demonstrate
 | 20B | Required | Consent-aware first-party analytics; implemented, production collection remains disabled |
 | 20C | Required | Durable user-owned scheduled monitoring through Phase 17 jobs |
 | 20D | Required | User-controlled in-app notifications and preferences |
-| 20E | Optional demonstration | Provider-neutral adapter boundary and synthetic secure delivery only; no real provider required |
+| 20E | Omitted optional demonstration | No synthetic delivery adapter is implemented; the provider-neutral boundary remains documented for future work. |
 | 20F | Required | Versioned entitlements plus non-billable, exactly-once/reconcilable usage metering |
 | 20G | Not required | Real billing/provider work is deferred; an optional fake billing state machine may be used only as architecture evidence |
 | 20H | Required | Invitations, roles, ownership transfer, synthetic seat entitlements, organization lifecycle |
 | 20I | Required, reduced | Minimal first-party support, feedback, privacy request tracking and public-safe status process |
-| 20J | Required | Portfolio architecture closeout, not commercial/legal launch certification |
+| 20J | Required | Portfolio architecture closeout; exact-head hosted validation is required before Phase 20 completion, not commercial/legal launch certification |
 
 Phase 21 should begin after the required Phase 20 portfolio slices are complete. Phase 21 has higher portfolio value than completing real payment, helpdesk, messaging, or marketing integrations.
 

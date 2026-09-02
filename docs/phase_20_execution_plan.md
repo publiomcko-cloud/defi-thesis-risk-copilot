@@ -1,8 +1,8 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **In Progress — Phase 20H COMPLETE and merged; Phase 20I-3 exact-head validation is active**
+Status: **Closeout validation in progress — 20A–20I are complete and merged; 20J requires exact-head hosted evidence**
 
-Current implementation branch: `agent/v1-phase-20i-2-request-status-ui`
+Current implementation branch: `agent/v1-phase-20j-architecture-closeout`
 
 Current authority:
 
@@ -255,11 +255,11 @@ The portfolio profile is intentionally not a production commercial SaaS. Phase
 
 ## 11. Phase 20I — Minimal support/privacy/status
 
-Status: **20I-1 COMPLETE and merged as
-`8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`; 20I-2 accepted as
-`1465601712c29988360d7017cd9a6e7f1a5d007f`; checkpoint 20I-3 exact-head
-validation ACTIVE** on `agent/v1-phase-20i-2-request-status-ui` under
-[`phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
+Status: **COMPLETE and merged as
+`f55ee37db98abfcf8a3d7651f81436bc63e6a9b8`.** PR #29 was superseded only by
+the PR #30 merge vehicle; both used implementation head
+`3c8680e69cf0eb9e33bb940fd82fda80406da227` and no implementation change
+occurred.
 
 Migration `20260828_0029` implements only this approved reduced portfolio
 slice; it follows Phase 20H migration `20260824_0028`. `0027` remains reserved
@@ -313,20 +313,19 @@ This prevents unused query content from being forwarded or logged while leaving
 unrelated BFF route query behavior unchanged. Contract and browser evidence
 assert both rejection and absence from the upstream mock.
 
-The final local gate passed the full PostgreSQL backend suite, explicit SQLite
-and PostgreSQL `0028 -> 0029 -> 0028 -> 0029` evidence, all browser/security
-contracts, both Compose runtime paths, local workflow/lockfile/exception/SBOM
-checks, zero known high/critical pip/npm audit findings, and all eleven fixed
-Phase 19 isolated exercises. Phase 20I is complete only after every configured
-hosted check is green for the exact DRAFT PR head; it is not a claim of
-production activation, external delivery, commercial support, SLA, or uptime
-history.
+The final local and exact-head hosted validation passed before merge. This is
+not a claim of production activation, external delivery, commercial support,
+SLA, or uptime history.
 
 External helpdesk/status providers, subscriber email collection, production or
 commercial support claims, and legal retention policy are not implemented.
-Phase 20I remains active until the later completion gate.
+Phase 20I is not a commercial support or provider activation.
 
 ## 12. Phase 20J — Portfolio architecture closeout
+
+Status: **In progress — final local validation and exact-head hosted evidence.**
+The concise audit and boundary record is
+[`phase_20_closeout.md`](phase_20_closeout.md).
 
 Phase 20 may be marked **Complete — Portfolio Profile** when:
 

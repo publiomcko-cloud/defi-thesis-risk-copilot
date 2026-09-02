@@ -1,6 +1,19 @@
 # Changelog
 
-## Phase 20 — In Progress
+## Phase 20 — 20J Closeout Validation
+
+- Completed the selected portfolio implementation through Phase 20I. Phase 20I
+  merged as `f55ee37db98abfcf8a3d7651f81436bc63e6a9b8`; PR #29 was superseded
+  only by the PR #30 merge vehicle, with both using implementation head
+  `3c8680e69cf0eb9e33bb940fd82fda80406da227`.
+- Recorded the final portfolio audit: 20E is omitted, 20G remains deferred,
+  Phase 20F remains shadow/non-billable, and all production-disabled or
+  provider-free boundaries remain intact.
+- Added an isolated PostgreSQL `0022 -> 0029 -> 0022 -> 0029` migration-chain
+  regression. It adds no schema revision and checks Phase 16 authorities,
+  Phase 20 schema boundaries, catalogs, and key constraints.
+- Phase 20 remains pending exact-head hosted validation for its Phase 20J draft
+  pull request. It is not a commercial, production-activation, or legal claim.
 
 - Added the ordered Phase 20 execution plan for privacy-conscious product
   analytics, durable monitoring schedules, user-controlled notifications,

@@ -1,7 +1,7 @@
 # Phase 20 Event, Consent, and Retention Matrix
 
-Status: **Phase 20B approved subset locally implemented; production activation
-remains blocked pending qualified privacy/legal review**
+Status: **Phase 20B approved subset complete; production activation remains
+blocked pending qualified privacy/legal review**
 
 This artifact defines the Phase 20 analytics purposes, event names, metadata
 allowlists, consent behavior, and retention classes. The exact Phase 20B

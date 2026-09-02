@@ -682,14 +682,15 @@ and rollback records remain external operational evidence.
 
 ---
 
-## 19. Phase 20 in progress — commercial product
+## 19. Phase 20 portfolio closeout validation
 
-The ordered design is
-[`phase_20_execution_plan.md`](phase_20_execution_plan.md). It adds
-privacy-conscious analytics, durable scheduling, user-controlled notifications,
-separate usage and entitlement controls, billing sandbox processing,
-organization invitations/seats, support/status/privacy operations, and
-qualified legal review.
+The ordered record is [`phase_20_execution_plan.md`](phase_20_execution_plan.md)
+and the final audit is [`phase_20_closeout.md`](phase_20_closeout.md). Slices
+20A–20I are complete and merged. They add privacy-conscious analytics, durable
+scheduling, in-app notifications, shadow entitlements/non-billable usage,
+organization invitations/seats, and first-party support/status/privacy
+operations. External delivery and billing remain unimplemented; productization
+and qualified review remain deferred rather than completed.
 
 Phase 20A defines the shared design boundary. Phase 20B implements its first
 runtime slice:

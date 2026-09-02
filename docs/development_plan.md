@@ -487,72 +487,24 @@ Core outcomes:
 - incident runbooks;
 - PostgreSQL/browser/accessibility/load/failure tests.
 
-## V1 Phase 20 — Analytics, notifications, and commercial readiness — In Progress
+## V1 Phase 20 — Portfolio Architecture Closeout Validation
 
-Goal: add privacy-conscious product analytics, scheduled monitoring, controlled notifications, plan entitlements, billing foundations, support, and legal launch readiness.
+The selected portfolio implementation is complete through Phase 20I. Phase
+20J audits the integrated architecture and requires fresh hosted validation for
+its exact draft-PR head before Phase 20 may be called **Complete — Portfolio
+Profile**. The authoritative status table, migration chain, safe defaults, and
+handoff are in [`phase_20_closeout.md`](phase_20_closeout.md).
 
-Phase 20F is currently restricted to server-owned `free-v1` shadow comparison
-and non-billable completed-usage evidence; it does not authorize billing or
-commercial entitlement enforcement.
+The completed scope is consent-aware first-party analytics, durable private
+schedules, in-app notifications, shadow-only entitlements/non-billable usage,
+organization invitations/seats/lifecycle, and bounded first-party
+support/privacy/status. Phase 20E is omitted. Phase 20G billing and all
+external provider, payment, commercial-support, legal, and production
+activation work remain deferred in [`productization_backlog.md`](productization_backlog.md).
 
-Phase 20 is active on its implementation branch. Its ordered, reviewable
-subphases and gates are defined by
-[`phase_20_execution_plan.md`](phase_20_execution_plan.md), subordinate to the
-authoritative Phase 20 contract in
-[`future_phase_contracts.md`](future_phase_contracts.md).
-
-Phase 20A is an `Implemented Foundation`: it adds the Phase 20 threat/evidence
-matrices, event-purpose/consent/retention taxonomy, machine-checkable event
-examples, usage-unit/entitlement registry, notification classification,
-provider ADR template/scorecards, and proposed `0023`–`0029` data-model review.
-Phase 20B is locally implemented under the scoped project-owner decision in
-[`decisions/phase_20b_analytics_approval.md`](decisions/phase_20b_analytics_approval.md).
-It adds migration `0023`, explicit opt-in preferences, append-only decisions
-and bounded events, preference API/UI, Phase 16 lifecycle integration, and
-30-day cleanup. Analytics remains disabled by default and production activation
-is `Blocked` pending qualified privacy/legal review. No external analytics
-provider, browser SDK, notification send, payment, or production secret exists.
-
-Phase 20C is locally complete after its original implementation and correction
-hosted CI passes, with reversible migration `0024`. It supports
-only authenticated user-owned, enabled private watchlist evaluation targets;
-the browser selects neither arbitrary work nor dispatch timing. PostgreSQL
-claims schedule occurrences through owner-first locking and `SKIP LOCKED`, then
-atomically creates a server-derived Phase 17 `watchlist.evaluate` job. The
-current implementation covers IANA/DST-safe cadence, at-most-one coalesced
-replacement, over-24-hour missed-run recording, capacity/auth/target
-revalidation, schedule lifecycle cancellation, 30-day history cleanup, export,
-account deletion, operations aggregates, and `/schedules`. The correction
-checkpoint makes Phase 17 control-plane completion the sole successful terminal
-occurrence transition and reserves a fixed 120 scheduled evaluations per
-authenticated user per UTC day without introducing billing or entitlements.
-Automatic dispatch is default-off and production-rejected until a separately
-approved rollout. Phase 20C merged as `8aeb84cec0427765322cf44b3827eee319e8064e`. Local preview requires an
-outbound trusted worker and scheduler process.
-
-Phase 20D is implemented locally on its branch with reversible migration
-`0025`. It adds server-owned in-app notification preferences and records, a
-code-owned registry for the approved source events/categories/severities,
-deterministic idempotency, preference suppression, quiet-hour and daily-digest
-availability rules, 30-day retention, account export/deletion integration, an
-authenticated notification API, unread count, and an accessible notification
-center. It projects from existing watchlist alert, schedule occurrence, Phase
-17 terminal job, account export, and MFA lifecycle authorities. It does not
-add external notification delivery, webhooks, SMS, push, email, or Phase 20E
-adapter/retry/dead-letter infrastructure.
-
-Core outcomes:
-
-- consent-aware analytics;
-- durable private-watchlist scheduled jobs;
-- in-app notifications and preferences;
-- email/webhook/Telegram delivery;
-- usage metering and entitlement rules;
-- billing webhook/idempotency foundation;
-- organization invitations and seat controls;
-- audit export;
-- status/support/feedback workflows;
-- qualified legal/privacy/commercial review.
+Production safety remains explicit: analytics collection and schedule dispatch
+are disabled, private pgvector remains gated, real Vast rentals are disabled,
+and no external notification or helpdesk provider is activated.
 
 ## V1 Phase 21 — Model and research intelligence expansion — Planned
 
