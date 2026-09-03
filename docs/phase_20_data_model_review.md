@@ -1,10 +1,13 @@
 # Phase 20 Migration and Data-Model Review
 
-Status: **Migrations `0023`–`0026`, `0028`, and Phase 20I `0029` implemented; `0027` remains reserved/deferred for billing**
+Status: **Phase 20 Complete — Portfolio Profile.** Migrations `0023`–`0026`,
+`0028`, and `0029` are implemented; `0027` remains reserved/deferred for
+billing. Phase 20J technical completion evidence passed on
+`4b09071623bc686c1e623cbf383eb198b3c89412` and adds no schema revision.
 
 Review dates: 2026-07-30 (proposal), 2026-07-31 (Phase 20B implementation),
-2026-08-28 (Phase 20I-1 implementation, 20I-2 browser/status checkpoint, and
-20I-3 final query-boundary validation)
+2026-08-28 (Phase 20I implementation), 2026-09-02 (Phase 20J full-chain
+PostgreSQL migration evidence)
 
 Observed migration head:
 
@@ -16,6 +19,12 @@ Revisions `0023`–`0026` and `0028` are implemented under their respective
 scoped approvals. `0027` remains intentionally reserved/deferred for billing.
 `20260828_0029_add_customer_requests.py` follows `20260824_0028` under
 [`decisions/phase_20i_support_privacy_status_approval.md`](decisions/phase_20i_support_privacy_status_approval.md).
+The final chain and closeout boundaries are recorded in
+[`phase_20_closeout.md`](phase_20_closeout.md).
+
+Phase 20J adds no revision. Its isolated PostgreSQL test exercises
+`0022 -> 0029 -> 0022 -> 0029` and verifies that the intentional downgrade
+boundary removes Phase 20 additions while retaining Phase 16 authorities.
 
 ---
 
@@ -451,9 +460,9 @@ Authority boundary:
   `0029` is implemented for Phase 20I-1, merged as
   `8fb2fd6e998e740cba9bd29078597b5a9c1cbfa3`. Accepted Phase 20I-2 is
   `1465601712c29988360d7017cd9a6e7f1a5d007f`. Phase 20I-2/3 is browser/status
-  and BFF-boundary work only on `agent/v1-phase-20i-2-request-status-ui`; it
-  creates no new migration or customer-request authority. Both checkpoints
-  remain under
+  and BFF-boundary work only; it creates no new migration or customer-request
+  authority. The completed slice merged as
+  `f55ee37db98abfcf8a3d7651f81436bc63e6a9b8` and remains under
   `docs/decisions/phase_20i_support_privacy_status_approval.md`. Phase 20G
   remains **DEFERRED**.
 
@@ -472,8 +481,8 @@ Browser boundary for 20I-2:
   availability, with no internal database/provider/tenant or customer detail;
 - no external helpdesk/status provider, subscriber collection, SLA/uptime
   assertion, production support operation, commercial claim, or automatic
-  LLM/RAG processing is implemented. Phase 20I completes only after exact-head
-  hosted CI is green; Phase 20G remains **DEFERRED**.
+  LLM/RAG processing is implemented. Phase 20I passed its hosted merge gate;
+  Phase 20G remains **DEFERRED**.
 
 ---
 

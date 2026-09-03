@@ -1,6 +1,8 @@
 # Portfolio Implementation Profile
 
-Status: **Active implementation profile**
+Status: **Phase 20 Complete — Portfolio Profile.** Phase 20J technical
+completion evidence passed on `4b09071623bc686c1e623cbf383eb198b3c89412`; PR
+#31 remains DRAFT and unmerged.
 
 This repository is currently developed as a production-grade portfolio anchor, not as an actively commercialized SaaS product.
 
@@ -56,12 +58,12 @@ The portfolio does not need to operate a real commercial business to demonstrate
 | 20B | Required | Consent-aware first-party analytics; implemented, production collection remains disabled |
 | 20C | Required | Durable user-owned scheduled monitoring through Phase 17 jobs |
 | 20D | Required | User-controlled in-app notifications and preferences |
-| 20E | Optional demonstration | Provider-neutral adapter boundary and synthetic secure delivery only; no real provider required |
+| 20E | Omitted optional demonstration | No synthetic delivery adapter is implemented; the provider-neutral boundary remains documented for future work. |
 | 20F | Required | Versioned entitlements plus non-billable, exactly-once/reconcilable usage metering |
 | 20G | Not required | Real billing/provider work is deferred; an optional fake billing state machine may be used only as architecture evidence |
 | 20H | Required | Invitations, roles, ownership transfer, synthetic seat entitlements, organization lifecycle |
 | 20I | Required, reduced | Minimal first-party support, feedback, privacy request tracking and public-safe status process |
-| 20J | Required | Portfolio architecture closeout, not commercial/legal launch certification |
+| 20J | Complete | Portfolio architecture closeout; technical completion passed on the validated implementation/evidence head, not commercial/legal launch certification |
 
 Phase 21 should begin after the required Phase 20 portfolio slices are complete. Phase 21 has higher portfolio value than completing real payment, helpdesk, messaging, or marketing integrations.
 
@@ -232,7 +234,9 @@ A portfolio slice is complete when:
 9. docs describe implemented versus disabled behavior accurately;
 10. product-only activation requirements are preserved in the productization backlog instead of being falsely marked complete.
 
-Phase 20J may therefore close Phase 20 as **Complete — Portfolio Profile** without claiming legal certification, paid-launch readiness, or live provider activation.
+Phase 20J therefore closes Phase 20 as **Complete — Portfolio Profile**
+without claiming legal certification, paid-launch readiness, or live provider
+activation.
 
 ---
 

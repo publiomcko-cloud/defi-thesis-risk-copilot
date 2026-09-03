@@ -507,9 +507,11 @@ assistive-technology, or chaos-test evidence.
 
 ## 9. Phase 20 validation
 
-Phase 20 is in progress with Phase 20B and 20C locally implemented. Its validation
-authority is
-[`phase_20_execution_plan.md`](phase_20_execution_plan.md).
+Phase 20J completed the 20A–20I portfolio implementation closeout. Its
+technical completion gate passed on validated implementation/evidence head
+`4b09071623bc686c1e623cbf383eb198b3c89412`; its validation authority is
+[`phase_20_execution_plan.md`](phase_20_execution_plan.md) and the final audit
+is [`phase_20_closeout.md`](phase_20_closeout.md).
 
 ### Phase 20A documentation coverage
 
