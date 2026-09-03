@@ -1,10 +1,11 @@
 # Phase 20 Portfolio Architecture Closeout
 
-Status: **Closeout validation in progress.** Phase 20 is complete only after
-the exact head of the Phase 20J draft pull request passes every required hosted
-check. This document records repository architecture evidence; it does not
-claim production activation, external delivery, commercial operation, or legal
-approval.
+Status: **Complete — Portfolio Profile.** Phase 20J technical completion
+passed on validated implementation/evidence head
+`4b09071623bc686c1e623cbf383eb198b3c89412`. PR #31 remains the DRAFT,
+unmerged closeout vehicle until explicit merge authorization. This document
+records repository architecture evidence; it does not claim production
+activation, external delivery, commercial operation, or legal approval.
 
 ## Final Slice Audit
 
@@ -19,7 +20,7 @@ approval.
 | 20G | Deferred | Billing, payments, subscriptions, checkout, invoices, and provider authority remain productization work. |
 | 20H | Complete, merged at `54329c6911fa1fada2160cc98ac0a57a3aaa5acc` | Organization invitations, seats, lifecycle, ownership, and export controls; no invitation email delivery. |
 | 20I | Complete, merged at `f55ee37db98abfcf8a3d7651f81436bc63e6a9b8` | First-party bounded support/privacy requests and public-safe status. PR #29 was superseded only by the PR #30 merge vehicle; both used implementation head `3c8680e69cf0eb9e33bb940fd82fda80406da227`. |
-| 20J | In progress | Architecture audit, final migration-chain regression, evidence reconciliation, local validation, and exact-head hosted CI. |
+| 20J | Complete | Architecture audit, final migration-chain regression, evidence reconciliation, local validation, and exact-head hosted technical completion. |
 
 ## Data-Model Closeout
 
@@ -91,12 +92,21 @@ On 2026-09-02, the Phase 20J branch passed:
   advisories in `6.15.0`.
 
 The local CodeQL, Gitleaks, and Trivy CLIs are not installed; their required
-authoritative execution remains the hosted workflow for the exact draft-PR
-head.
+authoritative execution passed in hosted workflows for the implementation/
+evidence head.
+
+## Hosted Technical Completion
+
+On `4b09071623bc686c1e623cbf383eb198b3c89412`, the Phase 20J implementation/
+evidence head passed CI, Backend and PostgreSQL, Frontend, Docker Compose
+Config, CodeQL, Supply Chain Security, Phase 19 Failure Exercises, and Vercel.
+That exact head satisfied the Phase 20J technical completion gate. These
+results do not imply production activation or automatically apply to a later
+documentation-only commit.
 
 ## Handoff
 
-After exact-head hosted validation passes, Phase 20 may be described as
-**Complete — Portfolio Profile**. Productization requirements remain in
-[`productization_backlog.md`](productization_backlog.md), and Phase 21 may then
-build model and research intelligence on these preserved boundaries.
+Phase 20 is **Complete — Portfolio Profile** on its validated
+implementation/evidence head. Productization requirements remain in
+[`productization_backlog.md`](productization_backlog.md); Phase 21 is the next
+implementation phase, while PR #31 remains DRAFT and unmerged.

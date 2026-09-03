@@ -682,11 +682,13 @@ and rollback records remain external operational evidence.
 
 ---
 
-## 19. Phase 20 portfolio closeout validation
+## 19. Phase 20 portfolio profile completion
 
 The ordered record is [`phase_20_execution_plan.md`](phase_20_execution_plan.md)
-and the final audit is [`phase_20_closeout.md`](phase_20_closeout.md). Slices
-20A–20I are complete and merged. They add privacy-conscious analytics, durable
+and the final audit is [`phase_20_closeout.md`](phase_20_closeout.md). Phase 20
+is **Complete — Portfolio Profile** on validated implementation/evidence head
+`4b09071623bc686c1e623cbf383eb198b3c89412`; PR #31 remains DRAFT and
+unmerged. Slices 20A–20I are complete and merged. They add privacy-conscious analytics, durable
 scheduling, in-app notifications, shadow entitlements/non-billable usage,
 organization invitations/seats, and first-party support/status/privacy
 operations. External delivery and billing remain unimplemented; productization

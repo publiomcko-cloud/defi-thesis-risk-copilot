@@ -40,7 +40,7 @@ A future return to product mode should activate reviewed adapters and policies t
 ```text
 Completed: Phase 0, Post-MVP 1–12, Final 13–14, V1 Phases 15–18
 Implemented foundation: V1 Phase 19 (merged; deployed operational evidence remains gated)
-V1 Phase 20 portfolio profile: closeout validation in progress
+V1 Phase 20 portfolio profile: COMPLETE
   - 20A governance/design foundation: complete
   - 20B consent-aware first-party analytics: complete; production collection disabled
   - 20C durable user-owned monitoring: merged at `8aeb84c`; production dispatch disabled
@@ -50,8 +50,8 @@ V1 Phase 20 portfolio profile: closeout validation in progress
   - 20G billing/provider work: deferred to productization backlog
   - 20H organization invitation/seat controls: merged at `54329c6`
   - 20I bounded support/privacy/status: merged at `f55ee37`
-  - 20J architecture closeout: exact-head hosted validation pending
-Later: V1 Phase 21 model/research intelligence, then portfolio release validation
+  - 20J architecture closeout: complete on validated implementation/evidence head `4b09071623bc686c1e623cbf383eb198b3c89412`; PR #31 remains DRAFT and unmerged
+Next: V1 Phase 21 model/research intelligence, then portfolio release validation
 ```
 
 ## Engineering Capabilities
@@ -78,9 +78,11 @@ The repository currently demonstrates or provides foundations for:
 - in-app notification preferences and notification center with server-owned intents, code-owned content, duplicate-safe identity, quiet hours, daily digest surfacing, lifecycle hooks, and 30-day retention;
 - admin-controlled Vast.ai dry-run/manual warm-up with real rentals disabled.
 
-Phase 20 implementation is complete through 20I. Phase 20J is validating the
-final portfolio architecture evidence; it does not activate deferred providers
-or commercial work before Phase 21 AI/research intelligence.
+Phase 20 is **Complete — Portfolio Profile**. Phase 20J completed final
+portfolio architecture evidence on validated implementation/evidence head
+`4b09071623bc686c1e623cbf383eb198b3c89412`; it does not activate deferred
+providers or commercial work. PR #31 remains DRAFT and unmerged, and Phase 21
+AI/research intelligence is next.
 
 ## Public Deployment Safety
 

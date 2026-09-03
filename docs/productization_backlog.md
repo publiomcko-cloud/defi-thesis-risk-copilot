@@ -1,6 +1,7 @@
 # Productization Backlog
 
-Status: **Deferred from the Phase 20 portfolio profile; no item becomes complete through 20J closeout**
+Status: **Deferred from the completed Phase 20 portfolio profile; no item
+becomes complete through the 20J closeout**
 
 This document preserves the work intentionally deferred while the repository is developed as a portfolio anchor.
 

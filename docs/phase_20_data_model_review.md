@@ -1,6 +1,9 @@
 # Phase 20 Migration and Data-Model Review
 
-Status: **Phase 20J closeout validation — migrations `0023`–`0026`, `0028`, and `0029` are implemented; `0027` remains reserved/deferred for billing**
+Status: **Phase 20 Complete — Portfolio Profile.** Migrations `0023`–`0026`,
+`0028`, and `0029` are implemented; `0027` remains reserved/deferred for
+billing. Phase 20J technical completion evidence passed on
+`4b09071623bc686c1e623cbf383eb198b3c89412` and adds no schema revision.
 
 Review dates: 2026-07-30 (proposal), 2026-07-31 (Phase 20B implementation),
 2026-08-28 (Phase 20I implementation), 2026-09-02 (Phase 20J full-chain

@@ -1,6 +1,8 @@
 # Phase 20 Evidence Matrix
 
-Status: **Phase 20J closeout validation in progress — 20A–20I complete and merged**
+Status: **Complete — Portfolio Profile.** Phase 20J technical completion
+evidence passed on `4b09071623bc686c1e623cbf383eb198b3c89412`; PR #31 remains
+DRAFT and unmerged.
 
 Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [`phase_20_execution_plan.md`](phase_20_execution_plan.md). Requirements intentionally deferred from the portfolio are preserved in [`productization_backlog.md`](productization_backlog.md).
 
@@ -15,7 +17,7 @@ Current scope is defined by [`portfolio_profile.md`](portfolio_profile.md) and [
 | 20G | Deferred | Not required for portfolio completion; preserved for future productization |
 | 20H | Complete / merged | Migration `0028`, organization invitations/seats/ownership/export, real PostgreSQL lifecycle races and browser token-fragment/manual-entry coverage merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`. No production activation is claimed. |
 | 20I | Complete / merged | Bounded first-party support/privacy/status merged as `f55ee37db98abfcf8a3d7651f81436bc63e6a9b8`. PR #29 was superseded only by the PR #30 merge vehicle; both used implementation head `3c8680e69cf0eb9e33bb940fd82fda80406da227`. |
-| 20J | Closeout validation | Final architecture audit, full-chain PostgreSQL migration regression, documentation reconciliation, local validation, and exact-head hosted CI. |
+| 20J | Complete | Final architecture audit, full-chain PostgreSQL migration regression, evidence reconciliation, and exact-head hosted technical completion on `4b09071623bc686c1e623cbf383eb198b3c89412`. PR #31 remains DRAFT and unmerged. |
 
 Phase 20F additionally runs an isolated PostgreSQL migration-cycle test using a
 temporary database: `0025 -> 0026 -> 0025 -> 0026`. It verifies the seeded
@@ -70,8 +72,8 @@ profile and merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`; Phase 20I
 is complete and merged as `f55ee37db98abfcf8a3d7651f81436bc63e6a9b8`.
 
 Phase 20H exact-head hosted validation completed before its merge. This does
-not claim production activation or external delivery. Each Phase 20J head,
-including documentation-only updates, requires its own green hosted run.
+not claim production activation or external delivery. Phase 20J technical
+completion evidence is recorded separately at `4b09071623bc686c1e623cbf383eb198b3c89412`.
 
 ## Phase 20I checkpoint
 
@@ -220,8 +222,10 @@ suite, all focused Phase 20 migration cycles, frontend/browser/BFF/MFA/a11y/
 security/route-smoke checks, both Compose runtime paths, all eleven fixed
 Phase 19 exercises, source-policy/SBOM checks, and zero-known-finding Python
 and production npm audits. `pypdf` is pinned at `6.16.1` to remediate the
-three advisories found in `6.15.0`. CodeQL, Gitleaks, and Trivy remain hosted
-authoritative checks for the exact Phase 20J draft-PR head.
+three advisories found in `6.15.0`. On the implementation/evidence head
+`4b09071623bc686c1e623cbf383eb198b3c89412`, CI, Backend and PostgreSQL,
+Frontend, Docker Compose Config, CodeQL, Supply Chain Security, Phase 19
+Failure Exercises, and Vercel all passed.
 
 ## Current branch maintenance
 
@@ -232,8 +236,9 @@ The focused dependency maintenance updates `pypdf` from `6.14.2` through
 `nanoid` transitive dependency to `3.3.18`. Local `pip-audit` and production
 npm audit return no known high or critical findings. The supply-chain workflow
 now skips its npm-audit summary only when the npm-audit step was not reached,
-so a Python-audit failure remains precise. A fresh hosted CI run remains the PR
-merge gate.
+so a Python-audit failure remains precise. The Phase 20J technical completion
+gate subsequently passed on `4b09071623bc686c1e623cbf383eb198b3c89412`; PR #31
+remains DRAFT and unmerged.
 
 ## Phase 20C checkpoint
 
@@ -291,4 +296,10 @@ claimed.
 
 ## Portfolio closeout
 
-Phase 20 becomes **Complete — Portfolio Profile** after required 20C, 20D, 20F, 20H, reduced 20I and 20J evidence passes, optional work is accurately labeled, deferred work remains documented rather than falsely completed, no high/critical security regression remains, dependency/security checks are green, migrations and rollback are tested, public feature flags are safe, and CI is green.
+Phase 20 is **Complete — Portfolio Profile**: required 20C, 20D, 20F, 20H,
+reduced 20I, and 20J evidence passed on the validated implementation/evidence
+head; optional work is accurately labeled, deferred work remains documented
+rather than falsely completed, no high/critical security regression remains,
+dependency/security checks are green, migrations and rollback are tested, and
+public feature flags are safe. PR #31 remains the DRAFT, unmerged closeout
+vehicle pending explicit merge authorization.

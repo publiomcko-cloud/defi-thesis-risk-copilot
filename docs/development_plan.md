@@ -487,13 +487,14 @@ Core outcomes:
 - incident runbooks;
 - PostgreSQL/browser/accessibility/load/failure tests.
 
-## V1 Phase 20 — Portfolio Architecture Closeout Validation
+## V1 Phase 20 — Complete — Portfolio Profile
 
-The selected portfolio implementation is complete through Phase 20I. Phase
-20J audits the integrated architecture and requires fresh hosted validation for
-its exact draft-PR head before Phase 20 may be called **Complete — Portfolio
-Profile**. The authoritative status table, migration chain, safe defaults, and
-handoff are in [`phase_20_closeout.md`](phase_20_closeout.md).
+The selected portfolio implementation is complete through Phase 20J. Its
+technical completion gate passed on validated implementation/evidence head
+`4b09071623bc686c1e623cbf383eb198b3c89412`; PR #31 remains DRAFT and
+unmerged until explicit merge authorization. The authoritative status table,
+migration chain, safe defaults, and handoff are in
+[`phase_20_closeout.md`](phase_20_closeout.md).
 
 The completed scope is consent-aware first-party analytics, durable private
 schedules, in-app notifications, shadow-only entitlements/non-billable usage,

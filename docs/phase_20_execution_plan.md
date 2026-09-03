@@ -1,6 +1,8 @@
 # V1 Phase 20 Execution Plan — Portfolio Architecture Readiness
 
-Status: **Closeout validation in progress — 20A–20I are complete and merged; 20J requires exact-head hosted evidence**
+Status: **Complete — Portfolio Profile.** Phase 20J technical completion
+evidence passed on `4b09071623bc686c1e623cbf383eb198b3c89412`; PR #31 remains
+DRAFT and unmerged until explicit merge authorization.
 
 Current implementation branch: `agent/v1-phase-20j-architecture-closeout`
 
@@ -323,11 +325,15 @@ Phase 20I is not a commercial support or provider activation.
 
 ## 12. Phase 20J — Portfolio architecture closeout
 
-Status: **In progress — final local validation and exact-head hosted evidence.**
-The concise audit and boundary record is
-[`phase_20_closeout.md`](phase_20_closeout.md).
+Status: **Complete.** The concise audit and boundary record is
+[`phase_20_closeout.md`](phase_20_closeout.md). The technical completion gate
+passed on implementation/evidence head
+`4b09071623bc686c1e623cbf383eb198b3c89412` with CI, Backend and PostgreSQL,
+Frontend, Docker Compose Config, CodeQL, Supply Chain Security, Phase 19
+Failure Exercises, and Vercel all successful. PR #31 remains an unmerged DRAFT
+closeout vehicle.
 
-Phase 20 may be marked **Complete — Portfolio Profile** when:
+The satisfied Phase 20 completion conditions are:
 
 - required 20A–20I selected slices pass their implementation, migration, tenant, concurrency, failure, recovery, lifecycle, rollback, and browser tests;
 - 20E, when omitted or synthetic, is accurately documented;
@@ -335,7 +341,7 @@ Phase 20 may be marked **Complete — Portfolio Profile** when:
 - no unresolved high/critical security regression exists;
 - public portfolio flags remain safe;
 - docs clearly separate implemented, enabled, synthetic, disabled, and productization-only capabilities;
-- CI is green.
+- the Phase 20J implementation/evidence-head hosted CI is green.
 
 Qualified legal certification, real payments, external delivery providers, production analytics activation, and commercial launch are not portfolio-completion gates.
 

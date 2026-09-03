@@ -3,8 +3,10 @@
 This document is the authoritative implementation contract for V1 Phases
 17–22. Phases 16–18 are complete on `main`; the Phase 19 repository
 foundations are merged with external completion gates still pending; Phase 20
-is in Phase 20J closeout validation after 20A–20I merged. Production analytics
-remains disabled pending qualified privacy/legal review.
+is **Complete — Portfolio Profile** on validated Phase 20J implementation/
+evidence head `4b09071623bc686c1e623cbf383eb198b3c89412`, while PR #31 remains
+DRAFT and unmerged. Production analytics remains disabled pending qualified
+privacy/legal review.
 
 Future implementation prompts should reference this file, [`development_plan.md`](development_plan.md), [`current_state.md`](current_state.md), and the selected phase section instead of restating the entire scope.
 
