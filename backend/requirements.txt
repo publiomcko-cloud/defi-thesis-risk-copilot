@@ -7,5 +7,5 @@ cryptography==50.0.0
 pydantic-settings==2.7.1
 psycopg[binary]==3.2.3
 pytest==9.1.1
-SQLAlchemy==2.0.36
+SQLAlchemy==2.0.51
 uvicorn[standard]==0.34.0
