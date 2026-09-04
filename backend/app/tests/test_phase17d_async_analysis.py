@@ -18,8 +18,11 @@ from app.main import app
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.artifact import ArtifactModel
 from app.models.job import JobModel
+from app.models.model_governance import ModelRunProvenanceModel
+from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.report import ReportModel
 from app.models.entitlement import UsageEventModel
+from app.models.user import UserModel
 from app.reports.templates import REQUIRED_REPORT_SECTIONS
 
 
@@ -92,6 +95,76 @@ def test_authenticated_analysis_queues_once_and_persists_one_report(phase17d_cli
         assert artifact.storage_backend == "database"
         assert artifact.resource_type == "report"
         assert artifact.resource_id == reports[0].id
+        model_runs = db.execute(
+            select(ModelRunProvenanceModel).where(ModelRunProvenanceModel.report_id == reports[0].id)
+        ).scalars().all()
+        assert len(model_runs) == 1
+        assert model_runs[0].scope_class == "private"
+        assert model_runs[0].outcome == "disabled"
+        assert model_runs[0].model_registry_id is None
+
+
+def test_organization_analysis_completion_persists_organization_model_scope(phase17d_client) -> None:
+    client, Session = phase17d_client
+    owner_token, worker_token = _seed_owner_and_worker(Session)
+    with Session() as db:
+        owner = db.execute(
+            select(UserModel).where(UserModel.email == "phase17d-owner@example.test")
+        ).scalar_one()
+        organization = OrganizationModel(
+            id="org_phase17d_model_scope",
+            name="Phase 17D Model Scope",
+            slug="phase17d-model-scope",
+            status="active",
+            created_by_user_id=owner.id,
+        )
+        db.add_all(
+            [
+                organization,
+                OrganizationMembershipModel(
+                    id="membership_phase17d_model_scope",
+                    organization_id=organization.id,
+                    user_id=owner.id,
+                    role="admin",
+                    status="active",
+                ),
+            ]
+        )
+        db.commit()
+
+    created = client.post(
+        "/api/jobs",
+        json={
+            "job_type": "analysis.generate",
+            "input_schema_version": "analysis.generate.v1",
+            "organization_id": "org_phase17d_model_scope",
+            "input_json": {"analysis_request": _analysis_payload()},
+        },
+        headers={"Authorization": f"Bearer {owner_token}", "Idempotency-Key": "phase17d-org-model-scope"},
+    )
+    assert created.status_code == 202
+    lease = _claim(client, worker_token)
+    payload = {"lease_generation": lease["lease_generation"], "lease_token": lease["lease_token"]}
+    assert client.post(
+        f"/internal/workers/v1/jobs/{lease['id']}/start", json=payload, headers=_worker_auth(worker_token)
+    ).status_code == 200
+    assert client.post(
+        f"/internal/workers/v1/jobs/{lease['id']}/complete",
+        json={
+            **payload,
+            "result": {"result_schema_version": "analysis.generate.v1", "result_json": _worker_result(lease)},
+        },
+        headers=_worker_auth(worker_token),
+    ).status_code == 200
+    with Session() as db:
+        run = db.execute(
+            select(ModelRunProvenanceModel).where(
+                ModelRunProvenanceModel.report_id == lease["input_json"]["_server_context"]["report_id"]
+            )
+        ).scalar_one()
+        assert run.scope_class == "organization"
+        assert run.outcome == "disabled"
+        assert run.model_registry_id is None
 
 
 def test_cancellation_wins_without_persisting_a_report(phase17d_client) -> None:

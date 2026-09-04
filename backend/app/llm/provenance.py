@@ -33,6 +33,10 @@ _VALIDATION_RESULTS = frozenset(
 _SCOPE_CLASSES = frozenset({"public", "private", "organization", "anonymous"})
 
 
+class AsyncAnalysisJobScopeError(ValueError):
+    """A durable async analysis row cannot safely establish tenant scope."""
+
+
 @dataclass(frozen=True)
 class ModelIdentity:
     provider_key: str
@@ -226,6 +230,29 @@ def scope_class_for_actor(actor: object | None, organization_id: str | None = No
     if getattr(actor, "anonymous_session_id", None):
         return "anonymous"
     return "private"
+
+
+def scope_class_for_async_analysis_job(job: JobModel) -> str:
+    """Derive async analysis scope exclusively from the durable control-plane job.
+
+    ``analysis.generate`` is an authenticated path.  A malformed legacy or
+    tampered job row therefore fails closed instead of being reinterpreted as
+    public model content.
+    """
+
+    if job.job_type != "analysis.generate":
+        raise AsyncAnalysisJobScopeError("unsupported async model job")
+    if not isinstance(job.owner_user_id, str) or not job.owner_user_id:
+        raise AsyncAnalysisJobScopeError("async analysis owner is unavailable")
+    if job.organization_id is None:
+        if job.visibility != "private":
+            raise AsyncAnalysisJobScopeError("async private analysis visibility is invalid")
+        return "private"
+    if not isinstance(job.organization_id, str) or not job.organization_id:
+        raise AsyncAnalysisJobScopeError("async analysis organization is invalid")
+    if job.visibility != "organization":
+        raise AsyncAnalysisJobScopeError("async organization analysis visibility is invalid")
+    return "organization"
 
 
 def deterministic_report_input_checksum(report: ReportResponse) -> str:

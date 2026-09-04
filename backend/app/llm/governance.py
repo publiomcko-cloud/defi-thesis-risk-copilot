@@ -21,7 +21,7 @@ from app.models.model_governance import (
 )
 
 
-REPORT_SYNTHESIS_PROMPT_ID = "prompt_report_synthesis_v1"
+REPORT_SYNTHESIS_PROMPT_ID = "prompt_report_synthesis_v2"
 
 
 class ModelGovernanceConflict(ValueError):
@@ -301,6 +301,7 @@ def _assert_model_matches_identity(record: ModelRegistryModel, identity: ModelId
         "model_key": identity.model_key,
         "model_version": identity.model_version,
         "endpoint_class": identity.endpoint_class,
+        "privacy_classification": identity.privacy_classification,
     }
     if any(getattr(record, key) != value for key, value in expected.items()):
         raise ModelGovernanceConflict("Model registry identity is invalid")

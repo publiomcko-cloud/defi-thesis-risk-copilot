@@ -18,12 +18,14 @@ from app.product_analytics.service import emit_product_event_safely
 from app.entitlements.service import emit_usage
 from app.llm.governance import record_model_run_provenance
 from app.llm.provenance import (
+    AsyncAnalysisJobScopeError,
     candidate_from_payload,
     deterministic_report_input_checksum,
     fallback_report_synthesis_candidate,
     provider_identity,
     provider_is_eligible_for_scope,
     scope_class_for_actor,
+    scope_class_for_async_analysis_job,
 )
 from app.llm.providers import get_llm_provider
 from app.reports.markdown_export import render_markdown_report
@@ -171,6 +173,10 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
         raise HTTPException(status_code=422, detail="Worker analysis result is invalid.") from exc
     if report.report_id != context["report_id"]:
         raise HTTPException(status_code=422, detail="Worker analysis result used an unexpected report identifier.")
+    try:
+        scope_class = scope_class_for_async_analysis_job(job)
+    except AsyncAnalysisJobScopeError as exc:
+        raise HTTPException(status_code=409, detail="Analysis job scope is invalid.") from exc
 
     existing_request = db.get(AnalysisRequestModel, context["analysis_request_id"])
     existing_report = db.get(ReportModel, context["report_id"])
@@ -229,7 +235,7 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
     record_model_run_provenance(
         db,
         report_id=report.report_id,
-        candidate=_authoritative_async_model_candidate(result_json, report, job),
+        candidate=_authoritative_async_model_candidate(result_json, report, job, scope_class),
         owner_user_id=job.owner_user_id,
         organization_id=job.organization_id,
         anonymous_session_id=None,
@@ -276,10 +282,10 @@ def _authoritative_async_model_candidate(
     result_json: dict,
     report: ReportResponse,
     job: JobModel,
+    scope_class: str,
 ):
     """Accept worker metadata only when it agrees with server configuration."""
 
-    scope_class = scope_class_for_actor(None, organization_id=job.organization_id)
     settings = get_settings()
     if not settings.llm_synthesis_enabled:
         return fallback_report_synthesis_candidate(
@@ -320,7 +326,8 @@ def _authoritative_async_model_candidate(
             provider=identity,
         )
     if (
-        candidate.scope_class != scope_class
+        candidate.task_key != "report_synthesis"
+        or candidate.scope_class != scope_class
         or candidate.provider != identity
         or candidate.deterministic_input_checksum != deterministic_report_input_checksum(report)
     ):

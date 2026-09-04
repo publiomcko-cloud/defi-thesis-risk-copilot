@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
@@ -20,11 +22,19 @@ from app.llm.governance import (
     ensure_report_synthesis_prompt_version,
     record_model_run_provenance,
 )
-from app.llm.prompts import build_report_synthesis_prompt, report_synthesis_prompt_definition
+from app.llm.prompts import (
+    REPORT_SYNTHESIS_STATIC_PROMPT_CONTRACT,
+    _prompt_contract_checksum,
+    build_report_synthesis_prompt,
+    report_synthesis_prompt_definition,
+)
 from app.llm.provenance import (
     ModelIdentity,
+    ModelRunCandidate,
     build_report_synthesis_candidate,
+    deterministic_report_input_checksum,
     fallback_report_synthesis_candidate,
+    provider_identity,
     provider_is_eligible_for_scope,
     scope_class_for_actor,
 )
@@ -33,6 +43,7 @@ from app.llm.task_registry import TASK_KEYS, ModelTaskRegistryError, get_model_t
 from app.main import app
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.anonymous_session import AnonymousSessionModel
+from app.models.job import JobModel
 from app.models.model_governance import (
     ModelPromptVersionModel,
     ModelRegistryModel,
@@ -45,7 +56,8 @@ from app.rag.retriever import RetrievalResult
 from app.risk.framework import RiskComponent, RiskScore
 from app.schemas.market_data import MarketDataResponse
 from app.schemas.reports import ReportResponse, ReportSection, SourceReference
-from app.services.analysis_service import analyze_strategy
+from app.services import analysis_service
+from app.services.analysis_service import analyze_strategy, persist_async_analysis_completion
 from app.schemas.analysis import AnalysisRequest
 from app.auth.schemas import UserContext
 from scripts import cleanup_expired_data as cleanup_module
@@ -72,6 +84,17 @@ class SafeProvider:
             output_tokens=8,
             total_tokens=20,
         )
+
+
+class PrivateApprovedProvider:
+    name = "test_provider"
+    model = "test-model-v1"
+    privacy_classification = "private_approved"
+
+
+class UnapprovedProvider(PrivateApprovedProvider):
+    model = "unapproved-model-v1"
+    privacy_classification = "public_only"
 
 
 @pytest.fixture(autouse=True)
@@ -143,7 +166,7 @@ def test_prompt_and_configured_model_registration_are_immutable_bounded_and_idem
         duplicate = ensure_configured_model_registration(db, identity)
         db.commit()
 
-        assert prompt.id == again.id == "prompt_report_synthesis_v1"
+        assert prompt.id == again.id == "prompt_report_synthesis_v2"
         assert prompt.prompt_checksum == report_synthesis_prompt_definition().checksum
         assert model.id == duplicate.id
         assert model.lifecycle_state == "registered"
@@ -168,6 +191,36 @@ def test_prompt_and_configured_model_registration_are_immutable_bounded_and_idem
         with pytest.raises(ModelGovernanceConflict, match="new prompt version"):
             ensure_report_synthesis_prompt_version(db)
         db.rollback()
+
+        db.execute(
+            ModelRegistryModel.__table__.update()
+            .where(ModelRegistryModel.id == model.id)
+            .values(privacy_classification="private_approved")
+        )
+        db.expire_all()
+        with pytest.raises(ModelGovernanceConflict, match="identity"):
+            ensure_configured_model_registration(db, identity)
+        db.rollback()
+
+
+def test_prompt_checksum_covers_the_rendered_static_contract() -> None:
+    definition = report_synthesis_prompt_definition()
+    changed_instruction = deepcopy(REPORT_SYNTHESIS_STATIC_PROMPT_CONTRACT)
+    changed_instruction["system_instruction_lines"] = (
+        "A changed static instruction requires a new prompt version.",
+        *REPORT_SYNTHESIS_STATIC_PROMPT_CONTRACT["system_instruction_lines"][1:],
+    )
+    changed_safety = deepcopy(REPORT_SYNTHESIS_STATIC_PROMPT_CONTRACT)
+    changed_safety["safety_rules"] = [
+        *REPORT_SYNTHESIS_STATIC_PROMPT_CONTRACT["safety_rules"],
+        "A changed safety rule requires a new prompt version.",
+    ]
+    changed_payload_template = deepcopy(REPORT_SYNTHESIS_STATIC_PROMPT_CONTRACT)
+    changed_payload_template["payload_keys"]["deterministic_sections"] = "changed_sections"
+
+    assert _prompt_contract_checksum(changed_instruction) != definition.checksum
+    assert _prompt_contract_checksum(changed_safety) != definition.checksum
+    assert _prompt_contract_checksum(changed_payload_template) != definition.checksum
 
 
 def test_synthesis_outcomes_private_policy_and_untrusted_source_boundary(monkeypatch) -> None:
@@ -370,6 +423,289 @@ def test_organization_scope_is_server_derived_and_fails_closed_for_unapproved_pr
         ModelIdentity("ollama", "llama3.1", "llama3.1", "ollama_generate", "unknown"),
         "organization",
     )
+
+
+def test_async_private_completion_uses_durable_scope_when_synthesis_is_disabled(governance_session, monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "false")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, "phase21a-async-private-disabled@example.test")
+        job = _async_analysis_job(db, owner.id, "private_disabled")
+
+        persist_async_analysis_completion(db, job, _async_worker_result(job))
+
+        run = _model_run_for_job(db, job)
+        assert run.scope_class == "private"
+        assert run.outcome == "disabled"
+        assert run.validation_result == "not_run"
+        assert run.model_registry_id is None
+
+
+def test_async_private_provenance_policy_and_worker_scope_are_server_derived(governance_session, monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, "phase21a-async-private-worker@example.test")
+        unapproved = UnapprovedProvider()
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: unapproved)
+        denied_job = _async_analysis_job(db, owner.id, "private_denied")
+        persist_async_analysis_completion(db, denied_job, _async_worker_result(denied_job))
+        denied = _model_run_for_job(db, denied_job)
+        assert denied.scope_class == "private"
+        assert denied.validation_result == "policy_denied"
+        assert denied.outcome == "provider_unavailable"
+
+        approved = PrivateApprovedProvider()
+        identity = provider_identity(approved)
+        assert identity is not None
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: approved)
+        accepted_job = _async_analysis_job(db, owner.id, "private_accepted")
+        persist_async_analysis_completion(
+            db,
+            accepted_job,
+            _async_worker_result(accepted_job, model_run=_valid_worker_model_run(accepted_job, "private", identity)),
+        )
+        accepted = _model_run_for_job(db, accepted_job)
+        assert accepted.scope_class == "private"
+        assert accepted.outcome == "succeeded"
+        assert accepted.validation_result == "accepted"
+        assert accepted.fallback_reason is None
+
+        mismatched_job = _async_analysis_job(db, owner.id, "private_mismatch")
+        persist_async_analysis_completion(
+            db,
+            mismatched_job,
+            _async_worker_result(mismatched_job, model_run=_valid_worker_model_run(mismatched_job, "public", identity)),
+        )
+        mismatched = _model_run_for_job(db, mismatched_job)
+        assert mismatched.scope_class == "private"
+        assert mismatched.outcome == "provider_failure"
+        assert mismatched.fallback_reason == "worker_model_provenance_mismatch"
+
+        forged_identity = ModelIdentity(
+            "forged_provider",
+            "forged-model-v1",
+            "forged-model-v1",
+            "custom",
+            "private_approved",
+        )
+        forged_job = _async_analysis_job(db, owner.id, "private_provider_mismatch")
+        persist_async_analysis_completion(
+            db,
+            forged_job,
+            _async_worker_result(forged_job, model_run=_valid_worker_model_run(forged_job, "private", forged_identity)),
+        )
+        forged = _model_run_for_job(db, forged_job)
+        assert forged.scope_class == "private"
+        assert forged.outcome == "provider_failure"
+        assert forged.fallback_reason == "worker_model_provenance_mismatch"
+
+
+def test_async_organization_provenance_policy_and_worker_scope_are_server_derived(governance_session, monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "false")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, "phase21a-async-organization@example.test")
+        organization = OrganizationModel(
+            id="org_phase21a_async_scope",
+            name="Phase 21A Async Scope",
+            slug="phase21a-async-scope",
+            status="active",
+            created_by_user_id=owner.id,
+        )
+        db.add_all(
+            [
+                organization,
+                OrganizationMembershipModel(
+                    id="membership_phase21a_async_scope",
+                    organization_id=organization.id,
+                    user_id=owner.id,
+                    role="owner",
+                    status="active",
+                ),
+            ]
+        )
+        db.flush()
+
+        disabled_job = _async_analysis_job(db, owner.id, "organization_disabled", organization_id=organization.id)
+        persist_async_analysis_completion(db, disabled_job, _async_worker_result(disabled_job))
+        disabled = _model_run_for_job(db, disabled_job)
+        assert disabled.scope_class == "organization"
+        assert disabled.outcome == "disabled"
+        assert disabled.model_registry_id is None
+
+        monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+        get_settings.cache_clear()
+        unapproved = UnapprovedProvider()
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: unapproved)
+        denied_job = _async_analysis_job(db, owner.id, "organization_denied", organization_id=organization.id)
+        persist_async_analysis_completion(db, denied_job, _async_worker_result(denied_job))
+        denied = _model_run_for_job(db, denied_job)
+        assert denied.scope_class == "organization"
+        assert denied.validation_result == "policy_denied"
+
+        approved = PrivateApprovedProvider()
+        identity = provider_identity(approved)
+        assert identity is not None
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: approved)
+        accepted_job = _async_analysis_job(db, owner.id, "organization_accepted", organization_id=organization.id)
+        persist_async_analysis_completion(
+            db,
+            accepted_job,
+            _async_worker_result(accepted_job, model_run=_valid_worker_model_run(accepted_job, "organization", identity)),
+        )
+        accepted = _model_run_for_job(db, accepted_job)
+        assert accepted.scope_class == "organization"
+        assert accepted.outcome == "succeeded"
+
+        for suffix, worker_scope in (("organization_private_mismatch", "private"), ("organization_public_mismatch", "public")):
+            mismatched_job = _async_analysis_job(db, owner.id, suffix, organization_id=organization.id)
+            persist_async_analysis_completion(
+                db,
+                mismatched_job,
+                _async_worker_result(mismatched_job, model_run=_valid_worker_model_run(mismatched_job, worker_scope, identity)),
+            )
+            mismatched = _model_run_for_job(db, mismatched_job)
+            assert mismatched.scope_class == "organization"
+            assert mismatched.outcome == "provider_failure"
+            assert mismatched.fallback_reason == "worker_model_provenance_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("suffix", "owner_user_id", "organization_id", "visibility"),
+    [
+        ("missing_owner", None, None, "private"),
+        ("organization_without_organization", "owner", None, "organization"),
+        ("private_with_organization", "owner", "org_phase21a_invalid_scope", "private"),
+    ],
+)
+def test_invalid_async_job_scope_fails_closed_without_public_provenance(
+    governance_session,
+    suffix,
+    owner_user_id,
+    organization_id,
+    visibility,
+) -> None:
+    with governance_session() as db:
+        owner = create_user(db, f"phase21a-invalid-{suffix}@example.test")
+        if organization_id:
+            db.add(
+                OrganizationModel(
+                    id=organization_id,
+                    name="Phase 21A Invalid Scope",
+                    slug="phase21a-invalid-scope",
+                    status="active",
+                    created_by_user_id=owner.id,
+                )
+            )
+            db.flush()
+        job = _async_analysis_job(
+            db,
+            owner.id if owner_user_id else None,
+            suffix,
+            organization_id=organization_id,
+            visibility=visibility,
+            created_by_user_id=owner.id,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            persist_async_analysis_completion(db, job, _async_worker_result(job))
+
+        assert getattr(exc_info.value, "status_code", None) == 409
+        assert db.scalars(select(ModelRunProvenanceModel)).all() == []
+
+
+def _async_analysis_job(
+    db,
+    owner_user_id: str | None,
+    suffix: str,
+    *,
+    organization_id: str | None = None,
+    visibility: str | None = None,
+    created_by_user_id: str | None = None,
+) -> JobModel:
+    now = datetime.now(UTC)
+    report_id = f"report_phase21a_async_{suffix}"
+    job = JobModel(
+        id=f"job_phase21a_async_{suffix}",
+        job_type="analysis.generate",
+        status="running",
+        priority_class="standard",
+        owner_user_id=owner_user_id,
+        organization_id=organization_id,
+        created_by_user_id=created_by_user_id or owner_user_id or "missing",
+        visibility=visibility or ("organization" if organization_id else "private"),
+        input_schema_version="analysis.generate.v1",
+        input_json={
+            "_server_context": {
+                "analysis_request_id": f"analysis_phase21a_async_{suffix}",
+                "report_id": report_id,
+            }
+        },
+        request_fingerprint=f"fingerprint_{suffix}",
+        result_resource_type="report",
+        result_resource_id=report_id,
+        max_attempts=3,
+        available_at=now,
+        idempotency_subject_type="organization" if organization_id else "user",
+        idempotency_subject_id=organization_id or owner_user_id or "missing",
+        idempotency_key=f"key-{suffix}",
+        estimated_cost_microusd=0,
+        reserved_cost_microusd=0,
+        actual_cost_microusd=0,
+    )
+    db.add(job)
+    db.flush()
+    return job
+
+
+def _async_worker_result(job: JobModel, *, model_run: dict | None = None) -> dict:
+    context = job.input_json["_server_context"]
+    result = {
+        "analysis_request": {
+            "strategy_description": "Analyze a bounded Pendle PT strategy with deterministic risk controls.",
+            "protocols": ["pendle"],
+            "market_url": None,
+            "manual_inputs": {},
+            "analysis_depth": "standard",
+        },
+        "report": _report(report_id=context["report_id"]).model_dump(mode="json"),
+    }
+    if model_run is not None:
+        result["model_run"] = model_run
+    return result
+
+
+def _valid_worker_model_run(job: JobModel, scope_class: str, identity: ModelIdentity) -> dict:
+    report = _report(report_id=job.input_json["_server_context"]["report_id"])
+    prompt = report_synthesis_prompt_definition()
+    return ModelRunCandidate(
+        task_key=prompt.task_key,
+        task_version=prompt.task_version,
+        prompt_version=prompt.prompt_version,
+        output_schema_version=prompt.output_schema_version,
+        safety_policy_version=prompt.safety_policy_version,
+        prompt_checksum=prompt.checksum,
+        provider=identity,
+        scope_class=scope_class,
+        deterministic_input_checksum=deterministic_report_input_checksum(report),
+        retrieval_digest=None,
+        retrieval_source_count=0,
+        validation_result="accepted",
+        outcome="succeeded",
+        fallback_reason=None,
+        latency_ms=1,
+        input_tokens=1,
+        output_tokens=1,
+        total_tokens=2,
+        cost_microusd=0,
+    ).to_payload()
+
+
+def _model_run_for_job(db, job: JobModel) -> ModelRunProvenanceModel:
+    return db.scalars(
+        select(ModelRunProvenanceModel).where(ModelRunProvenanceModel.report_id == job.result_resource_id)
+    ).one()
 
 
 def test_anonymous_report_expiry_removes_linked_model_provenance(governance_session, monkeypatch) -> None:
