@@ -3,10 +3,12 @@
 This document is the authoritative implementation contract for V1 Phases
 17–22. Phases 16–18 are complete on `main`; the Phase 19 repository
 foundations are merged with external completion gates still pending; Phase 20
-is **Complete — Portfolio Profile** on validated Phase 20J implementation/
-evidence head `4b09071623bc686c1e623cbf383eb198b3c89412`, while PR #31 remains
-DRAFT and unmerged. Production analytics remains disabled pending qualified
-privacy/legal review.
+is **Complete — Portfolio Profile** and merged at
+`2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 21 is the
+active model/research intelligence expansion on
+`agent/v1-phase-21-model-research-intelligence`; Phase 22 is the later final
+deployed-provider/legal validation phase. Production analytics remains disabled
+pending qualified privacy/legal review.
 
 Future implementation prompts should reference this file, [`development_plan.md`](development_plan.md), [`current_state.md`](current_state.md), and the selected phase section instead of restating the entire scope.
 
@@ -777,10 +779,10 @@ Each runbook defines detection, containment, eradication, recovery, communicatio
 
 # V1 Phase 20 — Product Analytics, Notifications, and Commercial Readiness
 
-Status: **In Progress — Phases 20A–20B are implemented and Phase 20C durable
-scheduled monitoring is locally complete. Analytics collection and schedule
+Status: **Complete — Portfolio Profile.** Phase 20 merged through PR #31 at
+`2de0043e2556781d8f34cc9d9308564cc2e3c8a7`. Analytics collection and schedule
 dispatch remain deployment-disabled pending their separate approval and
-deployed-evidence gates.**
+deployed-evidence gates.
 
 Execution order: [`phase_20_execution_plan.md`](phase_20_execution_plan.md).
 The plan does not select or integrate a provider and must remain subordinate to
@@ -986,7 +988,8 @@ Documentation must state that internal drafting is not legal certification.
 
 # V1 Phase 21 — Model and Research Intelligence Expansion
 
-Status: **Planned**
+Status: **Active — 21A implemented on
+`agent/v1-phase-21-model-research-intelligence`; 21B–21F remain planned.**
 
 ## 21.1 Goal
 

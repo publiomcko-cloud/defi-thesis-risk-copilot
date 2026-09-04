@@ -149,6 +149,7 @@ def claim_next_job(db: Session, identity: WorkerIdentity) -> WorkerClaimResponse
             job_type=job.job_type,
             input_schema_version=job.input_schema_version,
             input_json=job.input_json,
+            organization_id=job.organization_id,
             lease_generation=generation,
             lease_token=lease_token,
             lease_expires_at=lease_expires_at,

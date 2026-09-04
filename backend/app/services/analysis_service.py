@@ -16,6 +16,16 @@ from app.models.report import ReportModel
 from app.quotas.service import ACTION_ANALYSIS, consume_quota
 from app.product_analytics.service import emit_product_event_safely
 from app.entitlements.service import emit_usage
+from app.llm.governance import record_model_run_provenance
+from app.llm.provenance import (
+    candidate_from_payload,
+    deterministic_report_input_checksum,
+    fallback_report_synthesis_candidate,
+    provider_identity,
+    provider_is_eligible_for_scope,
+    scope_class_for_actor,
+)
+from app.llm.providers import get_llm_provider
 from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.reports import ReportResponse
@@ -66,6 +76,14 @@ def analyze_strategy(
         visibility=visibility,
         anonymous_session_id=actor.anonymous_session_id if actor else None,
         expires_at=expires_at,
+    )
+    record_model_run_provenance(
+        db,
+        report_id=workflow_result.report.report_id,
+        candidate=workflow_result.model_run,
+        owner_user_id=None if actor is None or actor.anonymous_session_id else actor.id,
+        organization_id=None,
+        anonymous_session_id=actor.anonymous_session_id if actor else None,
     )
     if actor is not None and actor.auth_enabled and actor.anonymous_session_id is None:
         emit_usage(
@@ -208,6 +226,14 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
         visibility=job.visibility,
         source_job_id=job.id,
     )
+    record_model_run_provenance(
+        db,
+        report_id=report.report_id,
+        candidate=_authoritative_async_model_candidate(result_json, report, job),
+        owner_user_id=job.owner_user_id,
+        organization_id=job.organization_id,
+        anonymous_session_id=None,
+    )
     artifact = db.get(ArtifactModel, f"artifact_{job.id}")
     if artifact is None:
         db.add(
@@ -244,3 +270,66 @@ def _async_job_context(job: JobModel) -> dict[str, str]:
     ):
         raise HTTPException(status_code=422, detail="Analysis job context is invalid.")
     return {"analysis_request_id": analysis_request_id, "report_id": report_id}
+
+
+def _authoritative_async_model_candidate(
+    result_json: dict,
+    report: ReportResponse,
+    job: JobModel,
+):
+    """Accept worker metadata only when it agrees with server configuration."""
+
+    scope_class = scope_class_for_actor(None, organization_id=job.organization_id)
+    settings = get_settings()
+    if not settings.llm_synthesis_enabled:
+        return fallback_report_synthesis_candidate(
+            report,
+            scope_class=scope_class,
+            outcome="disabled",
+            validation_result="not_run",
+            fallback_reason="synthesis_disabled",
+        )
+    active_provider = get_llm_provider(settings)
+    identity = provider_identity(active_provider) if active_provider is not None else None
+    if identity is None:
+        return fallback_report_synthesis_candidate(
+            report,
+            scope_class=scope_class,
+            outcome="provider_unavailable",
+            validation_result="not_run",
+            fallback_reason="provider_unavailable",
+        )
+    if not provider_is_eligible_for_scope(identity, scope_class):
+        return fallback_report_synthesis_candidate(
+            report,
+            scope_class=scope_class,
+            outcome="provider_unavailable",
+            validation_result="policy_denied",
+            fallback_reason="private_provider_not_approved",
+            provider=identity,
+        )
+    try:
+        candidate = candidate_from_payload(result_json.get("model_run"))
+    except ValueError:
+        return fallback_report_synthesis_candidate(
+            report,
+            scope_class=scope_class,
+            outcome="provider_failure",
+            validation_result="provider_error",
+            fallback_reason="worker_model_provenance_invalid",
+            provider=identity,
+        )
+    if (
+        candidate.scope_class != scope_class
+        or candidate.provider != identity
+        or candidate.deterministic_input_checksum != deterministic_report_input_checksum(report)
+    ):
+        return fallback_report_synthesis_candidate(
+            report,
+            scope_class=scope_class,
+            outcome="provider_failure",
+            validation_result="provider_error",
+            fallback_reason="worker_model_provenance_mismatch",
+            provider=identity,
+        )
+    return candidate

@@ -507,9 +507,8 @@ assistive-technology, or chaos-test evidence.
 
 ## 9. Phase 20 validation
 
-Phase 20J completed the 20A–20I portfolio implementation closeout. Its
-technical completion gate passed on validated implementation/evidence head
-`4b09071623bc686c1e623cbf383eb198b3c89412`; its validation authority is
+Phase 20J completed the 20A–20I portfolio implementation closeout and merged
+through PR #31 at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`; its validation authority is
 [`phase_20_execution_plan.md`](phase_20_execution_plan.md) and the final audit
 is [`phase_20_closeout.md`](phase_20_closeout.md).
 
@@ -649,7 +648,30 @@ selection before its ADR is approved.
 
 ## 10. Phase 21 validation
 
-Test provider routing, model/prompt versioning, evaluation promotion/rollback, deterministic-field preservation, citation support, source-instruction defenses, tenant privacy, cost budgets, feedback controls, and compute cleanup.
+Checkpoint 21A validates the model-governance foundation without selecting a
+production provider or activating model synthesis. Focused coverage includes
+the exact code-owned task taxonomy, prompt/version immutability, credential-free
+registry fields, bounded redacted provenance, deterministic-field preservation,
+untrusted retrieved-source handling, private/organization fail-closed policy,
+account export/deletion, organization-context clearing, anonymous expiry, and
+default-disabled behavior.
+
+```bash
+cd backend
+python -m compileall -q app scripts migrations
+python -m pytest -q app/tests/test_phase21a_model_governance.py \
+  app/tests/test_phase21a_sqlite_migration.py app/tests/test_phase21a_postgres.py
+RUN_POSTGRES_INTEGRATION=true python -m pytest -q app/tests/test_phase21a_postgres.py
+```
+
+The SQLite and PostgreSQL migration cycles prove
+`0029 -> 0030 -> 0029 -> 0030`, preserving Phase 20 structures and the
+seven `free-v1` limits while removing only 21A state on downgrade. The
+PostgreSQL suite also proves concurrent configured-model registration has one
+durable registry/capability result. 21B–21F must extend this coverage for
+routing/promotion, adversarial quality, feedback, research intelligence, and
+worker compute. These local/CI checks do not claim hosted, paid-provider,
+private-provider, or production activation evidence.
 
 ## 11. CI expectations
 

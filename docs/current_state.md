@@ -15,6 +15,9 @@ Authoritative references:
 - [`phase_20_threat_model.md`](phase_20_threat_model.md) and
   [`phase_20_evidence_matrix.md`](phase_20_evidence_matrix.md) — Phase 20 risk,
   implementation evidence, and production approval blockers;
+- [`phase_21_execution_plan.md`](phase_21_execution_plan.md) and
+  [`phase_21_evidence_matrix.md`](phase_21_evidence_matrix.md) — active Phase
+  21 checkpoint and evidence record;
 - [`future_phase_contracts.md`](future_phase_contracts.md) — Phases 17–22 contract;
 - [`agent_execution_guide.md`](agent_execution_guide.md) — short-prompt workflow.
 
@@ -65,8 +68,8 @@ V1 Phase 16 — Complete
 V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
-V1 Phase 20 — Complete — Portfolio Profile on validated implementation/evidence head `4b09071623bc686c1e623cbf383eb198b3c89412`; PR #31 remains the DRAFT, unmerged closeout vehicle. 20A–20I are complete and merged, including 20I at `f55ee37db98abfcf8a3d7651f81436bc63e6a9b8`. Phase 20E is omitted, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
-V1 Phase 21 — Next planned implementation phase
+V1 Phase 20 — Complete — Portfolio Profile and merged at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 20E is omitted, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
+V1 Phase 21 — Active on `agent/v1-phase-21-model-research-intelligence`; 21A model governance is implemented and 21B–21F remain planned
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -443,9 +446,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   telemetry, alert delivery, provider restore, secret rotation,
   protected-branch enforcement, and controlled deployment are not evidenced
   as complete;
-- Phase 20 — Complete — Portfolio Profile on the validated Phase 20J
-  implementation/evidence head `4b09071623bc686c1e623cbf383eb198b3c89412`;
-  PR #31 remains DRAFT and unmerged. Phase 20D and Phase 20F merged to `main` as
+- Phase 20 — Complete — Portfolio Profile and merged at
+  `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 20D and Phase 20F merged to `main` as
   `1e5ea045390b11c7b8dc933a48b40a562e3270da`; Phase 20H is COMPLETE for the
   portfolio profile and merged as `54329c6911fa1fada2160cc98ac0a57a3aaa5acc`.
   Phase 20I merged as `f55ee37db98abfcf8a3d7651f81436bc63e6a9b8`; Phase 20J
@@ -530,10 +532,14 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   family before it can be forwarded or logged. No external helpdesk/status
   provider, subscriber collection, SLA, uptime claim, production/commercial
   support claim, or production/legal approval is made. Phase 20I passed its
-  hosted merge gate; Phase 20J technical completion evidence subsequently
-  passed on `4b09071623bc686c1e623cbf383eb198b3c89412`, while PR #31 remains
-  DRAFT and unmerged;
-- Phase 21 — evaluated model and research-intelligence expansion.
+  hosted merge gate; Phase 20J then merged through PR #31 as
+  `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`.
+- Phase 21 — active model and research-intelligence expansion on
+  `agent/v1-phase-21-model-research-intelligence`. Checkpoint 21A adds only
+  bounded model governance/provenance for the existing report-synthesis path;
+  synthesis remains disabled by default, private/organization provider use
+  fails closed unless a future server-owned approval exists, and 21B–21F remain
+  unstarted.
 - Phase 22 — final provider, legal, and launch validation.
 
 See [`future_phase_contracts.md`](future_phase_contracts.md) for complete requirements.

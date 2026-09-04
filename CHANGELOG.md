@@ -1,11 +1,26 @@
 # Changelog
 
+## Phase 21A — Model governance foundation
+
+- Added reversible migration `20260904_0030` for the bounded model registry,
+  task capabilities, immutable prompt-version metadata, and immutable
+  report-synthesis provenance.
+- Added the code-owned seven-task taxonomy; only `report_synthesis` has a
+  runtime implementation. Provider/model selection and promotion remain
+  server-owned and deferred beyond 21A.
+- Versioned the report-synthesis prompt, output schema, and safety policy;
+  preserved deterministic report facts, strict validation, default-disabled
+  synthesis, and fail-closed private/organization provider policy.
+- Added account export/deletion, organization-context clearing, anonymous
+  expiry cleanup, SQLite/PostgreSQL migration-cycle, and PostgreSQL concurrent
+  model-registration evidence. No paid provider, Vast rental, training, or
+  production activation is included.
+
 ## Phase 20 — Complete — Portfolio Profile
 
-- Completed the selected portfolio implementation through Phase 20J on the
-  validated implementation/evidence head
-  `4b09071623bc686c1e623cbf383eb198b3c89412`. The Phase 20J closeout pull
-  request is #31 and remains DRAFT and unmerged until explicit authorization.
+- Completed the selected portfolio implementation through Phase 20J and merged
+  at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`. The Phase 20J closeout pull
+  request #31 is merged.
 - Phase 20I merged as `f55ee37db98abfcf8a3d7651f81436bc63e6a9b8`; PR #29 was
   superseded only by the PR #30 merge vehicle, with both using implementation
   head `3c8680e69cf0eb9e33bb940fd82fda80406da227`.

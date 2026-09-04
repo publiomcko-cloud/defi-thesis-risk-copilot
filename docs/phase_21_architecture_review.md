@@ -1,4 +1,4 @@
-# Phase 21 Entry Architecture Review
+# Phase 21 Architecture Review
 
 Date: 2026-09-04
 
@@ -29,29 +29,40 @@ The repository already has a useful Phase 21 starting point:
 - Phases 18–20 provide tenant-aware retrieval, provenance, lifecycle,
   entitlements, security, and portfolio-safe provider gates.
 
-## Material Phase 21 gaps
+## 21A implemented architecture
+
+Migration `20260904_0030` adds `model_registry`,
+`model_task_capabilities`, `model_prompt_versions`, and
+`model_run_provenance`. The registry is server-owned and bounded: it stores no
+credentials, headers, arbitrary metadata, prompts, source bodies, or model
+output. The static task registry contains the approved seven tasks, but only
+`report_synthesis` is implemented at runtime.
+
+The existing synthesis path now records one immutable provenance row with a
+prompt/schema/safety checksum, safe provider identity when available,
+server-derived scope, report-input checksum, bounded retrieval digest/count,
+validation and outcome codes, and supplied bounded usage values. A unique
+report/task/version constraint provides retry safety. Synthesis remains
+disabled by default; unknown/private external provider privacy classification
+fails closed before private or organization content is sent. Account deletion,
+organization deletion/context clearing, and expired anonymous report cleanup
+use existing lifecycle authority.
+
+## Remaining Phase 21 gaps
 
 The current model path is intentionally simple and does not yet satisfy the
 Phase 21 contract:
 
 1. provider selection is global configuration, not task-level routing;
-2. there is no durable model registry with task capability/privacy/evaluation
-   and promotion state;
-3. prompt/schema templates are code-owned but not durably version-linked to
-   model-assisted artifacts;
-4. report synthesis records provider/model only in explanatory report text, not
-   as structured durable provenance;
-5. there is no evaluation-before-promotion state machine or automatic
+2. there is no evaluation-before-promotion state machine or automatic
    regression gate for model candidates;
-6. there is no explicit task-level cost/privacy routing policy;
-7. retrieved text is placed in the synthesis context without a dedicated
-   instruction-like-source classification/flagging layer;
-8. there is no model-specific prompt-injection/source-poisoning regression set;
-9. human feedback is not yet a bounded, privacy-governed, versioned evaluation
+3. no task-level route decision has made a model production-authoritative;
+4. no model-specific prompt-injection/source-poisoning regression set exists;
+5. human feedback is not yet a bounded, privacy-governed, versioned evaluation
    input;
-10. thesis/catalyst/assumption/report-comparison intelligence is not yet a
+6. thesis/catalyst/assumption/report-comparison intelligence is not yet a
     dedicated domain;
-11. model evaluation/training is not yet represented as bounded Phase 17 worker
+7. model evaluation/training is not yet represented as bounded Phase 17 worker
     jobs with durable model/dataset lineage.
 
 ## Refactoring direction

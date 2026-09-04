@@ -116,6 +116,8 @@ class WorkerClaimedJob(BaseModel):
     job_type: str
     input_schema_version: str
     input_json: dict
+    # This is server-derived from the durable job row, never worker supplied.
+    organization_id: str | None = None
     lease_generation: int = Field(gt=0)
     lease_token: str = Field(min_length=24)
     lease_expires_at: datetime

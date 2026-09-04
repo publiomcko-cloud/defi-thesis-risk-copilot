@@ -12,6 +12,7 @@ from app.models.anonymous_session import AnonymousSessionModel
 from app.models.alert_event import AlertEventModel
 from app.models.artifact import ArtifactModel
 from app.models.job import JobAttemptModel, JobEventModel, JobModel
+from app.models.model_governance import ModelRunProvenanceModel
 from app.models.report import ReportModel
 from app.models.rate_limit import RateLimitBucketModel
 from app.models.product_analytics import (
@@ -26,6 +27,7 @@ from app.models.worker import WorkerCredentialModel
 from app.jobs.constants import TERMINAL_JOB_STATUSES
 from app.scheduling.service import cleanup_expired_schedule_history
 from app.notifications.service import cleanup_expired_notifications
+from app.llm.governance import remove_model_runs_for_expired_reports
 
 
 def main() -> int:
@@ -60,6 +62,15 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
             .where(ReportModel.visibility != "public_demo")
             .where(ReportModel.expires_at.is_not(None))
             .where(ReportModel.expires_at <= now),
+        )
+        expired_report_ids_statement = select(ReportModel.id).where(ReportModel.visibility != "public_demo").where(
+            ReportModel.expires_at.is_not(None)
+        ).where(ReportModel.expires_at <= now)
+        counts["expired_model_run_provenance"] = _count(
+            db,
+            select(ModelRunProvenanceModel).where(
+                ModelRunProvenanceModel.report_id.in_(expired_report_ids_statement)
+            ),
         )
         counts["expired_analysis_requests"] = _count(
             db,
@@ -169,6 +180,8 @@ def cleanup_expired_data(dry_run: bool = False) -> dict[str, int]:
         ]
         if expired_watchlist_ids:
             db.execute(delete(AlertEventModel).where(AlertEventModel.watchlist_item_id.in_(expired_watchlist_ids)))
+        expired_report_ids = list(db.execute(expired_report_ids_statement).scalars())
+        remove_model_runs_for_expired_reports(db, expired_report_ids)
         db.execute(delete(AnonymousSessionModel).where(AnonymousSessionModel.expires_at <= now))
         db.execute(
             delete(ReportModel)

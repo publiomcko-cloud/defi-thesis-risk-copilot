@@ -32,6 +32,7 @@ The original productization requirements are preserved rather than deleted:
 - [Productization backlog](docs/productization_backlog.md) — deferred provider, legal, billing, operational, and launch work;
 - [Phase 20 execution plan](docs/phase_20_execution_plan.md) — portfolio implementation sequence and completion gates.
 - [Phase 20 closeout](docs/phase_20_closeout.md) — final architecture audit and evidence state.
+- [Phase 21 execution plan](docs/phase_21_execution_plan.md) — active 21A–21F model/research checkpoint sequence.
 
 A future return to product mode should activate reviewed adapters and policies through existing boundaries instead of requiring an architectural rewrite.
 
@@ -50,8 +51,10 @@ V1 Phase 20 portfolio profile: COMPLETE
   - 20G billing/provider work: deferred to productization backlog
   - 20H organization invitation/seat controls: merged at `54329c6`
   - 20I bounded support/privacy/status: merged at `f55ee37`
-  - 20J architecture closeout: complete on validated implementation/evidence head `4b09071623bc686c1e623cbf383eb198b3c89412`; PR #31 remains DRAFT and unmerged
-Next: V1 Phase 21 model/research intelligence, then portfolio release validation
+  - 20J architecture closeout: merged with Phase 20 at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` via PR #31
+V1 Phase 21: ACTIVE
+  - 21A model governance foundation: implemented on `agent/v1-phase-21-model-research-intelligence`; report synthesis remains disabled by default
+  - 21B–21F: planned; Phase 22 remains the later provider/legal release-validation phase
 ```
 
 ## Engineering Capabilities
@@ -78,11 +81,11 @@ The repository currently demonstrates or provides foundations for:
 - in-app notification preferences and notification center with server-owned intents, code-owned content, duplicate-safe identity, quiet hours, daily digest surfacing, lifecycle hooks, and 30-day retention;
 - admin-controlled Vast.ai dry-run/manual warm-up with real rentals disabled.
 
-Phase 20 is **Complete — Portfolio Profile**. Phase 20J completed final
-portfolio architecture evidence on validated implementation/evidence head
-`4b09071623bc686c1e623cbf383eb198b3c89412`; it does not activate deferred
-providers or commercial work. PR #31 remains DRAFT and unmerged, and Phase 21
-AI/research intelligence is next.
+Phase 20 is **Complete — Portfolio Profile** and merged at
+`2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 21 is active
+on `agent/v1-phase-21-model-research-intelligence`; 21A adds bounded model
+governance while retaining disabled-by-default synthesis. It does not activate
+deferred providers or commercial work.
 
 ## Public Deployment Safety
 

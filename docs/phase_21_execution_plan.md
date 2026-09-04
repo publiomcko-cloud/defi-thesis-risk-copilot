@@ -1,6 +1,6 @@
 # V1 Phase 21 Execution Plan — Model and Research Intelligence Expansion
 
-Status: **Active — checkpoint 21A next.**
+Status: **Active — checkpoint 21A implemented; review required before 21B.**
 
 Base merge: `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`
 
@@ -42,7 +42,7 @@ Goal: make the existing optional report-synthesis path versioned, durable,
 auditable, and ready for later evaluation/routing without changing its
 server-owned deterministic authority.
 
-Expected scope:
+Implemented scope:
 
 - reconcile stale post-Phase-20 merge documentation first;
 - verify Alembic head is `20260828_0029` and no conflicting `0030` exists;
@@ -66,8 +66,10 @@ Expected scope:
 - add PostgreSQL migration/constraint/tenant/lifecycle tests;
 - keep runtime model synthesis disabled by default.
 
-21A is backend/governance authority. It does not need to activate new model tasks
-or add a public provider-selection UI.
+21A is backend/governance authority. It does not activate new model tasks or
+add a public provider-selection UI. Migration `20260904_0030` and the focused
+SQLite/PostgreSQL evidence record the implementation; Phase 21 remains active
+until every later checkpoint is complete.
 
 ## Checkpoint 21B — Evaluation, promotion, routing, rollback
 

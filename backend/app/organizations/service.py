@@ -26,6 +26,7 @@ from app.models.entitlement import EntitlementAssignmentModel, PlanEntitlementMo
 from app.models.user import UserModel
 from app.knowledge.service import tombstone_knowledge_for_organization
 from app.customer_requests.service import clear_customer_request_organization_context
+from app.llm.governance import clear_model_run_organization_context
 from app.organizations.schemas import (
     MembershipCreateRequest,
     MembershipResponse,
@@ -290,6 +291,7 @@ def delete_organization(db: Session, actor: UserContext, organization_id: str) -
     tombstone_knowledge_for_organization(db, org.id, now=org.deleted_at)
     dispose_jobs_for_organization_deletion(db, org.id, now=org.deleted_at)
     clear_customer_request_organization_context(db, org.id, now=org.deleted_at)
+    clear_model_run_organization_context(db, org.id)
     db.commit()
     db.refresh(org)
     if revoked_invitation_count:

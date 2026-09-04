@@ -686,9 +686,8 @@ and rollback records remain external operational evidence.
 
 The ordered record is [`phase_20_execution_plan.md`](phase_20_execution_plan.md)
 and the final audit is [`phase_20_closeout.md`](phase_20_closeout.md). Phase 20
-is **Complete — Portfolio Profile** on validated implementation/evidence head
-`4b09071623bc686c1e623cbf383eb198b3c89412`; PR #31 remains DRAFT and
-unmerged. Slices 20A–20I are complete and merged. They add privacy-conscious analytics, durable
+is **Complete — Portfolio Profile** and merged at
+`2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Slices 20A–20I are complete and merged. They add privacy-conscious analytics, durable
 scheduling, in-app notifications, shadow entitlements/non-billable usage,
 organization invitations/seats, and first-party support/status/privacy
 operations. External delivery and billing remain unimplemented; productization
@@ -753,8 +752,16 @@ web-request timer.
 
 ---
 
-## 20. Phase 21 target — model/research expansion
+## 20. Phase 21 active — model/research expansion
 
-Adds task-level provider routing, model/prompt registry, evaluation-before-promotion, regression datasets, prompt-injection defenses, controlled feedback, thesis/catalyst tracking, and worker-controlled ephemeral GPU tasks.
+Checkpoint 21A adds a code-owned seven-task registry, bounded durable model and
+task-capability metadata, immutable prompt/schema/safety metadata, and one
+bounded provenance record per report-synthesis execution. It retains strict
+schema validation, deterministic-field restoration, untrusted-source prompt
+separation, and disabled-by-default synthesis. Private and organization scope
+requires a future server-owned private-provider approval and otherwise falls
+back deterministically. Checkpoints 21B–21F retain task routing, evaluation,
+quality feedback, research workflows, and compute governance; Phase 22 remains
+the later deployed-provider/legal validation phase.
 
 Deterministic risk and non-execution boundaries remain permanent.

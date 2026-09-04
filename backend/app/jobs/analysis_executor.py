@@ -42,6 +42,7 @@ class AnalysisJobExecutor:
                 report_id,
                 db,
                 actor=user_context(owner),
+                organization_id=job.organization_id,
                 cancellation=cancellation,
             )
             cancellation.raise_if_cancelled()
@@ -56,6 +57,7 @@ class AnalysisJobExecutor:
                         "analysis_depth": workflow_result.parsed_strategy.analysis_depth,
                     },
                     "report": workflow_result.report.model_dump(mode="json"),
+                    "model_run": workflow_result.model_run.to_payload(),
                 },
             )
 
