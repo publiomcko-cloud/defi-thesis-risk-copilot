@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, event, inspect
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, event, inspect
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -130,6 +130,8 @@ class ModelRunProvenanceModel(Base):
     task_version: Mapped[str] = mapped_column(String(32), nullable=False)
     prompt_version_id: Mapped[str] = mapped_column(ForeignKey("model_prompt_versions.id", ondelete="RESTRICT"), nullable=False)
     model_registry_id: Mapped[str | None] = mapped_column(ForeignKey("model_registry.id", ondelete="RESTRICT"), nullable=True)
+    route_version_id: Mapped[str | None] = mapped_column(ForeignKey("model_route_versions.id", ondelete="RESTRICT"), nullable=True)
+    evaluation_run_id: Mapped[str | None] = mapped_column(ForeignKey("model_evaluation_runs.id", ondelete="RESTRICT"), nullable=True)
     owner_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     organization_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True)
     anonymous_session_id: Mapped[str | None] = mapped_column(ForeignKey("anonymous_sessions.id", ondelete="SET NULL"), nullable=True)
@@ -148,6 +150,215 @@ class ModelRunProvenanceModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
 
 
+class ModelEvaluationDatasetModel(Base):
+    """Immutable identity for checked-in public or synthetic evaluation cases."""
+
+    __tablename__ = "model_evaluation_datasets"
+    __table_args__ = (
+        UniqueConstraint("task_key", "task_version", "dataset_version", name="uq_model_evaluation_dataset_version"),
+        UniqueConstraint("dataset_checksum", name="uq_model_evaluation_dataset_checksum"),
+        CheckConstraint(TASK_KEY_CHECK, name="ck_model_evaluation_datasets_task_key"),
+        CheckConstraint("length(task_version) BETWEEN 1 AND 32", name="ck_model_evaluation_datasets_task_version"),
+        CheckConstraint("length(dataset_version) BETWEEN 1 AND 64", name="ck_model_evaluation_datasets_version"),
+        CheckConstraint("length(purpose) BETWEEN 1 AND 128", name="ck_model_evaluation_datasets_purpose"),
+        CheckConstraint("length(dataset_checksum) = 64", name="ck_model_evaluation_datasets_checksum"),
+        CheckConstraint("case_count BETWEEN 1 AND 1000", name="ck_model_evaluation_datasets_case_count"),
+        CheckConstraint("lifecycle_state IN ('active', 'retired')", name="ck_model_evaluation_datasets_lifecycle"),
+        Index("ix_model_evaluation_datasets_task", "task_key", "task_version", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    task_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    task_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    dataset_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    purpose: Mapped[str] = mapped_column(String(128), nullable=False)
+    dataset_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    case_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    lifecycle_state: Mapped[str] = mapped_column(String(32), nullable=False, default="active")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+
+
+class ModelEvaluationRunModel(Base):
+    """Bounded durable evidence for one candidate against a versioned dataset."""
+
+    __tablename__ = "model_evaluation_runs"
+    __table_args__ = (
+        CheckConstraint(TASK_KEY_CHECK, name="ck_model_evaluation_runs_task_key"),
+        CheckConstraint("length(task_version) BETWEEN 1 AND 32", name="ck_model_evaluation_runs_task_version"),
+        CheckConstraint("environment IN ('development', 'test', 'staging', 'production', 'portfolio_demo', 'exercise')", name="ck_model_evaluation_runs_environment"),
+        CheckConstraint("baseline_type IN ('deterministic_fallback', 'promoted_route')", name="ck_model_evaluation_runs_baseline"),
+        CheckConstraint("status IN ('running', 'completed', 'failed')", name="ck_model_evaluation_runs_status"),
+        CheckConstraint("length(policy_version) BETWEEN 1 AND 64", name="ck_model_evaluation_runs_policy_version"),
+        CheckConstraint("length(policy_checksum) = 64", name="ck_model_evaluation_runs_policy_checksum"),
+        CheckConstraint("length(code_revision) BETWEEN 1 AND 64", name="ck_model_evaluation_runs_code_revision"),
+        CheckConstraint("case_count BETWEEN 0 AND 1000", name="ck_model_evaluation_runs_case_count"),
+        CheckConstraint("passed_case_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_passed_count"),
+        CheckConstraint("structured_output_valid_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_structure_count"),
+        CheckConstraint("deterministic_preserved_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_deterministic_count"),
+        CheckConstraint("source_integrity_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_source_count"),
+        CheckConstraint("missing_data_honesty_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_missing_count"),
+        CheckConstraint("unsafe_language_violation_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_unsafe_count"),
+        CheckConstraint("privacy_policy_violation_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_privacy_count"),
+        CheckConstraint("provider_failure_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_provider_failure_count"),
+        CheckConstraint("latency_known_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_latency_count"),
+        CheckConstraint("latency_total_ms >= 0", name="ck_model_evaluation_runs_latency_total"),
+        CheckConstraint("token_observation_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_token_count"),
+        CheckConstraint("input_tokens_total >= 0 AND output_tokens_total >= 0 AND total_tokens_total >= 0", name="ck_model_evaluation_runs_token_totals"),
+        CheckConstraint("cost_observation_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_cost_count"),
+        CheckConstraint("cost_microusd_total >= 0", name="ck_model_evaluation_runs_cost_total"),
+        CheckConstraint("failure_reason IS NULL OR length(failure_reason) BETWEEN 1 AND 64", name="ck_model_evaluation_runs_failure_reason"),
+        Index("ix_model_evaluation_runs_candidate", "candidate_model_registry_id", "started_at"),
+        Index("ix_model_evaluation_runs_task_status", "task_key", "task_version", "environment", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    task_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    task_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    dataset_id: Mapped[str] = mapped_column(ForeignKey("model_evaluation_datasets.id", ondelete="RESTRICT"), nullable=False)
+    candidate_model_registry_id: Mapped[str] = mapped_column(ForeignKey("model_registry.id", ondelete="RESTRICT"), nullable=False)
+    baseline_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    baseline_model_registry_id: Mapped[str | None] = mapped_column(ForeignKey("model_registry.id", ondelete="RESTRICT"), nullable=True)
+    baseline_route_version_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    prompt_version_id: Mapped[str] = mapped_column(ForeignKey("model_prompt_versions.id", ondelete="RESTRICT"), nullable=False)
+    environment: Mapped[str] = mapped_column(String(32), nullable=False)
+    policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    policy_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    code_revision: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="running")
+    case_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    passed_case_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    structured_output_valid_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    deterministic_preserved_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source_integrity_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    missing_data_honesty_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    unsafe_language_violation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    privacy_policy_violation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    provider_failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    latency_known_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    latency_total_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    token_observation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    input_tokens_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    output_tokens_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    total_tokens_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cost_observation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cost_microusd_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    promotion_eligible: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    failure_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ModelEvaluationCaseResultModel(Base):
+    """Immutable, redacted case-level evidence; fixtures remain checked in."""
+
+    __tablename__ = "model_evaluation_case_results"
+    __table_args__ = (
+        UniqueConstraint("evaluation_run_id", "case_id", name="uq_model_evaluation_case_result"),
+        CheckConstraint("length(case_id) BETWEEN 1 AND 64", name="ck_model_evaluation_case_results_case_id"),
+        CheckConstraint("length(case_checksum) = 64", name="ck_model_evaluation_case_results_checksum"),
+        CheckConstraint("reason_code IS NULL OR length(reason_code) BETWEEN 1 AND 64", name="ck_model_evaluation_case_results_reason"),
+        CheckConstraint("latency_ms IS NULL OR latency_ms BETWEEN 0 AND 3600000", name="ck_model_evaluation_case_results_latency"),
+        CheckConstraint("input_tokens IS NULL OR input_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_input_tokens"),
+        CheckConstraint("output_tokens IS NULL OR output_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_output_tokens"),
+        CheckConstraint("total_tokens IS NULL OR total_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_total_tokens"),
+        CheckConstraint("cost_microusd IS NULL OR cost_microusd >= 0", name="ck_model_evaluation_case_results_cost"),
+        Index("ix_model_evaluation_case_results_run", "evaluation_run_id", "case_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    evaluation_run_id: Mapped[str] = mapped_column(ForeignKey("model_evaluation_runs.id", ondelete="CASCADE"), nullable=False)
+    case_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    case_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    passed: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    structured_output_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    deterministic_preserved: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    source_integrity: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    missing_data_honesty: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    unsafe_language_violation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    privacy_policy_violation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    provider_failure: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    cost_microusd: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+
+
+class ModelRouteVersionModel(Base):
+    """Immutable promoted-route history; active authority lives in the assignment."""
+
+    __tablename__ = "model_route_versions"
+    __table_args__ = (
+        UniqueConstraint("task_key", "task_version", "environment", "route_version", name="uq_model_route_version"),
+        CheckConstraint(TASK_KEY_CHECK, name="ck_model_route_versions_task_key"),
+        CheckConstraint("length(task_version) BETWEEN 1 AND 32", name="ck_model_route_versions_task_version"),
+        CheckConstraint("environment IN ('development', 'test', 'staging', 'production', 'portfolio_demo', 'exercise')", name="ck_model_route_versions_environment"),
+        CheckConstraint("route_version > 0", name="ck_model_route_versions_version"),
+        CheckConstraint("route_state IN ('promoted')", name="ck_model_route_versions_state"),
+        Index("ix_model_route_versions_task", "task_key", "task_version", "environment", "route_version"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    task_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    task_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    environment: Mapped[str] = mapped_column(String(32), nullable=False)
+    route_version: Mapped[int] = mapped_column(Integer, nullable=False)
+    route_state: Mapped[str] = mapped_column(String(32), nullable=False, default="promoted")
+    model_registry_id: Mapped[str] = mapped_column(ForeignKey("model_registry.id", ondelete="RESTRICT"), nullable=False)
+    prompt_version_id: Mapped[str] = mapped_column(ForeignKey("model_prompt_versions.id", ondelete="RESTRICT"), nullable=False)
+    evaluation_run_id: Mapped[str] = mapped_column(ForeignKey("model_evaluation_runs.id", ondelete="RESTRICT"), nullable=False)
+    previous_route_version_id: Mapped[str | None] = mapped_column(ForeignKey("model_route_versions.id", ondelete="RESTRICT"), nullable=True)
+    created_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+
+
+class ModelRouteAssignmentModel(Base):
+    """The one mutable, lockable task/environment runtime authority pointer."""
+
+    __tablename__ = "model_route_assignments"
+    __table_args__ = (
+        UniqueConstraint("task_key", "task_version", "environment", name="uq_model_route_assignment_scope"),
+        CheckConstraint(TASK_KEY_CHECK, name="ck_model_route_assignments_task_key"),
+        CheckConstraint("length(task_version) BETWEEN 1 AND 32", name="ck_model_route_assignments_task_version"),
+        CheckConstraint("environment IN ('development', 'test', 'staging', 'production', 'portfolio_demo', 'exercise')", name="ck_model_route_assignments_environment"),
+        CheckConstraint("assignment_generation >= 0", name="ck_model_route_assignments_generation"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    task_key: Mapped[str] = mapped_column(String(64), nullable=False)
+    task_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    environment: Mapped[str] = mapped_column(String(32), nullable=False)
+    active_route_version_id: Mapped[str | None] = mapped_column(ForeignKey("model_route_versions.id", ondelete="RESTRICT"), nullable=True)
+    assignment_generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+
+
+class ModelRouteTransitionModel(Base):
+    """Immutable, bounded promotion and rollback history."""
+
+    __tablename__ = "model_route_transitions"
+    __table_args__ = (
+        CheckConstraint("action IN ('promoted', 'rolled_back')", name="ck_model_route_transitions_action"),
+        CheckConstraint("reason_code IS NULL OR length(reason_code) BETWEEN 1 AND 64", name="ck_model_route_transitions_reason"),
+        CheckConstraint("assignment_generation >= 0", name="ck_model_route_transitions_generation"),
+        Index("ix_model_route_transitions_assignment", "assignment_id", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    assignment_id: Mapped[str] = mapped_column(ForeignKey("model_route_assignments.id", ondelete="RESTRICT"), nullable=False)
+    action: Mapped[str] = mapped_column(String(32), nullable=False)
+    from_route_version_id: Mapped[str | None] = mapped_column(ForeignKey("model_route_versions.id", ondelete="RESTRICT"), nullable=True)
+    to_route_version_id: Mapped[str | None] = mapped_column(ForeignKey("model_route_versions.id", ondelete="RESTRICT"), nullable=True)
+    evaluation_run_id: Mapped[str | None] = mapped_column(ForeignKey("model_evaluation_runs.id", ondelete="RESTRICT"), nullable=True)
+    actor_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    assignment_generation: Mapped[int] = mapped_column(Integer, nullable=False)
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+
+
 def _reject_prompt_update(_mapper, _connection, _target) -> None:
     raise ValueError("Model prompt version rows are immutable")
 
@@ -161,5 +372,45 @@ def _reject_model_run_update(_mapper, _connection, target) -> None:
     raise ValueError("Model run provenance rows are immutable")
 
 
+def _reject_model_evaluation_dataset_update(_mapper, _connection, _target) -> None:
+    raise ValueError("Model evaluation dataset rows are immutable")
+
+
+def _reject_completed_model_evaluation_run_update(_mapper, _connection, target) -> None:
+    history = inspect(target).attrs.status.history
+    previous = history.deleted[0] if history.deleted else (history.unchanged[0] if history.unchanged else None)
+    if previous in {"completed", "failed"}:
+        raise ValueError("Completed model evaluation runs are immutable")
+
+
+def _reject_model_evaluation_case_result_update(_mapper, _connection, _target) -> None:
+    raise ValueError("Model evaluation case result rows are immutable")
+
+
+def _reject_model_route_version_update(_mapper, _connection, _target) -> None:
+    raise ValueError("Model route version rows are immutable")
+
+
+def _reject_model_route_transition_update(_mapper, _connection, _target) -> None:
+    raise ValueError("Model route transition rows are immutable")
+
+
+def _reject_governance_evidence_delete(_mapper, _connection, _target) -> None:
+    raise ValueError("Model evaluation and route evidence rows are immutable")
+
+
 event.listen(ModelPromptVersionModel, "before_update", _reject_prompt_update)
 event.listen(ModelRunProvenanceModel, "before_update", _reject_model_run_update)
+event.listen(ModelEvaluationDatasetModel, "before_update", _reject_model_evaluation_dataset_update)
+event.listen(ModelEvaluationRunModel, "before_update", _reject_completed_model_evaluation_run_update)
+event.listen(ModelEvaluationCaseResultModel, "before_update", _reject_model_evaluation_case_result_update)
+event.listen(ModelRouteVersionModel, "before_update", _reject_model_route_version_update)
+event.listen(ModelRouteTransitionModel, "before_update", _reject_model_route_transition_update)
+for _immutable_model in (
+    ModelEvaluationDatasetModel,
+    ModelEvaluationRunModel,
+    ModelEvaluationCaseResultModel,
+    ModelRouteVersionModel,
+    ModelRouteTransitionModel,
+):
+    event.listen(_immutable_model, "before_delete", _reject_governance_evidence_delete)

@@ -1,5 +1,6 @@
 from app.rag.citations import results_to_sources
 from app.rag.retriever import RetrievalResult
+from sqlalchemy.orm import Session
 from app.risk.checklist import generate_monitoring_checklist
 from app.risk.framework import RiskScore
 from app.risk.scenarios import generate_stress_scenarios
@@ -34,6 +35,7 @@ def write_research_report(
     market_data: MarketDataResponse,
     missing_data: list[str],
     content_scope: str = "public",
+    db: Session | None = None,
 ) -> SynthesisResult:
     stress_scenarios = generate_stress_scenarios(risk_score)
     monitoring_checklist = generate_monitoring_checklist(risk_score)
@@ -123,6 +125,7 @@ def write_research_report(
         market_data=market_data,
         risk_score=risk_score,
         content_scope=content_scope,
+        db=db,
     )
 
 

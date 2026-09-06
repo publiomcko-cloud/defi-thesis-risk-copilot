@@ -14,8 +14,10 @@ from app.llm.prompts import report_synthesis_prompt_definition
 from app.llm.provenance import ModelIdentity, ModelRunCandidate
 from app.llm.task_registry import get_model_task_definition
 from app.models.model_governance import (
+    ModelEvaluationRunModel,
     ModelPromptVersionModel,
     ModelRegistryModel,
+    ModelRouteVersionModel,
     ModelRunProvenanceModel,
     ModelTaskCapabilityModel,
 )
@@ -123,6 +125,7 @@ def record_model_run_provenance(
     prompt = ensure_report_synthesis_prompt_version(db)
     _assert_candidate_prompt_linkage(candidate, prompt)
     model = ensure_configured_model_registration(db, candidate.provider) if candidate.provider else None
+    _assert_candidate_route_linkage(db, candidate, model)
     existing = db.execute(
         select(ModelRunProvenanceModel)
         .where(ModelRunProvenanceModel.report_id == report_id)
@@ -139,6 +142,8 @@ def record_model_run_provenance(
         task_version=candidate.task_version,
         prompt_version_id=prompt.id,
         model_registry_id=model.id if model else None,
+        route_version_id=candidate.route_version_id,
+        evaluation_run_id=candidate.evaluation_run_id,
         owner_user_id=owner_user_id,
         organization_id=organization_id,
         anonymous_session_id=anonymous_session_id,
@@ -187,6 +192,8 @@ def disabled_report_synthesis_candidate(candidate: ModelRunCandidate) -> ModelRu
         output_tokens=None,
         total_tokens=None,
         cost_microusd=None,
+        route_version_id=None,
+        evaluation_run_id=None,
     )
 
 
@@ -203,6 +210,8 @@ def export_model_run_provenance(db: Session, owner_user_id: str) -> list[dict]:
             "task_version": row.task_version,
             "prompt_version_id": row.prompt_version_id,
             "model_registry_id": row.model_registry_id,
+            "route_version_id": row.route_version_id,
+            "evaluation_run_id": row.evaluation_run_id,
             "organization_id": row.organization_id,
             "scope_class": row.scope_class,
             "deterministic_input_checksum": row.deterministic_input_checksum,
@@ -318,6 +327,31 @@ def _assert_candidate_prompt_linkage(candidate: ModelRunCandidate, prompt: Model
     }
     if any(getattr(candidate, key) != value for key, value in expected.items()):
         raise ModelGovernanceConflict("Model run provenance does not match the code-owned prompt version")
+
+
+def _assert_candidate_route_linkage(
+    db: Session,
+    candidate: ModelRunCandidate,
+    model: ModelRegistryModel | None,
+) -> None:
+    """Accept a route reference only when it matches the durable promotion evidence."""
+
+    if candidate.route_version_id is None and candidate.evaluation_run_id is None:
+        return
+    if not candidate.route_version_id or not candidate.evaluation_run_id or model is None:
+        raise ModelGovernanceConflict("Model route provenance linkage is incomplete")
+    route = db.get(ModelRouteVersionModel, candidate.route_version_id)
+    evaluation = db.get(ModelEvaluationRunModel, candidate.evaluation_run_id)
+    if (
+        route is None
+        or evaluation is None
+        or route.evaluation_run_id != evaluation.id
+        or route.model_registry_id != model.id
+        or evaluation.candidate_model_registry_id != model.id
+        or route.prompt_version_id != REPORT_SYNTHESIS_PROMPT_ID
+        or evaluation.prompt_version_id != REPORT_SYNTHESIS_PROMPT_ID
+    ):
+        raise ModelGovernanceConflict("Model route provenance linkage is invalid")
 
 
 def _stable_id(prefix: str, *parts: str) -> str:

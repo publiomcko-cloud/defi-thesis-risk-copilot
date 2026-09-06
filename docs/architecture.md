@@ -756,12 +756,18 @@ web-request timer.
 
 Checkpoint 21A adds a code-owned seven-task registry, bounded durable model and
 task-capability metadata, immutable prompt/schema/safety metadata, and one
-bounded provenance record per report-synthesis execution. It retains strict
-schema validation, deterministic-field restoration, untrusted-source prompt
-separation, and disabled-by-default synthesis. Private and organization scope
-requires a future server-owned private-provider approval and otherwise falls
-back deterministically. Checkpoints 21B–21F retain task routing, evaluation,
-quality feedback, research workflows, and compute governance; Phase 22 remains
-the later deployed-provider/legal validation phase.
+bounded provenance record per report-synthesis execution. Checkpoint 21B adds
+the `0031` evaluation/route authority: a checked-in public/synthetic dataset,
+immutable evaluation and route history, and a single lockable active assignment
+per task/version/server environment. `report_synthesis.promotion.v1` has hard
+schema, deterministic, source, missing-data, unsafe, privacy, provider-failure,
+and latency gates; evaluation never promotes automatically. Runtime checks the
+global disabled kill switch, route/evidence/model/prompt linkage, exact
+server-configured adapter identity, and private/organization privacy before it
+may invoke a provider. Otherwise it deterministically falls back. 21A
+provenance records safe route/evaluation references on routed work. There is no
+browser provider authority, paid-provider activation, or production activation.
+Checkpoint 21C is next; 21D–21F remain planned and Phase 22 remains the later
+deployed-provider/legal validation phase.
 
 Deterministic risk and non-execution boundaries remain permanent.

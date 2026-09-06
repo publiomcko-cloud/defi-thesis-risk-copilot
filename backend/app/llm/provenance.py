@@ -67,6 +67,8 @@ class ModelRunCandidate:
     output_tokens: int | None
     total_tokens: int | None
     cost_microusd: int | None
+    route_version_id: str | None = None
+    evaluation_run_id: str | None = None
 
     def to_payload(self) -> dict[str, Any]:
         """Return the safe worker envelope; no prompt, sources, or response text."""
@@ -101,6 +103,8 @@ class ModelRunCandidate:
             "output_tokens": self.output_tokens,
             "total_tokens": self.total_tokens,
             "cost_microusd": self.cost_microusd,
+            "route_version_id": self.route_version_id,
+            "evaluation_run_id": self.evaluation_run_id,
         }
 
 
@@ -168,6 +172,8 @@ def build_report_synthesis_candidate(
         output_tokens=result.output_tokens,
         total_tokens=result.total_tokens,
         cost_microusd=result.cost_microusd,
+        route_version_id=result.route_version_id,
+        evaluation_run_id=result.evaluation_run_id,
     )
 
 
@@ -219,6 +225,8 @@ def candidate_from_payload(payload: object) -> ModelRunCandidate:
         output_tokens=_optional_int(payload.get("output_tokens"), 0, 10_000_000),
         total_tokens=_optional_int(payload.get("total_tokens"), 0, 10_000_000),
         cost_microusd=_optional_int(payload.get("cost_microusd"), 0, 2_147_483_647),
+        route_version_id=_optional_identifier(payload.get("route_version_id")),
+        evaluation_run_id=_optional_identifier(payload.get("evaluation_run_id")),
     )
 
 
@@ -353,6 +361,14 @@ def _checksum(value: object) -> str:
 
 def _optional_checksum(value: object) -> str | None:
     return None if value is None else _checksum(value)
+
+
+def _optional_identifier(value: object) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not _IDENTIFIER.fullmatch(value):
+        raise ValueError("Model provenance identifier is invalid")
+    return value
 
 
 def _bounded_int(value: object, lower: int, upper: int) -> int:

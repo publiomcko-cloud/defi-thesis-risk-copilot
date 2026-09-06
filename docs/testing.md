@@ -668,10 +668,28 @@ The SQLite and PostgreSQL migration cycles prove
 `0029 -> 0030 -> 0029 -> 0030`, preserving Phase 20 structures and the
 seven `free-v1` limits while removing only 21A state on downgrade. The
 PostgreSQL suite also proves concurrent configured-model registration has one
-durable registry/capability result. 21B–21F must extend this coverage for
-routing/promotion, adversarial quality, feedback, research intelligence, and
-worker compute. These local/CI checks do not claim hosted, paid-provider,
-private-provider, or production activation evidence.
+durable registry/capability result.
+
+Checkpoint 21B adds checked-in public/synthetic corpus, durable redacted
+evaluation evidence, hard promotion policy checks, explicit promotion and
+rollback, runtime route resolution, route/evaluation provenance, and no-route,
+identity-mismatch, and private-policy fallback coverage. It does not call a
+paid provider.
+
+```bash
+cd backend
+python -m compileall -q app scripts migrations
+python -m pytest -q app/tests/test_phase21b_model_routing.py \
+  app/tests/test_phase21b_sqlite_migration.py app/tests/test_phase21a_model_governance.py
+RUN_POSTGRES_INTEGRATION=true python -m pytest -q app/tests/test_phase21b_postgres.py
+```
+
+The 21B cycles prove `0030 -> 0031 -> 0030 -> 0031`, including Phase 20
+`free-v1`, historical prompt v1, runtime prompt v2 materialization, and removal
+of only 21B tables/provenance columns on downgrade. PostgreSQL also exercises
+simultaneous promotions and promotion-vs-rollback locking with one consistent
+active assignment/history. These local/CI checks do not claim hosted,
+paid-provider, private-provider, or production activation evidence.
 
 ## 11. CI expectations
 

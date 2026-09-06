@@ -69,7 +69,7 @@ V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
 V1 Phase 20 — Complete — Portfolio Profile and merged at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 20E is omitted, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
-V1 Phase 21 — Active on `agent/v1-phase-21-model-research-intelligence`; 21A model governance is implemented and 21B–21F remain planned
+V1 Phase 21 — Active on `agent/v1-phase-21-model-research-intelligence`; 21A model governance and 21B evaluated routing are implemented, 21C–21F remain planned
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -535,11 +535,14 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   hosted merge gate; Phase 20J then merged through PR #31 as
   `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`.
 - Phase 21 — active model and research-intelligence expansion on
-  `agent/v1-phase-21-model-research-intelligence`. Checkpoint 21A adds only
-  bounded model governance/provenance for the existing report-synthesis path;
-  synthesis remains disabled by default, private/organization provider use
-  fails closed unless a future server-owned approval exists, and 21B–21F remain
-  unstarted.
+  `agent/v1-phase-21-model-research-intelligence`. Checkpoints 21A and 21B
+  add bounded governance/provenance plus evaluated `report_synthesis` routing:
+  only an explicit platform-admin promotion of immutable public/synthetic
+  evidence can set the one server-owned route assignment. Configuration and
+  registration alone are not runtime authority; disabled/no-route/mismatch/
+  privacy failure stays deterministic. Synthesis remains disabled by default,
+  private/organization provider use fails closed unless the exact promoted
+  server-owned model is `private_approved`, and 21C–21F remain unstarted.
 - Phase 22 — final provider, legal, and launch validation.
 
 See [`future_phase_contracts.md`](future_phase_contracts.md) for complete requirements.

@@ -22,6 +22,7 @@ from app.llm.governance import (
     ensure_report_synthesis_prompt_version,
     record_model_run_provenance,
 )
+from app.llm.evaluation import evaluate_report_synthesis_candidate, promote_evaluation_route
 from app.llm.prompts import (
     REPORT_SYNTHESIS_STATIC_PROMPT_CONTRACT,
     _prompt_contract_checksum,
@@ -452,8 +453,9 @@ def test_async_private_provenance_policy_and_worker_scope_are_server_derived(gov
         persist_async_analysis_completion(db, denied_job, _async_worker_result(denied_job))
         denied = _model_run_for_job(db, denied_job)
         assert denied.scope_class == "private"
-        assert denied.validation_result == "policy_denied"
+        assert denied.validation_result == "not_run"
         assert denied.outcome == "provider_unavailable"
+        assert denied.fallback_reason == "no_promoted_route"
 
         approved = PrivateApprovedProvider()
         identity = provider_identity(approved)
@@ -467,9 +469,9 @@ def test_async_private_provenance_policy_and_worker_scope_are_server_derived(gov
         )
         accepted = _model_run_for_job(db, accepted_job)
         assert accepted.scope_class == "private"
-        assert accepted.outcome == "succeeded"
-        assert accepted.validation_result == "accepted"
-        assert accepted.fallback_reason is None
+        assert accepted.outcome == "provider_unavailable"
+        assert accepted.validation_result == "not_run"
+        assert accepted.fallback_reason == "no_promoted_route"
 
         mismatched_job = _async_analysis_job(db, owner.id, "private_mismatch")
         persist_async_analysis_completion(
@@ -479,8 +481,8 @@ def test_async_private_provenance_policy_and_worker_scope_are_server_derived(gov
         )
         mismatched = _model_run_for_job(db, mismatched_job)
         assert mismatched.scope_class == "private"
-        assert mismatched.outcome == "provider_failure"
-        assert mismatched.fallback_reason == "worker_model_provenance_mismatch"
+        assert mismatched.outcome == "provider_unavailable"
+        assert mismatched.fallback_reason == "no_promoted_route"
 
         forged_identity = ModelIdentity(
             "forged_provider",
@@ -497,8 +499,51 @@ def test_async_private_provenance_policy_and_worker_scope_are_server_derived(gov
         )
         forged = _model_run_for_job(db, forged_job)
         assert forged.scope_class == "private"
-        assert forged.outcome == "provider_failure"
-        assert forged.fallback_reason == "worker_model_provenance_mismatch"
+        assert forged.outcome == "provider_unavailable"
+        assert forged.fallback_reason == "no_promoted_route"
+
+
+def test_async_completion_accepts_only_the_same_promoted_route_authority(governance_session, monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, "phase21b-async-route@example.test", role="admin")
+        provider = SafeProvider()
+        provider.privacy_classification = "private_approved"
+        identity = provider_identity(provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
+
+        accepted_job = _async_analysis_job(db, owner.id, "promoted_route")
+        persist_async_analysis_completion(
+            db,
+            accepted_job,
+            _async_worker_result(
+                accepted_job,
+                model_run=_valid_worker_model_run(
+                    accepted_job,
+                    "private",
+                    identity,
+                    route_version_id=route.id,
+                    evaluation_run_id=evaluation.id,
+                ),
+            ),
+        )
+        accepted = _model_run_for_job(db, accepted_job)
+        assert accepted.outcome == "succeeded"
+        assert (accepted.route_version_id, accepted.evaluation_run_id) == (route.id, evaluation.id)
+
+        stale_job = _async_analysis_job(db, owner.id, "stale_route")
+        persist_async_analysis_completion(
+            db,
+            stale_job,
+            _async_worker_result(stale_job, model_run=_valid_worker_model_run(stale_job, "private", identity)),
+        )
+        stale = _model_run_for_job(db, stale_job)
+        assert stale.outcome == "provider_failure"
+        assert stale.fallback_reason == "worker_model_provenance_mismatch"
 
 
 def test_async_organization_provenance_policy_and_worker_scope_are_server_derived(governance_session, monkeypatch) -> None:
@@ -542,7 +587,8 @@ def test_async_organization_provenance_policy_and_worker_scope_are_server_derive
         persist_async_analysis_completion(db, denied_job, _async_worker_result(denied_job))
         denied = _model_run_for_job(db, denied_job)
         assert denied.scope_class == "organization"
-        assert denied.validation_result == "policy_denied"
+        assert denied.validation_result == "not_run"
+        assert denied.fallback_reason == "no_promoted_route"
 
         approved = PrivateApprovedProvider()
         identity = provider_identity(approved)
@@ -556,7 +602,8 @@ def test_async_organization_provenance_policy_and_worker_scope_are_server_derive
         )
         accepted = _model_run_for_job(db, accepted_job)
         assert accepted.scope_class == "organization"
-        assert accepted.outcome == "succeeded"
+        assert accepted.outcome == "provider_unavailable"
+        assert accepted.fallback_reason == "no_promoted_route"
 
         for suffix, worker_scope in (("organization_private_mismatch", "private"), ("organization_public_mismatch", "public")):
             mismatched_job = _async_analysis_job(db, owner.id, suffix, organization_id=organization.id)
@@ -567,8 +614,8 @@ def test_async_organization_provenance_policy_and_worker_scope_are_server_derive
             )
             mismatched = _model_run_for_job(db, mismatched_job)
             assert mismatched.scope_class == "organization"
-            assert mismatched.outcome == "provider_failure"
-            assert mismatched.fallback_reason == "worker_model_provenance_mismatch"
+            assert mismatched.outcome == "provider_unavailable"
+            assert mismatched.fallback_reason == "no_promoted_route"
 
 
 @pytest.mark.parametrize(
@@ -676,7 +723,14 @@ def _async_worker_result(job: JobModel, *, model_run: dict | None = None) -> dic
     return result
 
 
-def _valid_worker_model_run(job: JobModel, scope_class: str, identity: ModelIdentity) -> dict:
+def _valid_worker_model_run(
+    job: JobModel,
+    scope_class: str,
+    identity: ModelIdentity,
+    *,
+    route_version_id: str | None = None,
+    evaluation_run_id: str | None = None,
+) -> dict:
     report = _report(report_id=job.input_json["_server_context"]["report_id"])
     prompt = report_synthesis_prompt_definition()
     return ModelRunCandidate(
@@ -699,6 +753,8 @@ def _valid_worker_model_run(job: JobModel, scope_class: str, identity: ModelIden
         output_tokens=1,
         total_tokens=2,
         cost_microusd=0,
+        route_version_id=route_version_id,
+        evaluation_run_id=evaluation_run_id,
     ).to_payload()
 
 

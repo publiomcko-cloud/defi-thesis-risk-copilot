@@ -12,8 +12,14 @@ from app.models.evaluation_result import EvaluationResultModel
 from app.models.job import JobAttemptModel, JobCapacityReservationModel, JobEventModel, JobModel, ProviderCostReservationModel
 from app.models.market_data_cache import MarketDataCacheModel
 from app.models.model_governance import (
+    ModelEvaluationCaseResultModel,
+    ModelEvaluationDatasetModel,
+    ModelEvaluationRunModel,
     ModelPromptVersionModel,
     ModelRegistryModel,
+    ModelRouteAssignmentModel,
+    ModelRouteTransitionModel,
+    ModelRouteVersionModel,
     ModelRunProvenanceModel,
     ModelTaskCapabilityModel,
 )
@@ -68,8 +74,14 @@ __all__ = [
     "JobModel",
     "ProviderCostReservationModel",
     "MarketDataCacheModel",
+    "ModelEvaluationCaseResultModel",
+    "ModelEvaluationDatasetModel",
+    "ModelEvaluationRunModel",
     "ModelPromptVersionModel",
     "ModelRegistryModel",
+    "ModelRouteAssignmentModel",
+    "ModelRouteTransitionModel",
+    "ModelRouteVersionModel",
     "ModelRunProvenanceModel",
     "ModelTaskCapabilityModel",
     "KnowledgeBaseIngestionModel",

@@ -1,14 +1,17 @@
 import json
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from time import perf_counter
 from typing import Any
 
 from app.core.config import get_settings
+from sqlalchemy.orm import Session
+
 from app.llm.base import LLMProvider, LLMRequest
 from app.llm.prompts import SYNTHESIZABLE_SECTION_TITLES, build_report_synthesis_prompt
 from app.llm.provenance import ModelIdentity, provider_identity, provider_is_eligible_for_scope
-from app.llm.providers import get_llm_provider
+from app.llm.routing import RouteResolution, resolve_report_synthesis_route
 from app.rag.retriever import RetrievalResult
 from app.reports.renderer import validate_report_structure
 from app.risk.framework import RiskScore
@@ -22,6 +25,7 @@ LLM_USED_ASSUMPTION = (
 LLM_SKIPPED_ASSUMPTION = (
     "Optional LLM synthesis was skipped or unavailable; deterministic report template wording was used."
 )
+_URL_PATTERN = re.compile(r"https?://[^\s<>\]\[\"')]+", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -38,6 +42,8 @@ class SynthesisResult:
     output_tokens: int | None = None
     total_tokens: int | None = None
     cost_microusd: int | None = None
+    route_version_id: str | None = None
+    evaluation_run_id: str | None = None
 
 
 class SynthesisValidationError(ValueError):
@@ -54,29 +60,69 @@ def synthesize_report(
     risk_score: RiskScore,
     provider: LLMProvider | None = None,
     content_scope: str = "public",
+    db: Session | None = None,
 ) -> SynthesisResult:
+    """Synthesize only through the durable route in production workflows.
+
+    A direct provider is retained only for legacy unit tests and the internal
+    evaluation executor, both of which have no application database context.
+    Runtime callers always pass ``db`` and cannot turn adapter configuration
+    into authority.
+    """
+
     settings = get_settings()
     if not settings.llm_synthesis_enabled:
-        return SynthesisResult(
-            report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
-            used_llm=False,
-            reason="disabled",
-            outcome="disabled",
-            validation_result="not_run",
-            fallback_reason="synthesis_disabled",
+        return _resolution_fallback(base_report, RouteResolution(None, None, "disabled", "not_run", "synthesis_disabled"))
+
+    if db is not None:
+        resolution = resolve_report_synthesis_route(
+            db,
+            content_scope=content_scope,
+            configured_provider=provider,
+            settings=settings,
+        )
+        if resolution.provider is None:
+            return _resolution_fallback(base_report, resolution)
+        return _synthesize_with_provider(
+            base_report,
+            retrieved_context,
+            market_data,
+            risk_score,
+            resolution.provider,
+            content_scope,
+            route_version_id=resolution.route_version_id,
+            evaluation_run_id=resolution.evaluation_run_id,
         )
 
-    active_provider = provider or get_llm_provider(settings)
-    if active_provider is None:
-        return SynthesisResult(
-            report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
-            used_llm=False,
-            reason="provider_unavailable",
-            outcome="provider_unavailable",
-            validation_result="not_run",
-            fallback_reason="provider_unavailable",
-        )
+    if provider is None:
+        return _resolution_fallback(base_report, RouteResolution(None, None, "provider_unavailable", "not_run", "no_route_context"))
+    return _synthesize_with_provider(base_report, retrieved_context, market_data, risk_score, provider, content_scope)
 
+
+def synthesize_report_for_evaluation(
+    base_report: ReportResponse,
+    retrieved_context: list[RetrievalResult],
+    market_data: MarketDataResponse,
+    risk_score: RiskScore,
+    provider: LLMProvider,
+) -> SynthesisResult:
+    """Internal deterministic evaluator helper; it is never a runtime route."""
+
+    return _synthesize_with_provider(base_report, retrieved_context, market_data, risk_score, provider, "public")
+
+
+def _synthesize_with_provider(
+    base_report: ReportResponse,
+    retrieved_context: list[RetrievalResult],
+    market_data: MarketDataResponse,
+    risk_score: RiskScore,
+    active_provider: LLMProvider,
+    content_scope: str,
+    *,
+    route_version_id: str | None = None,
+    evaluation_run_id: str | None = None,
+) -> SynthesisResult:
+    settings = get_settings()
     identity = provider_identity(active_provider)
     if not provider_is_eligible_for_scope(identity, content_scope):
         return SynthesisResult(
@@ -87,6 +133,8 @@ def synthesize_report(
             validation_result="policy_denied",
             fallback_reason="private_provider_not_approved",
             provider=identity,
+            route_version_id=route_version_id,
+            evaluation_run_id=evaluation_run_id,
         )
 
     started = perf_counter()
@@ -123,13 +171,15 @@ def synthesize_report(
             output_tokens=response.output_tokens,
             total_tokens=response.total_tokens,
             cost_microusd=response.cost_microusd,
+            route_version_id=route_version_id,
+            evaluation_run_id=evaluation_run_id,
         )
     except json.JSONDecodeError:
-        return _validation_fallback(base_report, identity, started, "invalid_json", "malformed_json")
+        return _validation_fallback(base_report, identity, started, "invalid_json", "malformed_json", route_version_id, evaluation_run_id)
     except SynthesisValidationError as exc:
-        return _validation_fallback(base_report, identity, started, exc.result, exc.reason)
+        return _validation_fallback(base_report, identity, started, exc.result, exc.reason, route_version_id, evaluation_run_id)
     except ValueError:
-        return _validation_fallback(base_report, identity, started, "schema_invalid", "schema_validation_failed")
+        return _validation_fallback(base_report, identity, started, "schema_invalid", "schema_validation_failed", route_version_id, evaluation_run_id)
     except Exception:
         return SynthesisResult(
             report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
@@ -140,6 +190,8 @@ def synthesize_report(
             fallback_reason="provider_error",
             provider=identity,
             latency_ms=_elapsed_ms(started),
+            route_version_id=route_version_id,
+            evaluation_run_id=evaluation_run_id,
         )
 
 
@@ -149,6 +201,8 @@ def _validation_fallback(
     started: float,
     validation_result: str,
     fallback_reason: str,
+    route_version_id: str | None = None,
+    evaluation_run_id: str | None = None,
 ) -> SynthesisResult:
     return SynthesisResult(
         report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
@@ -159,6 +213,22 @@ def _validation_fallback(
         fallback_reason=fallback_reason,
         provider=provider,
         latency_ms=_elapsed_ms(started),
+        route_version_id=route_version_id,
+        evaluation_run_id=evaluation_run_id,
+    )
+
+
+def _resolution_fallback(base_report: ReportResponse, resolution: RouteResolution) -> SynthesisResult:
+    return SynthesisResult(
+        report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
+        used_llm=False,
+        reason=resolution.outcome,
+        outcome=resolution.outcome,
+        validation_result=resolution.validation_result,
+        fallback_reason=resolution.fallback_reason,
+        provider=resolution.identity,
+        route_version_id=resolution.route_version_id,
+        evaluation_run_id=resolution.evaluation_run_id,
     )
 
 
@@ -166,6 +236,7 @@ def _apply_allowed_synthesis(
     base_report: ReportResponse,
     payload: dict[str, Any],
 ) -> ReportResponse:
+    _validate_source_integrity(base_report, payload)
     report = base_report.model_copy(deep=True)
     executive_summary = payload["executive_summary"]
     report.executive_summary = executive_summary.strip()
@@ -179,6 +250,16 @@ def _apply_allowed_synthesis(
     _enforce_immutable_fields(report, base_report)
     validate_report_structure(report)
     return report
+
+
+def _validate_source_integrity(base_report: ReportResponse, payload: dict[str, Any]) -> None:
+    """Only report-owned source URLs may be repeated in generated wording."""
+
+    known_urls = {source.url for source in base_report.sources if source.url}
+    generated_text = [payload["executive_summary"], *payload["sections"].values()]
+    for text in generated_text:
+        if any(url not in known_urls for url in _URL_PATTERN.findall(text)):
+            raise SynthesisValidationError("schema_invalid", "unsupported_source_claim")
 
 
 def _enforce_immutable_fields(report: ReportResponse, base_report: ReportResponse) -> None:

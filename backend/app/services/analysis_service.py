@@ -22,11 +22,10 @@ from app.llm.provenance import (
     candidate_from_payload,
     deterministic_report_input_checksum,
     fallback_report_synthesis_candidate,
-    provider_identity,
-    provider_is_eligible_for_scope,
     scope_class_for_actor,
     scope_class_for_async_analysis_job,
 )
+from app.llm.routing import resolve_report_synthesis_route
 from app.llm.providers import get_llm_provider
 from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
@@ -235,7 +234,7 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
     record_model_run_provenance(
         db,
         report_id=report.report_id,
-        candidate=_authoritative_async_model_candidate(result_json, report, job, scope_class),
+        candidate=_authoritative_async_model_candidate(db, result_json, report, job, scope_class),
         owner_user_id=job.owner_user_id,
         organization_id=job.organization_id,
         anonymous_session_id=None,
@@ -279,40 +278,27 @@ def _async_job_context(job: JobModel) -> dict[str, str]:
 
 
 def _authoritative_async_model_candidate(
+    db: Session,
     result_json: dict,
     report: ReportResponse,
     job: JobModel,
     scope_class: str,
 ):
-    """Accept worker metadata only when it agrees with server configuration."""
+    """Accept worker metadata only when it agrees with the same route authority."""
 
-    settings = get_settings()
-    if not settings.llm_synthesis_enabled:
+    resolution = resolve_report_synthesis_route(
+        db,
+        content_scope=scope_class,
+        configured_provider=get_llm_provider(get_settings()),
+    )
+    if resolution.provider is None:
         return fallback_report_synthesis_candidate(
             report,
             scope_class=scope_class,
-            outcome="disabled",
-            validation_result="not_run",
-            fallback_reason="synthesis_disabled",
-        )
-    active_provider = get_llm_provider(settings)
-    identity = provider_identity(active_provider) if active_provider is not None else None
-    if identity is None:
-        return fallback_report_synthesis_candidate(
-            report,
-            scope_class=scope_class,
-            outcome="provider_unavailable",
-            validation_result="not_run",
-            fallback_reason="provider_unavailable",
-        )
-    if not provider_is_eligible_for_scope(identity, scope_class):
-        return fallback_report_synthesis_candidate(
-            report,
-            scope_class=scope_class,
-            outcome="provider_unavailable",
-            validation_result="policy_denied",
-            fallback_reason="private_provider_not_approved",
-            provider=identity,
+            outcome=resolution.outcome,
+            validation_result=resolution.validation_result,
+            fallback_reason=resolution.fallback_reason or "route_resolution_failed",
+            provider=resolution.identity,
         )
     try:
         candidate = candidate_from_payload(result_json.get("model_run"))
@@ -323,13 +309,15 @@ def _authoritative_async_model_candidate(
             outcome="provider_failure",
             validation_result="provider_error",
             fallback_reason="worker_model_provenance_invalid",
-            provider=identity,
+            provider=resolution.identity,
         )
     if (
         candidate.task_key != "report_synthesis"
         or candidate.scope_class != scope_class
-        or candidate.provider != identity
+        or candidate.provider != resolution.identity
         or candidate.deterministic_input_checksum != deterministic_report_input_checksum(report)
+        or candidate.route_version_id != resolution.route_version_id
+        or candidate.evaluation_run_id != resolution.evaluation_run_id
     ):
         return fallback_report_synthesis_candidate(
             report,
@@ -337,6 +325,6 @@ def _authoritative_async_model_candidate(
             outcome="provider_failure",
             validation_result="provider_error",
             fallback_reason="worker_model_provenance_mismatch",
-            provider=identity,
+            provider=resolution.identity,
         )
     return candidate

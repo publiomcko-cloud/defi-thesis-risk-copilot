@@ -1,6 +1,6 @@
 # V1 Phase 21 Execution Plan — Model and Research Intelligence Expansion
 
-Status: **Active — checkpoint 21A implemented; review required before 21B.**
+Status: **Active — checkpoints 21A and 21B implemented; 21C is next.**
 
 Base merge: `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`
 
@@ -76,7 +76,7 @@ until every later checkpoint is complete.
 Goal: replace global provider choice with a server-owned task routing decision
 that is gated by durable evaluation evidence.
 
-Expected scope:
+Implemented scope:
 
 - versioned regression datasets and cases;
 - baseline/candidate evaluation runs;
@@ -91,6 +91,35 @@ Expected scope:
 - no automatic promotion from user feedback;
 - PostgreSQL race tests for promotion/rollback authority;
 - operator/admin read surfaces only as needed; no browser model authority.
+
+Implementation record:
+
+- reversible migration `20260906_0031_add_model_evaluation_routing.py` follows
+  `20260904_0030` without changing 0030 or the reserved 0027 gap;
+- checked-in `report_synthesis_public_v1` is a public/synthetic 14-case
+  regression corpus; SQL stores only its immutable identity/checksum and
+  bounded case checksums/results, never prompts, retrieved chunks, outputs, or
+  tenant content;
+- `report_synthesis.promotion.v1` requires 100% structured validity,
+  deterministic preservation, source integrity, and missing-data honesty; zero
+  unsafe, privacy, and provider-failure results; and an explicit 1000ms mean
+  latency ceiling. Cost is informational when supplied and unknown otherwise;
+- a completed passing evaluation remains a candidate until a platform operator
+  explicitly promotes it. Immutable route versions and transitions plus one
+  lockable assignment give one active route for a task/version/environment;
+- `LLM_SYNTHESIS_ENABLED=false` remains the global kill switch. When enabled,
+  runtime still falls back unless an active route, exact prompt/evaluation/model
+  linkage, exact server-configured adapter identity, and scope privacy policy
+  all validate. Configuration alone is not authority;
+- rollback locks the assignment, restores only the promoted route recorded as
+  the prior known-good route, or clears the assignment to deterministic output.
+  It never searches registered models for a replacement;
+- the existing 21A report provenance now records safe route/evaluation IDs for
+  successful routed work. The durable worker completion path resolves and
+  verifies the same route before accepting worker provenance.
+
+No provider is automatically promoted, no browser can choose a model/provider,
+and no paid provider or real Vast.ai rental is activated by 21B.
 
 ## Checkpoint 21C — Quality, injection safety, feedback governance
 

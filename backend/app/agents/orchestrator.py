@@ -63,6 +63,7 @@ def run_analysis_workflow(
         market_data=market_data,
         missing_data=missing_data,
         content_scope=content_scope,
+        db=db,
     )
     _check_cancelled(cancellation)
 

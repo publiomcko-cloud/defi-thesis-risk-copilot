@@ -48,22 +48,43 @@ fails closed before private or organization content is sent. Account deletion,
 organization deletion/context clearing, and expired anonymous report cleanup
 use existing lifecycle authority.
 
+## 21B implemented architecture
+
+Migration `20260906_0031` adds immutable evaluation-dataset identity,
+evaluation-run and bounded case-result evidence, immutable route versions and
+transitions, and a single mutable/lockable assignment pointer. It adds only
+safe route/evaluation foreign keys to 21A run provenance. The checked-in
+`report_synthesis_public_v1` corpus is public/synthetic and is deliberately
+not copied into SQL.
+
+The code-owned `report_synthesis.promotion.v1` policy has hard 100% schema,
+deterministic, source, and missing-data thresholds; zero unsafe/privacy/provider
+failure tolerance; a 1000ms average-latency ceiling; and informational-only
+cost accounting. An evaluation completion changes no route. A platform admin
+must explicitly promote a completed passing run. PostgreSQL locks serialize the
+single assignment, and rollback restores the immutable prior route or clears it
+to deterministic/no-model output.
+
+Runtime no longer treats `LLM_PROVIDER` configuration or model registration as
+authority. The server first applies the global `LLM_SYNTHESIS_ENABLED=false`
+kill switch, then resolves a task/version/server-environment route, exact
+evaluation/prompt/model linkage, exact configured adapter identity, and the
+existing private/organization privacy policy. Any missing or corrupt state
+falls back deterministically. The Phase 17 durable completion path uses the
+same resolver before it accepts worker provenance.
+
 ## Remaining Phase 21 gaps
 
 The current model path is intentionally simple and does not yet satisfy the
 Phase 21 contract:
 
-1. provider selection is global configuration, not task-level routing;
-2. there is no evaluation-before-promotion state machine or automatic
-   regression gate for model candidates;
-3. no task-level route decision has made a model production-authoritative;
-4. no model-specific prompt-injection/source-poisoning regression set exists;
-5. human feedback is not yet a bounded, privacy-governed, versioned evaluation
+1. no larger model-specific prompt-injection/source-poisoning corpus exists;
+2. human feedback is not yet a bounded, privacy-governed, versioned evaluation
    input;
-6. thesis/catalyst/assumption/report-comparison intelligence is not yet a
-    dedicated domain;
-7. model evaluation/training is not yet represented as bounded Phase 17 worker
-    jobs with durable model/dataset lineage.
+3. thesis/catalyst/assumption/report-comparison intelligence is not yet a
+   dedicated domain;
+4. model evaluation/training is not yet represented as bounded Phase 17 worker
+   jobs with durable model/dataset lineage.
 
 ## Refactoring direction
 
