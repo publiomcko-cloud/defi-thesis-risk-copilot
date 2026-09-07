@@ -23,6 +23,7 @@ const ALLOWED_EXACT_PATHS = [
   "/api/knowledge/readiness",
   "/api/knowledge/sources",
   "/api/monitoring/run",
+  "/api/model-feedback",
   "/api/notifications",
   "/api/notifications/mark-all-read",
   "/api/notifications/preferences",
@@ -63,6 +64,9 @@ const SAFE_RESPONSE_HEADERS = [
 ];
 const CORRELATION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{7,127}$/;
 const CUSTOMER_REQUEST_DETAIL_PATH = /^\/api\/customer-requests\/[A-Za-z0-9_-]+(?:\/close)?$/;
+const MODEL_FEEDBACK_REPORT_PATH = /^\/api\/model-feedback\/reports\/[A-Za-z0-9_-]+$/;
+const MODEL_FEEDBACK_ITEM_PATH = /^\/api\/model-feedback\/[A-Za-z0-9_-]+$/;
+const MODEL_FEEDBACK_REVIEW_PATH = /^\/api\/model-feedback\/admin\/[A-Za-z0-9_-]+\/review$/;
 const UNSAFE_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export async function GET(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
@@ -96,6 +100,9 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   }
   if (isCustomerRequestRoute(targetPath) && request.nextUrl.search) {
     return NextResponse.json({ detail: "Customer-request query parameters are not supported." }, { status: 400 });
+  }
+  if (isModelFeedbackRoute(targetPath) && request.nextUrl.search) {
+    return NextResponse.json({ detail: "Model-feedback query parameters are not supported." }, { status: 400 });
   }
   const bodyResult = request.method === "GET" || request.method === "HEAD"
     ? { ok: true as const, body: undefined }
@@ -205,12 +212,24 @@ function isAllowedBackendPath(path: string): boolean {
   if (path.startsWith("/api/customer-requests/")) {
     return isCustomerRequestRoute(path);
   }
+  if (path.startsWith("/api/model-feedback/")) {
+    return isModelFeedbackRoute(path);
+  }
   return ALLOWED_EXACT_PATHS.includes(path) || ALLOWED_PREFIXES.some((prefix) => path.startsWith(prefix));
 }
 
 function isAllowedBackendMethod(path: string, method: string): boolean {
   if (path === "/api/customer-requests") {
     return method === "GET" || method === "POST";
+  }
+  if (path === "/api/model-feedback") {
+    return method === "GET";
+  }
+  if (MODEL_FEEDBACK_REPORT_PATH.test(path) || MODEL_FEEDBACK_REVIEW_PATH.test(path)) {
+    return method === "POST";
+  }
+  if (path === "/api/model-feedback/admin/review-queue" || MODEL_FEEDBACK_ITEM_PATH.test(path)) {
+    return method === "GET";
   }
   if (!isCustomerRequestRoute(path)) {
     return true;
@@ -223,6 +242,14 @@ function isAllowedBackendMethod(path: string, method: string): boolean {
 
 function isCustomerRequestRoute(path: string): boolean {
   return path === "/api/customer-requests" || CUSTOMER_REQUEST_DETAIL_PATH.test(path);
+}
+
+function isModelFeedbackRoute(path: string): boolean {
+  return path === "/api/model-feedback"
+    || path === "/api/model-feedback/admin/review-queue"
+    || MODEL_FEEDBACK_REPORT_PATH.test(path)
+    || MODEL_FEEDBACK_ITEM_PATH.test(path)
+    || MODEL_FEEDBACK_REVIEW_PATH.test(path);
 }
 
 function normalizeCorrelationId(value: string | null): string {

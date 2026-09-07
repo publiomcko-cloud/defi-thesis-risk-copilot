@@ -29,6 +29,7 @@ from app.llm.prompts import (
     build_report_synthesis_prompt,
     report_synthesis_prompt_definition,
 )
+from app.llm.quality import QUALITY_POLICY_CHECKSUM, QUALITY_POLICY_VERSION
 from app.llm.provenance import (
     ModelIdentity,
     ModelRunCandidate,
@@ -49,6 +50,7 @@ from app.models.model_governance import (
     ModelPromptVersionModel,
     ModelRegistryModel,
     ModelRunProvenanceModel,
+    ModelRunQualityEvidenceModel,
     ModelTaskCapabilityModel,
 )
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
@@ -167,7 +169,7 @@ def test_prompt_and_configured_model_registration_are_immutable_bounded_and_idem
         duplicate = ensure_configured_model_registration(db, identity)
         db.commit()
 
-        assert prompt.id == again.id == "prompt_report_synthesis_v2"
+        assert prompt.id == again.id == "prompt_report_synthesis_v3"
         assert prompt.prompt_checksum == report_synthesis_prompt_definition().checksum
         assert model.id == duplicate.id
         assert model.lifecycle_state == "registered"
@@ -704,6 +706,62 @@ def test_async_authoritative_failed_execution_preserves_route_provenance_and_det
         assert provenance.fallback_reason != "worker_model_provenance_mismatch"
 
 
+def test_async_quality_failure_preserves_authoritative_route_and_deterministic_wording(
+    governance_session,
+    monkeypatch,
+) -> None:
+    """A verified worker route may report a quality rejection without losing provenance."""
+
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, "phase21c-async-quality-failure@example.test", role="admin")
+        provider = SafeProvider()
+        provider.privacy_classification = "private_approved"
+        identity = provider_identity(provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
+
+        job = _async_analysis_job(db, owner.id, "quality_rejected")
+        result = _async_worker_result(
+            job,
+            model_run=_valid_worker_model_run(
+                job,
+                "private",
+                identity,
+                route_version_id=route.id,
+                evaluation_run_id=evaluation.id,
+            ),
+        )
+        result["report"]["executive_summary"] = "Unverified model wording must not persist."
+        result["deterministic_report"]["executive_summary"] = "Deterministic quality fallback wording."
+        result["model_quality"].update(
+            citation_consistency=False,
+            unsupported_claim_count=1,
+            overall_quality_pass=False,
+            reason_code="citation_integrity_failed",
+        )
+
+        persist_async_analysis_completion(db, job, result)
+
+        saved = db.get(ReportModel, job.result_resource_id)
+        provenance = _model_run_for_job(db, job)
+        quality = db.scalars(
+            select(ModelRunQualityEvidenceModel).where(
+                ModelRunQualityEvidenceModel.model_run_provenance_id == provenance.id
+            )
+        ).one()
+        assert saved is not None
+        assert saved.summary == result["deterministic_report"]["executive_summary"]
+        assert (provenance.outcome, provenance.validation_result) == ("validation_fallback", "schema_invalid")
+        assert provenance.fallback_reason == "citation_integrity_failed"
+        assert (provenance.route_version_id, provenance.evaluation_run_id) == (route.id, evaluation.id)
+        assert quality.overall_quality_pass is False
+        assert quality.citation_consistency is False
+
+
 @pytest.mark.parametrize(
     ("outcome", "validation_result"),
     [
@@ -1042,6 +1100,20 @@ def _async_worker_result(job: JobModel, *, model_run: dict | None = None) -> dic
     }
     if model_run is not None:
         result["model_run"] = model_run
+        result["model_quality"] = {
+            "quality_policy_version": QUALITY_POLICY_VERSION,
+            "quality_policy_checksum": QUALITY_POLICY_CHECKSUM,
+            "citation_consistency": True,
+            "unsupported_claim_count": 0,
+            "missing_source_honesty": True,
+            "uncertainty_preserved": True,
+            "source_instruction_flag_count": 0,
+            "poisoning_detected": False,
+            "unsafe_language_violation": False,
+            "deterministic_integrity": True,
+            "overall_quality_pass": True,
+            "reason_code": None,
+        }
     return result
 
 

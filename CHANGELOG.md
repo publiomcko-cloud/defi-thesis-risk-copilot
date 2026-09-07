@@ -1,5 +1,23 @@
 # Changelog
 
+## Phase 21C — Quality, source safety, and feedback governance
+
+- Added reversible migration `20260907_0032` for immutable linked model-run
+  quality evidence, quality metrics on evaluation evidence, and bounded
+  tenant-scoped report feedback.
+- Added server-derived retrieved-source trust classification, explicit
+  untrusted-evidence prompt framing in `report_synthesis.prompt.v3`, a
+  checked-in public/synthetic 17-case adversarial corpus, and deterministic
+  quality checks with deterministic fallback on safety, citation, poisoning,
+  unsupported-claim, or immutable-fact failure.
+- Added `report_synthesis.promotion.v2`, which keeps v1 immutable and requires
+  all 21C hard quality invariants before explicit operator promotion.
+- Added authenticated feedback submission/read, explicit operator review, safe
+  lifecycle/export integration, and a bounded report feedback UI. Feedback is
+  not training, route, prompt, registry, or dataset authority; approval creates
+  only a safe future-review reference. No paid provider, Vast rental, automatic
+  promotion/training, or production activation is included.
+
 ## Phase 21A — Model governance foundation
 
 - Added reversible migration `20260904_0030` for the bounded model registry,

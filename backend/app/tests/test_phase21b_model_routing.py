@@ -16,7 +16,7 @@ from app.llm.evaluation import (
     promote_evaluation_route,
     rollback_route,
 )
-from app.llm.evaluation_data import report_synthesis_public_dataset
+from app.llm.evaluation_data import report_synthesis_adversarial_dataset, report_synthesis_public_dataset
 from app.llm.governance import record_model_run_provenance
 from app.llm.provenance import build_report_synthesis_candidate
 from app.llm.routing import server_environment, resolve_report_synthesis_route
@@ -166,13 +166,14 @@ def test_evaluation_is_durable_redacted_and_requires_explicit_promotion(routing_
         run = evaluate_report_synthesis_candidate(db, provider=SyntheticProvider(), actor=operator)
         assert run.status == "completed"
         assert run.promotion_eligible is True
-        assert run.case_count == 14
-        assert run.passed_case_count == 14
-        assert run.token_observation_count == 14
+        expected_case_count = len(report_synthesis_public_dataset().cases) + len(report_synthesis_adversarial_dataset().cases)
+        assert run.case_count == expected_case_count
+        assert run.passed_case_count == expected_case_count
+        assert run.token_observation_count == expected_case_count
         assert run.cost_observation_count == 0
         assert db.scalars(select(ModelRouteAssignmentModel)).all() == []
         case_rows = db.scalars(select(ModelEvaluationCaseResultModel).where(ModelEvaluationCaseResultModel.evaluation_run_id == run.id)).all()
-        assert len(case_rows) == 14
+        assert len(case_rows) == expected_case_count
         serialized = str(run.__dict__) + str(case_rows[0].__dict__)
         assert "Synthetic public strategy" not in serialized
         assert "api_key" not in serialized.lower()
@@ -191,7 +192,7 @@ def test_failing_evaluation_cannot_promote_and_unknown_task_fails_closed(routing
         )
         assert run.status == "completed"
         assert run.promotion_eligible is False
-        assert run.structured_output_valid_count == 13
+        assert run.structured_output_valid_count == run.case_count - 1
         with pytest.raises(ModelEvaluationError, match="Passing completed"):
             promote_evaluation_route(db, evaluation_run_id=run.id, actor=operator)
         with pytest.raises(ValueError, match="Unknown model task"):

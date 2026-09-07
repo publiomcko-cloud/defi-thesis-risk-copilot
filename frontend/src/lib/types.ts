@@ -498,6 +498,27 @@ export type ReportResponse = {
   disclaimer: string;
 };
 
+export type ModelFeedbackCategory =
+  | "helpful"
+  | "incorrect"
+  | "missing_source"
+  | "bad_citation"
+  | "unclear"
+  | "entity_error"
+  | "unsafe";
+
+export type ModelFeedbackResponse = {
+  id: string;
+  report_id: string;
+  model_run_provenance_id?: string | null;
+  category: ModelFeedbackCategory;
+  comment?: string | null;
+  review_state: "submitted" | "reviewed" | "approved_for_dataset" | "rejected";
+  dataset_review_reference?: string | null;
+  created_at: string;
+  reviewed_at?: string | null;
+};
+
 export type MarkdownExportResponse = {
   report_id: string;
   filename: string;

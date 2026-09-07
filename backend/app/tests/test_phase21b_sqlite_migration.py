@@ -80,7 +80,7 @@ def _materialize_runtime_prompt_v2(engine) -> None:
     with Session() as db:
         prompt = ensure_report_synthesis_prompt_version(db)
         db.commit()
-        assert prompt.id == "prompt_report_synthesis_v2"
+        assert prompt.id == "prompt_report_synthesis_v3"
 
 
 def _assert_phase20(connection) -> None:

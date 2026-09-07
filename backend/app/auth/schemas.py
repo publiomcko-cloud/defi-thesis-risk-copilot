@@ -97,6 +97,7 @@ class AccountExportResponse(BaseModel):
     non_billable_usage_events: list[dict] = Field(default_factory=list)
     customer_requests: list[dict] = Field(default_factory=list)
     model_run_provenance: list[dict] = Field(default_factory=list)
+    model_feedback: list[dict] = Field(default_factory=list)
 
 
 class AccountDeleteRequest(BaseModel):

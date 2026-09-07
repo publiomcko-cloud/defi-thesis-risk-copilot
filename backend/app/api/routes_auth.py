@@ -41,6 +41,7 @@ from app.models.knowledge import (
 from app.knowledge.service import tombstone_knowledge_for_account
 from app.customer_requests.service import dispose_customer_requests_for_account, export_customer_requests
 from app.llm.governance import dispose_model_runs_for_account, export_model_run_provenance
+from app.llm.feedback import dispose_model_feedback_for_account, export_model_feedback
 from app.models.watchlist_item import WatchlistItemModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.notification import NotificationModel, NotificationPreferenceModel
@@ -192,6 +193,7 @@ def export_account(
     ).scalars().all()
     customer_requests = export_customer_requests(db, current_user.id)
     model_run_provenance = export_model_run_provenance(db, current_user.id)
+    model_feedback = export_model_feedback(db, current_user.id)
     audits = db.execute(
         select(AccessAuditEventModel)
         .where(AccessAuditEventModel.actor_user_id == current_user.id)
@@ -479,6 +481,7 @@ def export_account(
         ],
         customer_requests=customer_requests,
         model_run_provenance=model_run_provenance,
+        model_feedback=model_feedback,
     )
     export_audit = record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)
     emit_notification_intent(
@@ -544,6 +547,7 @@ def delete_account(
     dispose_notifications_for_account(db, current_user.id)
     dispose_entitlements_for_account(db, current_user.id)
     dispose_customer_requests_for_account(db, current_user.id)
+    dispose_model_feedback_for_account(db, current_user.id)
     dispose_model_runs_for_account(db, current_user.id)
     revoked_invitation_count = revoke_pending_invitations_for_account_email(
         db,

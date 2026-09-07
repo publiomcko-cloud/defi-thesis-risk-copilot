@@ -1,4 +1,5 @@
 from copy import deepcopy
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -17,7 +18,7 @@ from app.models.report import ReportModel
 from app.quotas.service import ACTION_ANALYSIS, consume_quota
 from app.product_analytics.service import emit_product_event_safely
 from app.entitlements.service import emit_usage
-from app.llm.governance import record_model_run_provenance
+from app.llm.governance import record_model_run_provenance, record_model_run_quality_evidence
 from app.llm.prompts import report_synthesis_prompt_definition
 from app.llm.provenance import (
     AsyncAnalysisJobScopeError,
@@ -33,6 +34,7 @@ from app.llm.routing import (
 )
 from app.llm.providers import get_llm_provider
 from app.llm.task_registry import get_model_task_definition
+from app.llm.quality import ModelQualityEvidence, quality_evidence_from_payload
 from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.reports import ReportResponse
@@ -54,9 +56,16 @@ _AUTHORITATIVE_ASYNC_MODEL_OUTCOME_REASONS = {
             "invalid_sections",
             "unexpected_section",
             "invalid_section_content",
+            "citation_integrity_failed",
+            "unsupported_claim",
+            "missing_source_honesty_failed",
+            "uncertainty_not_preserved",
+            "source_poisoning_obeyed",
+            "deterministic_integrity_failed",
+            "quality_policy_failed",
         }
     ),
-    ("validation_fallback", "unsafe_output"): frozenset({"unsafe_recommendation"}),
+    ("validation_fallback", "unsafe_output"): frozenset({"unsafe_recommendation", "unsafe_output"}),
     ("provider_failure", "provider_error"): frozenset({"provider_error", "provider_timeout"}),
 }
 
@@ -106,7 +115,7 @@ def analyze_strategy(
         anonymous_session_id=actor.anonymous_session_id if actor else None,
         expires_at=expires_at,
     )
-    record_model_run_provenance(
+    model_run = record_model_run_provenance(
         db,
         report_id=workflow_result.report.report_id,
         candidate=workflow_result.model_run,
@@ -114,6 +123,7 @@ def analyze_strategy(
         organization_id=None,
         anonymous_session_id=actor.anonymous_session_id if actor else None,
     )
+    record_model_run_quality_evidence(db, model_run=model_run, quality=workflow_result.model_quality)
     if actor is not None and actor.auth_enabled and actor.anonymous_session_id is None:
         emit_usage(
             db,
@@ -206,13 +216,23 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
         raise HTTPException(status_code=409, detail="Analysis job scope is invalid.") from exc
 
     deterministic_report = _deterministic_async_fallback_report(result_json, context)
-    candidate, accepts_worker_report = _authoritative_async_model_candidate(
+    candidate, accepts_worker_report, worker_provenance_authoritative = _authoritative_async_model_candidate(
         db,
         result_json,
         deterministic_report,
         job,
         scope_class,
     )
+    quality = _authoritative_worker_quality(result_json, candidate) if worker_provenance_authoritative else None
+    if accepts_worker_report and (quality is None or not quality.overall_quality_pass):
+        reason = quality.reason_code if quality else "quality_evidence_missing"
+        candidate = replace(
+            candidate,
+            outcome="validation_fallback",
+            validation_result="unsafe_output" if quality and quality.unsafe_language_violation else "schema_invalid",
+            fallback_reason=reason,
+        )
+        accepts_worker_report = False
     report = worker_report if accepts_worker_report else deterministic_report
 
     existing_request = db.get(AnalysisRequestModel, context["analysis_request_id"])
@@ -269,7 +289,7 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
         visibility=job.visibility,
         source_job_id=job.id,
     )
-    record_model_run_provenance(
+    model_run = record_model_run_provenance(
         db,
         report_id=report.report_id,
         candidate=candidate,
@@ -277,6 +297,7 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
         organization_id=job.organization_id,
         anonymous_session_id=None,
     )
+    record_model_run_quality_evidence(db, model_run=model_run, quality=quality)
     artifact = db.get(ArtifactModel, f"artifact_{job.id}")
     if artifact is None:
         db.add(
@@ -379,7 +400,7 @@ def _authoritative_async_model_candidate(
             validation_result=resolution.validation_result,
             fallback_reason=resolution.fallback_reason or "route_resolution_failed",
             provider=resolution.identity,
-        ), False
+        ), False, False
     try:
         candidate = candidate_from_payload(result_json.get("model_run"))
     except ValueError:
@@ -390,7 +411,7 @@ def _authoritative_async_model_candidate(
             validation_result="provider_error",
             fallback_reason="worker_model_provenance_mismatch",
             provider=resolution.identity,
-        ), False
+        ), False, False
     if not _candidate_matches_async_execution_authority(candidate, report, scope_class, resolution):
         return fallback_report_synthesis_candidate(
             report,
@@ -399,7 +420,7 @@ def _authoritative_async_model_candidate(
             validation_result="provider_error",
             fallback_reason="worker_model_provenance_mismatch",
             provider=resolution.identity,
-        ), False
+        ), False, False
     state = (candidate.outcome, candidate.validation_result)
     if candidate.fallback_reason not in _AUTHORITATIVE_ASYNC_MODEL_OUTCOME_REASONS.get(state, frozenset()):
         return fallback_report_synthesis_candidate(
@@ -409,8 +430,28 @@ def _authoritative_async_model_candidate(
             validation_result="provider_error",
             fallback_reason="worker_model_provenance_mismatch",
             provider=resolution.identity,
-        ), False
-    return candidate, (candidate.outcome, candidate.validation_result) == ("succeeded", "accepted")
+        ), False, False
+    return candidate, (candidate.outcome, candidate.validation_result) == ("succeeded", "accepted"), True
+
+
+def _authoritative_worker_quality(
+    result_json: dict,
+    candidate,
+) -> ModelQualityEvidence | None:
+    """Use a bounded worker envelope only after its route provenance is verified."""
+
+    payload = result_json.get("model_quality")
+    if payload is None:
+        return None
+    try:
+        quality = quality_evidence_from_payload(payload)
+    except ValueError:
+        return None
+    if (candidate.outcome, candidate.validation_result) == ("succeeded", "accepted"):
+        return quality
+    # A failed candidate may retain only failing quality evidence; otherwise the
+    # envelope is irrelevant to the preserved deterministic report.
+    return quality if not quality.overall_quality_pass else None
 
 
 def _candidate_matches_async_execution_authority(candidate, report: ReportResponse, scope_class: str, resolution) -> bool:

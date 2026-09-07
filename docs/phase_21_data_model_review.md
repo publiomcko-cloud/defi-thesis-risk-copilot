@@ -1,6 +1,6 @@
 # Phase 21 Data-Model Review
 
-Status: **21A and 21B implemented; 21C is next.**
+Status: **21A–21C implemented; 21D is next.**
 
 ## 21B Migration
 
@@ -62,3 +62,32 @@ without mutating it. Assignment changes are prospective: a valid historical
 execution snapshot is independently verifiable after a later promotion or
 rollback, while missing/corrupt/mismatched snapshot evidence falls back to
 deterministic wording with bounded provenance.
+
+## 21C Migration And Quality/Feedback State
+
+`20260907_0032_add_model_quality_feedback.py` follows `20260906_0031` and is
+the only 21C revision. Its reversible evidence cycle is:
+
+```text
+0031 -> 0032 -> 0031 -> 0032
+```
+
+It leaves the Phase 20F `free-v1` catalog and all 21A/21B state intact; the
+intentional `0027` gap remains absent. Downgrade removes only the 21C tables,
+foreign key, columns, indexes, and check constraints.
+
+| Table/state | Role | Sensitive-content boundary |
+| --- | --- | --- |
+| `model_run_quality_evidence` | One immutable quality-policy result linked to a model run | Policy/checksum, booleans, bounded counts/reason only; no raw output/prompt/chunks |
+| `model_evaluation_runs` quality columns | Aggregate 21C hard-gate evidence | Bounded counters only |
+| `model_evaluation_case_results` quality columns | Immutable bounded per-case quality observations | Case checksum/ID and bounded metrics only |
+| `model_feedback` | User-owned report-context feedback and explicit review state | Closed category, <=1000-char comment, safe references; no attachments, metadata blobs, report body, prompt, retrieval text, or credentials |
+
+Feedback derives owner and organization from the accessible durable report.
+Users cannot select tenant scope; platform administration is review authority,
+not a private-content bypass. Account deletion removes owned feedback, report
+deletion cascades it, expiry makes it inaccessible, and organization deletion
+clears its context reference. Approval moves `submitted` through explicit
+review to `approved_for_dataset` or `rejected`, and stores only a safe
+future-review reference. It does not mutate a versioned dataset, model route,
+prompt, registry, or training state.

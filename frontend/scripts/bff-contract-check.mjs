@@ -10,6 +10,14 @@ if (!route.includes('"/api/customer-requests"') || !route.includes('"/api/custom
   throw new Error("BFF route must explicitly allow the bounded customer-request route family.");
 }
 
+if (!route.includes('"/api/model-feedback"') || !route.includes("isModelFeedbackRoute")) {
+  throw new Error("BFF route must explicitly allow only the bounded model-feedback route family.");
+}
+
+if (!route.includes("Model-feedback query parameters are not supported.")) {
+  throw new Error("BFF route must reject model-feedback query strings before forwarding.");
+}
+
 if (!route.includes("isAllowedBackendMethod") || !route.includes("isCustomerRequestRoute") || !route.includes('path.endsWith("/close")')) {
   throw new Error("BFF route must restrict customer-request paths and methods to the existing backend contract.");
 }

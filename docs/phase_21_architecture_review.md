@@ -1,10 +1,10 @@
 # Phase 21 Architecture Review
 
-Date: 2026-09-04
+Date: 2026-09-07
 
-Base: `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`
+21A–21B base: PR #32, `37fc065b95434622dbfdf407a2bda7930f2c4547`
 
-Branch: `agent/v1-phase-21-model-research-intelligence`
+Branch: `agent/v1-phase-21c-quality-feedback-governance`
 
 ## Existing foundations to reuse
 
@@ -84,17 +84,46 @@ R1's historical evidence is still valid. Missing, spoofed, mismatched, or
 policy-denied snapshots discard model wording and persist only the explicit
 deterministic baseline.
 
+## 21C implemented architecture
+
+Migration `20260907_0032` adds normalized immutable `model_run_quality_evidence`,
+bounded quality metrics to immutable evaluation evidence, and bounded
+tenant-scoped `model_feedback`. A quality evidence row contains only policy
+identity, booleans, bounded counts, and a bounded reason code. It never stores
+raw prompts, retrieved chunks, model output, credentials, arbitrary metadata,
+or copied report bodies.
+
+`report_synthesis.prompt.v3` creates an explicit boundary around retrieved
+evidence. Server-owned ingestion metadata, not source text, maps each chunk to
+`trusted_code_owned`, `curated_public`, `tenant_private`, or fail-closed
+`untrusted_external`; all retrieved text remains data. `report_synthesis.quality.v1`
+performs bounded deterministic citation, unsupported-claim, missing-data,
+uncertainty, injection/poisoning, unsafe-language, and immutable-fact checks.
+Failure discards generated wording while retaining truthful route/evaluation
+provenance and the deterministic report.
+
+The separate checked-in 17-case `report_synthesis_adversarial_v1` fixture is
+public/synthetic. `report_synthesis.promotion.v2` requires it and the ordinary
+dataset, with 100% hard quality invariants and zero unsafe or poisoning
+violations. v1 policy and historical prompt records remain immutable; promotion
+is still explicit platform-admin authority.
+
+Feedback is server-derived from accessible report scope and limited to the
+approved closed taxonomy. It is user-readable only within that scope, admin
+review is explicit and concurrency-safe, and approval adds only a safe future
+review reference. It never adds private content to a dataset and cannot train,
+promote, route, or mutate model/prompt state. Export, deletion, organization
+context clearing, report expiry, and audit/analytics non-leakage reuse existing
+lifecycle boundaries.
+
 ## Remaining Phase 21 gaps
 
 The current model path is intentionally simple and does not yet satisfy the
 Phase 21 contract:
 
-1. no larger model-specific prompt-injection/source-poisoning corpus exists;
-2. human feedback is not yet a bounded, privacy-governed, versioned evaluation
-   input;
-3. thesis/catalyst/assumption/report-comparison intelligence is not yet a
+1. thesis/catalyst/assumption/report-comparison intelligence is not yet a
    dedicated domain;
-4. model evaluation/training is not yet represented as bounded Phase 17 worker
+2. model evaluation/training is not yet represented as bounded Phase 17 worker
    jobs with durable model/dataset lineage.
 
 ## Refactoring direction

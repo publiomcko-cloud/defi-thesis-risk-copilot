@@ -9,7 +9,7 @@ from app.evaluation.schemas import EvaluateDiscoveredItemResponse, EvaluationRes
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.discovered_item import DiscoveredItemModel
 from app.models.evaluation_result import EvaluationResultModel
-from app.llm.governance import record_model_run_provenance
+from app.llm.governance import record_model_run_provenance, record_model_run_quality_evidence
 from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest
 from app.services.report_service import save_report
@@ -45,7 +45,7 @@ def evaluate_discovered_item(
         report_markdown=render_markdown_report(workflow_result.report),
         db=db,
     )
-    record_model_run_provenance(
+    model_run = record_model_run_provenance(
         db,
         report_id=workflow_result.report.report_id,
         candidate=workflow_result.model_run,
@@ -53,6 +53,7 @@ def evaluate_discovered_item(
         organization_id=None,
         anonymous_session_id=None,
     )
+    record_model_run_quality_evidence(db, model_run=model_run, quality=workflow_result.model_quality)
 
     record = EvaluationResultModel(
         id=f"eval_{uuid4().hex[:12]}",

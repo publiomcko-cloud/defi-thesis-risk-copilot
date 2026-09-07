@@ -61,6 +61,7 @@ class AnalysisJobExecutor:
                     "report": workflow_result.report.model_dump(mode="json"),
                     "deterministic_report": workflow_result.deterministic_report.model_dump(mode="json"),
                     "model_run": workflow_result.model_run.to_payload(),
+                    "model_quality": workflow_result.model_quality.to_payload() if workflow_result.model_quality else None,
                 },
             )
 
