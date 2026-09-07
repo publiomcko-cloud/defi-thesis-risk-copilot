@@ -517,23 +517,23 @@ def test_async_completion_accepts_only_the_same_promoted_route_authority(governa
         monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
 
         accepted_job = _async_analysis_job(db, owner.id, "promoted_route")
-        persist_async_analysis_completion(
-            db,
+        accepted_result = _async_worker_result(
             accepted_job,
-            _async_worker_result(
+            model_run=_valid_worker_model_run(
                 accepted_job,
-                model_run=_valid_worker_model_run(
-                    accepted_job,
-                    "private",
-                    identity,
-                    route_version_id=route.id,
-                    evaluation_run_id=evaluation.id,
-                ),
+                "private",
+                identity,
+                route_version_id=route.id,
+                evaluation_run_id=evaluation.id,
             ),
         )
+        accepted_result["report"]["executive_summary"] = "Accepted model wording."
+        accepted_result["deterministic_report"]["executive_summary"] = "Deterministic baseline wording."
+        persist_async_analysis_completion(db, accepted_job, accepted_result)
         accepted = _model_run_for_job(db, accepted_job)
         assert accepted.outcome == "succeeded"
         assert (accepted.route_version_id, accepted.evaluation_run_id) == (route.id, evaluation.id)
+        assert db.get(ReportModel, accepted_job.result_resource_id).summary == "Accepted model wording."
 
         stale_job = _async_analysis_job(db, owner.id, "stale_route")
         persist_async_analysis_completion(
@@ -608,7 +608,7 @@ def test_async_execution_snapshot_preserves_historical_route_across_promotion_an
         assert retry_job.input_json["_server_context"]["model_execution_route"] == retry_snapshot
 
 
-@pytest.mark.parametrize("mismatch", ["worker_route", "provider", "prompt", "evaluation"])
+@pytest.mark.parametrize("mismatch", ["worker_route", "provider", "prompt", "evaluation", "scope"])
 def test_async_execution_snapshot_rejects_spoofed_or_mismatched_model_output(governance_session, monkeypatch, mismatch: str) -> None:
     monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
     get_settings.cache_clear()
@@ -630,8 +630,10 @@ def test_async_execution_snapshot_rejects_spoofed_or_mismatched_model_output(gov
             model_run["provider"]["model_version"] = "spoofed-model"
         elif mismatch == "prompt":
             model_run["prompt_checksum"] = "0" * 64
-        else:
+        elif mismatch == "evaluation":
             model_run["evaluation_run_id"] = "eval_spoofed"
+        else:
+            model_run["scope_class"] = "public"
         result = _async_worker_result(job, model_run=model_run)
         result["report"]["executive_summary"] = "Unattributed model wording must never persist."
         persist_async_analysis_completion(db, job, result)
@@ -640,6 +642,148 @@ def test_async_execution_snapshot_rejects_spoofed_or_mismatched_model_output(gov
         assert saved is not None
         assert saved.summary == result["deterministic_report"]["executive_summary"]
         assert provenance.outcome != "succeeded"
+        assert provenance.route_version_id is None
+        assert provenance.fallback_reason == "worker_model_provenance_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("outcome", "validation_result", "fallback_reason"),
+    [
+        ("provider_failure", "provider_error", "provider_timeout"),
+        ("validation_fallback", "invalid_json", "malformed_json"),
+        ("validation_fallback", "schema_invalid", "schema_validation_failed"),
+        ("validation_fallback", "unsafe_output", "unsafe_recommendation"),
+    ],
+)
+def test_async_authoritative_failed_execution_preserves_route_provenance_and_deterministic_wording(
+    governance_session,
+    monkeypatch,
+    outcome: str,
+    validation_result: str,
+    fallback_reason: str,
+) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, f"phase21b-async-{validation_result}@example.test", role="admin")
+        provider = SafeProvider()
+        provider.privacy_classification = "private_approved"
+        identity = provider_identity(provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
+
+        job = _async_analysis_job(db, owner.id, f"truthful_{validation_result}")
+        candidate = _valid_worker_model_run(
+            job,
+            "private",
+            identity,
+            route_version_id=route.id,
+            evaluation_run_id=evaluation.id,
+        )
+        candidate.update(
+            outcome=outcome,
+            validation_result=validation_result,
+            fallback_reason=fallback_reason,
+        )
+        result = _async_worker_result(job, model_run=candidate)
+        result["report"]["executive_summary"] = f"Model wording from {validation_result} must not persist."
+        result["deterministic_report"]["executive_summary"] = f"Deterministic wording for {validation_result}."
+        persist_async_analysis_completion(db, job, result)
+
+        saved = db.get(ReportModel, job.result_resource_id)
+        provenance = _model_run_for_job(db, job)
+        assert saved is not None
+        assert saved.summary == result["deterministic_report"]["executive_summary"]
+        assert saved.summary != result["report"]["executive_summary"]
+        assert (provenance.outcome, provenance.validation_result) == (outcome, validation_result)
+        assert provenance.fallback_reason == fallback_reason
+        assert (provenance.route_version_id, provenance.evaluation_run_id) == (route.id, evaluation.id)
+        assert provenance.model_registry_id == route.model_registry_id
+        assert provenance.fallback_reason != "worker_model_provenance_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("outcome", "validation_result"),
+    [
+        ("succeeded", "provider_error"),
+        ("provider_failure", "accepted"),
+        ("validation_fallback", "accepted"),
+    ],
+)
+def test_async_impossible_worker_outcome_pairs_fail_closed(governance_session, monkeypatch, outcome: str, validation_result: str) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, f"phase21b-async-impossible-{outcome}-{validation_result}@example.test", role="admin")
+        provider = SafeProvider()
+        provider.privacy_classification = "private_approved"
+        identity = provider_identity(provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
+
+        job = _async_analysis_job(db, owner.id, f"impossible_{outcome}_{validation_result}")
+        candidate = _valid_worker_model_run(
+            job,
+            "private",
+            identity,
+            route_version_id=route.id,
+            evaluation_run_id=evaluation.id,
+        )
+        candidate.update(outcome=outcome, validation_result=validation_result, fallback_reason="forged_pair")
+        result = _async_worker_result(job, model_run=candidate)
+        result["report"]["executive_summary"] = "Impossible model wording must not persist."
+        result["deterministic_report"]["executive_summary"] = "Deterministic wording for an impossible pair."
+        persist_async_analysis_completion(db, job, result)
+
+        saved = db.get(ReportModel, job.result_resource_id)
+        provenance = _model_run_for_job(db, job)
+        assert saved is not None
+        assert saved.summary == result["deterministic_report"]["executive_summary"]
+        assert provenance.fallback_reason == "worker_model_provenance_mismatch"
+        assert provenance.route_version_id is None
+        assert provenance.evaluation_run_id is None
+
+
+def test_async_unbounded_provider_failure_reason_fails_closed(governance_session, monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, "phase21b-async-provider-reason@example.test", role="admin")
+        provider = SafeProvider()
+        provider.privacy_classification = "private_approved"
+        identity = provider_identity(provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
+
+        job = _async_analysis_job(db, owner.id, "unbounded_provider_reason")
+        candidate = _valid_worker_model_run(
+            job,
+            "private",
+            identity,
+            route_version_id=route.id,
+            evaluation_run_id=evaluation.id,
+        )
+        candidate.update(
+            outcome="provider_failure",
+            validation_result="provider_error",
+            fallback_reason="upstream exception includes untrusted details",
+        )
+        result = _async_worker_result(job, model_run=candidate)
+        result["report"]["executive_summary"] = "Model wording with untrusted errors."
+        result["deterministic_report"]["executive_summary"] = "Deterministic wording without provider details."
+        persist_async_analysis_completion(db, job, result)
+
+        saved = db.get(ReportModel, job.result_resource_id)
+        provenance = _model_run_for_job(db, job)
+        assert saved is not None
+        assert saved.summary == result["deterministic_report"]["executive_summary"]
+        assert provenance.fallback_reason == "worker_model_provenance_mismatch"
         assert provenance.route_version_id is None
 
 
@@ -894,7 +1038,7 @@ def _async_worker_result(job: JobModel, *, model_run: dict | None = None) -> dic
             "analysis_depth": "standard",
         },
         "report": report,
-        "deterministic_report": report,
+        "deterministic_report": deepcopy(report),
     }
     if model_run is not None:
         result["model_run"] = model_run

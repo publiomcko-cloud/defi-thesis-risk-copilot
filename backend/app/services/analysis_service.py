@@ -18,6 +18,7 @@ from app.quotas.service import ACTION_ANALYSIS, consume_quota
 from app.product_analytics.service import emit_product_event_safely
 from app.entitlements.service import emit_usage
 from app.llm.governance import record_model_run_provenance
+from app.llm.prompts import report_synthesis_prompt_definition
 from app.llm.provenance import (
     AsyncAnalysisJobScopeError,
     candidate_from_payload,
@@ -31,10 +32,33 @@ from app.llm.routing import (
     resolve_report_synthesis_execution_route,
 )
 from app.llm.providers import get_llm_provider
+from app.llm.task_registry import get_model_task_definition
 from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.reports import ReportResponse
 from app.services.report_service import save_report
+
+
+_AUTHORITATIVE_ASYNC_MODEL_OUTCOME_REASONS = {
+    ("succeeded", "accepted"): frozenset({None}),
+    ("validation_fallback", "invalid_json"): frozenset({"malformed_json"}),
+    (
+        "validation_fallback",
+        "schema_invalid",
+    ): frozenset(
+        {
+            "schema_validation_failed",
+            "unsupported_source_claim",
+            "unexpected_output_fields",
+            "invalid_executive_summary",
+            "invalid_sections",
+            "unexpected_section",
+            "invalid_section_content",
+        }
+    ),
+    ("validation_fallback", "unsafe_output"): frozenset({"unsafe_recommendation"}),
+    ("provider_failure", "provider_error"): frozenset({"provider_error", "provider_timeout"}),
+}
 
 
 def analyze_strategy(
@@ -332,7 +356,13 @@ def _authoritative_async_model_candidate(
     job: JobModel,
     scope_class: str,
 ):
-    """Accept model wording only when it matches the execution-time authority."""
+    """Validate worker provenance before deciding whether its wording may persist.
+
+    A valid snapshot can prove a provider or validation failure just as it can a
+    successful synthesis.  The candidate remains immutable evidence of that
+    execution, but only the accepted success pair is allowed to replace the
+    independently supplied deterministic report.
+    """
 
     snapshot = job.input_json.get("_server_context", {}).get("model_execution_route") if isinstance(job.input_json, dict) else None
     resolution = resolve_report_synthesis_execution_route(
@@ -358,19 +388,10 @@ def _authoritative_async_model_candidate(
             scope_class=scope_class,
             outcome="provider_failure",
             validation_result="provider_error",
-            fallback_reason="worker_model_provenance_invalid",
+            fallback_reason="worker_model_provenance_mismatch",
             provider=resolution.identity,
         ), False
-    if (
-        candidate.task_key != "report_synthesis"
-        or candidate.scope_class != scope_class
-        or candidate.provider != resolution.identity
-        or candidate.deterministic_input_checksum != deterministic_report_input_checksum(report)
-        or candidate.route_version_id != resolution.route_version_id
-        or candidate.evaluation_run_id != resolution.evaluation_run_id
-        or candidate.outcome != "succeeded"
-        or candidate.validation_result != "accepted"
-    ):
+    if not _candidate_matches_async_execution_authority(candidate, report, scope_class, resolution):
         return fallback_report_synthesis_candidate(
             report,
             scope_class=scope_class,
@@ -379,7 +400,37 @@ def _authoritative_async_model_candidate(
             fallback_reason="worker_model_provenance_mismatch",
             provider=resolution.identity,
         ), False
-    return candidate, True
+    state = (candidate.outcome, candidate.validation_result)
+    if candidate.fallback_reason not in _AUTHORITATIVE_ASYNC_MODEL_OUTCOME_REASONS.get(state, frozenset()):
+        return fallback_report_synthesis_candidate(
+            report,
+            scope_class=scope_class,
+            outcome="provider_failure",
+            validation_result="provider_error",
+            fallback_reason="worker_model_provenance_mismatch",
+            provider=resolution.identity,
+        ), False
+    return candidate, (candidate.outcome, candidate.validation_result) == ("succeeded", "accepted")
+
+
+def _candidate_matches_async_execution_authority(candidate, report: ReportResponse, scope_class: str, resolution) -> bool:
+    """Compare every worker-controlled authority field with server-owned evidence."""
+
+    task = get_model_task_definition("report_synthesis")
+    prompt = report_synthesis_prompt_definition()
+    return (
+        candidate.task_key == task.key
+        and candidate.task_version == task.version
+        and candidate.prompt_version == prompt.prompt_version
+        and candidate.output_schema_version == prompt.output_schema_version
+        and candidate.safety_policy_version == prompt.safety_policy_version
+        and candidate.prompt_checksum == prompt.checksum
+        and candidate.scope_class == scope_class
+        and candidate.provider == resolution.identity
+        and candidate.deterministic_input_checksum == deterministic_report_input_checksum(report)
+        and candidate.route_version_id == resolution.route_version_id
+        and candidate.evaluation_run_id == resolution.evaluation_run_id
+    )
 
 
 def _deterministic_async_fallback_report(result_json: dict, context: dict[str, str]) -> ReportResponse:

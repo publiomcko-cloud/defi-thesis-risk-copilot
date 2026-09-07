@@ -123,6 +123,8 @@ Implementation record:
   matches the snapshot and its historical route/evaluation/model/prompt
   evidence remains valid. A missing, corrupt, spoofed, or policy-denied
   snapshot persists the explicit deterministic baseline, never relabeled model
+  wording. A valid provider or validation failure retains its exact historical
+  route/evaluation provenance, but only an accepted synthesis may persist model
   wording;
 - promotion and rollback are prospective assignment changes. They do not
   rewrite an already-started valid execution: its immutable provenance keeps
