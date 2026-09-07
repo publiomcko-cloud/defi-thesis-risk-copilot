@@ -11,7 +11,11 @@ from sqlalchemy.orm import Session
 from app.llm.base import LLMProvider, LLMRequest
 from app.llm.prompts import SYNTHESIZABLE_SECTION_TITLES, build_report_synthesis_prompt
 from app.llm.provenance import ModelIdentity, provider_identity, provider_is_eligible_for_scope
-from app.llm.routing import RouteResolution, resolve_report_synthesis_route
+from app.llm.routing import (
+    RouteResolution,
+    resolve_report_synthesis_execution_route,
+    resolve_report_synthesis_route,
+)
 from app.rag.retriever import RetrievalResult
 from app.reports.renderer import validate_report_structure
 from app.risk.framework import RiskScore
@@ -44,6 +48,7 @@ class SynthesisResult:
     cost_microusd: int | None = None
     route_version_id: str | None = None
     evaluation_run_id: str | None = None
+    deterministic_report: ReportResponse | None = None
 
 
 class SynthesisValidationError(ValueError):
@@ -61,6 +66,8 @@ def synthesize_report(
     provider: LLMProvider | None = None,
     content_scope: str = "public",
     db: Session | None = None,
+    execution_route_snapshot: object | None = None,
+    require_execution_route_snapshot: bool = False,
 ) -> SynthesisResult:
     """Synthesize only through the durable route in production workflows.
 
@@ -75,12 +82,21 @@ def synthesize_report(
         return _resolution_fallback(base_report, RouteResolution(None, None, "disabled", "not_run", "synthesis_disabled"))
 
     if db is not None:
-        resolution = resolve_report_synthesis_route(
-            db,
-            content_scope=content_scope,
-            configured_provider=provider,
-            settings=settings,
-        )
+        if require_execution_route_snapshot:
+            resolution = resolve_report_synthesis_execution_route(
+                db,
+                content_scope=content_scope,
+                snapshot_payload=execution_route_snapshot,
+                configured_provider=provider,
+                settings=settings,
+            )
+        else:
+            resolution = resolve_report_synthesis_route(
+                db,
+                content_scope=content_scope,
+                configured_provider=provider,
+                settings=settings,
+            )
         if resolution.provider is None:
             return _resolution_fallback(base_report, resolution)
         return _synthesize_with_provider(

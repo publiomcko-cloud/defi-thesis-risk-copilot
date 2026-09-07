@@ -44,6 +44,8 @@ class AnalysisJobExecutor:
                 actor=user_context(owner),
                 organization_id=job.organization_id,
                 cancellation=cancellation,
+                execution_route_snapshot=_execution_route_snapshot(job),
+                require_execution_route_snapshot=True,
             )
             cancellation.raise_if_cancelled()
             return JobResultEnvelope(
@@ -57,6 +59,7 @@ class AnalysisJobExecutor:
                         "analysis_depth": workflow_result.parsed_strategy.analysis_depth,
                     },
                     "report": workflow_result.report.model_dump(mode="json"),
+                    "deterministic_report": workflow_result.deterministic_report.model_dump(mode="json"),
                     "model_run": workflow_result.model_run.to_payload(),
                 },
             )
@@ -81,3 +84,10 @@ def _owner_id(job: WorkerClaimedJob) -> str:
     if not isinstance(owner_id, str) or not owner_id:
         raise AnalysisExecutionError(JobErrorCategory.PERMANENT_AUTHORIZATION, "analysis_owner_unavailable", "Analysis job owner is unavailable.")
     return owner_id
+
+
+def _execution_route_snapshot(job: WorkerClaimedJob) -> object | None:
+    try:
+        return job.input_json["_server_context"].get("model_execution_route")
+    except (AttributeError, KeyError, TypeError):
+        return None

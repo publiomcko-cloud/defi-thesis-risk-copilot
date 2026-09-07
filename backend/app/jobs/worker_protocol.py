@@ -42,7 +42,7 @@ from app.models.organization import OrganizationMembershipModel, OrganizationMod
 from app.models.user import UserModel
 from app.models.vast_session import VastSessionModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
-from app.services.analysis_service import persist_async_analysis_completion
+from app.services.analysis_service import capture_async_analysis_execution_route, persist_async_analysis_completion
 from app.scheduling.lifecycle import synchronize_schedule_occurrence
 
 
@@ -163,11 +163,13 @@ def start_job(db: Session, identity: WorkerIdentity, job_id: str, request: Worke
     job, attempt = _validate_lease(db, identity, job_id, request)
     if job.status != "leased":
         raise HTTPException(status_code=409, detail="Job cannot be started from its current state.")
+    if job.job_type == "analysis.generate":
+        capture_async_analysis_execution_route(db, job)
     transition_job(db, job, "running", worker_id=identity.worker.id, message="Worker started the leased job.")
     attempt.started_at = datetime.now(UTC)
     attempt.outcome = "running"
     db.commit()
-    return _mutation(job)
+    return _mutation(job, include_input_json=True)
 
 
 def heartbeat_job(
@@ -1005,8 +1007,13 @@ def _looks_sensitive_progress(message: str) -> bool:
     return any(marker in lowered for marker in ("api_key", "password", "authorization", "credential", "secret"))
 
 
-def _mutation(job: JobModel) -> WorkerMutationResponse:
-    return WorkerMutationResponse(job_id=job.id, status=job.status, lease_expires_at=job.lease_expires_at)
+def _mutation(job: JobModel, *, include_input_json: bool = False) -> WorkerMutationResponse:
+    return WorkerMutationResponse(
+        job_id=job.id,
+        status=job.status,
+        lease_expires_at=job.lease_expires_at,
+        input_json=job.input_json if include_input_json else None,
+    )
 
 
 def _persist_vast_completion(db: Session, job: JobModel, result_json: dict) -> VastSessionModel:

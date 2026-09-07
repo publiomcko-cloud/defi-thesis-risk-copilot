@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
@@ -25,7 +26,10 @@ from app.llm.provenance import (
     scope_class_for_actor,
     scope_class_for_async_analysis_job,
 )
-from app.llm.routing import resolve_report_synthesis_route
+from app.llm.routing import (
+    capture_report_synthesis_execution_route,
+    resolve_report_synthesis_execution_route,
+)
 from app.llm.providers import get_llm_provider
 from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
@@ -167,15 +171,25 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
     context = _async_job_context(job)
     try:
         normalized = result_json["analysis_request"]
-        report = ReportResponse.model_validate(result_json["report"])
+        worker_report = ReportResponse.model_validate(result_json["report"])
     except (KeyError, TypeError, ValueError) as exc:
         raise HTTPException(status_code=422, detail="Worker analysis result is invalid.") from exc
-    if report.report_id != context["report_id"]:
+    if worker_report.report_id != context["report_id"]:
         raise HTTPException(status_code=422, detail="Worker analysis result used an unexpected report identifier.")
     try:
         scope_class = scope_class_for_async_analysis_job(job)
     except AsyncAnalysisJobScopeError as exc:
         raise HTTPException(status_code=409, detail="Analysis job scope is invalid.") from exc
+
+    deterministic_report = _deterministic_async_fallback_report(result_json, context)
+    candidate, accepts_worker_report = _authoritative_async_model_candidate(
+        db,
+        result_json,
+        deterministic_report,
+        job,
+        scope_class,
+    )
+    report = worker_report if accepts_worker_report else deterministic_report
 
     existing_request = db.get(AnalysisRequestModel, context["analysis_request_id"])
     existing_report = db.get(ReportModel, context["report_id"])
@@ -234,7 +248,7 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
     record_model_run_provenance(
         db,
         report_id=report.report_id,
-        candidate=_authoritative_async_model_candidate(db, result_json, report, job, scope_class),
+        candidate=candidate,
         owner_user_id=job.owner_user_id,
         organization_id=job.organization_id,
         anonymous_session_id=None,
@@ -258,6 +272,40 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
             )
         )
     db.flush()
+
+
+def capture_async_analysis_execution_route(db: Session, job: JobModel) -> dict | None:
+    """Persist a route snapshot once, at the server-owned async start boundary."""
+
+    if job.job_type != "analysis.generate":
+        return None
+    try:
+        context = job.input_json["_server_context"]
+    except (KeyError, TypeError) as exc:
+        raise HTTPException(status_code=422, detail="Analysis job context is invalid.") from exc
+    if not isinstance(context, dict):
+        raise HTTPException(status_code=422, detail="Analysis job context is invalid.")
+    existing = context.get("model_execution_route")
+    if existing is not None:
+        # A retried/recovered job keeps its original execution authority exactly.
+        return existing if isinstance(existing, dict) else None
+    try:
+        scope_class = scope_class_for_async_analysis_job(job)
+    except AsyncAnalysisJobScopeError as exc:
+        raise HTTPException(status_code=409, detail="Analysis job scope is invalid.") from exc
+    settings = get_settings()
+    snapshot = capture_report_synthesis_execution_route(
+        db,
+        content_scope=scope_class,
+        configured_provider=get_llm_provider(settings),
+        settings=settings,
+    )
+    next_input = deepcopy(job.input_json)
+    next_context = dict(next_input["_server_context"])
+    next_context["model_execution_route"] = snapshot
+    next_input["_server_context"] = next_context
+    job.input_json = next_input
+    return snapshot
 
 
 def _async_job_context(job: JobModel) -> dict[str, str]:
@@ -284,11 +332,13 @@ def _authoritative_async_model_candidate(
     job: JobModel,
     scope_class: str,
 ):
-    """Accept worker metadata only when it agrees with the same route authority."""
+    """Accept model wording only when it matches the execution-time authority."""
 
-    resolution = resolve_report_synthesis_route(
+    snapshot = job.input_json.get("_server_context", {}).get("model_execution_route") if isinstance(job.input_json, dict) else None
+    resolution = resolve_report_synthesis_execution_route(
         db,
         content_scope=scope_class,
+        snapshot_payload=snapshot,
         configured_provider=get_llm_provider(get_settings()),
     )
     if resolution.provider is None:
@@ -299,7 +349,7 @@ def _authoritative_async_model_candidate(
             validation_result=resolution.validation_result,
             fallback_reason=resolution.fallback_reason or "route_resolution_failed",
             provider=resolution.identity,
-        )
+        ), False
     try:
         candidate = candidate_from_payload(result_json.get("model_run"))
     except ValueError:
@@ -310,7 +360,7 @@ def _authoritative_async_model_candidate(
             validation_result="provider_error",
             fallback_reason="worker_model_provenance_invalid",
             provider=resolution.identity,
-        )
+        ), False
     if (
         candidate.task_key != "report_synthesis"
         or candidate.scope_class != scope_class
@@ -318,6 +368,8 @@ def _authoritative_async_model_candidate(
         or candidate.deterministic_input_checksum != deterministic_report_input_checksum(report)
         or candidate.route_version_id != resolution.route_version_id
         or candidate.evaluation_run_id != resolution.evaluation_run_id
+        or candidate.outcome != "succeeded"
+        or candidate.validation_result != "accepted"
     ):
         return fallback_report_synthesis_candidate(
             report,
@@ -326,5 +378,20 @@ def _authoritative_async_model_candidate(
             validation_result="provider_error",
             fallback_reason="worker_model_provenance_mismatch",
             provider=resolution.identity,
-        )
-    return candidate
+        ), False
+    return candidate, True
+
+
+def _deterministic_async_fallback_report(result_json: dict, context: dict[str, str]) -> ReportResponse:
+    """Use the worker's explicit deterministic baseline, never rejected LLM wording."""
+
+    try:
+        report = ReportResponse.model_validate(result_json["deterministic_report"])
+    except (KeyError, TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=409,
+            detail="Authoritative deterministic fallback is unavailable for this analysis result.",
+        ) from exc
+    if report.report_id != context["report_id"]:
+        raise HTTPException(status_code=422, detail="Worker deterministic fallback used an unexpected report identifier.")
+    return report

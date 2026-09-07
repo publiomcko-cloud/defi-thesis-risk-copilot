@@ -96,8 +96,9 @@ Implementation record:
 
 - reversible migration `20260906_0031_add_model_evaluation_routing.py` follows
   `20260904_0030` without changing 0030 or the reserved 0027 gap;
-- checked-in `report_synthesis_public_v1` is a public/synthetic 14-case
-  regression corpus; SQL stores only its immutable identity/checksum and
+- checked-in `report_synthesis_public_v2` is a public/synthetic 14-case
+  regression corpus. Each case declares a retrieval fixture, expected safe
+  result, and expected failure class; SQL stores only its immutable identity/checksum and
   bounded case checksums/results, never prompts, retrieved chunks, outputs, or
   tenant content;
 - `report_synthesis.promotion.v1` requires 100% structured validity,
@@ -111,6 +112,25 @@ Implementation record:
   runtime still falls back unless an active route, exact prompt/evaluation/model
   linkage, exact server-configured adapter identity, and scope privacy policy
   all validate. Configuration alone is not authority;
+- only the bounded server environment taxonomy (`development`, `test`,
+  `staging`, `production`, `portfolio_demo`, `exercise`) can resolve a route;
+  documented `dev`, `testing`, and `prod` aliases normalize server-side, while
+  unknown non-empty values fail closed to deterministic output;
+- an async analysis captures a secret-free execution-route snapshot in its
+  existing server-owned durable job context when the control plane starts it.
+  The worker receives that snapshot only through the authenticated start
+  response. Completion accepts model wording only when its candidate exactly
+  matches the snapshot and its historical route/evaluation/model/prompt
+  evidence remains valid. A missing, corrupt, spoofed, or policy-denied
+  snapshot persists the explicit deterministic baseline, never relabeled model
+  wording;
+- promotion and rollback are prospective assignment changes. They do not
+  rewrite an already-started valid execution: its immutable provenance keeps
+  the recorded execution route if that route's historical evidence remains
+  valid. Retries and recovery preserve the original snapshot exactly;
+- promotion additionally requires the run's current code-owned policy
+  version/checksum, current checked-in dataset identity/checksum/version, and
+  exact current prompt linkage. Older completed evidence must be re-evaluated;
 - rollback locks the assignment, restores only the promoted route recorded as
   the prior known-good route, or clears the assignment to deterministic output.
   It never searches registered models for a replacement;

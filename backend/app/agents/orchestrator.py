@@ -26,6 +26,7 @@ class AnalysisWorkflowResult:
     missing_data: list[str]
     risk_score: RiskScore
     report: ReportResponse
+    deterministic_report: ReportResponse
     model_run: ModelRunCandidate
 
 
@@ -36,6 +37,8 @@ def run_analysis_workflow(
     actor: UserContext | None = None,
     organization_id: str | None = None,
     cancellation: CancellationContext | None = None,
+    execution_route_snapshot: object | None = None,
+    require_execution_route_snapshot: bool = False,
 ) -> AnalysisWorkflowResult:
     _check_cancelled(cancellation)
     parsed_strategy = parse_strategy(request)
@@ -64,6 +67,8 @@ def run_analysis_workflow(
         missing_data=missing_data,
         content_scope=content_scope,
         db=db,
+        execution_route_snapshot=execution_route_snapshot,
+        require_execution_route_snapshot=require_execution_route_snapshot,
     )
     _check_cancelled(cancellation)
 
@@ -74,9 +79,10 @@ def run_analysis_workflow(
         missing_data=missing_data,
         risk_score=risk_score,
         report=synthesis.report,
+        deterministic_report=synthesis.deterministic_report or synthesis.report,
         model_run=build_report_synthesis_candidate(
             result=synthesis,
-            base_report=synthesis.report,
+            base_report=synthesis.deterministic_report or synthesis.report,
             retrieved_context=retrieved_context,
             scope_class=content_scope,
         ),

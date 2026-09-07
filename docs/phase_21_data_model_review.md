@@ -31,6 +31,15 @@ content. Existing account/report lifecycle removal remains unchanged; route and
 evaluation governance evidence is not tenant content because 21B forbids tenant
 content in its datasets and persisted evaluation data.
 
+Async execution snapshots intentionally add no table or migration. At the
+server-owned Phase 17 start transition, a bounded, credential-free route
+snapshot is written once into the existing durable job `_server_context`:
+task/version, environment, scope, route/evaluation/model/prompt references and
+checksum, plus provider identity fields only. The authenticated start response
+returns that context to the worker. Retry/recovery never replaces it. Provider
+credentials, raw prompts, output text, and browser-supplied routing data are
+not part of the snapshot.
+
 ## Authority And Rollback
 
 An active assignment is valid only when it resolves a completed,
@@ -45,3 +54,11 @@ passing never auto-promotes. Rollback takes the same lock and restores only the
 route explicitly recorded as the previous known-good route, otherwise it clears
 the pointer to the deterministic baseline. History and evaluation evidence are
 never deleted by rollback.
+
+Promotion also verifies the completed run against the current code-owned
+policy version/checksum, checked-in dataset identity/version/checksum, and
+current exact prompt linkage. This makes older or altered evidence ineligible
+without mutating it. Assignment changes are prospective: a valid historical
+execution snapshot is independently verifiable after a later promotion or
+rollback, while missing/corrupt/mismatched snapshot evidence falls back to
+deterministic wording with bounded provenance.

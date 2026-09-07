@@ -22,7 +22,7 @@ from app.llm.governance import (
     ensure_report_synthesis_prompt_version,
     record_model_run_provenance,
 )
-from app.llm.evaluation import evaluate_report_synthesis_candidate, promote_evaluation_route
+from app.llm.evaluation import evaluate_report_synthesis_candidate, promote_evaluation_route, rollback_route
 from app.llm.prompts import (
     REPORT_SYNTHESIS_STATIC_PROMPT_CONTRACT,
     _prompt_contract_checksum,
@@ -546,6 +546,176 @@ def test_async_completion_accepts_only_the_same_promoted_route_authority(governa
         assert stale.fallback_reason == "worker_model_provenance_mismatch"
 
 
+def test_async_execution_snapshot_preserves_historical_route_across_promotion_and_rollback(governance_session, monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, "phase21b-async-history@example.test", role="admin")
+        first_provider = SafeProvider()
+        first_provider.privacy_classification = "private_approved"
+        first_identity = provider_identity(first_provider)
+        assert first_identity is not None
+        first_run = evaluate_report_synthesis_candidate(db, provider=first_provider, actor=user_context(owner))
+        first_route = promote_evaluation_route(db, evaluation_run_id=first_run.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: first_provider)
+
+        promoted_job = _async_analysis_job(db, owner.id, "route_promoted_midflight")
+        first_snapshot = deepcopy(promoted_job.input_json["_server_context"]["model_execution_route"])
+        rollback_job = _async_analysis_job(db, owner.id, "route_rolled_back_midflight")
+        rollback_snapshot = deepcopy(rollback_job.input_json["_server_context"]["model_execution_route"])
+        assert rollback_snapshot == first_snapshot
+        second_provider = SafeProvider()
+        second_provider.model = "test-model-v2"
+        second_provider.privacy_classification = "private_approved"
+        second_run = evaluate_report_synthesis_candidate(db, provider=second_provider, actor=user_context(owner))
+        second_route = promote_evaluation_route(db, evaluation_run_id=second_run.id, actor=user_context(owner))
+        promoted_result = _async_worker_result(
+            promoted_job,
+            model_run=_valid_worker_model_run(
+                promoted_job,
+                "private",
+                first_identity,
+                route_version_id=first_route.id,
+                evaluation_run_id=first_run.id,
+            ),
+        )
+        promoted_result["report"]["executive_summary"] = "R1 model-generated wording is historically attributable."
+        persist_async_analysis_completion(db, promoted_job, promoted_result)
+        promoted_record = _model_run_for_job(db, promoted_job)
+        assert (promoted_record.route_version_id, promoted_record.evaluation_run_id) == (first_route.id, first_run.id)
+        assert db.get(ReportModel, promoted_job.result_resource_id).summary == promoted_result["report"]["executive_summary"]
+
+        # Rollback is prospective: it changes later assignments but not this R1 snapshot.
+        rollback_route(db, route_version_id=second_route.id, actor=user_context(owner))
+        rollback_result = _async_worker_result(
+            rollback_job,
+            model_run=_valid_worker_model_run(
+                rollback_job,
+                "private",
+                first_identity,
+                route_version_id=first_route.id,
+                evaluation_run_id=first_run.id,
+            ),
+        )
+        rollback_result["report"]["executive_summary"] = "R1 wording remains attributable after prospective rollback."
+        persist_async_analysis_completion(db, rollback_job, rollback_result)
+        rollback_record = _model_run_for_job(db, rollback_job)
+        assert (rollback_record.route_version_id, rollback_record.evaluation_run_id) == (first_route.id, first_run.id)
+
+        retry_job = _async_analysis_job(db, owner.id, "retry_preserves_snapshot")
+        retry_snapshot = deepcopy(retry_job.input_json["_server_context"]["model_execution_route"])
+        analysis_service.capture_async_analysis_execution_route(db, retry_job)
+        assert retry_job.input_json["_server_context"]["model_execution_route"] == retry_snapshot
+
+
+@pytest.mark.parametrize("mismatch", ["worker_route", "provider", "prompt", "evaluation"])
+def test_async_execution_snapshot_rejects_spoofed_or_mismatched_model_output(governance_session, monkeypatch, mismatch: str) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, f"phase21b-async-mismatch-{mismatch}@example.test", role="admin")
+        provider = SafeProvider()
+        provider.privacy_classification = "private_approved"
+        identity = provider_identity(provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
+        job = _async_analysis_job(db, owner.id, f"mismatch_{mismatch}")
+        model_run = _valid_worker_model_run(job, "private", identity, route_version_id=route.id, evaluation_run_id=evaluation.id)
+        if mismatch == "worker_route":
+            model_run["route_version_id"] = "route_spoofed"
+        elif mismatch == "provider":
+            model_run["provider"]["model_key"] = "spoofed-model"
+            model_run["provider"]["model_version"] = "spoofed-model"
+        elif mismatch == "prompt":
+            model_run["prompt_checksum"] = "0" * 64
+        else:
+            model_run["evaluation_run_id"] = "eval_spoofed"
+        result = _async_worker_result(job, model_run=model_run)
+        result["report"]["executive_summary"] = "Unattributed model wording must never persist."
+        persist_async_analysis_completion(db, job, result)
+        saved = db.get(ReportModel, job.result_resource_id)
+        provenance = _model_run_for_job(db, job)
+        assert saved is not None
+        assert saved.summary == result["deterministic_report"]["executive_summary"]
+        assert provenance.outcome != "succeeded"
+        assert provenance.route_version_id is None
+
+
+def test_async_missing_execution_snapshot_uses_deterministic_fallback(governance_session, monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, "phase21b-async-missing-snapshot@example.test", role="admin")
+        provider = SafeProvider()
+        provider.privacy_classification = "private_approved"
+        identity = provider_identity(provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
+        job = _async_analysis_job(db, owner.id, "missing_snapshot", capture_execution_route=False)
+        result = _async_worker_result(
+            job,
+            model_run=_valid_worker_model_run(job, "private", identity, route_version_id=route.id, evaluation_run_id=evaluation.id),
+        )
+        result["report"]["executive_summary"] = "Model wording without server snapshot."
+        persist_async_analysis_completion(db, job, result)
+        assert db.get(ReportModel, job.result_resource_id).summary == result["deterministic_report"]["executive_summary"]
+        assert _model_run_for_job(db, job).fallback_reason == "execution_route_snapshot_invalid"
+
+
+def test_async_organization_execution_snapshot_enforces_server_owned_privacy_scope(governance_session, monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, "phase21b-async-organization-privacy@example.test", role="admin")
+        organization = OrganizationModel(
+            id="org_phase21b_async_privacy",
+            name="Phase 21B Async Privacy",
+            slug="phase21b-async-privacy",
+            status="active",
+            created_by_user_id=owner.id,
+        )
+        db.add(
+            OrganizationMembershipModel(
+                id="membership_phase21b_async_privacy",
+                organization_id=organization.id,
+                user_id=owner.id,
+                role="owner",
+                status="active",
+            )
+        )
+        db.add(organization)
+        db.flush()
+        public_provider = SafeProvider()
+        public_provider.privacy_classification = "public_only"
+        identity = provider_identity(public_provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=public_provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: public_provider)
+        job = _async_analysis_job(db, owner.id, "organization_privacy", organization_id=organization.id)
+        snapshot = job.input_json["_server_context"]["model_execution_route"]
+        assert snapshot["scope_class"] == "organization"
+        assert snapshot["fallback_reason"] == "private_provider_not_approved"
+        result = _async_worker_result(
+            job,
+            model_run=_valid_worker_model_run(
+                job,
+                "organization",
+                identity,
+                route_version_id=route.id,
+                evaluation_run_id=evaluation.id,
+            ),
+        )
+        result["report"]["executive_summary"] = "Public-provider wording must not enter organization data."
+        persist_async_analysis_completion(db, job, result)
+        assert db.get(ReportModel, job.result_resource_id).summary == result["deterministic_report"]["executive_summary"]
+        assert _model_run_for_job(db, job).validation_result == "policy_denied"
+
+
 def test_async_organization_provenance_policy_and_worker_scope_are_server_derived(governance_session, monkeypatch) -> None:
     monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "false")
     get_settings.cache_clear()
@@ -670,6 +840,7 @@ def _async_analysis_job(
     organization_id: str | None = None,
     visibility: str | None = None,
     created_by_user_id: str | None = None,
+    capture_execution_route: bool = True,
 ) -> JobModel:
     now = datetime.now(UTC)
     report_id = f"report_phase21a_async_{suffix}"
@@ -703,11 +874,17 @@ def _async_analysis_job(
     )
     db.add(job)
     db.flush()
+    if capture_execution_route and owner_user_id and (
+        (organization_id is None and job.visibility == "private")
+        or (organization_id is not None and job.visibility == "organization")
+    ):
+        analysis_service.capture_async_analysis_execution_route(db, job)
     return job
 
 
 def _async_worker_result(job: JobModel, *, model_run: dict | None = None) -> dict:
     context = job.input_json["_server_context"]
+    report = _report(report_id=context["report_id"]).model_dump(mode="json")
     result = {
         "analysis_request": {
             "strategy_description": "Analyze a bounded Pendle PT strategy with deterministic risk controls.",
@@ -716,7 +893,8 @@ def _async_worker_result(job: JobModel, *, model_run: dict | None = None) -> dic
             "manual_inputs": {},
             "analysis_depth": "standard",
         },
-        "report": _report(report_id=context["report_id"]).model_dump(mode="json"),
+        "report": report,
+        "deterministic_report": report,
     }
     if model_run is not None:
         result["model_run"] = model_run

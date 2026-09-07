@@ -54,8 +54,11 @@ Migration `20260906_0031` adds immutable evaluation-dataset identity,
 evaluation-run and bounded case-result evidence, immutable route versions and
 transitions, and a single mutable/lockable assignment pointer. It adds only
 safe route/evaluation foreign keys to 21A run provenance. The checked-in
-`report_synthesis_public_v1` corpus is public/synthetic and is deliberately
-not copied into SQL.
+`report_synthesis_public_v2` corpus is public/synthetic and is deliberately
+not copied into SQL. Its 14 cases carry public retrieval fixtures, expected
+safe behavior, and an expected failure class so the evaluator is not driven
+only by a report identifier. The prior v1 corpus remains an immutable
+historical checked-in artifact.
 
 The code-owned `report_synthesis.promotion.v1` policy has hard 100% schema,
 deterministic, source, and missing-data thresholds; zero unsafe/privacy/provider
@@ -70,8 +73,16 @@ authority. The server first applies the global `LLM_SYNTHESIS_ENABLED=false`
 kill switch, then resolves a task/version/server-environment route, exact
 evaluation/prompt/model linkage, exact configured adapter identity, and the
 existing private/organization privacy policy. Any missing or corrupt state
-falls back deterministically. The Phase 17 durable completion path uses the
-same resolver before it accepts worker provenance.
+falls back deterministically. Only the bounded server environment taxonomy is
+accepted; an unknown `APP_ENV` cannot inherit development routing. The Phase 17
+durable completion path captures a secret-free route/evaluation/model/prompt
+snapshot when it starts an analysis job and uses that immutable server-owned
+authority at execution and completion. It never reads the current assignment
+to relabel an in-flight result. Route promotion and rollback are prospective:
+an R1 execution can retain R1 provenance after R2 promotion or R1 rollback if
+R1's historical evidence is still valid. Missing, spoofed, mismatched, or
+policy-denied snapshots discard model wording and persist only the explicit
+deterministic baseline.
 
 ## Remaining Phase 21 gaps
 

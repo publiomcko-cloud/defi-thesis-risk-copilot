@@ -673,8 +673,13 @@ durable registry/capability result.
 Checkpoint 21B adds checked-in public/synthetic corpus, durable redacted
 evaluation evidence, hard promotion policy checks, explicit promotion and
 rollback, runtime route resolution, route/evaluation provenance, and no-route,
-identity-mismatch, and private-policy fallback coverage. It does not call a
-paid provider.
+identity-mismatch, and private-policy fallback coverage. The correction suite
+also proves bounded server-environment aliases and unknown-environment fallback;
+current policy/checksum, dataset, and prompt promotion gates; meaningful public
+case fixtures; start-time async route snapshots; prospective promotion/rollback
+provenance; spoof/missing/mismatched worker fallback to deterministic wording;
+organization privacy enforcement; and unchanged snapshots across real Phase 17
+lease-loss/retry recovery. It does not call a paid provider.
 
 ```bash
 cd backend
@@ -687,8 +692,9 @@ RUN_POSTGRES_INTEGRATION=true python -m pytest -q app/tests/test_phase21b_postgr
 The 21B cycles prove `0030 -> 0031 -> 0030 -> 0031`, including Phase 20
 `free-v1`, historical prompt v1, runtime prompt v2 materialization, and removal
 of only 21B tables/provenance columns on downgrade. PostgreSQL also exercises
-simultaneous promotions and promotion-vs-rollback locking with one consistent
-active assignment/history. These local/CI checks do not claim hosted,
+simultaneous promotions, promotion-vs-rollback locking, and execution snapshots
+that retain historical R1 authority after later promotion and rollback, with one
+consistent active assignment/history. These local/CI checks do not claim hosted,
 paid-provider, private-provider, or production activation evidence.
 
 ## 11. CI expectations

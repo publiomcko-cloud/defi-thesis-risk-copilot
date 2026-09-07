@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 from app.rag.citations import results_to_sources
 from app.rag.retriever import RetrievalResult
 from sqlalchemy.orm import Session
@@ -36,6 +38,8 @@ def write_research_report(
     missing_data: list[str],
     content_scope: str = "public",
     db: Session | None = None,
+    execution_route_snapshot: object | None = None,
+    require_execution_route_snapshot: bool = False,
 ) -> SynthesisResult:
     stress_scenarios = generate_stress_scenarios(risk_score)
     monitoring_checklist = generate_monitoring_checklist(risk_score)
@@ -119,14 +123,17 @@ def write_research_report(
         disclaimer=DEFAULT_DISCLAIMER,
     )
     validate_report_structure(report)
-    return synthesize_report(
+    synthesis = synthesize_report(
         base_report=report,
         retrieved_context=retrieved_context,
         market_data=market_data,
         risk_score=risk_score,
         content_scope=content_scope,
         db=db,
+        execution_route_snapshot=execution_route_snapshot,
+        require_execution_route_snapshot=require_execution_route_snapshot,
     )
+    return replace(synthesis, deterministic_report=report)
 
 
 def _summarize_retrieved_context(retrieved_context: list[RetrievalResult]) -> str:

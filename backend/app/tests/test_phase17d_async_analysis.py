@@ -202,7 +202,13 @@ def test_lease_loss_retry_meters_analysis_only_after_authoritative_completion(ph
     queued = client.post("/api/analyze", json=_analysis_payload(), headers={"Authorization": f"Bearer {owner_token}", "Idempotency-Key": "phase17d-recovery-key"}).json()
     first = _claim(client, worker_token)
     first_payload = {"lease_generation": first["lease_generation"], "lease_token": first["lease_token"]}
-    assert client.post(f"/internal/workers/v1/jobs/{first['id']}/start", json=first_payload, headers=_worker_auth(worker_token)).status_code == 200
+    first_start = client.post(
+        f"/internal/workers/v1/jobs/{first['id']}/start",
+        json=first_payload,
+        headers=_worker_auth(worker_token),
+    )
+    assert first_start.status_code == 200
+    first_snapshot = first_start.json()["input_json"]["_server_context"]["model_execution_route"]
     with Session() as db:
         db.get(JobModel, first["id"]).lease_expires_at = datetime.now(UTC) - timedelta(seconds=1)
         db.commit()
@@ -214,7 +220,13 @@ def test_lease_loss_retry_meters_analysis_only_after_authoritative_completion(ph
         db.commit()
     second = _claim(client, worker_token)
     second_payload = {"lease_generation": second["lease_generation"], "lease_token": second["lease_token"]}
-    assert client.post(f"/internal/workers/v1/jobs/{second['id']}/start", json=second_payload, headers=_worker_auth(worker_token)).status_code == 200
+    second_start = client.post(
+        f"/internal/workers/v1/jobs/{second['id']}/start",
+        json=second_payload,
+        headers=_worker_auth(worker_token),
+    )
+    assert second_start.status_code == 200
+    assert second_start.json()["input_json"]["_server_context"]["model_execution_route"] == first_snapshot
     response = client.post(f"/internal/workers/v1/jobs/{second['id']}/complete", json={**second_payload, "result": {"result_schema_version": "analysis.generate.v1", "result_json": _worker_result(second)}}, headers=_worker_auth(worker_token))
     assert response.status_code == 200
     stale = client.post(f"/internal/workers/v1/jobs/{second['id']}/complete", json={**second_payload, "result": {"result_schema_version": "analysis.generate.v1", "result_json": _worker_result(second)}}, headers=_worker_auth(worker_token))
@@ -321,6 +333,22 @@ def _worker_auth(token: str) -> dict[str, str]:
 def _worker_result(lease: dict) -> dict:
     request = lease["input_json"]["request"]["analysis_request"]
     report_id = lease["input_json"]["_server_context"]["report_id"]
+    report = {
+        "report_id": report_id,
+        "status": "completed",
+        "risk_rating": "Very Risky",
+        "executive_summary": "Deterministic risk score remains authoritative.",
+        "strategy_description": request["strategy_description"],
+        "protocols": sorted(request["protocols"]),
+        "assumptions": ["Deterministic scoring used."],
+        "missing_data": ["Liquidation buffer calculation"],
+        "sections": [
+            {"title": title, "content": "Deterministic report."}
+            for title in REQUIRED_REPORT_SECTIONS
+        ],
+        "sources": [],
+        "disclaimer": "This report is for research and educational purposes only. It is not financial advice.",
+    }
     return {
         "analysis_request": {
             "strategy_description": request["strategy_description"],
@@ -329,20 +357,6 @@ def _worker_result(lease: dict) -> dict:
             "manual_inputs": request["manual_inputs"],
             "analysis_depth": request["analysis_depth"],
         },
-        "report": {
-            "report_id": report_id,
-            "status": "completed",
-            "risk_rating": "Very Risky",
-            "executive_summary": "Deterministic risk score remains authoritative.",
-            "strategy_description": request["strategy_description"],
-            "protocols": sorted(request["protocols"]),
-            "assumptions": ["Deterministic scoring used."],
-            "missing_data": ["Liquidation buffer calculation"],
-            "sections": [
-                {"title": title, "content": "Deterministic report."}
-                for title in REQUIRED_REPORT_SECTIONS
-            ],
-            "sources": [],
-            "disclaimer": "This report is for research and educational purposes only. It is not financial advice.",
-        },
+        "report": report,
+        "deterministic_report": report,
     }

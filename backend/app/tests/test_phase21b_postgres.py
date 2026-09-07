@@ -15,9 +15,11 @@ from sqlalchemy.orm import sessionmaker
 
 from app.auth.service import create_user, user_context
 from app.db.session import create_database_engine, normalize_database_url
+from app.core.config import get_settings
 from app.llm.base import LLMRequest, LLMResponse
 from app.llm.evaluation import evaluate_report_synthesis_candidate, promote_evaluation_route, rollback_route
 from app.llm.governance import ensure_report_synthesis_prompt_version
+from app.llm.routing import capture_report_synthesis_execution_route, resolve_report_synthesis_execution_route
 from app.models.model_governance import (
     ModelEvaluationCaseResultModel,
     ModelEvaluationRunModel,
@@ -149,6 +151,55 @@ def test_postgres_promotion_and_rollback_race_keeps_consistent_assignment_histor
             assert len(transitions) in {2, 3}
             assert rollback_result in {None, route_a.id, promoted_b}
     finally:
+        _cleanup_routes(postgres_sessions, suffix)
+
+
+def test_postgres_execution_snapshot_remains_historical_across_route_changes(postgres_sessions: sessionmaker, monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    suffix = uuid4().hex[:12]
+    operator_id, run_a, run_b = _seed_passing_runs(postgres_sessions, suffix)
+    try:
+        from app.models.user import UserModel
+
+        provider_a = PostgresSyntheticProvider(f"model-a-{suffix}")
+        with postgres_sessions() as db:
+            operator = user_context(db.get(UserModel, operator_id))
+            route_a = promote_evaluation_route(db, evaluation_run_id=run_a, actor=operator)
+            snapshot = capture_report_synthesis_execution_route(
+                db,
+                content_scope="private",
+                configured_provider=provider_a,
+            )
+            route_b = promote_evaluation_route(db, evaluation_run_id=run_b, actor=operator)
+            after_promotion = resolve_report_synthesis_execution_route(
+                db,
+                content_scope="private",
+                snapshot_payload=snapshot,
+                configured_provider=provider_a,
+            )
+            assert (after_promotion.route_version_id, after_promotion.evaluation_run_id) == (route_a.id, run_a)
+            assignment = db.scalars(
+                select(ModelRouteAssignmentModel).where(
+                    ModelRouteAssignmentModel.task_key == route_a.task_key,
+                    ModelRouteAssignmentModel.task_version == route_a.task_version,
+                    ModelRouteAssignmentModel.environment == route_a.environment,
+                )
+            ).one()
+            assert assignment.active_route_version_id == route_b.id
+
+            rollback_route(db, route_version_id=route_b.id, actor=operator)
+            rollback_route(db, route_version_id=route_a.id, actor=operator)
+            after_rollback = resolve_report_synthesis_execution_route(
+                db,
+                content_scope="private",
+                snapshot_payload=snapshot,
+                configured_provider=provider_a,
+            )
+            assert (after_rollback.route_version_id, after_rollback.evaluation_run_id) == (route_a.id, run_a)
+            assert assignment.active_route_version_id is None
+    finally:
+        get_settings.cache_clear()
         _cleanup_routes(postgres_sessions, suffix)
 
 

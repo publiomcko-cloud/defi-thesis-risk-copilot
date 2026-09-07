@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-import re
-
 import pytest
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.auth.service import create_user, user_context
-from app.core.config import get_settings
+from app.core.config import Settings, get_settings
 from app.db.base import Base
 from app.llm.base import LLMRequest, LLMResponse
 from app.llm.evaluation import (
@@ -21,10 +19,11 @@ from app.llm.evaluation import (
 from app.llm.evaluation_data import report_synthesis_public_dataset
 from app.llm.governance import record_model_run_provenance
 from app.llm.provenance import build_report_synthesis_candidate
-from app.llm.routing import resolve_report_synthesis_route
+from app.llm.routing import server_environment, resolve_report_synthesis_route
 from app.llm.synthesis import synthesize_report
 from app.models.model_governance import (
     ModelEvaluationCaseResultModel,
+    ModelEvaluationDatasetModel,
     ModelEvaluationRunModel,
     ModelRegistryModel,
     ModelRouteAssignmentModel,
@@ -33,6 +32,7 @@ from app.models.model_governance import (
 )
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.report import ReportModel
+from app.schemas.analysis import AnalysisRequest
 
 
 class SyntheticProvider:
@@ -47,22 +47,21 @@ class SyntheticProvider:
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         self.requests.append(request)
-        case = re.search(r'"report_id": "eval_([a-z_]+)"', request.prompt)
-        case_id = case.group(1) if case else "ordinary_valid"
-        if case_id == self.failure_case:
-            if case_id == "unsafe_language":
+        failure_class = self.failure_case
+        if failure_class and f"Expected failure class: {failure_class}." in request.prompt:
+            if failure_class == "unsafe_language":
                 return LLMResponse(
                     text='{"executive_summary":"You should buy this immediately.","sections":{}}',
                     provider=self.name,
                     model=self.model,
                 )
-            if case_id == "provider_failure":
+            if failure_class == "provider_failure":
                 raise TimeoutError("synthetic provider failure")
             immutable_title = {
                 "risk_mutation": "Risk Analysis",
                 "source_mutation": "Sources",
                 "missing_data_suppression": "Missing Data and Uncertainty",
-            }.get(case_id)
+            }.get(failure_class)
             if immutable_title:
                 return LLMResponse(
                     text=(
@@ -72,7 +71,7 @@ class SyntheticProvider:
                     provider=self.name,
                     model=self.model,
                 )
-            if case_id == "unsupported_source_claim":
+            if failure_class == "unsupported_source_claim":
                 return LLMResponse(
                     text=(
                         '{"executive_summary":"Synthetic summary.",'
@@ -122,7 +121,7 @@ def routing_session(monkeypatch):
 
 def test_public_dataset_is_versioned_immutable_and_contains_no_private_payload(routing_session) -> None:
     definition = report_synthesis_public_dataset()
-    assert definition.dataset_id == "report_synthesis_public_v1"
+    assert definition.dataset_id == "report_synthesis_public_v2"
     assert len(definition.cases) >= 13
     assert {case.category for case in definition.cases} >= {
         "valid_ordinary",
@@ -139,6 +138,16 @@ def test_public_dataset_is_versioned_immutable_and_contains_no_private_payload(r
         "provider_failure",
         "empty_retrieval",
         "partial_retrieval",
+    }
+    assert all(case.retrieval_fixture and case.expected_result for case in definition.cases)
+    assert {case.expected_failure_class for case in definition.cases if case.expected_failure_class} >= {
+        "malformed_json",
+        "risk_mutation",
+        "source_mutation",
+        "missing_data_suppression",
+        "unsafe_language",
+        "unsupported_source_claim",
+        "provider_failure",
     }
     with routing_session() as db:
         dataset = ensure_report_synthesis_evaluation_dataset(db)
@@ -326,6 +335,101 @@ def test_route_identity_mismatch_and_private_policy_fail_closed(routing_session)
         assert denied.provider is None
         assert denied.validation_result == "policy_denied"
         assert denied.fallback_reason == "private_provider_not_approved"
+
+
+@pytest.mark.parametrize(
+    ("configured", "expected"),
+    [
+        ("development", "development"),
+        ("dev", "development"),
+        ("test", "test"),
+        ("testing", "test"),
+        ("staging", "staging"),
+        ("production", "production"),
+        ("prod", "production"),
+        ("portfolio_demo", "portfolio_demo"),
+        ("exercise", "exercise"),
+    ],
+)
+def test_server_environment_accepts_only_documented_server_aliases(configured: str, expected: str) -> None:
+    assert server_environment(Settings(app_env=configured, public_demo_mode=False)) == expected
+    assert server_environment(Settings(app_env="unsupported-environment", public_demo_mode=False)) is None
+    assert server_environment(Settings(app_env="unsupported-environment", public_demo_mode=True)) == "portfolio_demo"
+
+
+def test_unknown_environment_never_uses_development_route_or_browser_data(routing_session) -> None:
+    with routing_session() as db:
+        operator = user_context(create_user(db, "phase21b-environment-admin@example.test", role="admin"))
+        provider = SyntheticProvider()
+        run = evaluate_report_synthesis_candidate(db, provider=provider, actor=operator)
+        promote_evaluation_route(db, evaluation_run_id=run.id, actor=operator)
+        resolution = resolve_report_synthesis_route(
+            db,
+            content_scope="public",
+            configured_provider=provider,
+            settings=Settings(app_env="typoed-environment", llm_synthesis_enabled=True),
+        )
+        assert resolution.provider is None
+        assert resolution.fallback_reason == "unsupported_environment"
+        with pytest.raises(ValueError, match="environment"):
+            AnalysisRequest.model_validate(
+                {
+                    "strategy_description": "A bounded analysis request cannot choose model environment.",
+                    "protocols": ["aave"],
+                    "manual_inputs": {},
+                    "environment": "production",
+                }
+            )
+
+
+def test_promotion_requires_current_policy_and_authoritative_dataset(routing_session) -> None:
+    with routing_session() as db:
+        operator = user_context(create_user(db, "phase21b-promotion-evidence@example.test", role="admin"))
+        current_run = evaluate_report_synthesis_candidate(db, provider=SyntheticProvider(), actor=operator)
+        assert promote_evaluation_route(db, evaluation_run_id=current_run.id, actor=operator).evaluation_run_id == current_run.id
+
+        stale_policy = evaluate_report_synthesis_candidate(db, provider=SyntheticProvider(model="stale-policy"), actor=operator)
+        db.execute(
+            ModelEvaluationRunModel.__table__.update()
+            .where(ModelEvaluationRunModel.id == stale_policy.id)
+            .values(policy_version="report_synthesis.promotion.old")
+        )
+        db.expire_all()
+        with pytest.raises(ModelEvaluationError, match="current promotion policy"):
+            promote_evaluation_route(db, evaluation_run_id=stale_policy.id, actor=operator)
+        db.rollback()
+
+        stale_checksum = evaluate_report_synthesis_candidate(db, provider=SyntheticProvider(model="stale-checksum"), actor=operator)
+        db.execute(
+            ModelEvaluationRunModel.__table__.update()
+            .where(ModelEvaluationRunModel.id == stale_checksum.id)
+            .values(policy_checksum="0" * 64)
+        )
+        db.expire_all()
+        with pytest.raises(ModelEvaluationError, match="current promotion policy"):
+            promote_evaluation_route(db, evaluation_run_id=stale_checksum.id, actor=operator)
+        db.rollback()
+
+        stale_dataset = evaluate_report_synthesis_candidate(db, provider=SyntheticProvider(model="stale-dataset"), actor=operator)
+        db.execute(
+            ModelEvaluationDatasetModel.__table__.update()
+            .where(ModelEvaluationDatasetModel.id == stale_dataset.dataset_id)
+            .values(dataset_checksum="0" * 64)
+        )
+        db.expire_all()
+        with pytest.raises(ModelEvaluationError, match="current authoritative dataset"):
+            promote_evaluation_route(db, evaluation_run_id=stale_dataset.id, actor=operator)
+        db.rollback()
+
+        incomplete = evaluate_report_synthesis_candidate(db, provider=SyntheticProvider(model="incomplete-run"), actor=operator)
+        db.execute(
+            ModelEvaluationRunModel.__table__.update()
+            .where(ModelEvaluationRunModel.id == incomplete.id)
+            .values(status="running", promotion_eligible=False)
+        )
+        db.expire_all()
+        with pytest.raises(ModelEvaluationError, match="Passing completed"):
+            promote_evaluation_route(db, evaluation_run_id=incomplete.id, actor=operator)
 
 
 def _runtime_inputs():

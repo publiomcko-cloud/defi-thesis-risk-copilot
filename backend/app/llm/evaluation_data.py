@@ -12,7 +12,9 @@ from importlib.resources import files
 class EvaluationCase:
     case_id: str
     category: str
-    retrieval: str
+    retrieval_fixture: str
+    expected_result: str
+    expected_failure_class: str | None
 
 
 @dataclass(frozen=True)
@@ -29,14 +31,16 @@ class EvaluationDatasetDefinition:
 def report_synthesis_public_dataset() -> EvaluationDatasetDefinition:
     """Load the immutable checked-in corpus without putting its contents in SQL."""
 
-    raw = files("app.llm").joinpath("evaluation_data/report_synthesis_public_v1.json").read_text()
+    raw = files("app.llm").joinpath("evaluation_data/report_synthesis_public_v2.json").read_text()
     payload = json.loads(raw)
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     cases = tuple(
         EvaluationCase(
             case_id=_bounded_case_text(case, "id"),
             category=_bounded_case_text(case, "category"),
-            retrieval=_bounded_case_text(case, "retrieval"),
+            retrieval_fixture=_bounded_case_text(case, "retrieval_fixture"),
+            expected_result=_bounded_case_text(case, "expected_result"),
+            expected_failure_class=_optional_bounded_case_text(case, "expected_failure_class"),
         )
         for case in payload["cases"]
     )
@@ -54,7 +58,19 @@ def report_synthesis_public_dataset() -> EvaluationDatasetDefinition:
 
 
 def case_checksum(case: EvaluationCase) -> str:
-    return sha256(f"{case.case_id}|{case.category}|{case.retrieval}".encode()).hexdigest()
+    return sha256(
+        json.dumps(
+            {
+                "id": case.case_id,
+                "category": case.category,
+                "retrieval_fixture": case.retrieval_fixture,
+                "expected_result": case.expected_result,
+                "expected_failure_class": case.expected_failure_class,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        ).encode()
+    ).hexdigest()
 
 
 def _bounded_text(payload: dict, key: str, maximum: int) -> str:
@@ -68,3 +84,14 @@ def _bounded_case_text(case: object, key: str) -> str:
     if not isinstance(case, dict):
         raise ValueError("Evaluation dataset case is invalid")
     return _bounded_text(case, key, 64)
+
+
+def _optional_bounded_case_text(case: object, key: str) -> str | None:
+    if not isinstance(case, dict):
+        raise ValueError("Evaluation dataset case is invalid")
+    value = case.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, str) or not 1 <= len(value) <= 64:
+        raise ValueError("Evaluation dataset case is invalid")
+    return value

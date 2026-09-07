@@ -542,7 +542,10 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   registration alone are not runtime authority; disabled/no-route/mismatch/
   privacy failure stays deterministic. Synthesis remains disabled by default,
   private/organization provider use fails closed unless the exact promoted
-  server-owned model is `private_approved`, and 21C–21F remain unstarted.
+  server-owned model is `private_approved`. Unknown server environments fail
+  closed, and asynchronous analysis snapshots route authority at start so
+  later promotion/rollback cannot rewrite report provenance or persist
+  unattributed model wording. 21C–21F remain unstarted.
 - Phase 22 — final provider, legal, and launch validation.
 
 See [`future_phase_contracts.md`](future_phase_contracts.md) for complete requirements.

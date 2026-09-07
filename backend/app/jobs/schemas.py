@@ -138,6 +138,9 @@ class WorkerMutationResponse(BaseModel):
     job_id: str
     status: JobStatus
     lease_expires_at: datetime | None = None
+    # Returned by the authenticated worker control plane after start so the
+    # executor receives the server-owned execution-route snapshot.
+    input_json: dict | None = None
 
 
 class WorkerRegistrationRequest(BaseModel):
