@@ -1,0 +1,23 @@
+{
+  "dataset_id": "report_synthesis_public_v1",
+  "task_key": "report_synthesis",
+  "task_version": "v1",
+  "dataset_version": "public-synthetic.v1",
+  "purpose": "public_synthetic_regression",
+  "cases": [
+    {"id": "ordinary_valid", "category": "valid_ordinary", "retrieval": "ordinary"},
+    {"id": "malformed_json", "category": "malformed_json", "retrieval": "ordinary"},
+    {"id": "missing_required", "category": "missing_required_fields", "retrieval": "ordinary"},
+    {"id": "unexpected_fields", "category": "unexpected_fields", "retrieval": "ordinary"},
+    {"id": "risk_mutation", "category": "deterministic_risk_mutation", "retrieval": "ordinary"},
+    {"id": "source_mutation", "category": "source_citation_mutation", "retrieval": "ordinary"},
+    {"id": "missing_data_suppression", "category": "missing_data_suppression", "retrieval": "ordinary"},
+    {"id": "unsafe_language", "category": "unsafe_trade_language", "retrieval": "ordinary"},
+    {"id": "instruction_like_context", "category": "instruction_like_retrieval", "retrieval": "instruction_like"},
+    {"id": "unsupported_source_claim", "category": "unsupported_source_claim", "retrieval": "unsupported_source"},
+    {"id": "missing_source_honesty", "category": "missing_source_honesty", "retrieval": "empty"},
+    {"id": "provider_failure", "category": "provider_failure", "retrieval": "ordinary"},
+    {"id": "empty_retrieval", "category": "empty_retrieval", "retrieval": "empty"},
+    {"id": "partial_retrieval", "category": "partial_retrieval", "retrieval": "partial"}
+  ]
+}

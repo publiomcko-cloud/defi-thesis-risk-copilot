@@ -1,8 +1,9 @@
 # Portfolio Implementation Profile
 
-Status: **Phase 20 Complete — Portfolio Profile.** Phase 20J technical
-completion evidence passed on `4b09071623bc686c1e623cbf383eb198b3c89412`; PR
-#31 remains DRAFT and unmerged.
+Status: **Phase 20 Complete — Portfolio Profile.** Phase 20J merged through
+PR #31 at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`. Phase 21 is active on
+`agent/v1-phase-21-model-research-intelligence`; 21A is the implemented
+governance checkpoint and 21B–21F remain planned.
 
 This repository is currently developed as a production-grade portfolio anchor, not as an actively commercialized SaaS product.
 

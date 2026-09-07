@@ -489,10 +489,8 @@ Core outcomes:
 
 ## V1 Phase 20 — Complete — Portfolio Profile
 
-The selected portfolio implementation is complete through Phase 20J. Its
-technical completion gate passed on validated implementation/evidence head
-`4b09071623bc686c1e623cbf383eb198b3c89412`; PR #31 remains DRAFT and
-unmerged until explicit merge authorization. The authoritative status table,
+The selected portfolio implementation is complete through Phase 20J and merged
+at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. The authoritative status table,
 migration chain, safe defaults, and handoff are in
 [`phase_20_closeout.md`](phase_20_closeout.md).
 
@@ -507,7 +505,14 @@ Production safety remains explicit: analytics collection and schedule dispatch
 are disabled, private pgvector remains gated, real Vast rentals are disabled,
 and no external notification or helpdesk provider is activated.
 
-## V1 Phase 21 — Model and research intelligence expansion — Planned
+## V1 Phase 21 — Model and research intelligence expansion — Active
+
+Checkpoint 21A is implemented on
+`agent/v1-phase-21-model-research-intelligence`: migration `20260904_0030`
+adds code-owned task governance, bounded model/prompt metadata, and immutable
+report-synthesis provenance. Existing deterministic report authority and the
+disabled-by-default model setting remain unchanged. Checkpoints 21B–21F are
+planned; Phase 21 is not complete.
 
 Goal: expand model-assisted research only after evaluation, provenance, privacy, cost, and rollback controls exist.
 

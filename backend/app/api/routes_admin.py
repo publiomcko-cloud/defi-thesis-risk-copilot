@@ -46,6 +46,14 @@ from app.jobs.worker_service import (
     revoke_worker_credential,
     rotate_worker_credential,
 )
+from app.llm.evaluation import (
+    ModelEvaluationError,
+    evaluation_run_snapshot,
+    promote_evaluation_route,
+    rollback_route,
+    route_snapshot,
+)
+from app.models.model_governance import ModelEvaluationDatasetModel, ModelEvaluationRunModel
 
 router = APIRouter(tags=["admin"])
 
@@ -76,6 +84,12 @@ class RateLimitSummaryResponse(BaseModel):
     mode: str
     active_bucket_count: int
     actions: list[RateLimitActionSummary]
+
+
+class ModelRouteActionResponse(BaseModel):
+    route_version_id: str | None
+    active_route_version_id: str | None
+    assignment_generation: int
 
 
 @router.post("/admin/provider-credentials", response_model=ProviderCredentialResponse)
@@ -133,6 +147,84 @@ def get_audit_events(
         select(AccessAuditEventModel).order_by(AccessAuditEventModel.created_at.desc()).limit(limit)
     ).scalars().all()
     return AuditEventsResponse(items=[audit_event_response(record) for record in records])
+
+
+@router.get("/admin/model-routing/datasets")
+def get_model_evaluation_datasets(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> dict[str, list[dict[str, object]]]:
+    rows = db.execute(select(ModelEvaluationDatasetModel).order_by(ModelEvaluationDatasetModel.created_at.desc())).scalars().all()
+    return {
+        "items": [
+            {
+                "id": row.id,
+                "task_key": row.task_key,
+                "task_version": row.task_version,
+                "dataset_version": row.dataset_version,
+                "purpose": row.purpose,
+                "dataset_checksum": row.dataset_checksum,
+                "case_count": row.case_count,
+                "lifecycle_state": row.lifecycle_state,
+                "created_at": row.created_at,
+            }
+            for row in rows
+        ]
+    }
+
+
+@router.get("/admin/model-routing/evaluations")
+def get_model_evaluations(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> dict[str, list[dict[str, object]]]:
+    rows = db.execute(select(ModelEvaluationRunModel).order_by(ModelEvaluationRunModel.started_at.desc()).limit(100)).scalars().all()
+    return {"items": [evaluation_run_snapshot(row) for row in rows]}
+
+
+@router.get("/admin/model-routing/current")
+def get_current_model_route(
+    db: Session = Depends(get_db),
+    _: UserContext = Depends(require_admin),
+) -> dict[str, object]:
+    return route_snapshot(db)
+
+
+@router.post("/admin/model-routing/evaluations/{evaluation_run_id}/promote", response_model=ModelRouteActionResponse)
+def promote_model_evaluation(
+    evaluation_run_id: str,
+    db: Session = Depends(get_db),
+    current_user: UserContext = Depends(require_admin),
+) -> ModelRouteActionResponse:
+    _block_public_demo_mutation()
+    try:
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation_run_id, actor=current_user)
+    except ModelEvaluationError as exc:
+        raise HTTPException(status_code=409, detail="Model evaluation cannot be promoted") from exc
+    snapshot = route_snapshot(db, environment=route.environment)
+    return ModelRouteActionResponse(
+        route_version_id=route.id,
+        active_route_version_id=snapshot["active_route_version_id"],
+        assignment_generation=int(snapshot["assignment_generation"]),
+    )
+
+
+@router.post("/admin/model-routing/routes/{route_version_id}/rollback", response_model=ModelRouteActionResponse)
+def rollback_model_route(
+    route_version_id: str,
+    db: Session = Depends(get_db),
+    current_user: UserContext = Depends(require_admin),
+) -> ModelRouteActionResponse:
+    _block_public_demo_mutation()
+    try:
+        assignment = rollback_route(db, route_version_id=route_version_id, actor=current_user)
+    except ModelEvaluationError as exc:
+        raise HTTPException(status_code=409, detail="Model route cannot be rolled back") from exc
+    return ModelRouteActionResponse(
+        route_version_id=route_version_id,
+        active_route_version_id=assignment.active_route_version_id,
+        assignment_generation=assignment.assignment_generation,
+    )
 
 
 @router.post("/admin/workers", response_model=WorkerResponse)

@@ -290,6 +290,7 @@ def test_local_worker_runner_uses_allowlisted_fake_executor_and_releases_on_sigt
                 }
             if path.endswith("/start"):
                 os.kill(os.getpid(), signal.SIGTERM)
+                return {"status": "running", "input_json": {"request": {"strategy": "Fake only."}}}
             return {"status": "ok"}
 
     monkeypatch.setenv("WORKER_CREDENTIAL", "wrk_abcdefghijklmnopqrstuvwxyz")
@@ -429,6 +430,19 @@ def _worker_auth(token: str) -> dict[str, str]:
 
 def _worker_result(lease: dict) -> dict:
     request = lease["input_json"]["request"]["analysis_request"]
+    report = {
+        "report_id": lease["input_json"]["_server_context"]["report_id"],
+        "status": "completed",
+        "risk_rating": "Very Risky",
+        "executive_summary": "Deterministic test report.",
+        "strategy_description": request["strategy_description"],
+        "protocols": request["protocols"],
+        "assumptions": ["Deterministic scoring used."],
+        "missing_data": [],
+        "sections": [{"title": title, "content": "Test report."} for title in REQUIRED_REPORT_SECTIONS],
+        "sources": [],
+        "disclaimer": "This report is for research and educational purposes only. It is not financial advice.",
+    }
     return {
         "analysis_request": {
             "strategy_description": request["strategy_description"],
@@ -437,17 +451,6 @@ def _worker_result(lease: dict) -> dict:
             "manual_inputs": request["manual_inputs"],
             "analysis_depth": request["analysis_depth"],
         },
-        "report": {
-            "report_id": lease["input_json"]["_server_context"]["report_id"],
-            "status": "completed",
-            "risk_rating": "Very Risky",
-            "executive_summary": "Deterministic test report.",
-            "strategy_description": request["strategy_description"],
-            "protocols": request["protocols"],
-            "assumptions": ["Deterministic scoring used."],
-            "missing_data": [],
-            "sections": [{"title": title, "content": "Test report."} for title in REQUIRED_REPORT_SECTIONS],
-            "sources": [],
-            "disclaimer": "This report is for research and educational purposes only. It is not financial advice.",
-        },
+        "report": report,
+        "deterministic_report": report,
     }

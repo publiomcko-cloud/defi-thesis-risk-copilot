@@ -96,6 +96,7 @@ class AccountExportResponse(BaseModel):
     entitlement_assignments: list[dict] = Field(default_factory=list)
     non_billable_usage_events: list[dict] = Field(default_factory=list)
     customer_requests: list[dict] = Field(default_factory=list)
+    model_run_provenance: list[dict] = Field(default_factory=list)
 
 
 class AccountDeleteRequest(BaseModel):

@@ -116,6 +116,8 @@ class WorkerClaimedJob(BaseModel):
     job_type: str
     input_schema_version: str
     input_json: dict
+    # This is server-derived from the durable job row, never worker supplied.
+    organization_id: str | None = None
     lease_generation: int = Field(gt=0)
     lease_token: str = Field(min_length=24)
     lease_expires_at: datetime
@@ -136,6 +138,9 @@ class WorkerMutationResponse(BaseModel):
     job_id: str
     status: JobStatus
     lease_expires_at: datetime | None = None
+    # Returned by the authenticated worker control plane after start so the
+    # executor receives the server-owned execution-route snapshot.
+    input_json: dict | None = None
 
 
 class WorkerRegistrationRequest(BaseModel):

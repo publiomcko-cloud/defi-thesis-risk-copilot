@@ -10,6 +10,7 @@ from app.agents.strategy_parser import ParsedStrategy, parse_strategy
 from app.rag.retriever import RetrievalResult
 from app.rag.scope import derive_retrieval_scope
 from app.auth.schemas import UserContext
+from app.llm.provenance import ModelRunCandidate, build_report_synthesis_candidate, scope_class_for_actor
 from app.jobs.cancellation import CancellationContext
 from app.risk.framework import RiskScore
 from app.schemas.analysis import AnalysisRequest
@@ -25,6 +26,8 @@ class AnalysisWorkflowResult:
     missing_data: list[str]
     risk_score: RiskScore
     report: ReportResponse
+    deterministic_report: ReportResponse
+    model_run: ModelRunCandidate
 
 
 def run_analysis_workflow(
@@ -32,7 +35,10 @@ def run_analysis_workflow(
     report_id: str,
     db: Session,
     actor: UserContext | None = None,
+    organization_id: str | None = None,
     cancellation: CancellationContext | None = None,
+    execution_route_snapshot: object | None = None,
+    require_execution_route_snapshot: bool = False,
 ) -> AnalysisWorkflowResult:
     _check_cancelled(cancellation)
     parsed_strategy = parse_strategy(request)
@@ -50,7 +56,8 @@ def run_analysis_workflow(
     missing_data = _build_missing_data(retrieved_context, market_data.missing_fields)
     risk_score = score_parsed_strategy(parsed_strategy, missing_data)
     _check_cancelled(cancellation)
-    report = write_research_report(
+    content_scope = scope_class_for_actor(actor, organization_id=organization_id)
+    synthesis = write_research_report(
         report_id=report_id,
         strategy_description=parsed_strategy.description,
         protocols=parsed_strategy.protocols,
@@ -58,6 +65,10 @@ def run_analysis_workflow(
         retrieved_context=retrieved_context,
         market_data=market_data,
         missing_data=missing_data,
+        content_scope=content_scope,
+        db=db,
+        execution_route_snapshot=execution_route_snapshot,
+        require_execution_route_snapshot=require_execution_route_snapshot,
     )
     _check_cancelled(cancellation)
 
@@ -67,7 +78,14 @@ def run_analysis_workflow(
         market_data=market_data,
         missing_data=missing_data,
         risk_score=risk_score,
-        report=report,
+        report=synthesis.report,
+        deterministic_report=synthesis.deterministic_report or synthesis.report,
+        model_run=build_report_synthesis_candidate(
+            result=synthesis,
+            base_report=synthesis.deterministic_report or synthesis.report,
+            retrieved_context=retrieved_context,
+            scope_class=content_scope,
+        ),
     )
 
 

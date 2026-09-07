@@ -18,18 +18,9 @@ class SuccessfulProvider:
             model=self.model,
             text=(
                 "{"
-                '"report_id":"hijacked",'
-                '"risk_rating":"Conservative",'
-                '"missing_data":[],'
-                '"sources":[],'
-                '"disclaimer":"removed",'
                 '"executive_summary":"LLM educational summary that preserves uncertainty.",'
                 '"sections":{'
-                '"Strategy Mechanics":"LLM explains mechanics in clearer educational language.",'
-                '"Risk Analysis":"LLM explains deterministic risk drivers while preserving score 8 and Very Risky rating.",'
-                '"Risk Rating":"Conservative with score 1.",'
-                '"Sources":"No sources.",'
-                '"Disclaimer":"This is advice."'
+                '"Strategy Mechanics":"LLM explains mechanics in clearer educational language."'
                 "}"
                 "}"
             ),
@@ -42,6 +33,42 @@ class FailingProvider:
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         raise TimeoutError("simulated timeout")
+
+
+class TamperingProvider:
+    name = "tampering_provider"
+    model = "tampering_model"
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        return LLMResponse(
+            provider=self.name,
+            model=self.model,
+            text=(
+                "{"
+                '"report_id":"hijacked",'
+                '"risk_rating":"Conservative",'
+                '"executive_summary":"Tampered summary.",'
+                '"sections":{"Risk Rating":"Conservative with score 1."}'
+                "}"
+            ),
+        )
+
+
+class RiskTamperingProvider:
+    name = "risk_tampering_provider"
+    model = "risk_tampering_model"
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        return LLMResponse(
+            provider=self.name,
+            model=self.model,
+            text=(
+                "{"
+                '"executive_summary":"Educational summary.",'
+                '"sections":{"Risk Analysis":"Very Risky score 8, but fabricated risk facts."}'
+                "}"
+            ),
+        )
 
 
 @pytest.fixture(autouse=True)
@@ -83,7 +110,8 @@ def test_llm_failure_falls_back_to_deterministic_report(monkeypatch) -> None:
     )
 
     assert not result.used_llm
-    assert result.reason == "fallback"
+    assert result.reason == "provider_failure"
+    assert result.outcome == "provider_failure"
     assert result.report.executive_summary == base_report.executive_summary
     assert any("skipped or unavailable" in item for item in result.report.assumptions)
 
@@ -111,8 +139,8 @@ def test_llm_output_cannot_override_deterministic_fields(monkeypatch) -> None:
     assert _section(result.report, "Risk Rating") == _section(base_report, "Risk Rating")
     assert _section(result.report, "Sources") == _section(base_report, "Sources")
     assert _section(result.report, "Disclaimer") == _section(base_report, "Disclaimer")
+    assert _section(result.report, "Risk Analysis") == _section(base_report, "Risk Analysis")
     assert "LLM explains mechanics" in _section(result.report, "Strategy Mechanics")
-    assert "LLM explains deterministic risk drivers" in _section(result.report, "Risk Analysis")
     assert any("Optional LLM synthesis was used" in item for item in result.report.assumptions)
 
 
@@ -141,6 +169,49 @@ def test_llm_assumptions_report_used_or_skipped(monkeypatch) -> None:
     assert any("Optional LLM synthesis was skipped" in item for item in skipped.report.assumptions)
     assert not any("without live LLM calls" in item for item in used.report.assumptions)
     assert not any("without live LLM calls" in item for item in skipped.report.assumptions)
+
+
+def test_llm_tampering_output_falls_back_without_mutating_deterministic_report(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    base_report = _base_report()
+
+    result = synthesize_report(
+        base_report=base_report,
+        retrieved_context=[],
+        market_data=_market_data(),
+        risk_score=_risk_score(),
+        provider=TamperingProvider(),
+    )
+
+    assert result.reason == "validation_fallback"
+    assert result.validation_result == "schema_invalid"
+    assert result.report == base_report.model_copy(
+        update={
+            "assumptions": [
+                *base_report.assumptions,
+                "Optional LLM synthesis was skipped or unavailable; deterministic report template wording was used.",
+            ]
+        }
+    )
+
+
+def test_llm_cannot_rewrite_deterministic_risk_analysis(monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    base_report = _base_report()
+
+    result = synthesize_report(
+        base_report=base_report,
+        retrieved_context=[],
+        market_data=_market_data(),
+        risk_score=_risk_score(),
+        provider=RiskTamperingProvider(),
+    )
+
+    assert result.outcome == "validation_fallback"
+    assert result.validation_result == "schema_invalid"
+    assert _section(result.report, "Risk Analysis") == _section(base_report, "Risk Analysis")
 
 
 def _base_report() -> ReportResponse:

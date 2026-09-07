@@ -98,7 +98,11 @@ def run_worker(*, once: bool = False) -> int:
             client.correlation_id = correlation_id_from_job_input(job.input_json)
             active = ActiveLease(job.id, job.lease_generation, job.lease_token)
             lease_payload = {"lease_generation": job.lease_generation, "lease_token": job.lease_token}
-            client.request("POST", f"/internal/workers/v1/jobs/{job.id}/start", lease_payload)
+            started = client.request("POST", f"/internal/workers/v1/jobs/{job.id}/start", lease_payload)
+            started_input = started.get("input_json")
+            if not isinstance(started_input, dict):
+                raise RuntimeError("Worker start did not return the server-owned execution context.")
+            job = job.model_copy(update={"input_json": started_input})
             client.request(
                 "POST",
                 f"/internal/workers/v1/jobs/{job.id}/progress",

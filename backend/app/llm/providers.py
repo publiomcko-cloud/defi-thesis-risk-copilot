@@ -30,6 +30,9 @@ class OllamaProvider:
             text=str(payload.get("response") or ""),
             provider=self.name,
             model=self.model,
+            input_tokens=_bounded_usage(payload.get("prompt_eval_count")),
+            output_tokens=_bounded_usage(payload.get("eval_count")),
+            total_tokens=_bounded_usage(payload.get("prompt_eval_count"), payload.get("eval_count")),
         )
 
 
@@ -63,10 +66,14 @@ class OpenAICompatibleProvider:
         response.raise_for_status()
         data = response.json()
         content = data["choices"][0]["message"]["content"]
+        usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
         return LLMResponse(
             text=str(content or ""),
             provider=self.name,
             model=self.model,
+            input_tokens=_bounded_usage(usage.get("prompt_tokens")),
+            output_tokens=_bounded_usage(usage.get("completion_tokens")),
+            total_tokens=_bounded_usage(usage.get("total_tokens")),
         )
 
 
@@ -85,3 +92,13 @@ def get_llm_provider(settings: Settings) -> LLMProvider | None:
             settings.openai_compatible_model,
         )
     return None
+
+
+def _bounded_usage(value: object, additional: object | None = None) -> int | None:
+    if additional is not None:
+        if not isinstance(value, int) or isinstance(value, bool) or not isinstance(additional, int) or isinstance(additional, bool):
+            return None
+        value += additional
+    if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 10_000_000:
+        return None
+    return value
