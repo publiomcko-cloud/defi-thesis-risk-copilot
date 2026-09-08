@@ -180,14 +180,14 @@ def evaluate_report_synthesis_quality(
     poisoning_detected = bool(source_flags and output_flags)
     unsafe_language_violation = bool(_UNSAFE_OUTPUT_PATTERN.search(generated_text))
     deterministic_integrity = _deterministic_facts_match(base_report, synthesized_report)
-    overall_quality_pass = bool(
-        citation_consistency
-        and unsupported_claim_count == 0
-        and missing_source_honesty
-        and uncertainty_preserved
-        and not poisoning_detected
-        and not unsafe_language_violation
-        and deterministic_integrity
+    overall_quality_pass = quality_passes(
+        citation_consistency=citation_consistency,
+        unsupported_claim_count=unsupported_claim_count,
+        missing_source_honesty=missing_source_honesty,
+        uncertainty_preserved=uncertainty_preserved,
+        poisoning_detected=poisoning_detected,
+        unsafe_language_violation=unsafe_language_violation,
+        deterministic_integrity=deterministic_integrity,
     )
     return ModelQualityEvidence(
         citation_consistency=citation_consistency,
@@ -208,6 +208,50 @@ def evaluate_report_synthesis_quality(
             unsafe_language_violation,
             deterministic_integrity,
         ),
+    )
+
+
+def quality_passes(
+    *,
+    citation_consistency: bool,
+    unsupported_claim_count: int,
+    missing_source_honesty: bool,
+    uncertainty_preserved: bool,
+    poisoning_detected: bool,
+    unsafe_language_violation: bool,
+    deterministic_integrity: bool,
+) -> bool:
+    """Derive the v1 pass bit from bounded constituent checks only."""
+
+    return bool(
+        citation_consistency
+        and unsupported_claim_count == 0
+        and missing_source_honesty
+        and uncertainty_preserved
+        and not poisoning_detected
+        and not unsafe_language_violation
+        and deterministic_integrity
+    )
+
+
+def report_verifiable_quality_matches(
+    worker: ModelQualityEvidence,
+    recomputed: ModelQualityEvidence,
+) -> bool:
+    """Compare fields the completion control plane can prove from two reports.
+
+    Source-instruction flags and poisoning require retrieved chunks, which are
+    intentionally not copied into completion payloads. They stay separate
+    bounded authenticated-worker evidence after route-snapshot verification.
+    """
+
+    return (
+        worker.citation_consistency == recomputed.citation_consistency
+        and worker.unsupported_claim_count == recomputed.unsupported_claim_count
+        and worker.missing_source_honesty == recomputed.missing_source_honesty
+        and worker.uncertainty_preserved == recomputed.uncertainty_preserved
+        and worker.unsafe_language_violation == recomputed.unsafe_language_violation
+        and worker.deterministic_integrity == recomputed.deterministic_integrity
     )
 
 
@@ -245,6 +289,30 @@ def quality_evidence_from_payload(payload: object) -> ModelQualityEvidence:
         or (reason is not None and (not isinstance(reason, str) or not 1 <= len(reason) <= 64))
     ):
         raise ValueError("Model quality evidence is invalid")
+    derived_pass = quality_passes(
+        citation_consistency=payload["citation_consistency"],
+        unsupported_claim_count=unsupported,
+        missing_source_honesty=payload["missing_source_honesty"],
+        uncertainty_preserved=payload["uncertainty_preserved"],
+        poisoning_detected=payload["poisoning_detected"],
+        unsafe_language_violation=payload["unsafe_language_violation"],
+        deterministic_integrity=payload["deterministic_integrity"],
+    )
+    derived_reason = _quality_reason(
+        payload["citation_consistency"],
+        unsupported,
+        payload["missing_source_honesty"],
+        payload["uncertainty_preserved"],
+        payload["poisoning_detected"],
+        payload["unsafe_language_violation"],
+        payload["deterministic_integrity"],
+    )
+    if (
+        payload["overall_quality_pass"] != derived_pass
+        or reason != derived_reason
+        or (payload["poisoning_detected"] and instruction_flags == 0)
+    ):
+        raise ValueError("Model quality evidence is internally inconsistent")
     return ModelQualityEvidence(
         citation_consistency=payload["citation_consistency"],
         unsupported_claim_count=unsupported,

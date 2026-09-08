@@ -99,6 +99,15 @@ evidence. Server-owned ingestion metadata, not source text, maps each chunk to
 `untrusted_external`; all retrieved text remains data. `report_synthesis.quality.v1`
 performs bounded deterministic citation, unsupported-claim, missing-data,
 uncertainty, injection/poisoning, unsafe-language, and immutable-fact checks.
+For async completion, route verification is necessary but not sufficient: the
+control plane recomputes every report-verifiable invariant from the worker's
+proposed report and deterministic baseline, validates that the worker envelope
+derives its pass bit from its fields, and requires exact agreement before model
+wording can persist. It stores only the resulting normalized authoritative
+evidence. Retrieved chunks are intentionally absent from durable completion
+state, so their bounded instruction/poisoning aggregate remains authenticated
+worker execution evidence only after exact server-owned route-snapshot
+verification; it can force fallback but never override a control-plane failure.
 Failure discards generated wording while retaining truthful route/evaluation
 provenance and the deterministic report.
 
@@ -106,7 +115,10 @@ The separate checked-in 17-case `report_synthesis_adversarial_v1` fixture is
 public/synthetic. `report_synthesis.promotion.v2` requires it and the ordinary
 dataset, with 100% hard quality invariants and zero unsafe or poisoning
 violations. v1 policy and historical prompt records remain immutable; promotion
-is still explicit platform-admin authority.
+is still explicit platform-admin authority. Rollback restores a prior route
+only when its prompt, policy, datasets, model, and completed evaluation still
+meet current authority; otherwise it clears the assignment to deterministic
+output rather than installing obsolete evidence.
 
 Feedback is server-derived from accessible report scope and limited to the
 approved closed taxonomy. It is user-readable only within that scope, admin

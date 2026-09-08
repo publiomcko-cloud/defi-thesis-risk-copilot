@@ -180,9 +180,21 @@ Implementation record:
   requiring all hard citation, deterministic, missing-data, uncertainty, and
   source-poisoning invariants. Evaluation remains explicit-operator promotion
   only;
-- worker completion accepts model wording only with verified route provenance
-  and passing bounded quality evidence. Quality failure keeps truthful route,
-  evaluation, and model provenance while persisting the deterministic report;
+- worker completion treats its quality envelope as bounded execution evidence,
+  never final persistence authority. After verifying the server-owned route
+  snapshot, the control plane recomputes every report-verifiable v1 invariant
+  from the deterministic baseline and proposed report, requires exact agreement
+  on those fields, and persists wording only on the authoritative pass. Raw
+  retrieval chunks remain outside durable job/provenance state; source-flag and
+  poisoning evidence is therefore bounded authenticated-worker evidence tied to
+  the verified execution snapshot and can never override a control-plane
+  failure. A malformed or disagreeing envelope fails closed. Quality failure
+  keeps truthful route, evaluation, and model provenance while persisting the
+  deterministic report;
+- rollback restores a prior route only when its route, model, completed
+  promotion-eligible evaluation, current prompt, current promotion policy, and
+  current ordinary/adversarial datasets still satisfy current authority. An
+  obsolete prior route clears the assignment to deterministic/no-model output;
 - feedback is limited to the approved taxonomy and accessible report scope.
   It supports explicit server-side review but cannot train, promote, route,
   mutate a prompt, or mutate an evaluation dataset. Lifecycle/export paths keep

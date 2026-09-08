@@ -702,10 +702,18 @@ feedback-governance coverage. The public/synthetic adversarial corpus includes
 direct/indirect injection, fake system/tool/provider/credential instructions,
 poisoned high/low and competing chunks, citation/source/missing-data/risk
 attacks, unsafe advice, and a safe quoted discussion. Tests prove model wording
-falls back without changing deterministic facts, a verified async route retains
-truthful quality-failure provenance, feedback remains tenant-safe and absent
-from analytics/logs/audit metadata, and feedback review cannot mutate datasets
-or promotion state.
+falls back without changing deterministic facts, and that a worker cannot
+authorize output with a forged pass bit, claimed-safe unsafe/citation output,
+immutable-field mutation, unsupported confident claim, missing-source
+suppression, or any report-verifiable quality disagreement. The control plane
+recomputes those fields with the canonical evaluator and preserves truthful R1
+route/evaluation provenance on quality failure. Bounded source-poisoning flags
+remain authenticated-worker execution evidence only after exact route-snapshot
+validation because raw retrieval chunks are intentionally not stored in the
+completion envelope. Rollback tests prove current v3/v2 evidence restores, but
+obsolete prompt/policy evidence clears to deterministic output. Feedback remains
+tenant-safe and absent from analytics/logs/audit metadata, and feedback review
+cannot mutate datasets or promotion state.
 
 ```bash
 cd backend

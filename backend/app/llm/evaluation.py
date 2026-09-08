@@ -579,11 +579,34 @@ def _valid_previous_route_id(db: Session, route: ModelRouteVersionModel) -> str 
     if route.previous_route_version_id is None:
         return None
     previous = db.get(ModelRouteVersionModel, route.previous_route_version_id)
-    if previous is None or previous.route_state != "promoted":
+    task = get_model_task_definition("report_synthesis")
+    prompt = ensure_report_synthesis_prompt_version(db)
+    if not (
+        previous
+        and previous.task_key == task.key
+        and previous.task_version == task.version
+        and previous.environment == route.environment
+        and previous.route_state == "promoted"
+        and previous.prompt_version_id == prompt.id
+    ):
         return None
     evaluation = db.get(ModelEvaluationRunModel, previous.evaluation_run_id)
     model = db.get(ModelRegistryModel, previous.model_registry_id)
-    if not evaluation or not evaluation.promotion_eligible or not model or model.lifecycle_state == "retired":
+    if not (
+        evaluation
+        and evaluation.task_key == task.key
+        and evaluation.task_version == task.version
+        and evaluation.candidate_model_registry_id == previous.model_registry_id
+        and evaluation.prompt_version_id == prompt.id
+        and evaluation.status == "completed"
+        and evaluation.promotion_eligible
+        and evaluation.policy_version == PROMOTION_POLICY_VERSION
+        and evaluation.policy_checksum == PROMOTION_POLICY_CHECKSUM
+        and _has_current_dataset_evidence(db, evaluation)
+        and model
+        and model.lifecycle_state != "retired"
+        and model.evaluation_state == "evaluated"
+    ):
         return None
     return previous.id
 
@@ -683,11 +706,16 @@ def _evaluation_context(case: EvaluationCase | AdversarialEvaluationCase) -> lis
 
 
 def _require_current_dataset_evidence(db: Session, run: ModelEvaluationRunModel) -> None:
+    if not _has_current_dataset_evidence(db, run):
+        raise ModelEvaluationError("Evaluation evidence requires the current authoritative dataset")
+
+
+def _has_current_dataset_evidence(db: Session, run: ModelEvaluationRunModel) -> bool:
     definition = report_synthesis_public_dataset()
     dataset = db.get(ModelEvaluationDatasetModel, run.dataset_id)
     adversarial_definition = report_synthesis_adversarial_dataset()
     adversarial_dataset = db.get(ModelEvaluationDatasetModel, run.adversarial_dataset_id)
-    if not (
+    return bool(
         dataset
         and dataset.id == definition.dataset_id
         and dataset.task_key == definition.task_key
@@ -704,8 +732,7 @@ def _require_current_dataset_evidence(db: Session, run: ModelEvaluationRunModel)
         and adversarial_dataset.dataset_checksum == adversarial_definition.checksum
         and adversarial_dataset.case_count == len(adversarial_definition.cases)
         and adversarial_dataset.lifecycle_state == "active"
-    ):
-        raise ModelEvaluationError("Evaluation evidence requires the current authoritative dataset")
+    )
 
 
 def _evaluation_market_data() -> MarketDataResponse:

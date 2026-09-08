@@ -34,7 +34,12 @@ from app.llm.routing import (
 )
 from app.llm.providers import get_llm_provider
 from app.llm.task_registry import get_model_task_definition
-from app.llm.quality import ModelQualityEvidence, quality_evidence_from_payload
+from app.llm.quality import (
+    ModelQualityEvidence,
+    evaluate_report_synthesis_quality,
+    quality_evidence_from_payload,
+    report_verifiable_quality_matches,
+)
 from app.reports.markdown_export import render_markdown_report
 from app.schemas.analysis import AnalysisRequest, AnalysisResponse
 from app.schemas.reports import ReportResponse
@@ -223,7 +228,11 @@ def persist_async_analysis_completion(db: Session, job: JobModel, result_json: d
         job,
         scope_class,
     )
-    quality = _authoritative_worker_quality(result_json, candidate) if worker_provenance_authoritative else None
+    quality = (
+        _authoritative_worker_quality(result_json, candidate, deterministic_report, worker_report)
+        if worker_provenance_authoritative
+        else None
+    )
     if accepts_worker_report and (quality is None or not quality.overall_quality_pass):
         reason = quality.reason_code if quality else "quality_evidence_missing"
         candidate = replace(
@@ -437,21 +446,63 @@ def _authoritative_async_model_candidate(
 def _authoritative_worker_quality(
     result_json: dict,
     candidate,
+    deterministic_report: ReportResponse,
+    worker_report: ReportResponse,
 ) -> ModelQualityEvidence | None:
-    """Use a bounded worker envelope only after its route provenance is verified."""
+    """Make the control plane, not the worker, the quality persistence authority.
+
+    The canonical evaluator can prove all report-verifiable invariants from the
+    deterministic baseline and the proposed report. Retrieval-text poisoning
+    evidence remains deliberately bounded worker execution evidence because raw
+    chunks never enter the durable completion envelope; it is considered only
+    after the exact server-owned route snapshot has already been verified.
+    """
 
     payload = result_json.get("model_quality")
-    if payload is None:
-        return None
+    recomputed = evaluate_report_synthesis_quality(deterministic_report, worker_report, [])
     try:
         quality = quality_evidence_from_payload(payload)
     except ValueError:
-        return None
+        return _rejected_authoritative_quality(recomputed, "worker_quality_evidence_mismatch")
     if (candidate.outcome, candidate.validation_result) == ("succeeded", "accepted"):
-        return quality
+        # A report-verifiable failure is more useful and more truthful than a
+        # generic disagreement reason, even if the worker also claimed success.
+        if not recomputed.overall_quality_pass:
+            return recomputed
+        if not report_verifiable_quality_matches(quality, recomputed):
+            return _rejected_authoritative_quality(recomputed, "worker_quality_evidence_mismatch")
+        if quality.poisoning_detected:
+            return replace(
+                recomputed,
+                source_instruction_flag_count=quality.source_instruction_flag_count,
+                poisoning_detected=True,
+                overall_quality_pass=False,
+                reason_code="source_poisoning_obeyed",
+            )
+        return replace(
+            recomputed,
+            source_instruction_flag_count=quality.source_instruction_flag_count,
+            poisoning_detected=False,
+            overall_quality_pass=True,
+            reason_code=None,
+        )
     # A failed candidate may retain only failing quality evidence; otherwise the
     # envelope is irrelevant to the preserved deterministic report.
     return quality if not quality.overall_quality_pass else None
+
+
+def _rejected_authoritative_quality(
+    recomputed: ModelQualityEvidence,
+    reason_code: str,
+) -> ModelQualityEvidence:
+    """Record the control-plane rejection, never a worker-claimed pass.
+
+    The constituent fields remain the exact report-verifiable recomputation.
+    ``overall_quality_pass`` additionally records that the bounded worker
+    evidence itself was not trustworthy enough to authorize persistence.
+    """
+
+    return replace(recomputed, overall_quality_pass=False, reason_code=reason_code)
 
 
 def _candidate_matches_async_execution_authority(candidate, report: ReportResponse, scope_class: str, resolution) -> bool:

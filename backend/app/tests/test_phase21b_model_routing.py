@@ -17,7 +17,7 @@ from app.llm.evaluation import (
     rollback_route,
 )
 from app.llm.evaluation_data import report_synthesis_adversarial_dataset, report_synthesis_public_dataset
-from app.llm.governance import record_model_run_provenance
+from app.llm.governance import ensure_report_synthesis_prompt_version, record_model_run_provenance
 from app.llm.provenance import build_report_synthesis_candidate
 from app.llm.routing import server_environment, resolve_report_synthesis_route
 from app.llm.synthesis import synthesize_report
@@ -25,6 +25,7 @@ from app.models.model_governance import (
     ModelEvaluationCaseResultModel,
     ModelEvaluationDatasetModel,
     ModelEvaluationRunModel,
+    ModelPromptVersionModel,
     ModelRegistryModel,
     ModelRouteAssignmentModel,
     ModelRouteTransitionModel,
@@ -264,6 +265,50 @@ def test_rollback_restores_the_previous_known_good_route(routing_session) -> Non
         assert route_b.previous_route_version_id == route_a.id
         assignment = rollback_route(db, route_version_id=route_b.id, actor=operator)
         assert assignment.active_route_version_id == route_a.id
+
+
+@pytest.mark.parametrize("obsolete_authority", ["prompt", "policy"])
+def test_rollback_clears_an_obsolete_previous_route(routing_session, obsolete_authority: str) -> None:
+    with routing_session() as db:
+        operator = user_context(create_user(db, f"phase21c-obsolete-{obsolete_authority}@example.test", role="admin"))
+        first = evaluate_report_synthesis_candidate(db, provider=SyntheticProvider(model=f"obsolete-{obsolete_authority}-a"), actor=operator)
+        route_a = promote_evaluation_route(db, evaluation_run_id=first.id, actor=operator)
+        second = evaluate_report_synthesis_candidate(db, provider=SyntheticProvider(model=f"obsolete-{obsolete_authority}-b"), actor=operator)
+        route_b = promote_evaluation_route(db, evaluation_run_id=second.id, actor=operator)
+
+        if obsolete_authority == "prompt":
+            current = ensure_report_synthesis_prompt_version(db)
+            historical = ModelPromptVersionModel(
+                id=f"prompt_phase21c_obsolete_{obsolete_authority}",
+                task_key=current.task_key,
+                task_version=current.task_version,
+                prompt_version="report_synthesis.prompt.v2",
+                output_schema_version=current.output_schema_version,
+                safety_policy_version=current.safety_policy_version,
+                prompt_checksum="f" * 64,
+            )
+            db.add(historical)
+            db.flush()
+            db.execute(
+                ModelRouteVersionModel.__table__.update()
+                .where(ModelRouteVersionModel.id == route_a.id)
+                .values(prompt_version_id=historical.id)
+            )
+            db.execute(
+                ModelEvaluationRunModel.__table__.update()
+                .where(ModelEvaluationRunModel.id == first.id)
+                .values(prompt_version_id=historical.id)
+            )
+        else:
+            db.execute(
+                ModelEvaluationRunModel.__table__.update()
+                .where(ModelEvaluationRunModel.id == first.id)
+                .values(policy_version="report_synthesis.promotion.v1", policy_checksum="e" * 64)
+            )
+        db.commit()
+
+        assignment = rollback_route(db, route_version_id=route_b.id, actor=operator)
+        assert assignment.active_route_version_id is None
 
 
 def test_routed_synthesis_persists_exact_route_and_evaluation_provenance(routing_session) -> None:
