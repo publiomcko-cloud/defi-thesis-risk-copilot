@@ -27,6 +27,7 @@ def upgrade() -> None:
         sa.Column("protocols", sa.JSON(), nullable=False),
         sa.Column("assumptions_snapshot", sa.JSON(), nullable=False),
         sa.Column("explicit_assumption_ids", sa.JSON(), nullable=False),
+        sa.Column("explicit_assumption_versions", sa.JSON(), nullable=False),
         sa.Column("status", sa.String(length=32), nullable=False),
         sa.Column("actor_user_id", sa.String(length=64), nullable=True),
         sa.Column("origin", sa.String(length=32), nullable=False),

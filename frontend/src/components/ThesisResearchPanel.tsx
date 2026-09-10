@@ -78,10 +78,11 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
 
   async function addAssumption(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const expectedThesisRevision = revisions.at(-1)?.revision_number;
     const response = await fetch(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/assumptions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ statement: assumption, state: "active", evidence_references: [] })
+      body: JSON.stringify({ statement: assumption, state: "active", evidence_references: [], expected_thesis_revision: expectedThesisRevision })
     });
     setMessage(response.ok ? "Assumption recorded." : "Unable to record the assumption.");
     if (response.ok) {
@@ -92,9 +93,10 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
 
   async function addCatalyst(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const expected_thesis_revision = revisions.at(-1)?.revision_number;
     const payload = catalystDate
-      ? { title: catalystTitle, date_precision: "exact", expected_date: catalystDate, evidence_references: [] }
-      : { title: catalystTitle, date_precision: "unknown", evidence_references: [] };
+      ? { title: catalystTitle, date_precision: "exact", expected_date: catalystDate, evidence_references: [], expected_thesis_revision }
+      : { title: catalystTitle, date_precision: "unknown", evidence_references: [], expected_thesis_revision };
     const response = await fetch(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/catalysts`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -59,7 +59,7 @@ def _assert_phase21d(engine) -> None:
     with engine.connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == PHASE21D_HEAD
         assert RESEARCH_TABLES.issubset(_tables(connection))
-        assert {"revision_number", "assumptions_snapshot", "status", "origin"}.issubset(_columns(connection, "thesis_revisions"))
+        assert {"revision_number", "assumptions_snapshot", "explicit_assumption_versions", "status", "origin"}.issubset(_columns(connection, "thesis_revisions"))
         assert {"state", "evidence_references", "supersedes_record_id"}.issubset(_columns(connection, "thesis_assumptions"))
         _assert_free_v1(connection)
 

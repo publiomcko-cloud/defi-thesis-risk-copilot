@@ -229,13 +229,21 @@ Implementation record:
   tables and seven `free-v1` limits remain intact;
 - existing `saved_theses` remains the CRUD authority. New theses receive an
   immutable initial revision, while legacy records receive one idempotent local
-  baseline preserving their exact existing `assumptions_json`; every later
-  material thesis/status/assumption/catalyst change appends a revision;
+  baseline preserving their exact existing `assumptions_json` before any first
+  mutation. A first legacy mutation may initialize revision 1 atomically; once
+  a revision exists, mutable thesis/research operations require its exact
+  expected revision and stale requests return `409`. Every later material
+  thesis/status/assumption/catalyst change appends a revision that pins each
+  current immutable assumption record ID and version number;
 - report comparisons are deterministic, require access to both reports and an
-  identical private owner or organization scope, store input checksums and
-  compact classification-only diffs, and never persist report bodies. Citation
-  lineage is checked against current durable knowledge source/document/version/
-  chunk state without changing historical reports;
+  identical private owner or organization scope, and evidence attached to a
+  thesis must exactly match that destination thesis scope. Comparisons store
+  input checksums and compact classification-only diffs, distinguish
+  deterministic computation from deterministic, model-assisted, fallback, or
+  unknown report-section content using durable synthesis provenance, and never
+  persist report bodies. Citation lineage is checked against current durable
+  knowledge source/document/version/chunk state without changing historical
+  reports;
 - scenario deltas and monitoring questions are deterministic and research-only.
   Questions never create schedules/notifications and reject execution language.
   No Phase 21 model task or provider route was added because the deterministic

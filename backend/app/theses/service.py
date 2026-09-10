@@ -16,6 +16,7 @@ from app.research_intelligence.service import (
     append_material_revision,
     create_initial_revision,
     dispose_research_intelligence_for_thesis,
+    prepare_material_mutation,
 )
 from app.theses.schemas import ThesisCreateRequest, ThesisResponse, ThesisUpdateRequest
 
@@ -84,6 +85,9 @@ def update_thesis(
     ).scalars().one_or_none()
     if record is None or not can_update_resource(actor, record, db):
         raise HTTPException(status_code=404, detail="Thesis not found")
+    prepare_material_mutation(db, record, expected_revision=request.expected_revision)
+    # The baseline is now durable in this transaction, before mutable saved
+    # thesis fields are touched. This preserves exact pre-21D content at rev 1.
     if request.title is not None:
         record.title = request.title
     if request.strategy_text is not None:

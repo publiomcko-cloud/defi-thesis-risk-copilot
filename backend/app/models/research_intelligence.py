@@ -35,6 +35,7 @@ class ThesisRevisionModel(Base):
     protocols: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
     assumptions_snapshot: Mapped[dict] = mapped_column(JSON, default=dict, nullable=False)
     explicit_assumption_ids: Mapped[list[str]] = mapped_column(JSON, default=list, nullable=False)
+    explicit_assumption_versions: Mapped[list[dict]] = mapped_column(JSON, default=list, nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="draft")
     actor_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
     origin: Mapped[str] = mapped_column(String(32), nullable=False)

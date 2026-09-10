@@ -6,9 +6,33 @@ type ReportResearchPanelProps = {
   reportId: string;
 };
 
+type Change = {
+  status?: string;
+  unchanged?: string[];
+  added?: string[];
+  removed?: string[];
+  changed?: string[];
+  left_content_origin?: string;
+  right_content_origin?: string;
+};
+
+type Comparison = Record<string, Change | Record<string, Change> | { computation_origin?: string; left_synthesis_outcome?: string; right_synthesis_outcome?: string }>;
+
+function changeSummary(change: Change) {
+  const sets = ["unchanged", "added", "removed", "changed"] as const;
+  const labels = sets.flatMap((key) => change[key]?.length ? [`${key}: ${change[key].join(", ")}`] : []);
+  return labels.join("; ") || change.status || "No comparable value";
+}
+
+function origins(change: Change) {
+  if (!change.left_content_origin && !change.right_content_origin) return null;
+  return <span>Origin: left {change.left_content_origin ?? "unknown"}, right {change.right_content_origin ?? "unknown"}</span>;
+}
+
 export function ReportResearchPanel({ reportId }: ReportResearchPanelProps) {
   const [comparisonId, setComparisonId] = useState("");
-  const [comparison, setComparison] = useState<Record<string, unknown> | null>(null);
+  const [comparison, setComparison] = useState<Comparison | null>(null);
+  const [uncertainty, setUncertainty] = useState<string[]>([]);
   const [staleness, setStaleness] = useState<Array<{ citation_id?: string; status: string; detail: string }>>([]);
   const [message, setMessage] = useState("");
 
@@ -30,8 +54,9 @@ export function ReportResearchPanel({ reportId }: ReportResearchPanelProps) {
       return;
     }
     const body = await response.json();
-    setComparison(body.changes as Record<string, unknown>);
-    setMessage("Deterministic comparison ready.");
+    setComparison(body.changes as Comparison);
+    setUncertainty(Array.isArray(body.uncertainty) ? body.uncertainty : []);
+    setMessage("Comparison ready. Content origins are shown below.");
   }
 
   return (
@@ -44,7 +69,46 @@ export function ReportResearchPanel({ reportId }: ReportResearchPanelProps) {
         </label>
         <button className="secondary-action" type="submit">Compare reports</button>
       </form>
-      {comparison ? <pre className="code-block">{JSON.stringify(comparison, null, 2)}</pre> : null}
+      {comparison ? <div className="stack" aria-live="polite">
+        <div>
+          <h3>Field changes</h3>
+          <ul className="compact-list">
+            {(["strategy", "protocols", "risk_rating", "assumptions", "missing_data", "timestamps"] as const).map((key) => {
+              const change = comparison[key] as Change | undefined;
+              return change ? <li key={key}><strong>{key.replaceAll("_", " ")}:</strong> {changeSummary(change)} {origins(change)}</li> : null;
+            })}
+          </ul>
+        </div>
+        <div>
+          <h3>Section origins</h3>
+          <ul className="compact-list">
+            {Object.entries(comparison.sections as Record<string, Change> ?? {}).map(([title, change]) => <li key={title}><strong>{title}:</strong> {changeSummary(change)} {origins(change)}</li>)}
+          </ul>
+        </div>
+        <div>
+          <h3>Source and citation changes</h3>
+          <ul className="compact-list">
+            {(["sources", "citation_lineage"] as const).map((key) => {
+              const change = comparison[key] as Change | undefined;
+              return change ? <li key={key}><strong>{key.replaceAll("_", " ")}:</strong> {changeSummary(change)}</li> : null;
+            })}
+          </ul>
+        </div>
+        <div>
+          <h3>Comparison provenance</h3>
+          <p>
+            Computation: {(comparison.comparison_provenance as { computation_origin?: string } | undefined)?.computation_origin ?? "unknown"}.{" "}
+            Left synthesis: {(comparison.comparison_provenance as { left_synthesis_outcome?: string } | undefined)?.left_synthesis_outcome ?? "unknown"};{" "}
+            right synthesis: {(comparison.comparison_provenance as { right_synthesis_outcome?: string } | undefined)?.right_synthesis_outcome ?? "unknown"}.
+          </p>
+        </div>
+        <div>
+          <h3>Uncertainty</h3>
+          <ul className="compact-list">
+            {uncertainty.map((item) => <li key={item}>{item}</li>)}
+          </ul>
+        </div>
+      </div> : null}
       <div>
         <h3>Evidence state</h3>
         <ul className="compact-list">

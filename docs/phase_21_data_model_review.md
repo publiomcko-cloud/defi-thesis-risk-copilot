@@ -103,15 +103,18 @@ the only 21D revision. Its reversible evidence cycle is:
 
 | Table | Role | Sensitive-content boundary |
 | --- | --- | --- |
-| `thesis_revisions` | Immutable thesis/status snapshots with a per-thesis monotonic unique revision | Existing thesis text and legacy assumptions only; no provider payload or analytics copy |
+| `thesis_revisions` | Immutable thesis/status snapshots with a per-thesis monotonic unique revision and exact current-assumption record/version references | Existing thesis text and legacy assumptions only; no provider payload or analytics copy |
 | `thesis_assumptions` | Append-only statement/state/evidence versions | Report-backed references retain durable lineage IDs/checksums; free text is explicitly `unverified_external` |
 | `thesis_assumption_heads` | Lockable pointer to one current immutable assumption version | IDs and bounded revision number only; PostgreSQL serializes supersession |
 | `thesis_catalysts` | Bounded research event/date-window/uncertainty state with optimistic revision | User-recorded text only; no price target, trade signal, notification, or schedule |
 | `research_report_comparisons` | Same-scope deterministic report-diff provenance | IDs, input/lineage checksums, and compact field classifications; no complete report body duplication |
 
 `saved_theses` remains the compatibility and CRUD authority. A legacy baseline
-is created locally and idempotently on first research use, preserving original
-content exactly. Thesis soft deletion removes derived 21D rows; account and
+is created locally and idempotently under the thesis lock before a first
+mutation, preserving original content exactly. Later snapshots reference the
+immutable assumption record and revision current at snapshot time, not only its
+logical assumption ID. Report-backed evidence must exactly match the destination
+thesis private-owner or organization scope. Thesis soft deletion removes derived 21D rows; account and
 organization deletion dispose owned/scoped research rows. Report comparison and
 staleness reads reauthorize both underlying reports, so report expiry/deletion
 or membership loss cannot turn derived state into a private-content backdoor.

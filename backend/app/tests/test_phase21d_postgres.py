@@ -14,23 +14,31 @@ from app.auth.service import create_user, user_context
 from app.db.session import create_database_engine
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.report import ReportModel
-from app.models.research_intelligence import ResearchReportComparisonModel, ThesisAssumptionModel, ThesisRevisionModel
+from app.models.research_intelligence import ResearchReportComparisonModel, ThesisAssumptionModel, ThesisCatalystModel, ThesisRevisionModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.user import UserModel
 from app.research_intelligence.schemas import (
+    CatalystCreateRequest,
+    CatalystUpdateRequest,
     ReportComparisonRequest,
     ResearchAssumptionCreateRequest,
     ResearchAssumptionUpdateRequest,
+    ThesisStatusUpdateRequest,
 )
 from app.research_intelligence.service import (
     append_material_revision,
     compare_reports,
+    create_catalyst,
     create_assumption,
     create_initial_revision,
     list_history,
+    update_catalyst,
     update_assumption,
+    update_status,
 )
 from app.schemas.reports import ReportResponse, ReportSection, SourceReference
+from app.theses.schemas import ThesisUpdateRequest
+from app.theses.service import update_thesis
 
 
 pytestmark = pytest.mark.postgres_integration
@@ -91,7 +99,10 @@ def test_postgres_thesis_revision_and_assumption_heads_serialise_without_lost_up
             db,
             actor,
             thesis_id,
-            ResearchAssumptionCreateRequest(statement="The documented maturity remains applicable."),
+            ResearchAssumptionCreateRequest(
+                statement="The documented maturity remains applicable.",
+                expected_thesis_revision=3,
+            ),
         )
         assumption_id = created.id
 
@@ -111,6 +122,7 @@ def test_postgres_thesis_revision_and_assumption_heads_serialise_without_lost_up
                         statement="The maturity evidence was reviewed.",
                         state="weakened",
                         expected_revision=1,
+                        expected_thesis_revision=4,
                     ),
                 )
                 return 200
@@ -162,6 +174,182 @@ def test_postgres_legacy_baseline_initialization_is_idempotent_under_concurrent_
         rows = db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id == thesis_id)).all()
         assert len(rows) == 1
         assert rows[0].origin == "legacy_baseline"
+
+
+def test_postgres_first_legacy_mutation_and_history_read_preserve_the_original_baseline(postgres_sessions: sessionmaker) -> None:
+    suffix = uuid4().hex[:12]
+    with postgres_sessions() as db:
+        user = create_user(db, f"phase21d-first-mutation-{suffix}@example.test")
+        thesis = SavedThesisModel(
+            id=f"thesis_phase21d_first_mutation_{suffix}",
+            owner_user_id=user.id,
+            title="Original PostgreSQL legacy thesis",
+            strategy_text="The original row must survive concurrent baseline initialization.",
+            protocols=["pendle"],
+            assumptions_json={"legacy": "original"},
+            visibility="private",
+        )
+        db.add(thesis)
+        db.commit()
+        user_id, thesis_id = user.id, thesis.id
+    barrier = Barrier(2)
+
+    def mutate() -> int:
+        with postgres_sessions() as db:
+            actor = user_context(db.get(UserModel, user_id))
+            barrier.wait(timeout=10)
+            update_thesis(
+                db,
+                actor,
+                thesis_id,
+                ThesisUpdateRequest(title="Updated PostgreSQL legacy thesis", expected_revision=1),
+            )
+            return 200
+
+    def read() -> int:
+        with postgres_sessions() as db:
+            actor = user_context(db.get(UserModel, user_id))
+            barrier.wait(timeout=10)
+            return len(list_history(db, actor, thesis_id).items)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = list(executor.map(lambda action: action(), (mutate, read)))
+    assert outcomes[0] == 200
+    assert outcomes[1] in {1, 2}
+    with postgres_sessions() as db:
+        rows = db.scalars(
+            select(ThesisRevisionModel)
+            .where(ThesisRevisionModel.thesis_id == thesis_id)
+            .order_by(ThesisRevisionModel.revision_number)
+        ).all()
+        assert [(row.revision_number, row.title, row.assumptions_snapshot) for row in rows] == [
+            (1, "Original PostgreSQL legacy thesis", {"legacy": "original"}),
+            (2, "Updated PostgreSQL legacy thesis", {"legacy": "original"}),
+        ]
+
+
+def test_postgres_status_and_thesis_update_race_has_one_winner_and_monotonic_history(postgres_sessions: sessionmaker) -> None:
+    suffix = uuid4().hex[:12]
+    with postgres_sessions() as db:
+        user = create_user(db, f"phase21d-state-race-{suffix}@example.test")
+        thesis = SavedThesisModel(
+            id=f"thesis_phase21d_state_race_{suffix}",
+            owner_user_id=user.id,
+            title="Original state race thesis",
+            strategy_text="The thesis row is the PostgreSQL serialization authority.",
+            protocols=["pendle"],
+            assumptions_json={},
+            visibility="private",
+        )
+        db.add(thesis)
+        create_initial_revision(db, thesis, user.id)
+        db.commit()
+        user_id, thesis_id = user.id, thesis.id
+    barrier = Barrier(2)
+
+    def change_status() -> tuple[str, int]:
+        with postgres_sessions() as db:
+            actor = user_context(db.get(UserModel, user_id))
+            barrier.wait(timeout=10)
+            try:
+                update_status(db, actor, thesis_id, ThesisStatusUpdateRequest(status="challenged", expected_revision=1))
+                return "status", 200
+            except HTTPException as exc:
+                db.rollback()
+                return "status", exc.status_code
+
+    def change_title() -> tuple[str, int]:
+        with postgres_sessions() as db:
+            actor = user_context(db.get(UserModel, user_id))
+            barrier.wait(timeout=10)
+            try:
+                update_thesis(db, actor, thesis_id, ThesisUpdateRequest(title="Updated state race thesis", expected_revision=1))
+                return "title", 200
+            except HTTPException as exc:
+                db.rollback()
+                return "title", exc.status_code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = dict(executor.map(lambda action: action(), (change_status, change_title)))
+    assert sorted(outcomes.values()) == [200, 409]
+    with postgres_sessions() as db:
+        thesis = db.get(SavedThesisModel, thesis_id)
+        rows = db.scalars(
+            select(ThesisRevisionModel)
+            .where(ThesisRevisionModel.thesis_id == thesis_id)
+            .order_by(ThesisRevisionModel.revision_number)
+        ).all()
+        assert [row.revision_number for row in rows] == [1, 2]
+        if outcomes["status"] == 200:
+            assert rows[-1].status == "challenged"
+            assert thesis.title == "Original state race thesis"
+        else:
+            assert rows[-1].status == "draft"
+            assert thesis.title == "Updated state race thesis"
+
+
+def test_postgres_catalyst_updates_with_same_revision_have_one_winner(postgres_sessions: sessionmaker) -> None:
+    suffix = uuid4().hex[:12]
+    with postgres_sessions() as db:
+        user = create_user(db, f"phase21d-catalyst-race-{suffix}@example.test")
+        thesis = SavedThesisModel(
+            id=f"thesis_phase21d_catalyst_race_{suffix}",
+            owner_user_id=user.id,
+            title="Catalyst race thesis",
+            strategy_text="Catalyst updates use the thesis lock and catalyst revision authority.",
+            protocols=["pendle"],
+            assumptions_json={},
+            visibility="private",
+        )
+        db.add(thesis)
+        create_initial_revision(db, thesis, user.id)
+        db.commit()
+        actor = user_context(user)
+        catalyst = create_catalyst(
+            db,
+            actor,
+            thesis.id,
+            CatalystCreateRequest(title="Original catalyst", date_precision="unknown", expected_thesis_revision=1),
+        )
+        user_id, thesis_id, catalyst_id = user.id, thesis.id, catalyst.id
+    barrier = Barrier(2)
+
+    def update(title: str) -> tuple[str, int]:
+        with postgres_sessions() as db:
+            actor = user_context(db.get(UserModel, user_id))
+            barrier.wait(timeout=10)
+            try:
+                update_catalyst(
+                    db,
+                    actor,
+                    thesis_id,
+                    catalyst_id,
+                    CatalystUpdateRequest(
+                        title=title,
+                        date_precision="unknown",
+                        expected_revision=1,
+                        expected_thesis_revision=2,
+                    ),
+                )
+                return title, 200
+            except HTTPException as exc:
+                db.rollback()
+                return title, exc.status_code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = dict(executor.map(update, ("Catalyst update A", "Catalyst update B")))
+    assert sorted(outcomes.values()) == [200, 409]
+    winning_title = next(title for title, status in outcomes.items() if status == 200)
+    with postgres_sessions() as db:
+        catalyst = db.get(ThesisCatalystModel, catalyst_id)
+        rows = db.scalars(
+            select(ThesisRevisionModel)
+            .where(ThesisRevisionModel.thesis_id == thesis_id)
+            .order_by(ThesisRevisionModel.revision_number)
+        ).all()
+        assert catalyst.title == winning_title
+        assert catalyst.revision_number == 2
+        assert [row.revision_number for row in rows] == [1, 2, 3]
 
 
 def test_postgres_report_comparison_unique_input_authority(postgres_sessions: sessionmaker) -> None:

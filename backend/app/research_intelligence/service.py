@@ -18,6 +18,7 @@ from app.models.knowledge import (
     KnowledgeDocumentVersionModel,
     KnowledgeSourceModel,
 )
+from app.models.model_governance import ModelRunProvenanceModel
 from app.models.report import ReportModel
 from app.models.research_intelligence import (
     ResearchReportComparisonModel,
@@ -45,6 +46,7 @@ from app.research_intelligence.schemas import (
     ThesisStatusUpdateRequest,
 )
 from app.schemas.reports import ReportResponse, SourceReference
+from app.llm.prompts import SYNTHESIZABLE_SECTION_TITLES
 from app.simulation.simulator import SIMULATION_DISCLAIMER, run_strategy_simulation
 
 
@@ -108,6 +110,33 @@ def append_material_revision(
     )
 
 
+def prepare_material_mutation(
+    db: Session,
+    thesis: SavedThesisModel,
+    *,
+    expected_revision: int | None,
+) -> ThesisRevisionModel:
+    """Establish the immutable baseline before any mutable research operation.
+
+    A pre-21D thesis has no research revision for a browser to have observed, so
+    its first mutation may omit ``expected_revision``. The locked baseline becomes
+    revision 1 and the same transaction appends the requested change as revision 2.
+    Once any revision already exists, callers must supply that exact revision.
+    """
+
+    prior = db.execute(
+        select(ThesisRevisionModel.id)
+        .where(ThesisRevisionModel.thesis_id == thesis.id)
+        .limit(1)
+    ).scalar_one_or_none()
+    current = ensure_baseline_revision(db, thesis)
+    if prior is not None and expected_revision is None:
+        raise HTTPException(status_code=422, detail="expected_revision is required for an existing thesis revision")
+    if expected_revision is not None and current.revision_number != expected_revision:
+        raise HTTPException(status_code=409, detail="Thesis revision changed; refresh before updating")
+    return current
+
+
 def list_history(db: Session, actor: UserContext, thesis_id: str) -> ThesisHistoryResponse:
     thesis = _locked_authorized_read_thesis(db, actor, thesis_id)
     ensure_baseline_revision(db, thesis)
@@ -127,6 +156,7 @@ def update_status(
     request: ThesisStatusUpdateRequest,
 ) -> ThesisRevisionResponse:
     thesis = _locked_authorized_thesis(db, actor, thesis_id)
+    prepare_material_mutation(db, thesis, expected_revision=request.expected_revision)
     revision = append_material_revision(
         db,
         thesis,
@@ -156,6 +186,7 @@ def create_assumption(
     request: ResearchAssumptionCreateRequest,
 ) -> ResearchAssumptionResponse:
     thesis = _locked_authorized_thesis(db, actor, thesis_id)
+    prepare_material_mutation(db, thesis, expected_revision=request.expected_thesis_revision)
     now = datetime.now(UTC)
     assumption_id = f"asm_{uuid4().hex[:12]}"
     record = ThesisAssumptionModel(
@@ -165,7 +196,7 @@ def create_assumption(
         revision_number=1,
         statement=request.statement,
         state=request.state,
-        evidence_references=_resolve_evidence_references(db, actor, request.evidence_references),
+        evidence_references=_resolve_evidence_references(db, actor, thesis, request.evidence_references),
         actor_user_id=actor.id,
         origin="user_recorded",
         created_at=now,
@@ -182,11 +213,15 @@ def create_assumption(
             updated_at=now,
         )
     )
+    # Sessions intentionally disable autoflush; pin the newly current immutable
+    # version before the thesis revision snapshots the head set.
+    db.flush()
     append_material_revision(
         db,
         thesis,
         actor_user_id=actor.id,
         change_reason="Assumption recorded",
+        expected_revision=request.expected_thesis_revision,
     )
     db.commit()
     return _assumption_response(record)
@@ -200,6 +235,7 @@ def update_assumption(
     request: ResearchAssumptionUpdateRequest,
 ) -> ResearchAssumptionResponse:
     thesis = _locked_authorized_thesis(db, actor, thesis_id)
+    prepare_material_mutation(db, thesis, expected_revision=request.expected_thesis_revision)
     head = db.execute(
         select(ThesisAssumptionHeadModel)
         .where(ThesisAssumptionHeadModel.thesis_id == thesis.id)
@@ -221,7 +257,7 @@ def update_assumption(
         revision_number=head.current_revision_number + 1,
         statement=request.statement,
         state=request.state,
-        evidence_references=_resolve_evidence_references(db, actor, request.evidence_references),
+        evidence_references=_resolve_evidence_references(db, actor, thesis, request.evidence_references),
         supersedes_record_id=prior.id,
         actor_user_id=actor.id,
         origin="user_recorded",
@@ -232,11 +268,13 @@ def update_assumption(
     head.current_record_id = record.id
     head.current_revision_number = record.revision_number
     head.updated_at = now
+    db.flush()
     append_material_revision(
         db,
         thesis,
         actor_user_id=actor.id,
         change_reason="Assumption revised",
+        expected_revision=request.expected_thesis_revision,
     )
     db.commit()
     return _assumption_response(record)
@@ -259,6 +297,7 @@ def create_catalyst(
     request: CatalystCreateRequest,
 ) -> CatalystResponse:
     thesis = _locked_authorized_thesis(db, actor, thesis_id)
+    prepare_material_mutation(db, thesis, expected_revision=request.expected_thesis_revision)
     now = datetime.now(UTC)
     record = ThesisCatalystModel(
         id=f"cat_{uuid4().hex[:12]}",
@@ -273,14 +312,20 @@ def create_catalyst(
         date_precision=request.date_precision,
         status=request.status,
         uncertainty=request.uncertainty,
-        evidence_references=_resolve_evidence_references(db, actor, request.evidence_references),
+        evidence_references=_resolve_evidence_references(db, actor, thesis, request.evidence_references),
         revision_number=1,
         actor_user_id=actor.id,
         created_at=now,
         updated_at=now,
     )
     db.add(record)
-    append_material_revision(db, thesis, actor_user_id=actor.id, change_reason="Catalyst recorded")
+    append_material_revision(
+        db,
+        thesis,
+        actor_user_id=actor.id,
+        change_reason="Catalyst recorded",
+        expected_revision=request.expected_thesis_revision,
+    )
     db.commit()
     return _catalyst_response(record)
 
@@ -293,6 +338,7 @@ def update_catalyst(
     request: CatalystUpdateRequest,
 ) -> CatalystResponse:
     thesis = _locked_authorized_thesis(db, actor, thesis_id)
+    prepare_material_mutation(db, thesis, expected_revision=request.expected_thesis_revision)
     record = db.execute(
         select(ThesisCatalystModel)
         .where(ThesisCatalystModel.id == catalyst_id)
@@ -311,11 +357,17 @@ def update_catalyst(
     record.date_precision = request.date_precision
     record.status = request.status
     record.uncertainty = request.uncertainty
-    record.evidence_references = _resolve_evidence_references(db, actor, request.evidence_references)
+    record.evidence_references = _resolve_evidence_references(db, actor, thesis, request.evidence_references)
     record.revision_number += 1
     record.actor_user_id = actor.id
     record.updated_at = datetime.now(UTC)
-    append_material_revision(db, thesis, actor_user_id=actor.id, change_reason="Catalyst revised")
+    append_material_revision(
+        db,
+        thesis,
+        actor_user_id=actor.id,
+        change_reason="Catalyst revised",
+        expected_revision=request.expected_thesis_revision,
+    )
     db.commit()
     return _catalyst_response(record)
 
@@ -336,7 +388,7 @@ def compare_reports(
     ).scalars().one_or_none()
     if existing is not None:
         return _comparison_response(existing)
-    changes = _deterministic_report_diff(left, right)
+    changes = _deterministic_report_diff(db, left, right)
     left_checksum = _report_checksum(left)
     right_checksum = _report_checksum(right)
     lineage_digest = _checksum({"left": changes["sources"], "right": changes["citation_lineage"]})
@@ -444,7 +496,7 @@ def monitoring_questions(
         if _safe_research_question(candidate):
             questions.append(candidate)
     if report_id is not None:
-        report = _authorized_report(db, actor, report_id)
+        report = _authorized_evidence_report(db, actor, thesis, report_id)
         payload = ReportResponse.model_validate(report.report_json)
         for missing_data in payload.missing_data:
             candidate = f"Is the missing evidence '{missing_data[:180]}' now available from an authoritative source?"
@@ -518,13 +570,22 @@ def _append_revision(
     change_reason: str | None,
 ) -> ThesisRevisionModel:
     number = (db.scalar(select(func.max(ThesisRevisionModel.revision_number)).where(ThesisRevisionModel.thesis_id == thesis.id)) or 0) + 1
-    current_assumption_ids = list(
-        db.scalars(
-            select(ThesisAssumptionHeadModel.assumption_id)
+    current_assumption_versions = [
+        {
+            "assumption_id": row.assumption_id,
+            "assumption_record_id": row.current_record_id,
+            "assumption_revision_number": row.current_revision_number,
+        }
+        for row in db.execute(
+            select(
+                ThesisAssumptionHeadModel.assumption_id,
+                ThesisAssumptionHeadModel.current_record_id,
+                ThesisAssumptionHeadModel.current_revision_number,
+            )
             .where(ThesisAssumptionHeadModel.thesis_id == thesis.id)
             .order_by(ThesisAssumptionHeadModel.assumption_id)
         )
-    )
+    ]
     record = ThesisRevisionModel(
         id=f"thr_{uuid4().hex[:12]}",
         thesis_id=thesis.id,
@@ -535,7 +596,8 @@ def _append_revision(
         strategy_text=thesis.strategy_text,
         protocols=list(thesis.protocols),
         assumptions_snapshot=dict(thesis.assumptions_json),
-        explicit_assumption_ids=current_assumption_ids,
+        explicit_assumption_ids=[item["assumption_id"] for item in current_assumption_versions],
+        explicit_assumption_versions=current_assumption_versions,
         status=status,
         actor_user_id=actor_user_id,
         origin=origin,
@@ -581,6 +643,32 @@ def _authorized_report(db: Session, actor: UserContext, report_id: str) -> Repor
     return report
 
 
+def _authorized_evidence_report(
+    db: Session,
+    actor: UserContext,
+    thesis: SavedThesisModel,
+    report_id: str,
+) -> ReportModel:
+    report = _authorized_report(db, actor, report_id)
+    if not _evidence_scope_matches_thesis(thesis, report):
+        # The destination thesis is authoritative. Do not disclose whether an
+        # otherwise-readable report belongs to another private or org scope.
+        raise HTTPException(status_code=404, detail="Report not found")
+    return report
+
+
+def _evidence_scope_matches_thesis(thesis: SavedThesisModel, report: ReportModel) -> bool:
+    if thesis.visibility == "private":
+        return report.visibility == "private" and bool(thesis.owner_user_id) and report.owner_user_id == thesis.owner_user_id
+    if thesis.visibility == "organization":
+        return (
+            report.visibility == "organization"
+            and bool(thesis.organization_id)
+            and report.organization_id == thesis.organization_id
+        )
+    return False
+
+
 def _active_organization_scope(db: Session, actor: UserContext, resource, roles: set[str]) -> bool:
     """Never let ownership of a derived record bypass active organization scope."""
 
@@ -599,11 +687,16 @@ def _compatible_report_scope(left: ReportModel, right: ReportModel) -> tuple[str
     return "private", f"private:{left.owner_user_id}", left.owner_user_id, None
 
 
-def _resolve_evidence_references(db: Session, actor: UserContext, references: list) -> list[dict]:
+def _resolve_evidence_references(
+    db: Session,
+    actor: UserContext,
+    thesis: SavedThesisModel,
+    references: list,
+) -> list[dict]:
     resolved: list[dict] = []
     for reference in references:
         if reference.report_id is not None:
-            report = _authorized_report(db, actor, reference.report_id)
+            report = _authorized_evidence_report(db, actor, thesis, reference.report_id)
             report_payload = ReportResponse.model_validate(report.report_json)
             by_id = {
                 source.citation_lineage.citation_id: source.citation_lineage
@@ -632,6 +725,7 @@ def _revision_response(record: ThesisRevisionModel) -> ThesisRevisionResponse:
         protocols=list(record.protocols),
         assumptions_snapshot=dict(record.assumptions_snapshot),
         explicit_assumption_ids=list(record.explicit_assumption_ids),
+        explicit_assumption_versions=list(record.explicit_assumption_versions),
         status=record.status,
         actor_user_id=record.actor_user_id,
         origin=record.origin,
@@ -674,25 +768,67 @@ def _catalyst_response(record: ThesisCatalystModel) -> CatalystResponse:
     )
 
 
-def _deterministic_report_diff(left: ReportModel, right: ReportModel) -> dict:
+def _deterministic_report_diff(db: Session, left: ReportModel, right: ReportModel) -> dict:
     left_payload = ReportResponse.model_validate(left.report_json)
     right_payload = ReportResponse.model_validate(right.report_json)
     left_sections = {item.title: item.content for item in left_payload.sections}
     right_sections = {item.title: item.content for item in right_payload.sections}
+    left_provenance = _report_synthesis_provenance(db, left.id)
+    right_provenance = _report_synthesis_provenance(db, right.id)
     return {
-        "strategy": _categorical_diff(left_payload.strategy_description, right_payload.strategy_description),
-        "protocols": _set_diff(left_payload.protocols, right_payload.protocols),
-        "risk_rating": _categorical_diff(left_payload.risk_rating, right_payload.risk_rating),
-        "assumptions": _set_diff(left_payload.assumptions, right_payload.assumptions),
-        "missing_data": _set_diff(left_payload.missing_data, right_payload.missing_data),
-        "deterministic_sections": {
-            key: _categorical_diff(left_sections.get(key), right_sections.get(key))
+        "strategy": _with_content_origin(
+            _categorical_diff(left_payload.strategy_description, right_payload.strategy_description), "deterministic", "deterministic"
+        ),
+        "protocols": _with_content_origin(_set_diff(left_payload.protocols, right_payload.protocols), "deterministic", "deterministic"),
+        "risk_rating": _with_content_origin(_categorical_diff(left_payload.risk_rating, right_payload.risk_rating), "deterministic", "deterministic"),
+        "assumptions": _with_content_origin(_set_diff(left_payload.assumptions, right_payload.assumptions), "deterministic", "deterministic"),
+        "missing_data": _with_content_origin(_set_diff(left_payload.missing_data, right_payload.missing_data), "deterministic", "deterministic"),
+        "sections": {
+            key: _with_content_origin(
+                _categorical_diff(left_sections.get(key), right_sections.get(key)),
+                _section_content_origin(key, left_provenance),
+                _section_content_origin(key, right_provenance),
+            )
             for key in sorted(set(left_sections) | set(right_sections))
         },
-        "sources": _set_diff(_source_keys(left_payload.sources), _source_keys(right_payload.sources)),
-        "citation_lineage": _citation_diff(left_payload.sources, right_payload.sources),
-        "timestamps": _categorical_diff(left.created_at.isoformat(), right.created_at.isoformat()),
+        "sources": _with_content_origin(_set_diff(_source_keys(left_payload.sources), _source_keys(right_payload.sources)), "deterministic", "deterministic"),
+        "citation_lineage": _with_content_origin(_citation_diff(left_payload.sources, right_payload.sources), "deterministic", "deterministic"),
+        "timestamps": _with_content_origin(_categorical_diff(left.created_at.isoformat(), right.created_at.isoformat()), "deterministic", "deterministic"),
+        "comparison_provenance": {
+            "computation_origin": "deterministic",
+            "left_synthesis_outcome": left_provenance.outcome if left_provenance is not None else "unknown",
+            "right_synthesis_outcome": right_provenance.outcome if right_provenance is not None else "unknown",
+            "content_origin_rule": "Deterministic fields are code-owned; synthesizable sections use durable report-synthesis provenance and remain unknown without it.",
+        },
     }
+
+
+def _report_synthesis_provenance(db: Session, report_id: str) -> ModelRunProvenanceModel | None:
+    rows = db.execute(
+        select(ModelRunProvenanceModel)
+        .where(ModelRunProvenanceModel.report_id == report_id)
+        .where(ModelRunProvenanceModel.task_key == "report_synthesis")
+        .order_by(ModelRunProvenanceModel.created_at.desc(), ModelRunProvenanceModel.id.desc())
+    ).scalars().all()
+    # A report should have one synthesis record. Ambiguous historical rows must
+    # not be guessed into a content-origin classification.
+    return rows[0] if len(rows) == 1 else None
+
+
+def _section_content_origin(title: str, provenance: ModelRunProvenanceModel | None) -> str:
+    if title not in SYNTHESIZABLE_SECTION_TITLES:
+        return "deterministic"
+    if provenance is None:
+        return "unknown"
+    if provenance.outcome == "succeeded" and provenance.validation_result == "accepted":
+        return "model_assisted"
+    if provenance.outcome in {"disabled", "provider_unavailable", "validation_fallback", "provider_failure"}:
+        return "deterministic_fallback"
+    return "unknown"
+
+
+def _with_content_origin(change: dict, left_origin: str, right_origin: str) -> dict:
+    return {**change, "left_content_origin": left_origin, "right_content_origin": right_origin}
 
 
 def _categorical_diff(left: object, right: object) -> dict:

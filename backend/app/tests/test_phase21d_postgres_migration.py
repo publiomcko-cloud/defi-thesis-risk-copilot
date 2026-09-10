@@ -70,6 +70,8 @@ def _assert_21d(database_url: str) -> None:
     with create_engine(database_url).connect() as connection:
         assert connection.scalar(text("SELECT version_num FROM alembic_version")) == PHASE21D_HEAD
         assert RESEARCH_TABLES.issubset(_tables(connection))
+        revision_columns = set(connection.scalars(text("SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'thesis_revisions'")))
+        assert "explicit_assumption_versions" in revision_columns
         assert connection.scalar(text("SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_thesis_revisions_number')")) is True
         assert connection.scalar(text("SELECT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'uq_research_report_comparisons_inputs')")) is True
         _assert_free_v1(connection)

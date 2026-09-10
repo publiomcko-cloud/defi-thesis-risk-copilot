@@ -38,6 +38,7 @@ class ThesisRevisionResponse(BaseModel):
     protocols: list[str]
     assumptions_snapshot: dict
     explicit_assumption_ids: list[str]
+    explicit_assumption_versions: list[dict]
     status: ThesisStatus
     actor_user_id: str | None
     origin: Literal["user_recorded", "legacy_baseline", "server_recorded"]
@@ -62,6 +63,7 @@ class ResearchAssumptionCreateRequest(BaseModel):
     statement: str = Field(min_length=3, max_length=4000)
     state: AssumptionState = "active"
     evidence_references: list[EvidenceReferenceRequest] = Field(default_factory=list, max_length=24)
+    expected_thesis_revision: int | None = Field(default=None, ge=1)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -97,6 +99,7 @@ class CatalystCreateRequest(BaseModel):
     status: CatalystStatus = "upcoming"
     uncertainty: str | None = Field(default=None, max_length=512)
     evidence_references: list[EvidenceReferenceRequest] = Field(default_factory=list, max_length=24)
+    expected_thesis_revision: int | None = Field(default=None, ge=1)
 
     model_config = ConfigDict(extra="forbid")
 

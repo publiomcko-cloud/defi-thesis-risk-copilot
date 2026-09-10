@@ -740,8 +740,12 @@ routing a model task. Focused API coverage proves immutable/legacy thesis
 history, status transitions, append-only assumptions, uncertainty-preserving
 catalysts, same-scope report comparisons, durable citation staleness, scenario
 deltas, research-question boundaries, tenant denial, and thesis lifecycle
-disposal. PostgreSQL proves revision sequencing, assumption-head optimistic
-conflict handling, comparison uniqueness, and a reversible migration cycle.
+disposal. Focused acceptance coverage also proves destination-scope evidence
+rejection, faithful first-mutation legacy baselines, immutable
+assumption-record/version pins, synthesis-provenance classification, and stale
+revision rejection. PostgreSQL proves revision sequencing, concurrent
+status/update and catalyst conflicts, assumption-head optimistic conflict
+handling, comparison uniqueness, and a reversible migration cycle.
 
 ```bash
 cd backend
