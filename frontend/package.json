@@ -19,14 +19,14 @@
     "test:mfa:routes": "node scripts/mfa-route-check.mjs"
   },
   "dependencies": {
-    "next": "15.5.21",
+    "next": "15.5.25",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
   "overrides": {
     "nanoid": "3.3.18",
     "postcss": "8.5.24",
-    "sharp": "0.35.3"
+    "sharp": "0.35.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",
