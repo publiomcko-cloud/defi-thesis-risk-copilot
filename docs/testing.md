@@ -697,6 +697,44 @@ that retain historical R1 authority after later promotion and rollback, with one
 consistent active assignment/history. These local/CI checks do not claim hosted,
 paid-provider, private-provider, or production activation evidence.
 
+Checkpoint 21C adds deterministic source-trust, prompt-injection, quality, and
+feedback-governance coverage. The public/synthetic adversarial corpus includes
+direct/indirect injection, fake system/tool/provider/credential instructions,
+poisoned high/low and competing chunks, citation/source/missing-data/risk
+attacks, unsafe advice, and a safe quoted discussion. Tests prove model wording
+falls back without changing deterministic facts, and that a worker cannot
+authorize output with a forged pass bit, claimed-safe unsafe/citation output,
+immutable-field mutation, unsupported confident claim, missing-source
+suppression, or any report-verifiable quality disagreement. The control plane
+recomputes those fields with the canonical evaluator and preserves truthful R1
+route/evaluation provenance on quality failure. Bounded source-poisoning flags
+remain authenticated-worker execution evidence only after exact route-snapshot
+validation because raw retrieval chunks are intentionally not stored in the
+completion envelope. Rollback tests prove current v3/v2 evidence restores, but
+obsolete prompt/policy evidence clears to deterministic output. Feedback remains
+tenant-safe and absent from analytics/logs/audit metadata, and feedback review
+cannot mutate datasets or promotion state.
+
+```bash
+cd backend
+python -m compileall -q app scripts migrations
+python -m pytest -q app/tests/test_phase21c_quality_feedback.py \
+  app/tests/test_phase21c_sqlite_migration.py app/tests/test_phase21a_model_governance.py \
+  app/tests/test_phase21b_model_routing.py
+RUN_POSTGRES_INTEGRATION=true python -m pytest -q \
+  app/tests/test_phase21c_postgres_migration.py app/tests/test_phase21c_postgres.py \
+  app/tests/test_phase21b_postgres.py
+cd ../frontend
+npm run lint && npm run build && npm run test:bff && npm run test:phase21c
+```
+
+The 21C cycles prove `0031 -> 0032 -> 0031 -> 0032`, preserving 21A/21B and
+the Phase 20F `free-v1` catalog while dropping only 21C schema on downgrade.
+PostgreSQL coverage includes feedback tenant isolation, concurrent idempotent
+review locking, immutable linked quality evidence, and the existing 21B route
+locking evidence. These local checks do not claim hosted CI, real providers,
+real Vast rentals, automatic training/promotion, or production activation.
+
 ## 11. CI expectations
 
 CI should progressively include:

@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.llm.prompts import report_synthesis_prompt_definition
 from app.llm.provenance import ModelIdentity, ModelRunCandidate
+from app.llm.quality import ModelQualityEvidence
 from app.llm.task_registry import get_model_task_definition
 from app.models.model_governance import (
     ModelEvaluationRunModel,
@@ -19,11 +20,12 @@ from app.models.model_governance import (
     ModelRegistryModel,
     ModelRouteVersionModel,
     ModelRunProvenanceModel,
+    ModelRunQualityEvidenceModel,
     ModelTaskCapabilityModel,
 )
 
 
-REPORT_SYNTHESIS_PROMPT_ID = "prompt_report_synthesis_v2"
+REPORT_SYNTHESIS_PROMPT_ID = "prompt_report_synthesis_v3"
 
 
 class ModelGovernanceConflict(ValueError):
@@ -135,6 +137,7 @@ def record_model_run_provenance(
     if existing is not None:
         return existing
 
+
     record = ModelRunProvenanceModel(
         id=_stable_id("modelrun", report_id, candidate.task_key, candidate.task_version),
         report_id=report_id,
@@ -172,6 +175,57 @@ def record_model_run_provenance(
             .where(ModelRunProvenanceModel.report_id == report_id)
             .where(ModelRunProvenanceModel.task_key == candidate.task_key)
             .where(ModelRunProvenanceModel.task_version == candidate.task_version)
+        ).scalars().one_or_none()
+        if existing is None:
+            raise
+        return existing
+
+
+def record_model_run_quality_evidence(
+    db: Session,
+    *,
+    model_run: ModelRunProvenanceModel,
+    quality: ModelQualityEvidence | None,
+) -> ModelRunQualityEvidenceModel | None:
+    """Persist at most one code-generated, bounded quality result per model run."""
+
+    if quality is None:
+        return None
+    existing = db.execute(
+        select(ModelRunQualityEvidenceModel).where(
+            ModelRunQualityEvidenceModel.model_run_provenance_id == model_run.id
+        )
+    ).scalars().one_or_none()
+    if existing is not None:
+        return existing
+    payload = quality.to_payload()
+    record = ModelRunQualityEvidenceModel(
+        id=_stable_id("modelquality", model_run.id),
+        model_run_provenance_id=model_run.id,
+        quality_policy_version=payload["quality_policy_version"],
+        quality_policy_checksum=payload["quality_policy_checksum"],
+        citation_consistency=quality.citation_consistency,
+        unsupported_claim_count=quality.unsupported_claim_count,
+        missing_source_honesty=quality.missing_source_honesty,
+        uncertainty_preserved=quality.uncertainty_preserved,
+        source_instruction_flag_count=quality.source_instruction_flag_count,
+        poisoning_detected=quality.poisoning_detected,
+        unsafe_language_violation=quality.unsafe_language_violation,
+        deterministic_integrity=quality.deterministic_integrity,
+        overall_quality_pass=quality.overall_quality_pass,
+        reason_code=quality.reason_code,
+        created_at=datetime.now(UTC),
+    )
+    try:
+        with db.begin_nested():
+            db.add(record)
+            db.flush()
+        return record
+    except IntegrityError:
+        existing = db.execute(
+            select(ModelRunQualityEvidenceModel).where(
+                ModelRunQualityEvidenceModel.model_run_provenance_id == model_run.id
+            )
         ).scalars().one_or_none()
         if existing is None:
             raise

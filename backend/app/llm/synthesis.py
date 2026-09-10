@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.llm.base import LLMProvider, LLMRequest
 from app.llm.prompts import SYNTHESIZABLE_SECTION_TITLES, build_report_synthesis_prompt
+from app.llm.quality import ModelQualityEvidence, evaluate_report_synthesis_quality
 from app.llm.provenance import ModelIdentity, provider_identity, provider_is_eligible_for_scope
 from app.llm.routing import (
     RouteResolution,
@@ -29,7 +30,6 @@ LLM_USED_ASSUMPTION = (
 LLM_SKIPPED_ASSUMPTION = (
     "Optional LLM synthesis was skipped or unavailable; deterministic report template wording was used."
 )
-_URL_PATTERN = re.compile(r"https?://[^\s<>\]\[\"')]+", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -49,6 +49,7 @@ class SynthesisResult:
     route_version_id: str | None = None
     evaluation_run_id: str | None = None
     deterministic_report: ReportResponse | None = None
+    quality_evidence: ModelQualityEvidence | None = None
 
 
 class SynthesisValidationError(ValueError):
@@ -170,6 +171,16 @@ def _synthesize_with_provider(
         payload = _parse_json_object(response.text)
         _validate_synthesis_payload(payload)
         synthesized = _apply_allowed_synthesis(base_report, payload)
+        quality = evaluate_report_synthesis_quality(base_report, synthesized, retrieved_context)
+        if not quality.overall_quality_pass:
+            return _quality_fallback(
+                base_report,
+                identity,
+                started,
+                quality,
+                route_version_id,
+                evaluation_run_id,
+            )
         synthesized = _with_assumption(
             synthesized,
             f"{LLM_USED_ASSUMPTION} Provider: {response.provider}; model: {response.model}.",
@@ -189,6 +200,7 @@ def _synthesize_with_provider(
             cost_microusd=response.cost_microusd,
             route_version_id=route_version_id,
             evaluation_run_id=evaluation_run_id,
+            quality_evidence=quality,
         )
     except json.JSONDecodeError:
         return _validation_fallback(base_report, identity, started, "invalid_json", "malformed_json", route_version_id, evaluation_run_id)
@@ -234,6 +246,29 @@ def _validation_fallback(
     )
 
 
+def _quality_fallback(
+    base_report: ReportResponse,
+    provider: ModelIdentity | None,
+    started: float,
+    quality: ModelQualityEvidence,
+    route_version_id: str | None,
+    evaluation_run_id: str | None,
+) -> SynthesisResult:
+    return SynthesisResult(
+        report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
+        used_llm=False,
+        reason="validation_fallback",
+        outcome="validation_fallback",
+        validation_result="unsafe_output" if quality.unsafe_language_violation else "schema_invalid",
+        fallback_reason=quality.reason_code or "quality_policy_failed",
+        provider=provider,
+        latency_ms=_elapsed_ms(started),
+        route_version_id=route_version_id,
+        evaluation_run_id=evaluation_run_id,
+        quality_evidence=quality,
+    )
+
+
 def _resolution_fallback(base_report: ReportResponse, resolution: RouteResolution) -> SynthesisResult:
     return SynthesisResult(
         report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
@@ -252,7 +287,6 @@ def _apply_allowed_synthesis(
     base_report: ReportResponse,
     payload: dict[str, Any],
 ) -> ReportResponse:
-    _validate_source_integrity(base_report, payload)
     report = base_report.model_copy(deep=True)
     executive_summary = payload["executive_summary"]
     report.executive_summary = executive_summary.strip()
@@ -266,16 +300,6 @@ def _apply_allowed_synthesis(
     _enforce_immutable_fields(report, base_report)
     validate_report_structure(report)
     return report
-
-
-def _validate_source_integrity(base_report: ReportResponse, payload: dict[str, Any]) -> None:
-    """Only report-owned source URLs may be repeated in generated wording."""
-
-    known_urls = {source.url for source in base_report.sources if source.url}
-    generated_text = [payload["executive_summary"], *payload["sections"].values()]
-    for text in generated_text:
-        if any(url not in known_urls for url in _URL_PATTERN.findall(text)):
-            raise SynthesisValidationError("schema_invalid", "unsupported_source_claim")
 
 
 def _enforce_immutable_fields(report: ReportResponse, base_report: ReportResponse) -> None:
@@ -325,10 +349,6 @@ def _validate_synthesis_payload(payload: dict[str, Any]) -> None:
     for title, content in sections.items():
         if not isinstance(title, str) or not isinstance(content, str) or not 1 <= len(content.strip()) <= 4000:
             raise SynthesisValidationError("schema_invalid", "invalid_section_content")
-        if not _is_safe_text(content):
-            raise SynthesisValidationError("unsafe_output", "unsafe_recommendation")
-    if not _is_safe_text(summary):
-        raise SynthesisValidationError("unsafe_output", "unsafe_recommendation")
 
 
 def _with_assumption(report: ReportResponse, assumption: str) -> ReportResponse:
@@ -338,23 +358,6 @@ def _with_assumption(report: ReportResponse, assumption: str) -> ReportResponse:
     ]
     updated.assumptions.append(assumption)
     return updated
-
-
-def _is_safe_text(text: str) -> bool:
-    lowered = text.lower()
-    blocked_phrases = [
-        "you should buy",
-        "you should sell",
-        "buy this",
-        "sell this",
-        "enter this trade",
-        "execute this trade",
-        "connect your wallet",
-        "not financial advice, but",
-    ]
-    return not any(phrase in lowered for phrase in blocked_phrases)
-
-
 
 
 def _elapsed_ms(started: float) -> int:

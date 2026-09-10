@@ -1,10 +1,10 @@
 # V1 Phase 21 Execution Plan — Model and Research Intelligence Expansion
 
-Status: **Active — checkpoints 21A and 21B implemented; 21C is next.**
+Status: **Active — checkpoints 21A–21C implemented; 21D is next.**
 
-Base merge: `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`
+21A–21B base merge: PR #32, `37fc065b95434622dbfdf407a2bda7930f2c4547`
 
-Current branch: `agent/v1-phase-21-model-research-intelligence`
+Current branch: `agent/v1-phase-21c-quality-feedback-governance`
 
 Authority:
 
@@ -147,7 +147,7 @@ and no paid provider or real Vast.ai rental is activated by 21B.
 
 Goal: make model quality measurable and adversarially tested.
 
-Expected scope:
+Implemented scope:
 
 - source/citation consistency scoring;
 - unsupported-claim checks;
@@ -160,6 +160,45 @@ Expected scope:
   evaluation dataset;
 - no automatic training or promotion;
 - privacy/export/deletion behavior and bounded analytics/logging.
+
+Implementation record:
+
+- reversible `20260906_0031 -> 20260907_0032 -> 20260906_0031 ->
+  20260907_0032` SQLite and PostgreSQL cycles leave Phase 20F `free-v1` and
+  21A–21B structures intact, preserve the intentionally absent `0027`, and
+  remove only 21C state on downgrade;
+- `report_synthesis.prompt.v3` preserves historical prompt records and marks
+  every retrieved chunk as server-classified untrusted evidence. The bounded
+  classes are `trusted_code_owned`, `curated_public`, `tenant_private`, and
+  fail-closed `untrusted_external`;
+- the separate checked-in `report_synthesis_adversarial_v1` corpus has 17
+  public/synthetic injection, poisoning, citation, source-replacement,
+  missing-data, unsafe-advice, and safe-quoted-discussion cases. SQL stores
+  immutable corpus identity/checksum and bounded results, never chunk text;
+- `report_synthesis.quality.v1` persists one immutable linked quality record
+  per model run. `report_synthesis.promotion.v2` is a new immutable policy
+  requiring all hard citation, deterministic, missing-data, uncertainty, and
+  source-poisoning invariants. Evaluation remains explicit-operator promotion
+  only;
+- worker completion treats its quality envelope as bounded execution evidence,
+  never final persistence authority. After verifying the server-owned route
+  snapshot, the control plane recomputes every report-verifiable v1 invariant
+  from the deterministic baseline and proposed report, requires exact agreement
+  on those fields, and persists wording only on the authoritative pass. Raw
+  retrieval chunks remain outside durable job/provenance state; source-flag and
+  poisoning evidence is therefore bounded authenticated-worker evidence tied to
+  the verified execution snapshot and can never override a control-plane
+  failure. A malformed or disagreeing envelope fails closed. Quality failure
+  keeps truthful route, evaluation, and model provenance while persisting the
+  deterministic report;
+- rollback restores a prior route only when its route, model, completed
+  promotion-eligible evaluation, current prompt, current promotion policy, and
+  current ordinary/adversarial datasets still satisfy current authority. An
+  obsolete prior route clears the assignment to deterministic/no-model output;
+- feedback is limited to the approved taxonomy and accessible report scope.
+  It supports explicit server-side review but cannot train, promote, route,
+  mutate a prompt, or mutate an evaluation dataset. Lifecycle/export paths keep
+  comments out of analytics, audit metadata, logs, prompts, and providers.
 
 ## Checkpoint 21D — Research intelligence
 

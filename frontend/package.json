@@ -10,6 +10,7 @@
     "test:e2e": "node scripts/phase16-e2e.mjs",
     "test:phase20h": "node scripts/phase20h-e2e.mjs",
     "test:phase20i": "node scripts/phase20i-e2e.mjs",
+    "test:phase21c": "node scripts/phase21c-contract-check.mjs",
     "test:route-smoke": "node scripts/e2e-smoke.mjs",
     "test:bff": "node scripts/bff-contract-check.mjs && node --experimental-strip-types scripts/bff-body-limit-check.ts",
     "test:accessibility": "node scripts/accessibility-contract-check.mjs",
@@ -18,14 +19,14 @@
     "test:mfa:routes": "node scripts/mfa-route-check.mjs"
   },
   "dependencies": {
-    "next": "15.5.21",
+    "next": "15.5.25",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
   "overrides": {
     "nanoid": "3.3.18",
     "postcss": "8.5.24",
-    "sharp": "0.35.3"
+    "sharp": "0.35.4"
   },
   "devDependencies": {
     "@playwright/test": "^1.61.1",

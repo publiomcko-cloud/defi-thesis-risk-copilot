@@ -69,7 +69,7 @@ V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
 V1 Phase 20 — Complete — Portfolio Profile and merged at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 20E is omitted, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
-V1 Phase 21 — Active on `agent/v1-phase-21-model-research-intelligence`; 21A model governance and 21B evaluated routing are implemented, 21C–21F remain planned
+V1 Phase 21 — Active on `agent/v1-phase-21c-quality-feedback-governance`; 21A–21B are merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32, 21C quality/feedback governance is implemented, and 21D–21F remain planned
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -535,7 +535,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   hosted merge gate; Phase 20J then merged through PR #31 as
   `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`.
 - Phase 21 — active model and research-intelligence expansion on
-  `agent/v1-phase-21-model-research-intelligence`. Checkpoints 21A and 21B
+  `agent/v1-phase-21c-quality-feedback-governance`. PR #32 merge
+  `37fc065b95434622dbfdf407a2bda7930f2c4547` supplies the 21A–21B base. Those
+  checkpoints
   add bounded governance/provenance plus evaluated `report_synthesis` routing:
   only an explicit platform-admin promotion of immutable public/synthetic
   evidence can set the one server-owned route assignment. Configuration and
@@ -545,7 +547,11 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   server-owned model is `private_approved`. Unknown server environments fail
   closed, and asynchronous analysis snapshots route authority at start so
   later promotion/rollback cannot rewrite report provenance or persist
-  unattributed model wording. 21C–21F remain unstarted.
+  unattributed model wording. 21C adds server-derived source trust classes,
+  `report_synthesis.prompt.v3` untrusted-evidence framing, a synthetic/public
+  adversarial corpus, deterministic quality evidence/fallback, and bounded
+  feedback review/lifecycle paths. It does not activate providers, training,
+  automatic promotion, or production delivery. 21D–21F remain unstarted.
 - Phase 22 — final provider, legal, and launch validation.
 
 See [`future_phase_contracts.md`](future_phase_contracts.md) for complete requirements.

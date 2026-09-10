@@ -8,6 +8,7 @@ import { MarkdownExportButton } from "@/components/MarkdownExportButton";
 import { MonitoringChecklist } from "@/components/MonitoringChecklist";
 import { ReportSection } from "@/components/ReportSection";
 import { RiskRatingCard } from "@/components/RiskRatingCard";
+import { ReportFeedbackForm } from "@/components/ReportFeedbackForm";
 import { SourcesPanel } from "@/components/SourcesPanel";
 import { fetchReport } from "@/lib/api";
 import { formatProtocolName } from "@/lib/formatting";
@@ -126,6 +127,7 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
       </section>
 
       <MarkdownExportButton reportId={report.report_id} />
+      <ReportFeedbackForm reportId={report.report_id} />
       <DisclaimerBox text={report.disclaimer} />
     </main>
   );

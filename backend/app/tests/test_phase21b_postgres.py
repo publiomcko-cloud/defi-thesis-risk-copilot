@@ -303,7 +303,7 @@ def _assert_phase21b(database_url: str) -> None:
 
 def _materialize_runtime_prompt_v2(database_url: str) -> None:
     with sessionmaker(bind=create_engine(database_url))() as db:
-        assert ensure_report_synthesis_prompt_version(db).id == "prompt_report_synthesis_v2"
+        assert ensure_report_synthesis_prompt_version(db).id == "prompt_report_synthesis_v3"
         db.commit()
 
 

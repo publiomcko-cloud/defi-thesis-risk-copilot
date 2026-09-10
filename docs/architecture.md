@@ -759,15 +759,18 @@ task-capability metadata, immutable prompt/schema/safety metadata, and one
 bounded provenance record per report-synthesis execution. Checkpoint 21B adds
 the `0031` evaluation/route authority: a checked-in public/synthetic dataset,
 immutable evaluation and route history, and a single lockable active assignment
-per task/version/server environment. `report_synthesis.promotion.v1` has hard
-schema, deterministic, source, missing-data, unsafe, privacy, provider-failure,
-and latency gates; evaluation never promotes automatically. Runtime checks the
-global disabled kill switch, route/evidence/model/prompt linkage, exact
+per task/version/server environment. Checkpoint 21C adds `0032` immutable
+quality evidence, bounded evaluation quality metrics, and tenant-safe report
+feedback. `report_synthesis.prompt.v3` frames retrieved text as server-classified
+untrusted evidence; `report_synthesis.quality.v1` discards unsafe, poisoned,
+unsupported, citation-invalid, or deterministic-integrity-invalid wording;
+`report_synthesis.promotion.v2` requires the new hard gates and still never
+promotes automatically. Feedback review creates only a safe future reference,
+never dataset content or routing/training authority. Runtime continues to check
+the global disabled kill switch, route/evidence/model/prompt linkage, exact
 server-configured adapter identity, and private/organization privacy before it
-may invoke a provider. Otherwise it deterministically falls back. 21A
-provenance records safe route/evaluation references on routed work. There is no
-browser provider authority, paid-provider activation, or production activation.
-Checkpoint 21C is next; 21D–21F remain planned and Phase 22 remains the later
-deployed-provider/legal validation phase.
+may invoke a provider. There is no browser provider authority, paid-provider
+activation, or production activation. Checkpoint 21D is next; 21E–21F remain
+planned and Phase 22 remains the later deployed-provider/legal validation phase.
 
 Deterministic risk and non-execution boundaries remain permanent.

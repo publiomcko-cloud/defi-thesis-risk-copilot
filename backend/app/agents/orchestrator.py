@@ -11,6 +11,7 @@ from app.rag.retriever import RetrievalResult
 from app.rag.scope import derive_retrieval_scope
 from app.auth.schemas import UserContext
 from app.llm.provenance import ModelRunCandidate, build_report_synthesis_candidate, scope_class_for_actor
+from app.llm.quality import ModelQualityEvidence
 from app.jobs.cancellation import CancellationContext
 from app.risk.framework import RiskScore
 from app.schemas.analysis import AnalysisRequest
@@ -28,6 +29,7 @@ class AnalysisWorkflowResult:
     report: ReportResponse
     deterministic_report: ReportResponse
     model_run: ModelRunCandidate
+    model_quality: ModelQualityEvidence | None
 
 
 def run_analysis_workflow(
@@ -86,6 +88,7 @@ def run_analysis_workflow(
             retrieved_context=retrieved_context,
             scope_class=content_scope,
         ),
+        model_quality=synthesis.quality_evidence,
     )
 
 

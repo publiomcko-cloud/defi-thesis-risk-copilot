@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, UniqueConstraint, event, inspect
+from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, event, inspect
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -196,6 +196,12 @@ class ModelEvaluationRunModel(Base):
         CheckConstraint("structured_output_valid_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_structure_count"),
         CheckConstraint("deterministic_preserved_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_deterministic_count"),
         CheckConstraint("source_integrity_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_source_count"),
+        CheckConstraint("citation_consistency_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_citation_count"),
+        CheckConstraint("unsupported_claim_count BETWEEN 0 AND 64000", name="ck_model_evaluation_runs_unsupported_count"),
+        CheckConstraint("uncertainty_preserved_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_uncertainty_count"),
+        CheckConstraint("source_instruction_flag_count BETWEEN 0 AND 64000", name="ck_model_evaluation_runs_instruction_count"),
+        CheckConstraint("poisoning_detected_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_poisoning_count"),
+        CheckConstraint("deterministic_integrity_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_quality_deterministic_count"),
         CheckConstraint("missing_data_honesty_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_missing_count"),
         CheckConstraint("unsafe_language_violation_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_unsafe_count"),
         CheckConstraint("privacy_policy_violation_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_privacy_count"),
@@ -215,6 +221,9 @@ class ModelEvaluationRunModel(Base):
     task_key: Mapped[str] = mapped_column(String(64), nullable=False)
     task_version: Mapped[str] = mapped_column(String(32), nullable=False)
     dataset_id: Mapped[str] = mapped_column(ForeignKey("model_evaluation_datasets.id", ondelete="RESTRICT"), nullable=False)
+    adversarial_dataset_id: Mapped[str | None] = mapped_column(
+        ForeignKey("model_evaluation_datasets.id", ondelete="RESTRICT"), nullable=True
+    )
     candidate_model_registry_id: Mapped[str] = mapped_column(ForeignKey("model_registry.id", ondelete="RESTRICT"), nullable=False)
     baseline_type: Mapped[str] = mapped_column(String(32), nullable=False)
     baseline_model_registry_id: Mapped[str | None] = mapped_column(ForeignKey("model_registry.id", ondelete="RESTRICT"), nullable=True)
@@ -230,6 +239,12 @@ class ModelEvaluationRunModel(Base):
     structured_output_valid_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     deterministic_preserved_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     source_integrity_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    citation_consistency_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    unsupported_claim_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    uncertainty_preserved_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    source_instruction_flag_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    poisoning_detected_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    deterministic_integrity_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     missing_data_honesty_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     unsafe_language_violation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     privacy_policy_violation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -262,6 +277,8 @@ class ModelEvaluationCaseResultModel(Base):
         CheckConstraint("output_tokens IS NULL OR output_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_output_tokens"),
         CheckConstraint("total_tokens IS NULL OR total_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_total_tokens"),
         CheckConstraint("cost_microusd IS NULL OR cost_microusd >= 0", name="ck_model_evaluation_case_results_cost"),
+        CheckConstraint("unsupported_claim_count BETWEEN 0 AND 64", name="ck_model_evaluation_case_results_unsupported_count"),
+        CheckConstraint("source_instruction_flag_count BETWEEN 0 AND 64", name="ck_model_evaluation_case_results_instruction_count"),
         Index("ix_model_evaluation_case_results_run", "evaluation_run_id", "case_id"),
     )
 
@@ -273,6 +290,12 @@ class ModelEvaluationCaseResultModel(Base):
     structured_output_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
     deterministic_preserved: Mapped[bool] = mapped_column(Boolean, nullable=False)
     source_integrity: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    citation_consistency: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    unsupported_claim_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    uncertainty_preserved: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    source_instruction_flag_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    poisoning_detected: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    deterministic_integrity: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     missing_data_honesty: Mapped[bool] = mapped_column(Boolean, nullable=False)
     unsafe_language_violation: Mapped[bool] = mapped_column(Boolean, nullable=False)
     privacy_policy_violation: Mapped[bool] = mapped_column(Boolean, nullable=False)
@@ -359,6 +382,78 @@ class ModelRouteTransitionModel(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
 
 
+class ModelRunQualityEvidenceModel(Base):
+    """Immutable, structured quality evidence for one persisted model run."""
+
+    __tablename__ = "model_run_quality_evidence"
+    __table_args__ = (
+        UniqueConstraint("model_run_provenance_id", name="uq_model_run_quality_evidence_run"),
+        CheckConstraint("length(quality_policy_version) BETWEEN 1 AND 64", name="ck_model_quality_evidence_policy_version"),
+        CheckConstraint("length(quality_policy_checksum) = 64", name="ck_model_quality_evidence_policy_checksum"),
+        CheckConstraint("unsupported_claim_count BETWEEN 0 AND 64", name="ck_model_quality_evidence_unsupported_count"),
+        CheckConstraint("source_instruction_flag_count BETWEEN 0 AND 64", name="ck_model_quality_evidence_instruction_count"),
+        CheckConstraint("reason_code IS NULL OR length(reason_code) BETWEEN 1 AND 64", name="ck_model_quality_evidence_reason"),
+        Index("ix_model_quality_evidence_run", "model_run_provenance_id"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    model_run_provenance_id: Mapped[str] = mapped_column(
+        ForeignKey("model_run_provenance.id", ondelete="CASCADE"), nullable=False
+    )
+    quality_policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    quality_policy_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    citation_consistency: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    unsupported_claim_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    missing_source_honesty: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    uncertainty_preserved: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    source_instruction_flag_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    poisoning_detected: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    unsafe_language_violation: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    deterministic_integrity: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    overall_quality_pass: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+
+
+class ModelFeedbackModel(Base):
+    """Tenant-scoped, bounded human feedback that is never training authority."""
+
+    __tablename__ = "model_feedback"
+    __table_args__ = (
+        CheckConstraint(
+            "category IN ('helpful', 'incorrect', 'missing_source', 'bad_citation', 'unclear', 'entity_error', 'unsafe')",
+            name="ck_model_feedback_category",
+        ),
+        CheckConstraint(
+            "review_state IN ('submitted', 'reviewed', 'approved_for_dataset', 'rejected')",
+            name="ck_model_feedback_review_state",
+        ),
+        CheckConstraint("comment IS NULL OR length(comment) BETWEEN 1 AND 1000", name="ck_model_feedback_comment"),
+        CheckConstraint(
+            "dataset_review_reference IS NULL OR length(dataset_review_reference) BETWEEN 1 AND 64",
+            name="ck_model_feedback_dataset_reference",
+        ),
+        Index("ix_model_feedback_owner_created", "owner_user_id", "created_at"),
+        Index("ix_model_feedback_org_created", "organization_id", "created_at"),
+        Index("ix_model_feedback_review_state", "review_state", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    report_id: Mapped[str] = mapped_column(ForeignKey("reports.id", ondelete="CASCADE"), nullable=False)
+    model_run_provenance_id: Mapped[str | None] = mapped_column(
+        ForeignKey("model_run_provenance.id", ondelete="SET NULL"), nullable=True
+    )
+    owner_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    organization_id: Mapped[str | None] = mapped_column(ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True)
+    category: Mapped[str] = mapped_column(String(32), nullable=False)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    review_state: Mapped[str] = mapped_column(String(32), nullable=False, default="submitted")
+    dataset_review_reference: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    reviewed_by_user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
+
+
 def _reject_prompt_update(_mapper, _connection, _target) -> None:
     raise ValueError("Model prompt version rows are immutable")
 
@@ -395,6 +490,10 @@ def _reject_model_route_transition_update(_mapper, _connection, _target) -> None
     raise ValueError("Model route transition rows are immutable")
 
 
+def _reject_model_run_quality_evidence_update(_mapper, _connection, _target) -> None:
+    raise ValueError("Model run quality evidence rows are immutable")
+
+
 def _reject_governance_evidence_delete(_mapper, _connection, _target) -> None:
     raise ValueError("Model evaluation and route evidence rows are immutable")
 
@@ -406,11 +505,13 @@ event.listen(ModelEvaluationRunModel, "before_update", _reject_completed_model_e
 event.listen(ModelEvaluationCaseResultModel, "before_update", _reject_model_evaluation_case_result_update)
 event.listen(ModelRouteVersionModel, "before_update", _reject_model_route_version_update)
 event.listen(ModelRouteTransitionModel, "before_update", _reject_model_route_transition_update)
+event.listen(ModelRunQualityEvidenceModel, "before_update", _reject_model_run_quality_evidence_update)
 for _immutable_model in (
     ModelEvaluationDatasetModel,
     ModelEvaluationRunModel,
     ModelEvaluationCaseResultModel,
     ModelRouteVersionModel,
     ModelRouteTransitionModel,
+    ModelRunQualityEvidenceModel,
 ):
     event.listen(_immutable_model, "before_delete", _reject_governance_evidence_delete)

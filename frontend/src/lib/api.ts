@@ -59,7 +59,9 @@ import type {
   KnowledgeDocument,
   KnowledgeReadiness,
   KnowledgeSource,
-  KnowledgeVisibility
+  KnowledgeVisibility,
+  ModelFeedbackCategory,
+  ModelFeedbackResponse
 } from "./types";
 
 export function getApiBaseUrl(): string {
@@ -507,6 +509,23 @@ export async function fetchReport(reportId: string): Promise<ReportResponse> {
     throw new Error(`Report fetch failed with status ${response.status}`);
   }
 
+  return response.json();
+}
+
+export async function submitModelFeedback(
+  reportId: string,
+  payload: { category: ModelFeedbackCategory; comment?: string }
+): Promise<ModelFeedbackResponse> {
+  const response = await fetch(`${getApiBaseUrl()}/api/model-feedback/reports/${encodeURIComponent(reportId)}`, {
+    method: "POST",
+    ...requestInit({
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify(payload)
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, "Feedback could not be submitted."));
+  }
   return response.json();
 }
 

@@ -29,6 +29,7 @@ from app.llm.prompts import (
     build_report_synthesis_prompt,
     report_synthesis_prompt_definition,
 )
+from app.llm.quality import QUALITY_POLICY_CHECKSUM, QUALITY_POLICY_VERSION
 from app.llm.provenance import (
     ModelIdentity,
     ModelRunCandidate,
@@ -49,6 +50,7 @@ from app.models.model_governance import (
     ModelPromptVersionModel,
     ModelRegistryModel,
     ModelRunProvenanceModel,
+    ModelRunQualityEvidenceModel,
     ModelTaskCapabilityModel,
 )
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
@@ -167,7 +169,7 @@ def test_prompt_and_configured_model_registration_are_immutable_bounded_and_idem
         duplicate = ensure_configured_model_registration(db, identity)
         db.commit()
 
-        assert prompt.id == again.id == "prompt_report_synthesis_v2"
+        assert prompt.id == again.id == "prompt_report_synthesis_v3"
         assert prompt.prompt_checksum == report_synthesis_prompt_definition().checksum
         assert model.id == duplicate.id
         assert model.lifecycle_state == "registered"
@@ -531,9 +533,15 @@ def test_async_completion_accepts_only_the_same_promoted_route_authority(governa
         accepted_result["deterministic_report"]["executive_summary"] = "Deterministic baseline wording."
         persist_async_analysis_completion(db, accepted_job, accepted_result)
         accepted = _model_run_for_job(db, accepted_job)
+        accepted_quality = db.scalars(
+            select(ModelRunQualityEvidenceModel).where(
+                ModelRunQualityEvidenceModel.model_run_provenance_id == accepted.id
+            )
+        ).one()
         assert accepted.outcome == "succeeded"
         assert (accepted.route_version_id, accepted.evaluation_run_id) == (route.id, evaluation.id)
         assert db.get(ReportModel, accepted_job.result_resource_id).summary == "Accepted model wording."
+        assert accepted_quality.overall_quality_pass is True
 
         stale_job = _async_analysis_job(db, owner.id, "stale_route")
         persist_async_analysis_completion(
@@ -702,6 +710,221 @@ def test_async_authoritative_failed_execution_preserves_route_provenance_and_det
         assert (provenance.route_version_id, provenance.evaluation_run_id) == (route.id, evaluation.id)
         assert provenance.model_registry_id == route.model_registry_id
         assert provenance.fallback_reason != "worker_model_provenance_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("field", "value", "reason_code"),
+    [
+        ("unsafe_language_violation", True, "unsafe_output"),
+        ("citation_consistency", False, "citation_integrity_failed"),
+        ("unsupported_claim_count", 1, "unsupported_claim"),
+        ("deterministic_integrity", False, "deterministic_integrity_failed"),
+        ("missing_source_honesty", False, "missing_source_honesty_failed"),
+    ],
+)
+def test_async_internally_inconsistent_worker_quality_falls_back_with_route_provenance(
+    governance_session,
+    monkeypatch,
+    field: str,
+    value: bool | int,
+    reason_code: str,
+) -> None:
+    """The worker cannot use a forged pass bit to authorize report wording."""
+
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, f"phase21c-async-quality-{field}@example.test", role="admin")
+        provider = SafeProvider()
+        provider.privacy_classification = "private_approved"
+        identity = provider_identity(provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
+
+        job = _async_analysis_job(db, owner.id, f"quality_{field}")
+        result = _async_worker_result(
+            job,
+            model_run=_valid_worker_model_run(
+                job,
+                "private",
+                identity,
+                route_version_id=route.id,
+                evaluation_run_id=evaluation.id,
+            ),
+        )
+        result["report"]["executive_summary"] = "Unverified model wording must not persist."
+        result["deterministic_report"]["executive_summary"] = "Deterministic quality fallback wording."
+        result["model_quality"].update(
+            {
+                field: value,
+                "overall_quality_pass": True,
+                "reason_code": reason_code,
+            }
+        )
+
+        persist_async_analysis_completion(db, job, result)
+
+        saved = db.get(ReportModel, job.result_resource_id)
+        provenance = _model_run_for_job(db, job)
+        quality = db.scalars(
+            select(ModelRunQualityEvidenceModel).where(
+                ModelRunQualityEvidenceModel.model_run_provenance_id == provenance.id
+            )
+        ).one()
+        assert saved is not None
+        assert saved.summary == result["deterministic_report"]["executive_summary"]
+        assert (provenance.outcome, provenance.validation_result) == ("validation_fallback", "schema_invalid")
+        assert provenance.fallback_reason == "worker_quality_evidence_mismatch"
+        assert (provenance.route_version_id, provenance.evaluation_run_id) == (route.id, evaluation.id)
+        assert quality.overall_quality_pass is False
+        assert quality.reason_code == "worker_quality_evidence_mismatch"
+
+
+@pytest.mark.parametrize(
+    ("case", "expected_reason"),
+    [
+        ("unsafe", "unsafe_output"),
+        ("citation", "citation_integrity_failed"),
+        ("risk_rating", "deterministic_integrity_failed"),
+        ("source_list", "deterministic_integrity_failed"),
+        ("missing_data", "deterministic_integrity_failed"),
+        ("disclaimer", "deterministic_integrity_failed"),
+        ("immutable_section", "deterministic_integrity_failed"),
+        ("unsupported", "unsupported_claim"),
+        ("missing_source_honesty", "missing_source_honesty_failed"),
+    ],
+)
+def test_async_control_plane_recomputes_quality_before_persisting_model_wording(
+    governance_session,
+    monkeypatch,
+    case: str,
+    expected_reason: str,
+) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, f"phase21c-async-recompute-{case}@example.test", role="admin")
+        provider = SafeProvider()
+        provider.privacy_classification = "private_approved"
+        identity = provider_identity(provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
+
+        job = _async_analysis_job(db, owner.id, f"recompute_{case}")
+        result = _async_worker_result(
+            job,
+            model_run=_valid_worker_model_run(
+                job,
+                "private",
+                identity,
+                route_version_id=route.id,
+                evaluation_run_id=evaluation.id,
+            ),
+        )
+        result["deterministic_report"]["executive_summary"] = "Control-plane deterministic fallback wording."
+        _mutate_worker_report_for_quality_case(result["report"], case)
+
+        persist_async_analysis_completion(db, job, result)
+
+        saved = db.get(ReportModel, job.result_resource_id)
+        provenance = _model_run_for_job(db, job)
+        quality = db.scalars(
+            select(ModelRunQualityEvidenceModel).where(
+                ModelRunQualityEvidenceModel.model_run_provenance_id == provenance.id
+            )
+        ).one()
+        assert saved is not None
+        assert saved.summary == result["deterministic_report"]["executive_summary"]
+        assert saved.summary != result["report"]["executive_summary"]
+        assert (provenance.outcome, provenance.route_version_id, provenance.evaluation_run_id) == (
+            "validation_fallback",
+            route.id,
+            evaluation.id,
+        )
+        assert provenance.fallback_reason == expected_reason
+        assert provenance.fallback_reason != "worker_model_provenance_mismatch"
+        assert quality.overall_quality_pass is False
+        assert quality.reason_code == expected_reason
+
+
+def _mutate_worker_report_for_quality_case(report: dict, case: str) -> None:
+    if case == "unsafe":
+        report["executive_summary"] = "You should buy this immediately."
+    elif case == "citation":
+        report["sections"][2]["content"] = "See https://forged.example for authority."
+    elif case == "risk_rating":
+        report["risk_rating"] = "Moderate"
+    elif case == "source_list":
+        report["sources"] = []
+    elif case == "missing_data":
+        report["missing_data"] = []
+    elif case == "disclaimer":
+        report["disclaimer"] = "Worker-controlled disclaimer."
+    elif case == "immutable_section":
+        report["sections"][11]["content"] = "Moderate worker-controlled rating."
+    elif case == "unsupported":
+        report["executive_summary"] = "This is a guaranteed risk-free outcome."
+    elif case == "missing_source_honesty":
+        report["executive_summary"] = "There is no missing data or uncertainty."
+    else:
+        raise AssertionError(f"Unknown quality mutation case: {case}")
+
+
+def test_async_verified_source_poisoning_evidence_forces_fallback_without_raw_chunk_persistence(
+    governance_session,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    with governance_session() as db:
+        owner = create_user(db, "phase21c-async-source-poisoning@example.test", role="admin")
+        provider = SafeProvider()
+        provider.privacy_classification = "private_approved"
+        identity = provider_identity(provider)
+        assert identity is not None
+        evaluation = evaluate_report_synthesis_candidate(db, provider=provider, actor=user_context(owner))
+        route = promote_evaluation_route(db, evaluation_run_id=evaluation.id, actor=user_context(owner))
+        monkeypatch.setattr(analysis_service, "get_llm_provider", lambda _settings: provider)
+
+        job = _async_analysis_job(db, owner.id, "source_poisoning")
+        result = _async_worker_result(
+            job,
+            model_run=_valid_worker_model_run(
+                job,
+                "private",
+                identity,
+                route_version_id=route.id,
+                evaluation_run_id=evaluation.id,
+            ),
+        )
+        result["report"]["executive_summary"] = "Worker wording is not persisted after a poisoning signal."
+        result["deterministic_report"]["executive_summary"] = "Deterministic source-poisoning fallback wording."
+        result["model_quality"].update(
+            source_instruction_flag_count=1,
+            poisoning_detected=True,
+            overall_quality_pass=False,
+            reason_code="source_poisoning_obeyed",
+        )
+
+        persist_async_analysis_completion(db, job, result)
+
+        saved = db.get(ReportModel, job.result_resource_id)
+        provenance = _model_run_for_job(db, job)
+        quality = db.scalars(
+            select(ModelRunQualityEvidenceModel).where(
+                ModelRunQualityEvidenceModel.model_run_provenance_id == provenance.id
+            )
+        ).one()
+        assert saved is not None
+        assert saved.summary == result["deterministic_report"]["executive_summary"]
+        assert (provenance.route_version_id, provenance.evaluation_run_id) == (route.id, evaluation.id)
+        assert provenance.fallback_reason == "source_poisoning_obeyed"
+        assert quality.overall_quality_pass is False
+        assert (quality.source_instruction_flag_count, quality.poisoning_detected) == (1, True)
 
 
 @pytest.mark.parametrize(
@@ -1042,6 +1265,20 @@ def _async_worker_result(job: JobModel, *, model_run: dict | None = None) -> dic
     }
     if model_run is not None:
         result["model_run"] = model_run
+        result["model_quality"] = {
+            "quality_policy_version": QUALITY_POLICY_VERSION,
+            "quality_policy_checksum": QUALITY_POLICY_CHECKSUM,
+            "citation_consistency": True,
+            "unsupported_claim_count": 0,
+            "missing_source_honesty": True,
+            "uncertainty_preserved": True,
+            "source_instruction_flag_count": 0,
+            "poisoning_detected": False,
+            "unsafe_language_violation": False,
+            "deterministic_integrity": True,
+            "overall_quality_pass": True,
+            "reason_code": None,
+        }
     return result
 
 

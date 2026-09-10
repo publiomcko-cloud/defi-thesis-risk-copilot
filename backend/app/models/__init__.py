@@ -21,7 +21,9 @@ from app.models.model_governance import (
     ModelRouteTransitionModel,
     ModelRouteVersionModel,
     ModelRunProvenanceModel,
+    ModelRunQualityEvidenceModel,
     ModelTaskCapabilityModel,
+    ModelFeedbackModel,
 )
 from app.models.knowledge_base_ingestion import KnowledgeBaseIngestionModel
 from app.models.knowledge import (
@@ -83,7 +85,9 @@ __all__ = [
     "ModelRouteTransitionModel",
     "ModelRouteVersionModel",
     "ModelRunProvenanceModel",
+    "ModelRunQualityEvidenceModel",
     "ModelTaskCapabilityModel",
+    "ModelFeedbackModel",
     "KnowledgeBaseIngestionModel",
     "KnowledgeChunkModel",
     "KnowledgeChunkEmbeddingModel",
