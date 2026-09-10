@@ -34,6 +34,12 @@ regression, and feedback governance are implemented through 21C. Research
 intelligence and worker-bound evaluation/training lineage remain later Phase 21
 work.
 
+The 21C closeout security gate also refreshed the frontend to patched
+`next@15.5.25` and `sharp@0.35.4` after the hosted production dependency audit
+identified newly disclosed high/critical findings in the prior locked versions.
+The lockfile was regenerated on a clean Node 24 runner and the production npm
+audit passed before the refreshed branch head was submitted to hosted PR CI.
+
 Checkpoints 21A–21C have concrete implementation and local PostgreSQL
 evidence; each PASS is limited to its checkpoint. Phase 21 remains active and
 21D is next; no production activation is implied.
