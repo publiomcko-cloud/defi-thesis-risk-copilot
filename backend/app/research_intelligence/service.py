@@ -10,7 +10,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth.policies import READ_ORG_ROLES, WRITE_ORG_ROLES, can_read_resource, can_update_resource, has_org_role
+from app.auth.policies import READ_ORG_ROLES, can_read_resource, has_org_role
 from app.auth.schemas import UserContext
 from app.models.knowledge import (
     KnowledgeChunkModel,
@@ -48,6 +48,7 @@ from app.research_intelligence.schemas import (
 from app.schemas.reports import ReportResponse, SourceReference
 from app.llm.prompts import SYNTHESIZABLE_SECTION_TITLES
 from app.simulation.simulator import SIMULATION_DISCLAIMER, run_strategy_simulation
+from app.theses.policies import can_read_saved_thesis, can_update_saved_thesis
 
 
 RESEARCH_COMPARISON_SCHEMA = "research_comparison.v1"
@@ -613,7 +614,7 @@ def _locked_authorized_thesis(db: Session, actor: UserContext, thesis_id: str) -
     thesis = db.execute(
         select(SavedThesisModel).where(SavedThesisModel.id == thesis_id).with_for_update()
     ).scalars().one_or_none()
-    if thesis is None or not can_update_resource(actor, thesis, db) or not _active_organization_scope(db, actor, thesis, WRITE_ORG_ROLES):
+    if thesis is None or not can_update_saved_thesis(db, actor, thesis):
         raise HTTPException(status_code=404, detail="Thesis not found")
     return thesis
 
@@ -622,16 +623,15 @@ def _locked_authorized_read_thesis(db: Session, actor: UserContext, thesis_id: s
     thesis = db.execute(
         select(SavedThesisModel).where(SavedThesisModel.id == thesis_id).with_for_update()
     ).scalars().one_or_none()
-    if thesis is None or not can_read_resource(actor, thesis, db) or not _active_organization_scope(db, actor, thesis, READ_ORG_ROLES):
+    if thesis is None or not can_read_saved_thesis(db, actor, thesis):
         raise HTTPException(status_code=404, detail="Thesis not found")
     return thesis
 
 
 def _authorized_thesis(db: Session, actor: UserContext, thesis_id: str, *, write: bool) -> SavedThesisModel:
     thesis = db.get(SavedThesisModel, thesis_id)
-    allowed = can_update_resource(actor, thesis, db) if thesis is not None and write else can_read_resource(actor, thesis, db) if thesis is not None else False
-    roles = WRITE_ORG_ROLES if write else READ_ORG_ROLES
-    if thesis is None or not allowed or not _active_organization_scope(db, actor, thesis, roles):
+    allowed = can_update_saved_thesis(db, actor, thesis) if thesis is not None and write else can_read_saved_thesis(db, actor, thesis) if thesis is not None else False
+    if thesis is None or not allowed:
         raise HTTPException(status_code=404, detail="Thesis not found")
     return thesis
 

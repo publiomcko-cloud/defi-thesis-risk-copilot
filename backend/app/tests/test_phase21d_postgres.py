@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 from threading import Barrier
 from uuid import uuid4
 
@@ -14,6 +15,7 @@ from app.auth.service import create_user, user_context
 from app.db.session import create_database_engine
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.report import ReportModel
+from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.models.research_intelligence import ResearchReportComparisonModel, ThesisAssumptionModel, ThesisCatalystModel, ThesisRevisionModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.user import UserModel
@@ -38,7 +40,7 @@ from app.research_intelligence.service import (
 )
 from app.schemas.reports import ReportResponse, ReportSection, SourceReference
 from app.theses.schemas import ThesisUpdateRequest
-from app.theses.service import update_thesis
+from app.theses.service import get_thesis, update_thesis
 
 
 pytestmark = pytest.mark.postgres_integration
@@ -379,6 +381,166 @@ def test_postgres_report_comparison_unique_input_authority(postgres_sessions: se
             .where(ResearchReportComparisonModel.right_report_id == right_id)
         ).all()
         assert len(rows) == 1
+
+
+def test_postgres_organization_saved_thesis_access_fails_closed_for_membership_and_lifecycle(postgres_sessions: sessionmaker) -> None:
+    suffix = uuid4().hex[:12]
+    with postgres_sessions() as db:
+        owner = create_user(db, f"phase21d-org-owner-{suffix}@example.test")
+        member = create_user(db, f"phase21d-org-member-{suffix}@example.test")
+        org = OrganizationModel(
+            id=f"org_phase21d_pg_{suffix}",
+            name="Phase 21D PostgreSQL organization",
+            slug=f"phase21d-pg-{suffix}",
+            status="active",
+            created_by_user_id=owner.id,
+        )
+        db.add(org)
+        db.flush()
+        thesis = SavedThesisModel(
+            id=f"thesis_phase21d_org_pg_{suffix}",
+            owner_user_id=owner.id,
+            organization_id=org.id,
+            title="Organization PostgreSQL thesis",
+            strategy_text="Current organization authority must control saved thesis visibility.",
+            protocols=["pendle"],
+            assumptions_json={},
+            visibility="organization",
+        )
+        db.add_all([
+            OrganizationMembershipModel(
+                id=f"membership_phase21d_pg_owner_{suffix}",
+                organization_id=org.id,
+                user_id=owner.id,
+                role="owner",
+                status="active",
+            ),
+            OrganizationMembershipModel(
+                id=f"membership_phase21d_pg_member_{suffix}",
+                organization_id=org.id,
+                user_id=member.id,
+                role="member",
+                status="active",
+            ),
+            thesis,
+        ])
+        create_initial_revision(db, thesis, owner.id)
+        db.commit()
+        owner_id, member_id, organization_id, thesis_id = owner.id, member.id, org.id, thesis.id
+
+    with postgres_sessions() as db:
+        member_actor = user_context(db.get(UserModel, member_id))
+        assert get_thesis(db, member_actor, thesis_id).id == thesis_id
+        db.get(OrganizationModel, organization_id).status = "disabled"
+        db.commit()
+    with postgres_sessions() as db:
+        with pytest.raises(HTTPException) as exc_info:
+            get_thesis(db, user_context(db.get(UserModel, member_id)), thesis_id)
+        assert exc_info.value.status_code == 404
+        db.get(OrganizationModel, organization_id).status = "active"
+        db.commit()
+    with postgres_sessions() as db:
+        membership = db.execute(
+            select(OrganizationMembershipModel)
+            .where(OrganizationMembershipModel.organization_id == organization_id)
+            .where(OrganizationMembershipModel.user_id == owner_id)
+        ).scalars().one()
+        membership.status = "removed"
+        db.commit()
+    with postgres_sessions() as db:
+        owner_actor = user_context(db.get(UserModel, owner_id))
+        with pytest.raises(HTTPException) as exc_info:
+            update_thesis(db, owner_actor, thesis_id, ThesisUpdateRequest(title="Former creator write", expected_revision=1))
+        assert exc_info.value.status_code == 404
+        assert get_thesis(db, user_context(db.get(UserModel, member_id)), thesis_id).id == thesis_id
+        db.get(OrganizationModel, organization_id).deleted_at = datetime.now(UTC)
+        db.commit()
+    with postgres_sessions() as db:
+        with pytest.raises(HTTPException) as exc_info:
+            get_thesis(db, user_context(db.get(UserModel, member_id)), thesis_id)
+        assert exc_info.value.status_code == 404
+
+
+def test_postgres_visibility_change_and_evidence_mutation_serialize_on_the_thesis_row(postgres_sessions: sessionmaker) -> None:
+    suffix = uuid4().hex[:12]
+    with postgres_sessions() as db:
+        owner = create_user(db, f"phase21d-scope-owner-{suffix}@example.test")
+        org = OrganizationModel(
+            id=f"org_phase21d_scope_pg_{suffix}",
+            name="Phase 21D scope race organization",
+            slug=f"phase21d-scope-pg-{suffix}",
+            status="active",
+            created_by_user_id=owner.id,
+        )
+        db.add(org)
+        db.flush()
+        thesis = SavedThesisModel(
+            id=f"thesis_phase21d_scope_pg_{suffix}",
+            owner_user_id=owner.id,
+            organization_id=org.id,
+            title="Scope serialization thesis",
+            strategy_text="A scope change and evidence mutation share the thesis row lock.",
+            protocols=["pendle"],
+            assumptions_json={},
+            visibility="organization",
+        )
+        db.add_all([
+            OrganizationMembershipModel(
+                id=f"membership_phase21d_scope_pg_{suffix}",
+                organization_id=org.id,
+                user_id=owner.id,
+                role="owner",
+                status="active",
+            ),
+            thesis,
+        ])
+        create_initial_revision(db, thesis, owner.id)
+        db.commit()
+        owner_id, thesis_id = owner.id, thesis.id
+
+    barrier = Barrier(2)
+
+    def change_scope() -> int:
+        with postgres_sessions() as db:
+            actor = user_context(db.get(UserModel, owner_id))
+            barrier.wait(timeout=10)
+            try:
+                update_thesis(db, actor, thesis_id, ThesisUpdateRequest(visibility="private", expected_revision=1))
+                return 200
+            except HTTPException as exc:
+                db.rollback()
+                return exc.status_code
+
+    def add_evidence() -> int:
+        with postgres_sessions() as db:
+            actor = user_context(db.get(UserModel, owner_id))
+            barrier.wait(timeout=10)
+            try:
+                create_assumption(
+                    db,
+                    actor,
+                    thesis_id,
+                    ResearchAssumptionCreateRequest(
+                        statement="The serialized mutation is deliberately unverified.",
+                        evidence_references=[{"unverified_reference": "PostgreSQL concurrency fixture"}],
+                        expected_thesis_revision=1,
+                    ),
+                )
+                return 200
+            except HTTPException as exc:
+                db.rollback()
+                return exc.status_code
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        outcomes = list(executor.map(lambda action: action(), (change_scope, add_evidence)))
+    assert sorted(outcomes) == [200, 409]
+    with postgres_sessions() as db:
+        rows = db.scalars(
+            select(ThesisRevisionModel)
+            .where(ThesisRevisionModel.thesis_id == thesis_id)
+            .order_by(ThesisRevisionModel.revision_number)
+        ).all()
+        assert [row.revision_number for row in rows] == [1, 2]
 
 
 def _persist_report(db, report_id: str, owner_user_id: str, strategy: str, rating: str) -> None:

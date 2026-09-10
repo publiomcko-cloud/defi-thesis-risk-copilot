@@ -745,7 +745,13 @@ rejection, faithful first-mutation legacy baselines, immutable
 assumption-record/version pins, synthesis-provenance classification, and stale
 revision rejection. PostgreSQL proves revision sequencing, concurrent
 status/update and catalyst conflicts, assumption-head optimistic conflict
-handling, comparison uniqueness, and a reversible migration cycle.
+handling, comparison uniqueness, organization member-removal and
+disabled/deleted saved-thesis denial, and a serialized visibility-change versus
+evidence-mutation conflict under the thesis row lock, in addition to the
+reversible migration cycle. API coverage proves that base saved-thesis CRUD and
+all thesis research routes require current active organization membership/role,
+and that report-backed evidence blocks a visibility move that would broaden its
+authoritative scope.
 
 ```bash
 cd backend

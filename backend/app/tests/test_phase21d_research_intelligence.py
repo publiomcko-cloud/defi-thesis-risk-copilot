@@ -48,7 +48,8 @@ def research_client(monkeypatch):
     with Session() as db:
         owner = create_user(db, "phase21d-owner@example.test", token="phase21d-owner-token")
         other = create_user(db, "phase21d-other@example.test", token="phase21d-other-token")
-        identities = {"owner": owner.id, "other": other.id}
+        viewer = create_user(db, "phase21d-viewer@example.test", token="phase21d-viewer-token")
+        identities = {"owner": owner.id, "other": other.id, "viewer": viewer.id}
         organization = OrganizationModel(
             id="org_phase21d",
             name="Phase 21D organization",
@@ -70,6 +71,13 @@ def research_client(monkeypatch):
                 organization_id=organization.id,
                 user_id=other.id,
                 role="member",
+                status="active",
+            ),
+            OrganizationMembershipModel(
+                id="membership_phase21d_viewer",
+                organization_id=organization.id,
+                user_id=viewer.id,
+                role="viewer",
                 status="active",
             ),
         ])
@@ -507,6 +515,193 @@ def test_organization_membership_revocation_and_deletion_remove_research_access(
     assert client.get(f"/api/theses/{thesis_id}/history", headers=owner_headers).status_code == 404
     with Session() as db:
         assert not db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id == thesis_id)).all()
+
+
+def test_saved_thesis_crud_requires_current_active_organization_authority(research_client) -> None:
+    client, Session, _ = research_client
+    owner_headers = {"Authorization": "Bearer phase21d-owner-token"}
+    member_headers = {"Authorization": "Bearer phase21d-other-token"}
+    viewer_headers = {"Authorization": "Bearer phase21d-viewer-token"}
+    thesis_id = _create_thesis(client, owner_headers, "Current organization authority thesis", "org_phase21d")
+
+    assert client.get(f"/api/theses/{thesis_id}", headers=member_headers).status_code == 200
+    assert client.get(f"/api/theses/{thesis_id}/history", headers=viewer_headers).status_code == 200
+    for method, path, payload in [
+        ("patch", f"/api/theses/{thesis_id}", {"title": "Viewer write", "expected_revision": 1}),
+        ("post", f"/api/theses/{thesis_id}/status", {"status": "active", "expected_revision": 1}),
+        ("post", f"/api/theses/{thesis_id}/assumptions", {"statement": "Viewer cannot add assumptions.", "expected_thesis_revision": 1}),
+        ("post", f"/api/theses/{thesis_id}/catalysts", {"title": "Viewer cannot add catalysts", "date_precision": "unknown", "expected_thesis_revision": 1}),
+        ("delete", f"/api/theses/{thesis_id}", None),
+    ]:
+        response = getattr(client, method)(path, headers=viewer_headers, json=payload) if payload is not None else getattr(client, method)(path, headers=viewer_headers)
+        assert response.status_code == 404
+
+    member_update = client.patch(
+        f"/api/theses/{thesis_id}",
+        headers=member_headers,
+        json={"title": "Member update", "expected_revision": 1},
+    )
+    assert member_update.status_code == 200
+
+    disabled = client.patch(
+        "/api/organizations/org_phase21d",
+        headers=owner_headers,
+        json={"status": "disabled"},
+    )
+    assert disabled.status_code == 200
+    assert thesis_id not in {item["id"] for item in client.get("/api/theses", headers=owner_headers).json()["items"]}
+    for path, payload in [
+        (f"/api/theses/{thesis_id}", None),
+        (f"/api/theses/{thesis_id}/history", None),
+        (f"/api/theses/{thesis_id}/assumptions", None),
+        (f"/api/theses/{thesis_id}/catalysts", None),
+        (f"/api/theses/{thesis_id}/monitoring-questions", None),
+        (f"/api/theses/{thesis_id}", {"title": "Disabled write", "expected_revision": 2}),
+    ]:
+        response = client.patch(path, headers=owner_headers, json=payload) if payload is not None else client.get(path, headers=owner_headers)
+        assert response.status_code == 404
+    for path, payload in [
+        (f"/api/theses/{thesis_id}/status", {"status": "active", "expected_revision": 2}),
+        (f"/api/theses/{thesis_id}/assumptions", {"statement": "Disabled organization write", "expected_thesis_revision": 2}),
+        (f"/api/theses/{thesis_id}/catalysts", {"title": "Disabled organization catalyst", "date_precision": "unknown", "expected_thesis_revision": 2}),
+    ]:
+        assert client.post(path, headers=owner_headers, json=payload).status_code == 404
+
+    reactivated = client.patch(
+        "/api/organizations/org_phase21d",
+        headers=owner_headers,
+        json={"status": "active"},
+    )
+    assert reactivated.status_code == 200
+    assert client.get(f"/api/theses/{thesis_id}", headers=member_headers).status_code == 200
+
+    with Session() as db:
+        db.get(OrganizationMembershipModel, "membership_phase21d_owner").status = "removed"
+        db.commit()
+    assert thesis_id not in {item["id"] for item in client.get("/api/theses", headers=owner_headers).json()["items"]}
+    for method, path, payload in [
+        ("get", f"/api/theses/{thesis_id}", None),
+        ("patch", f"/api/theses/{thesis_id}", {"title": "Former creator write", "expected_revision": 2}),
+        ("post", f"/api/theses/{thesis_id}/status", {"status": "active", "expected_revision": 2}),
+        ("post", f"/api/theses/{thesis_id}/assumptions", {"statement": "Former creator cannot add assumptions.", "expected_thesis_revision": 2}),
+        ("post", f"/api/theses/{thesis_id}/catalysts", {"title": "Former creator cannot add catalysts", "date_precision": "unknown", "expected_thesis_revision": 2}),
+        ("delete", f"/api/theses/{thesis_id}", None),
+    ]:
+        response = getattr(client, method)(path, headers=owner_headers, json=payload) if payload is not None else getattr(client, method)(path, headers=owner_headers)
+        assert response.status_code == 404
+    for path, payload in [
+        (f"/api/theses/{thesis_id}/status", {"status": "active", "expected_revision": 2}),
+        (f"/api/theses/{thesis_id}/assumptions", {"statement": "Deleted organization write", "expected_thesis_revision": 2}),
+        (f"/api/theses/{thesis_id}/catalysts", {"title": "Deleted organization catalyst", "date_precision": "unknown", "expected_thesis_revision": 2}),
+    ]:
+        assert client.post(path, headers=owner_headers, json=payload).status_code == 404
+    assert client.patch(
+        f"/api/theses/{thesis_id}",
+        headers=member_headers,
+        json={"title": "Current member update", "expected_revision": 2},
+    ).status_code == 200
+    assert client.delete(f"/api/theses/{thesis_id}", headers=member_headers).status_code == 200
+    assert client.get(f"/api/theses/{thesis_id}", headers=member_headers).status_code == 404
+    assert thesis_id not in {item["id"] for item in client.get("/api/theses", headers=member_headers).json()["items"]}
+
+
+def test_organization_deletion_never_restores_creator_saved_thesis_access(research_client) -> None:
+    client, Session, _ = research_client
+    owner_headers = {"Authorization": "Bearer phase21d-owner-token"}
+    thesis_id = _create_thesis(client, owner_headers, "Deleted organization thesis", "org_phase21d")
+    created_assumption = client.post(
+        f"/api/theses/{thesis_id}/assumptions",
+        headers=owner_headers,
+        json={"statement": "Deleted organization rows are disposed.", "expected_thesis_revision": 1},
+    )
+    assert created_assumption.status_code == 200
+    assert client.delete("/api/organizations/org_phase21d", headers=owner_headers).status_code == 200
+
+    assert thesis_id not in {item["id"] for item in client.get("/api/theses", headers=owner_headers).json()["items"]}
+    for method, path, payload in [
+        ("get", f"/api/theses/{thesis_id}", None),
+        ("get", f"/api/theses/{thesis_id}/history", None),
+        ("get", f"/api/theses/{thesis_id}/assumptions", None),
+        ("get", f"/api/theses/{thesis_id}/catalysts", None),
+        ("get", f"/api/theses/{thesis_id}/monitoring-questions", None),
+        ("patch", f"/api/theses/{thesis_id}", {"title": "Deleted write", "expected_revision": 2}),
+        ("delete", f"/api/theses/{thesis_id}", None),
+    ]:
+        response = getattr(client, method)(path, headers=owner_headers, json=payload) if payload is not None else getattr(client, method)(path, headers=owner_headers)
+        assert response.status_code == 404
+    with Session() as db:
+        assert not db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id == thesis_id)).all()
+        assert not db.scalars(select(ThesisAssumptionModel).where(ThesisAssumptionModel.thesis_id == thesis_id)).all()
+
+
+def test_visibility_changes_require_destination_authority_and_compatible_evidence(research_client) -> None:
+    client, Session, identities = research_client
+    owner_headers = {"Authorization": "Bearer phase21d-owner-token"}
+    member_headers = {"Authorization": "Bearer phase21d-other-token"}
+    with Session() as db:
+        _persist_scoped_lineaged_report(db, "report_phase21d_scope_private", identities["owner"])
+        _persist_scoped_lineaged_report(db, "report_phase21d_scope_org", identities["owner"], "org_phase21d")
+        db.commit()
+
+    org_thesis = _create_thesis(client, owner_headers, "Organization evidence scope thesis", "org_phase21d")
+    assert client.post(
+        f"/api/theses/{org_thesis}/assumptions",
+        headers=owner_headers,
+        json=_evidence_assumption("report_phase21d_scope_org", "citation_report_phase21d_scope_org", 1),
+    ).status_code == 200
+    assert client.patch(
+        f"/api/theses/{org_thesis}",
+        headers=owner_headers,
+        json={"visibility": "private", "expected_revision": 2},
+    ).status_code == 409
+
+    private_thesis = _create_thesis(client, owner_headers, "Private evidence scope thesis")
+    assert client.post(
+        f"/api/theses/{private_thesis}/assumptions",
+        headers=owner_headers,
+        json=_evidence_assumption("report_phase21d_scope_private", "citation_report_phase21d_scope_private", 1),
+    ).status_code == 200
+    assert client.patch(
+        f"/api/theses/{private_thesis}",
+        headers=owner_headers,
+        json={"visibility": "organization", "organization_id": "org_phase21d", "expected_revision": 2},
+    ).status_code == 409
+
+    clean_org_thesis = _create_thesis(client, owner_headers, "Clean organization move thesis", "org_phase21d")
+    assert client.patch(
+        f"/api/theses/{clean_org_thesis}",
+        headers=member_headers,
+        json={"visibility": "private", "expected_revision": 1},
+    ).status_code == 404
+
+    clean_private_thesis = _create_thesis(client, owner_headers, "Clean private scope thesis")
+    assert client.patch(
+        f"/api/theses/{clean_private_thesis}",
+        headers=owner_headers,
+        json={"visibility": "organization", "organization_id": "org_phase21d"},
+    ).status_code == 422
+    to_organization = client.patch(
+        f"/api/theses/{clean_private_thesis}",
+        headers=owner_headers,
+        json={"visibility": "organization", "organization_id": "org_phase21d", "expected_revision": 1},
+    )
+    assert to_organization.status_code == 200
+    assert to_organization.json()["visibility"] == "organization"
+    assert to_organization.json()["organization_id"] == "org_phase21d"
+    to_private = client.patch(
+        f"/api/theses/{clean_private_thesis}",
+        headers=owner_headers,
+        json={"visibility": "private", "expected_revision": 2},
+    )
+    assert to_private.status_code == 200
+    assert to_private.json()["organization_id"] is None
+    with Session() as db:
+        history = db.scalars(
+            select(ThesisRevisionModel)
+            .where(ThesisRevisionModel.thesis_id == clean_private_thesis)
+            .order_by(ThesisRevisionModel.revision_number)
+        ).all()
+        assert [item.organization_id for item in history] == [None, "org_phase21d", None]
 
 
 def _create_thesis(client: TestClient, headers: dict[str, str], title: str, organization_id: str | None = None) -> str:

@@ -24,6 +24,7 @@ class ThesisUpdateRequest(BaseModel):
     protocols: list[str] | None = Field(default=None, max_length=20)
     assumptions: dict[str, Any] | None = None
     visibility: Visibility | None = None
+    organization_id: str | None = Field(default=None, min_length=1, max_length=64)
     expected_revision: int | None = Field(default=None, ge=1)
     change_reason: str | None = Field(default=None, min_length=1, max_length=240)
 

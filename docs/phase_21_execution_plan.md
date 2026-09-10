@@ -250,7 +250,13 @@ Implementation record:
   implementation fully meets the checkpoint without weakening 21A–21C policy;
 - account deletion, thesis soft deletion, organization deletion/context
   clearing, report access expiry/deletion, and membership revocation fail closed
-  through existing resource authorization and explicit derived-state disposal.
+  through explicit saved-thesis and derived-state disposal authority. An
+  organization-visible thesis is governed by its current active organization
+  membership and role, never by historical `owner_user_id`; disabled/deleted
+  organizations and removed memberships therefore conceal base CRUD and 21D
+  research endpoints. A visibility move requires optimistic revision authority
+  plus destination-scope authority, and is rejected when any retained
+  report-backed authoritative evidence is incompatible with that destination.
 
 ## Checkpoint 21E — Worker compute and training governance
 
