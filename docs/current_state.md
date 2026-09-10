@@ -69,7 +69,7 @@ V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
 V1 Phase 20 — Complete — Portfolio Profile and merged at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 20E is omitted, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
-V1 Phase 21 — Active on `agent/v1-phase-21c-quality-feedback-governance`; 21A–21B are merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32, 21C quality/feedback governance is implemented, and 21D–21F remain planned
+V1 Phase 21 — Active on `agent/v1-phase-21d-research-intelligence`; 21A–21B are merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32, 21C quality/feedback governance is merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33, 21D research intelligence is implemented with local evidence, and 21E–21F remain planned
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -535,7 +535,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   hosted merge gate; Phase 20J then merged through PR #31 as
   `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`.
 - Phase 21 — active model and research-intelligence expansion on
-  `agent/v1-phase-21c-quality-feedback-governance`. PR #32 merge
+  `agent/v1-phase-21d-research-intelligence`. PR #32 merge
   `37fc065b95434622dbfdf407a2bda7930f2c4547` supplies the 21A–21B base. Those
   checkpoints
   add bounded governance/provenance plus evaluated `report_synthesis` routing:
@@ -550,8 +550,12 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   unattributed model wording. 21C adds server-derived source trust classes,
   `report_synthesis.prompt.v3` untrusted-evidence framing, a synthetic/public
   adversarial corpus, deterministic quality evidence/fallback, and bounded
-  feedback review/lifecycle paths. It does not activate providers, training,
-  automatic promotion, or production delivery. 21D–21F remain unstarted.
+  feedback review/lifecycle paths. 21C merged through PR #33 at
+  `772e0a5461a56f52729d8fa91a728594e615e61a`. 21D adds deterministic,
+  source-grounded thesis history, assumptions, catalysts, comparisons,
+  staleness signals, scenario deltas, and monitoring questions with no model
+  route or provider activation. It does not activate providers, training,
+  automatic promotion, or production delivery. 21E–21F remain unstarted.
 - Phase 22 — final provider, legal, and launch validation.
 
 See [`future_phase_contracts.md`](future_phase_contracts.md) for complete requirements.

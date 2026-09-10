@@ -50,6 +50,13 @@ from app.models.notification import NotificationModel, NotificationPreferenceMod
 from app.models.entitlement import EntitlementAssignmentModel, PlanEntitlementModel, PlanVersionModel, UsageEventModel
 from app.models.review_item import ReviewItemModel
 from app.models.saved_thesis import SavedThesisModel
+from app.models.research_intelligence import (
+    ResearchReportComparisonModel,
+    ThesisAssumptionHeadModel,
+    ThesisAssumptionModel,
+    ThesisCatalystModel,
+    ThesisRevisionModel,
+)
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.source_watch import SourceWatchModel
 from app.models.usage_quota import UsageQuotaModel
@@ -115,6 +122,11 @@ __all__ = [
     "UsageEventModel",
     "ReviewItemModel",
     "SavedThesisModel",
+    "ResearchReportComparisonModel",
+    "ThesisAssumptionHeadModel",
+    "ThesisAssumptionModel",
+    "ThesisCatalystModel",
+    "ThesisRevisionModel",
     "MonitoringScheduleModel",
     "MonitoringScheduleOccurrenceModel",
     "SourceWatchModel",

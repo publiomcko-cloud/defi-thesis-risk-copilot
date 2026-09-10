@@ -28,6 +28,7 @@ from app.knowledge.service import tombstone_knowledge_for_organization
 from app.customer_requests.service import clear_customer_request_organization_context
 from app.llm.governance import clear_model_run_organization_context
 from app.llm.feedback import clear_model_feedback_organization_context
+from app.research_intelligence.service import dispose_research_intelligence_for_organization
 from app.organizations.schemas import (
     MembershipCreateRequest,
     MembershipResponse,
@@ -294,6 +295,7 @@ def delete_organization(db: Session, actor: UserContext, organization_id: str) -
     clear_customer_request_organization_context(db, org.id, now=org.deleted_at)
     clear_model_run_organization_context(db, org.id)
     clear_model_feedback_organization_context(db, org.id)
+    dispose_research_intelligence_for_organization(db, org.id)
     db.commit()
     db.refresh(org)
     if revoked_invitation_count:

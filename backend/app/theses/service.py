@@ -12,6 +12,11 @@ from app.auth.schemas import UserContext
 from app.models.saved_thesis import SavedThesisModel
 from app.product_analytics.service import emit_product_event_safely
 from app.quotas.service import RESOURCE_SAVED_THESES, enforce_resource_count_limit
+from app.research_intelligence.service import (
+    append_material_revision,
+    create_initial_revision,
+    dispose_research_intelligence_for_thesis,
+)
 from app.theses.schemas import ThesisCreateRequest, ThesisResponse, ThesisUpdateRequest
 
 
@@ -34,6 +39,7 @@ def create_thesis(db: Session, actor: UserContext, request: ThesisCreateRequest)
         updated_at=now,
     )
     db.add(record)
+    create_initial_revision(db, record, actor.id)
     db.commit()
     db.refresh(record)
     response = thesis_response(record)
@@ -73,7 +79,9 @@ def update_thesis(
     thesis_id: str,
     request: ThesisUpdateRequest,
 ) -> ThesisResponse:
-    record = db.get(SavedThesisModel, thesis_id)
+    record = db.execute(
+        select(SavedThesisModel).where(SavedThesisModel.id == thesis_id).with_for_update()
+    ).scalars().one_or_none()
     if record is None or not can_update_resource(actor, record, db):
         raise HTTPException(status_code=404, detail="Thesis not found")
     if request.title is not None:
@@ -91,6 +99,13 @@ def update_thesis(
         if request.visibility == "private":
             record.organization_id = None
     record.updated_at = datetime.now(UTC)
+    append_material_revision(
+        db,
+        record,
+        actor_user_id=actor.id,
+        change_reason=request.change_reason or "Thesis updated",
+        expected_revision=request.expected_revision,
+    )
     db.commit()
     db.refresh(record)
     return thesis_response(record)
@@ -100,6 +115,7 @@ def delete_thesis(db: Session, actor: UserContext, thesis_id: str) -> ThesisResp
     record = db.get(SavedThesisModel, thesis_id)
     if record is None or not can_update_resource(actor, record, db):
         raise HTTPException(status_code=404, detail="Thesis not found")
+    dispose_research_intelligence_for_thesis(db, record.id)
     record.deleted_at = datetime.now(UTC)
     db.commit()
     db.refresh(record)

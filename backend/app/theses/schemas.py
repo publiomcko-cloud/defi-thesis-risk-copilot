@@ -24,6 +24,8 @@ class ThesisUpdateRequest(BaseModel):
     protocols: list[str] | None = Field(default=None, max_length=20)
     assumptions: dict[str, Any] | None = None
     visibility: Visibility | None = None
+    expected_revision: int | None = Field(default=None, ge=1)
+    change_reason: str | None = Field(default=None, min_length=1, max_length=240)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -39,6 +41,8 @@ class ThesisResponse(BaseModel):
     visibility: str
     created_at: datetime
     updated_at: datetime
+    research_revision: int | None = None
+    research_status: str | None = None
 
 
 class ThesesResponse(BaseModel):

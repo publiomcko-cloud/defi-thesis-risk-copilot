@@ -1,10 +1,12 @@
 # Phase 21 Architecture Review
 
-Date: 2026-09-07
+Date: 2026-09-10
 
 21A–21B base: PR #32, `37fc065b95434622dbfdf407a2bda7930f2c4547`
 
-Branch: `agent/v1-phase-21c-quality-feedback-governance`
+21C merge: PR #33, `772e0a5461a56f52729d8fa91a728594e615e61a`
+
+Branch: `agent/v1-phase-21d-research-intelligence`
 
 ## Existing foundations to reuse
 
@@ -133,9 +135,7 @@ lifecycle boundaries.
 The current model path is intentionally simple and does not yet satisfy the
 Phase 21 contract:
 
-1. thesis/catalyst/assumption/report-comparison intelligence is not yet a
-   dedicated domain;
-2. model evaluation/training is not yet represented as bounded Phase 17 worker
+1. model evaluation/training is not yet represented as bounded Phase 17 worker
    jobs with durable model/dataset lineage.
 
 ## Refactoring direction

@@ -34,6 +34,7 @@ const ALLOWED_EXACT_PATHS = [
   "/api/protocols",
   "/api/schedules",
   "/api/simulation/run",
+  "/api/research/scenarios/compare",
   "/api/theses",
   "/api/usage",
   "/api/watchlist/alerts",
