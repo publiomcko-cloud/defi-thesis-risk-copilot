@@ -107,7 +107,10 @@ def export_account(
 ) -> AccountExportResponse:
     user = _current_user_record(db, current_user)
     reports = db.execute(
-        select(ReportModel).where(ReportModel.owner_user_id == current_user.id)
+        select(ReportModel)
+        .where(ReportModel.owner_user_id == current_user.id)
+        .where(ReportModel.visibility == "private")
+        .where(ReportModel.organization_id.is_(None))
     ).scalars().all()
     entitlement_assignments = db.execute(
         select(EntitlementAssignmentModel)
@@ -144,7 +147,10 @@ def export_account(
         ).scalars().all()
     )
     theses = db.execute(
-        select(SavedThesisModel).where(SavedThesisModel.owner_user_id == current_user.id)
+        select(SavedThesisModel)
+        .where(SavedThesisModel.owner_user_id == current_user.id)
+        .where(SavedThesisModel.visibility == "private")
+        .where(SavedThesisModel.organization_id.is_(None))
     ).scalars().all()
     watchlists = db.execute(
         select(WatchlistItemModel).where(WatchlistItemModel.owner_user_id == current_user.id)

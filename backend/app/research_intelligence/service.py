@@ -521,8 +521,14 @@ def dispose_research_intelligence_for_thesis(db: Session, thesis_id: str) -> Non
 
 
 def dispose_research_intelligence_for_account(db: Session, owner_user_id: str) -> None:
-    thesis_ids = list(db.scalars(select(SavedThesisModel.id).where(SavedThesisModel.owner_user_id == owner_user_id)))
-    db.execute(delete(ResearchReportComparisonModel).where(ResearchReportComparisonModel.owner_user_id == owner_user_id))
+    thesis_ids = _private_thesis_ids_for_account(db, owner_user_id)
+    db.execute(
+        delete(ResearchReportComparisonModel)
+        .where(ResearchReportComparisonModel.owner_user_id == owner_user_id)
+        .where(ResearchReportComparisonModel.scope_class == "private")
+        .where(ResearchReportComparisonModel.scope_key == f"private:{owner_user_id}")
+        .where(ResearchReportComparisonModel.organization_id.is_(None))
+    )
     _delete_thesis_research_rows(db, thesis_ids)
 
 
@@ -539,17 +545,36 @@ def dispose_research_intelligence_for_organization(db: Session, organization_id:
 
 
 def export_research_intelligence(db: Session, owner_user_id: str) -> dict[str, list[dict]]:
-    thesis_ids = list(db.scalars(select(SavedThesisModel.id).where(SavedThesisModel.owner_user_id == owner_user_id)))
+    thesis_ids = _private_thesis_ids_for_account(db, owner_user_id)
     revisions = db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id.in_(thesis_ids))).all() if thesis_ids else []
     assumptions = db.scalars(select(ThesisAssumptionModel).where(ThesisAssumptionModel.thesis_id.in_(thesis_ids))).all() if thesis_ids else []
     catalysts = db.scalars(select(ThesisCatalystModel).where(ThesisCatalystModel.thesis_id.in_(thesis_ids))).all() if thesis_ids else []
-    comparisons = db.scalars(select(ResearchReportComparisonModel).where(ResearchReportComparisonModel.owner_user_id == owner_user_id)).all()
+    comparisons = db.scalars(
+        select(ResearchReportComparisonModel)
+        .where(ResearchReportComparisonModel.owner_user_id == owner_user_id)
+        .where(ResearchReportComparisonModel.scope_class == "private")
+        .where(ResearchReportComparisonModel.scope_key == f"private:{owner_user_id}")
+        .where(ResearchReportComparisonModel.organization_id.is_(None))
+    ).all()
     return {
         "thesis_revisions": [{"thesis_id": row.thesis_id, "revision_number": row.revision_number, "status": row.status, "created_at": row.created_at} for row in revisions],
         "research_assumptions": [{"id": row.assumption_id, "thesis_id": row.thesis_id, "revision_number": row.revision_number, "state": row.state, "statement": row.statement, "evidence_references": row.evidence_references} for row in assumptions],
         "research_catalysts": [{"id": row.id, "thesis_id": row.thesis_id, "title": row.title, "status": row.status, "date_precision": row.date_precision, "expected_date": row.expected_date, "window_start": row.window_start, "window_end": row.window_end} for row in catalysts],
         "report_comparisons": [{"id": row.id, "left_report_id": row.left_report_id, "right_report_id": row.right_report_id, "schema_version": row.schema_version, "created_at": row.created_at} for row in comparisons],
     }
+
+
+def _private_thesis_ids_for_account(db: Session, owner_user_id: str) -> list[str]:
+    """Personal lifecycle paths must never infer organization authority from creator history."""
+
+    return list(
+        db.scalars(
+            select(SavedThesisModel.id)
+            .where(SavedThesisModel.owner_user_id == owner_user_id)
+            .where(SavedThesisModel.visibility == "private")
+            .where(SavedThesisModel.organization_id.is_(None))
+        )
+    )
 
 
 def _delete_thesis_research_rows(db: Session, thesis_ids: list[str]) -> None:

@@ -751,7 +751,14 @@ evidence-mutation conflict under the thesis row lock, in addition to the
 reversible migration cycle. API coverage proves that base saved-thesis CRUD and
 all thesis research routes require current active organization membership/role,
 and that report-backed evidence blocks a visibility move that would broaden its
-authoritative scope.
+authoritative scope. Account-lifecycle coverage creates private and
+organization research under one creator, removes that creator from the
+organization, and proves their personal export and account deletion include and
+dispose only private 21D state. The organization thesis, revisions,
+assumptions, catalysts, and comparison remain accessible to the remaining
+organization owner until the organization lifecycle path disposes them.
+PostgreSQL coverage invokes the real account-deletion handler for that sequence
+before asserting the same organization lifecycle cleanup boundary.
 
 ```bash
 cd backend

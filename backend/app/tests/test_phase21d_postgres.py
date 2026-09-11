@@ -11,6 +11,8 @@ from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import sessionmaker
 
+from app.api.routes_auth import delete_account
+from app.auth.schemas import AccountDeleteRequest
 from app.auth.service import create_user, user_context
 from app.db.session import create_database_engine
 from app.models.analysis_request import AnalysisRequestModel
@@ -38,6 +40,7 @@ from app.research_intelligence.service import (
     update_assumption,
     update_status,
 )
+from app.organizations.service import delete_organization
 from app.schemas.reports import ReportResponse, ReportSection, SourceReference
 from app.theses.schemas import ThesisUpdateRequest
 from app.theses.service import get_thesis, update_thesis
@@ -459,6 +462,166 @@ def test_postgres_organization_saved_thesis_access_fails_closed_for_membership_a
         with pytest.raises(HTTPException) as exc_info:
             get_thesis(db, user_context(db.get(UserModel, member_id)), thesis_id)
         assert exc_info.value.status_code == 404
+
+
+def test_postgres_account_deletion_preserves_organization_research_for_remaining_owner(postgres_sessions: sessionmaker) -> None:
+    suffix = uuid4().hex[:12]
+    with postgres_sessions() as db:
+        creator = create_user(db, f"phase21d-account-creator-{suffix}@example.test")
+        remaining_owner = create_user(db, f"phase21d-account-owner-{suffix}@example.test")
+        organization = OrganizationModel(
+            id=f"org_phase21d_account_{suffix}",
+            name="Phase 21D account lifecycle organization",
+            slug=f"phase21d-account-{suffix}",
+            status="active",
+            created_by_user_id=creator.id,
+        )
+        organization_thesis = SavedThesisModel(
+            id=f"thesis_phase21d_account_org_{suffix}",
+            owner_user_id=creator.id,
+            organization_id=organization.id,
+            title="Organization account lifecycle thesis",
+            strategy_text="Organization research must survive a former creator account deletion.",
+            protocols=["pendle"],
+            assumptions_json={},
+            visibility="organization",
+        )
+        private_thesis = SavedThesisModel(
+            id=f"thesis_phase21d_account_private_{suffix}",
+            owner_user_id=creator.id,
+            title="Private account lifecycle thesis",
+            strategy_text="Private research must be disposed with the user account.",
+            protocols=["pendle"],
+            assumptions_json={},
+            visibility="private",
+        )
+        db.add(organization)
+        db.flush()
+        db.add_all([
+            OrganizationMembershipModel(
+                id=f"membership_phase21d_account_creator_{suffix}",
+                organization_id=organization.id,
+                user_id=creator.id,
+                role="owner",
+                status="active",
+            ),
+            OrganizationMembershipModel(
+                id=f"membership_phase21d_account_remaining_{suffix}",
+                organization_id=organization.id,
+                user_id=remaining_owner.id,
+                role="member",
+                status="active",
+            ),
+            organization_thesis,
+            private_thesis,
+        ])
+        create_initial_revision(db, organization_thesis, creator.id)
+        create_initial_revision(db, private_thesis, creator.id)
+        db.commit()
+
+        creator_actor = user_context(db.get(UserModel, creator.id))
+        create_assumption(
+            db,
+            creator_actor,
+            organization_thesis.id,
+            ResearchAssumptionCreateRequest(
+                statement="Organization evidence remains with the organization.",
+                evidence_references=[{"unverified_reference": "organization-account-lifecycle-evidence"}],
+                expected_thesis_revision=1,
+            ),
+        )
+        create_catalyst(
+            db,
+            creator_actor,
+            organization_thesis.id,
+            CatalystCreateRequest(
+                title="Organization catalyst",
+                date_precision="unknown",
+                expected_thesis_revision=2,
+            ),
+        )
+        create_assumption(
+            db,
+            creator_actor,
+            private_thesis.id,
+            ResearchAssumptionCreateRequest(
+                statement="Private evidence is removed with the user account.",
+                expected_thesis_revision=1,
+            ),
+        )
+        create_catalyst(
+            db,
+            creator_actor,
+            private_thesis.id,
+            CatalystCreateRequest(title="Private catalyst", date_precision="unknown", expected_thesis_revision=2),
+        )
+        comparison = ResearchReportComparisonModel(
+            id=f"cmp_phase21d_account_{suffix}",
+            left_report_id=f"report_phase21d_account_left_{suffix}",
+            right_report_id=f"report_phase21d_account_right_{suffix}",
+            left_input_checksum="a" * 64,
+            right_input_checksum="b" * 64,
+            scope_class="organization",
+            scope_key=f"organization:{organization.id}",
+            owner_user_id=creator.id,
+            organization_id=organization.id,
+            comparison_json={"deterministic": True},
+            lineage_digest="c" * 64,
+        )
+        private_comparison = ResearchReportComparisonModel(
+            id=f"cmp_phase21d_account_private_{suffix}",
+            left_report_id=f"report_phase21d_account_private_left_{suffix}",
+            right_report_id=f"report_phase21d_account_private_right_{suffix}",
+            left_input_checksum="d" * 64,
+            right_input_checksum="e" * 64,
+            scope_class="private",
+            scope_key=f"private:{creator.id}",
+            owner_user_id=creator.id,
+            comparison_json={"deterministic": True},
+            lineage_digest="f" * 64,
+        )
+        db.add_all([comparison, private_comparison])
+        db.execute(
+            select(OrganizationMembershipModel)
+            .where(OrganizationMembershipModel.organization_id == organization.id)
+            .where(OrganizationMembershipModel.user_id == remaining_owner.id)
+        ).scalars().one().role = "owner"
+        db.execute(
+            select(OrganizationMembershipModel)
+            .where(OrganizationMembershipModel.organization_id == organization.id)
+            .where(OrganizationMembershipModel.user_id == creator.id)
+        ).scalars().one().status = "removed"
+        db.commit()
+        creator_id, remaining_owner_id = creator.id, remaining_owner.id
+        organization_id, organization_thesis_id = organization.id, organization_thesis.id
+        private_thesis_id, comparison_id = private_thesis.id, comparison.id
+        private_comparison_id = private_comparison.id
+
+    with postgres_sessions() as db:
+        creator_actor = user_context(db.get(UserModel, creator_id))
+        with pytest.raises(HTTPException) as exc_info:
+            get_thesis(db, creator_actor, organization_thesis_id)
+        assert exc_info.value.status_code == 404
+        assert delete_account(AccountDeleteRequest(confirmation="DELETE"), db, creator_actor).status == "pending_provider_deletion"
+
+    with postgres_sessions() as db:
+        assert db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id == organization_thesis_id)).all()
+        assert db.scalars(select(ThesisAssumptionModel).where(ThesisAssumptionModel.thesis_id == organization_thesis_id)).all()
+        assert db.scalars(select(ThesisCatalystModel).where(ThesisCatalystModel.thesis_id == organization_thesis_id)).all()
+        assert db.get(ResearchReportComparisonModel, comparison_id) is not None
+        assert db.get(ResearchReportComparisonModel, private_comparison_id) is None
+        assert not db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id == private_thesis_id)).all()
+        assert not db.scalars(select(ThesisAssumptionModel).where(ThesisAssumptionModel.thesis_id == private_thesis_id)).all()
+        assert not db.scalars(select(ThesisCatalystModel).where(ThesisCatalystModel.thesis_id == private_thesis_id)).all()
+        remaining_actor = user_context(db.get(UserModel, remaining_owner_id))
+        assert get_thesis(db, remaining_actor, organization_thesis_id).id == organization_thesis_id
+        assert delete_organization(db, remaining_actor, organization_id).id == organization_id
+
+    with postgres_sessions() as db:
+        assert not db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id == organization_thesis_id)).all()
+        assert not db.scalars(select(ThesisAssumptionModel).where(ThesisAssumptionModel.thesis_id == organization_thesis_id)).all()
+        assert not db.scalars(select(ThesisCatalystModel).where(ThesisCatalystModel.thesis_id == organization_thesis_id)).all()
+        assert db.get(ResearchReportComparisonModel, comparison_id) is None
 
 
 def test_postgres_visibility_change_and_evidence_mutation_serialize_on_the_thesis_row(postgres_sessions: sessionmaker) -> None:

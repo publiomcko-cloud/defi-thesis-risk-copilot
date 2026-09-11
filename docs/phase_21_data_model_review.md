@@ -114,7 +114,11 @@ is created locally and idempotently under the thesis lock before a first
 mutation, preserving original content exactly. Later snapshots reference the
 immutable assumption record and revision current at snapshot time, not only its
 logical assumption ID. Report-backed evidence must exactly match the destination
-thesis private-owner or organization scope. Thesis soft deletion removes derived 21D rows; account and
-organization deletion dispose owned/scoped research rows. Report comparison and
+thesis private-owner or organization scope. Thesis soft deletion removes derived 21D rows. Personal
+account export and disposal select only `private` theses with no organization ID,
+and only private, organization-free report comparisons; historical
+`owner_user_id` attribution never grants a former creator access to or deletion
+authority over organization research. Organization deletion remains the
+authoritative disposal path for organization-scoped 21D rows. Report comparison and
 staleness reads reauthorize both underlying reports, so report expiry/deletion
 or membership loss cannot turn derived state into a private-content backdoor.

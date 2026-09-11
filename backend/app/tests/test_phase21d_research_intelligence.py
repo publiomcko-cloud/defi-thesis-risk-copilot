@@ -22,7 +22,12 @@ from app.models.knowledge import (
 )
 from app.models.report import ReportModel
 from app.models.model_governance import ModelPromptVersionModel, ModelRunProvenanceModel
-from app.models.research_intelligence import ThesisAssumptionModel, ThesisRevisionModel
+from app.models.research_intelligence import (
+    ResearchReportComparisonModel,
+    ThesisAssumptionModel,
+    ThesisCatalystModel,
+    ThesisRevisionModel,
+)
 from app.models.saved_thesis import SavedThesisModel
 from app.models.organization import OrganizationMembershipModel, OrganizationModel
 from app.schemas.reports import CitationLineageReference, ReportResponse, ReportSection, SourceReference
@@ -632,6 +637,109 @@ def test_organization_deletion_never_restores_creator_saved_thesis_access(resear
     with Session() as db:
         assert not db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id == thesis_id)).all()
         assert not db.scalars(select(ThesisAssumptionModel).where(ThesisAssumptionModel.thesis_id == thesis_id)).all()
+
+
+def test_personal_account_lifecycle_never_exports_or_disposes_organization_research(research_client) -> None:
+    client, Session, identities = research_client
+    owner_headers = {"Authorization": "Bearer phase21d-owner-token"}
+    other_headers = {"Authorization": "Bearer phase21d-other-token"}
+    organization_reports = ("report_phase21d_account_org_left", "report_phase21d_account_org_right")
+    with Session() as db:
+        for report_id in organization_reports:
+            _persist_scoped_lineaged_report(db, report_id, identities["owner"], "org_phase21d")
+        db.commit()
+
+    organization_thesis = _create_thesis(client, owner_headers, "Organization account lifecycle thesis", "org_phase21d")
+    private_thesis = _create_thesis(client, owner_headers, "Private account lifecycle thesis")
+    assert client.post(
+        f"/api/theses/{organization_thesis}/assumptions",
+        headers=owner_headers,
+        json=_evidence_assumption(organization_reports[0], f"citation_{organization_reports[0]}", 1),
+    ).status_code == 200
+    assert client.post(
+        f"/api/theses/{organization_thesis}/catalysts",
+        headers=owner_headers,
+        json={
+            "title": "Organization catalyst",
+            "date_precision": "unknown",
+            "evidence_references": [{"unverified_reference": "organization-account-lifecycle-evidence"}],
+            "expected_thesis_revision": 2,
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/api/theses/{private_thesis}/assumptions",
+        headers=owner_headers,
+        json={
+            "statement": "Private account research remains exportable and disposable.",
+            "evidence_references": [{"unverified_reference": "private-account-lifecycle-evidence"}],
+            "expected_thesis_revision": 1,
+        },
+    ).status_code == 200
+    assert client.post(
+        f"/api/theses/{private_thesis}/catalysts",
+        headers=owner_headers,
+        json={"title": "Private catalyst", "date_precision": "unknown", "expected_thesis_revision": 2},
+    ).status_code == 200
+    comparison = client.post(
+        "/api/reports/compare",
+        headers=owner_headers,
+        json={"left_report_id": organization_reports[0], "right_report_id": organization_reports[1]},
+    )
+    assert comparison.status_code == 200
+    comparison_id = comparison.json()["id"]
+    private_comparison = client.post(
+        "/api/reports/compare",
+        headers=owner_headers,
+        json={"left_report_id": "report_phase21d_left", "right_report_id": "report_phase21d_right"},
+    )
+    assert private_comparison.status_code == 200
+    private_comparison_id = private_comparison.json()["id"]
+
+    assert client.get(f"/api/theses/{organization_thesis}", headers=other_headers).status_code == 200
+    with Session() as db:
+        db.get(OrganizationMembershipModel, "membership_phase21d_other").role = "owner"
+        db.get(OrganizationMembershipModel, "membership_phase21d_owner").status = "removed"
+        db.commit()
+
+    assert client.get(f"/api/theses/{organization_thesis}", headers=owner_headers).status_code == 404
+    exported = client.get("/api/account/export", headers=owner_headers)
+    assert exported.status_code == 200
+    payload = exported.json()
+    assert private_thesis in {item["id"] for item in payload["saved_theses"]}
+    assert organization_thesis not in {item["id"] for item in payload["saved_theses"]}
+    assert organization_reports[0] not in {item["id"] for item in payload["reports"]}
+    assert organization_thesis not in {item["thesis_id"] for item in payload["thesis_revisions"]}
+    assert organization_thesis not in {item["thesis_id"] for item in payload["research_assumptions"]}
+    assert organization_thesis not in {item["thesis_id"] for item in payload["research_catalysts"]}
+    assert comparison_id not in {item["id"] for item in payload["research_report_comparisons"]}
+    assert private_comparison_id in {item["id"] for item in payload["research_report_comparisons"]}
+    assert "organization-account-lifecycle-evidence" not in str(payload["research_assumptions"])
+    assert private_thesis in {item["thesis_id"] for item in payload["thesis_revisions"]}
+    assert private_thesis in {item["thesis_id"] for item in payload["research_assumptions"]}
+    assert private_thesis in {item["thesis_id"] for item in payload["research_catalysts"]}
+
+    deleted = client.request("DELETE", "/api/account", headers=owner_headers, json={"confirmation": "DELETE"})
+    assert deleted.status_code == 200
+    with Session() as db:
+        assert db.get(SavedThesisModel, organization_thesis) is not None
+        assert db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id == organization_thesis)).all()
+        assert db.scalars(select(ThesisAssumptionModel).where(ThesisAssumptionModel.thesis_id == organization_thesis)).all()
+        assert db.scalars(select(ThesisCatalystModel).where(ThesisCatalystModel.thesis_id == organization_thesis)).all()
+        assert db.get(ResearchReportComparisonModel, comparison_id) is not None
+        assert db.get(ResearchReportComparisonModel, private_comparison_id) is None
+        assert not db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id == private_thesis)).all()
+        assert not db.scalars(select(ThesisAssumptionModel).where(ThesisAssumptionModel.thesis_id == private_thesis)).all()
+        assert not db.scalars(select(ThesisCatalystModel).where(ThesisCatalystModel.thesis_id == private_thesis)).all()
+
+    assert client.get(f"/api/theses/{organization_thesis}/history", headers=other_headers).status_code == 200
+    assert client.get(f"/api/theses/{organization_thesis}/assumptions", headers=other_headers).status_code == 200
+    assert client.get(f"/api/theses/{organization_thesis}/catalysts", headers=other_headers).status_code == 200
+    assert client.delete("/api/organizations/org_phase21d", headers=other_headers).status_code == 200
+    with Session() as db:
+        assert not db.scalars(select(ThesisRevisionModel).where(ThesisRevisionModel.thesis_id == organization_thesis)).all()
+        assert not db.scalars(select(ThesisAssumptionModel).where(ThesisAssumptionModel.thesis_id == organization_thesis)).all()
+        assert not db.scalars(select(ThesisCatalystModel).where(ThesisCatalystModel.thesis_id == organization_thesis)).all()
+        assert db.get(ResearchReportComparisonModel, comparison_id) is None
 
 
 def test_visibility_changes_require_destination_authority_and_compatible_evidence(research_client) -> None:
