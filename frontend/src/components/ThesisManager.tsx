@@ -2,6 +2,8 @@
 
 import { FormEvent, useEffect, useState } from "react";
 
+import { ThesisResearchPanel } from "@/components/ThesisResearchPanel";
+
 type Thesis = {
   id: string;
   title: string;
@@ -107,6 +109,7 @@ export function ThesisManager() {
               <button className="secondary-action" onClick={() => edit(item)} type="button">Edit</button>
               <button className="secondary-action" onClick={() => remove(item.id)} type="button">Delete</button>
             </div>
+            <ThesisResearchPanel thesisId={item.id} />
           </article>
         ))}
         {!items.length ? <article className="panel"><h2>No saved theses</h2><p>Saved private strategy notes appear here after login.</p></article> : null}

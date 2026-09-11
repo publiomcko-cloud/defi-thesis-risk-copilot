@@ -98,6 +98,10 @@ class AccountExportResponse(BaseModel):
     customer_requests: list[dict] = Field(default_factory=list)
     model_run_provenance: list[dict] = Field(default_factory=list)
     model_feedback: list[dict] = Field(default_factory=list)
+    thesis_revisions: list[dict] = Field(default_factory=list)
+    research_assumptions: list[dict] = Field(default_factory=list)
+    research_catalysts: list[dict] = Field(default_factory=list)
+    research_report_comparisons: list[dict] = Field(default_factory=list)
 
 
 class AccountDeleteRequest(BaseModel):

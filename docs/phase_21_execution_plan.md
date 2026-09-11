@@ -1,10 +1,12 @@
 # V1 Phase 21 Execution Plan — Model and Research Intelligence Expansion
 
-Status: **Active — checkpoints 21A–21C implemented; 21D is next.**
+Status: **Active — checkpoints 21A–21D implemented locally; 21E is next.**
 
 21A–21B base merge: PR #32, `37fc065b95434622dbfdf407a2bda7930f2c4547`
 
-Current branch: `agent/v1-phase-21c-quality-feedback-governance`
+21C merge: PR #33, `772e0a5461a56f52729d8fa91a728594e615e61a`
+
+Current branch: `agent/v1-phase-21d-research-intelligence`
 
 Authority:
 
@@ -217,6 +219,44 @@ Selected portfolio direction:
 
 Every generated claim must retain source/provenance and uncertainty. These
 features must not generate trade instructions or execute capital actions.
+
+Implementation record:
+
+- reversible `20260907_0032 -> 20260910_0033 -> 20260907_0032 ->
+  20260910_0033` migration coverage creates only `thesis_revisions`, immutable
+  `thesis_assumptions` plus lockable heads, `thesis_catalysts`, and compact
+  `research_report_comparisons`; the 21A–21C governance/evaluation/quality
+  tables and seven `free-v1` limits remain intact;
+- existing `saved_theses` remains the CRUD authority. New theses receive an
+  immutable initial revision, while legacy records receive one idempotent local
+  baseline preserving their exact existing `assumptions_json` before any first
+  mutation. A first legacy mutation may initialize revision 1 atomically; once
+  a revision exists, mutable thesis/research operations require its exact
+  expected revision and stale requests return `409`. Every later material
+  thesis/status/assumption/catalyst change appends a revision that pins each
+  current immutable assumption record ID and version number;
+- report comparisons are deterministic, require access to both reports and an
+  identical private owner or organization scope, and evidence attached to a
+  thesis must exactly match that destination thesis scope. Comparisons store
+  input checksums and compact classification-only diffs, distinguish
+  deterministic computation from deterministic, model-assisted, fallback, or
+  unknown report-section content using durable synthesis provenance, and never
+  persist report bodies. Citation lineage is checked against current durable
+  knowledge source/document/version/chunk state without changing historical
+  reports;
+- scenario deltas and monitoring questions are deterministic and research-only.
+  Questions never create schedules/notifications and reject execution language.
+  No Phase 21 model task or provider route was added because the deterministic
+  implementation fully meets the checkpoint without weakening 21A–21C policy;
+- account deletion, thesis soft deletion, organization deletion/context
+  clearing, report access expiry/deletion, and membership revocation fail closed
+  through explicit saved-thesis and derived-state disposal authority. An
+  organization-visible thesis is governed by its current active organization
+  membership and role, never by historical `owner_user_id`; disabled/deleted
+  organizations and removed memberships therefore conceal base CRUD and 21D
+  research endpoints. A visibility move requires optimistic revision authority
+  plus destination-scope authority, and is rejected when any retained
+  report-backed authoritative evidence is incompatible with that destination.
 
 ## Checkpoint 21E — Worker compute and training governance
 

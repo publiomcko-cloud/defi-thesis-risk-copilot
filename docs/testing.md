@@ -735,6 +735,50 @@ review locking, immutable linked quality evidence, and the existing 21B route
 locking evidence. These local checks do not claim hosted CI, real providers,
 real Vast rentals, automatic training/promotion, or production activation.
 
+Checkpoint 21D adds deterministic research intelligence without registering or
+routing a model task. Focused API coverage proves immutable/legacy thesis
+history, status transitions, append-only assumptions, uncertainty-preserving
+catalysts, same-scope report comparisons, durable citation staleness, scenario
+deltas, research-question boundaries, tenant denial, and thesis lifecycle
+disposal. Focused acceptance coverage also proves destination-scope evidence
+rejection, faithful first-mutation legacy baselines, immutable
+assumption-record/version pins, synthesis-provenance classification, and stale
+revision rejection. PostgreSQL proves revision sequencing, concurrent
+status/update and catalyst conflicts, assumption-head optimistic conflict
+handling, comparison uniqueness, organization member-removal and
+disabled/deleted saved-thesis denial, and a serialized visibility-change versus
+evidence-mutation conflict under the thesis row lock, in addition to the
+reversible migration cycle. API coverage proves that base saved-thesis CRUD and
+all thesis research routes require current active organization membership/role,
+and that report-backed evidence blocks a visibility move that would broaden its
+authoritative scope. Account-lifecycle coverage creates private and
+organization research under one creator, removes that creator from the
+organization, and proves their personal export and account deletion include and
+dispose only private 21D state. The organization thesis, revisions,
+assumptions, catalysts, and comparison remain accessible to the remaining
+organization owner until the organization lifecycle path disposes them.
+PostgreSQL coverage invokes the real account-deletion handler for that sequence
+before asserting the same organization lifecycle cleanup boundary.
+
+```bash
+cd backend
+python -m compileall -q app scripts migrations
+python -m pytest -q app/tests/test_phase21d_research_intelligence.py \
+  app/tests/test_phase21d_sqlite_migration.py app/tests/test_phase21a_model_governance.py \
+  app/tests/test_phase21b_model_routing.py app/tests/test_phase21c_quality_feedback.py
+RUN_POSTGRES_INTEGRATION=true python -m pytest -q \
+  app/tests/test_phase21d_postgres_migration.py app/tests/test_phase21d_postgres.py \
+  app/tests/test_phase21b_postgres.py app/tests/test_phase21c_postgres.py
+cd ../frontend
+npm run lint && npm run build && npm run test:bff && npm run test:phase21d
+```
+
+The 21D cycles prove `0032 -> 0033 -> 0032 -> 0033`, preserve the 21A–21C
+governance/quality tables, saved theses/reports, the intentionally absent 0027,
+and Phase 20F `free-v1`; downgrade removes only 21D tables. These checks do not
+claim hosted CI, model-provider activation, automatic monitoring, trading, or
+production activation.
+
 ## 11. CI expectations
 
 CI should progressively include:

@@ -54,8 +54,9 @@ V1 Phase 20 portfolio profile: COMPLETE
   - 20J architecture closeout: merged with Phase 20 at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` via PR #31
 V1 Phase 21: ACTIVE
   - 21A–21B governance/evaluated routing: merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32
-  - 21C quality, source-safety, and feedback governance: implemented on `agent/v1-phase-21c-quality-feedback-governance`; synthesis remains disabled by default
-  - 21D–21F: planned; Phase 22 remains the later provider/legal release-validation phase
+  - 21C quality, source-safety, and feedback governance: merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33; synthesis remains disabled by default
+  - 21D research intelligence: implemented on `agent/v1-phase-21d-research-intelligence`; source-grounded and deterministic by default
+  - 21E–21F: planned; Phase 22 remains the later provider/legal release-validation phase
 ```
 
 ## Engineering Capabilities
@@ -83,12 +84,12 @@ The repository currently demonstrates or provides foundations for:
 - admin-controlled Vast.ai dry-run/manual warm-up with real rentals disabled.
 
 Phase 20 is **Complete — Portfolio Profile** and merged at
-`2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 21 is active
-on `agent/v1-phase-21c-quality-feedback-governance`: PR #32 merge
-`37fc065b95434622dbfdf407a2bda7930f2c4547` supplies the 21A–21B base, and
-21C adds bounded quality and feedback governance while retaining
-disabled-by-default synthesis. It does not activate deferred providers or
-commercial work.
+`2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 21A–21C are
+merged through PR #33 at `772e0a5461a56f52729d8fa91a728594e615e61a`. Phase 21D
+is active on `agent/v1-phase-21d-research-intelligence`, adding deterministic,
+tenant-safe thesis history, assumptions, catalysts, report comparison, citation
+staleness, scenario deltas, and research questions. It does not activate a
+provider, a model route, commercial work, or execution functionality.
 
 ## Public Deployment Safety
 

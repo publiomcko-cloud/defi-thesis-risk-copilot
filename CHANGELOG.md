@@ -1,5 +1,20 @@
 # Changelog
 
+## Phase 21D — Source-grounded research intelligence
+
+- Added reversible migration `20260910_0033` for immutable thesis revisions,
+  append-only assumption versions with lockable current heads, bounded catalyst
+  records, and checksummed deterministic report-comparison provenance.
+- Extended existing thesis and report APIs without replacing saved-thesis CRUD:
+  explicit research status/history, assumption and catalyst changes, report
+  comparison, durable-citation staleness inspection, deterministic scenario
+  comparison, and bounded monitoring questions are authenticated and tenant-safe.
+- Added account/thesis/organization lifecycle disposal and export support,
+  SQLite/PostgreSQL migration-cycle tests, PostgreSQL revision/assumption and
+  comparison concurrency coverage, and thesis/report research UI. No model
+  task, provider route, automatic schedule, notification, trading, wallet, or
+  investment-advice capability was added.
+
 ## Phase 21C — Quality, source safety, and feedback governance
 
 - Added reversible migration `20260907_0032` for immutable linked model-run

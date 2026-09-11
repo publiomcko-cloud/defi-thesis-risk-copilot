@@ -42,6 +42,10 @@ from app.knowledge.service import tombstone_knowledge_for_account
 from app.customer_requests.service import dispose_customer_requests_for_account, export_customer_requests
 from app.llm.governance import dispose_model_runs_for_account, export_model_run_provenance
 from app.llm.feedback import dispose_model_feedback_for_account, export_model_feedback
+from app.research_intelligence.service import (
+    dispose_research_intelligence_for_account,
+    export_research_intelligence,
+)
 from app.models.watchlist_item import WatchlistItemModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.notification import NotificationModel, NotificationPreferenceModel
@@ -103,7 +107,10 @@ def export_account(
 ) -> AccountExportResponse:
     user = _current_user_record(db, current_user)
     reports = db.execute(
-        select(ReportModel).where(ReportModel.owner_user_id == current_user.id)
+        select(ReportModel)
+        .where(ReportModel.owner_user_id == current_user.id)
+        .where(ReportModel.visibility == "private")
+        .where(ReportModel.organization_id.is_(None))
     ).scalars().all()
     entitlement_assignments = db.execute(
         select(EntitlementAssignmentModel)
@@ -140,7 +147,10 @@ def export_account(
         ).scalars().all()
     )
     theses = db.execute(
-        select(SavedThesisModel).where(SavedThesisModel.owner_user_id == current_user.id)
+        select(SavedThesisModel)
+        .where(SavedThesisModel.owner_user_id == current_user.id)
+        .where(SavedThesisModel.visibility == "private")
+        .where(SavedThesisModel.organization_id.is_(None))
     ).scalars().all()
     watchlists = db.execute(
         select(WatchlistItemModel).where(WatchlistItemModel.owner_user_id == current_user.id)
@@ -194,6 +204,7 @@ def export_account(
     customer_requests = export_customer_requests(db, current_user.id)
     model_run_provenance = export_model_run_provenance(db, current_user.id)
     model_feedback = export_model_feedback(db, current_user.id)
+    research_export = export_research_intelligence(db, current_user.id)
     audits = db.execute(
         select(AccessAuditEventModel)
         .where(AccessAuditEventModel.actor_user_id == current_user.id)
@@ -482,6 +493,10 @@ def export_account(
         customer_requests=customer_requests,
         model_run_provenance=model_run_provenance,
         model_feedback=model_feedback,
+        thesis_revisions=research_export["thesis_revisions"],
+        research_assumptions=research_export["research_assumptions"],
+        research_catalysts=research_export["research_catalysts"],
+        research_report_comparisons=research_export["report_comparisons"],
     )
     export_audit = record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)
     emit_notification_intent(
@@ -549,6 +564,7 @@ def delete_account(
     dispose_customer_requests_for_account(db, current_user.id)
     dispose_model_feedback_for_account(db, current_user.id)
     dispose_model_runs_for_account(db, current_user.id)
+    dispose_research_intelligence_for_account(db, current_user.id)
     revoked_invitation_count = revoke_pending_invitations_for_account_email(
         db,
         authenticated_email,

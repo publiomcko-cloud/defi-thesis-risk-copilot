@@ -1,6 +1,6 @@
 # Phase 21 Data-Model Review
 
-Status: **21A–21C implemented; 21D is next.**
+Status: **21A–21D implemented locally; 21E is next.**
 
 ## 21B Migration
 
@@ -91,3 +91,34 @@ clears its context reference. Approval moves `submitted` through explicit
 review to `approved_for_dataset` or `rejected`, and stores only a safe
 future-review reference. It does not mutate a versioned dataset, model route,
 prompt, registry, or training state.
+
+## 21D Research-Intelligence State
+
+`20260910_0033_add_research_intelligence.py` follows `20260907_0032` and is
+the only 21D revision. Its reversible evidence cycle is:
+
+```text
+0032 -> 0033 -> 0032 -> 0033
+```
+
+| Table | Role | Sensitive-content boundary |
+| --- | --- | --- |
+| `thesis_revisions` | Immutable thesis/status snapshots with a per-thesis monotonic unique revision and exact current-assumption record/version references | Existing thesis text and legacy assumptions only; no provider payload or analytics copy |
+| `thesis_assumptions` | Append-only statement/state/evidence versions | Report-backed references retain durable lineage IDs/checksums; free text is explicitly `unverified_external` |
+| `thesis_assumption_heads` | Lockable pointer to one current immutable assumption version | IDs and bounded revision number only; PostgreSQL serializes supersession |
+| `thesis_catalysts` | Bounded research event/date-window/uncertainty state with optimistic revision | User-recorded text only; no price target, trade signal, notification, or schedule |
+| `research_report_comparisons` | Same-scope deterministic report-diff provenance | IDs, input/lineage checksums, and compact field classifications; no complete report body duplication |
+
+`saved_theses` remains the compatibility and CRUD authority. A legacy baseline
+is created locally and idempotently under the thesis lock before a first
+mutation, preserving original content exactly. Later snapshots reference the
+immutable assumption record and revision current at snapshot time, not only its
+logical assumption ID. Report-backed evidence must exactly match the destination
+thesis private-owner or organization scope. Thesis soft deletion removes derived 21D rows. Personal
+account export and disposal select only `private` theses with no organization ID,
+and only private, organization-free report comparisons; historical
+`owner_user_id` attribution never grants a former creator access to or deletion
+authority over organization research. Organization deletion remains the
+authoritative disposal path for organization-scoped 21D rows. Report comparison and
+staleness reads reauthorize both underlying reports, so report expiry/deletion
+or membership loss cannot turn derived state into a private-content backdoor.

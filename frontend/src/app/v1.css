@@ -167,6 +167,23 @@ summary:focus-visible {
   display: inline;
 }
 
+.research-intelligence {
+  border-top: 1px solid var(--line);
+  margin-top: 16px;
+  padding-top: 16px;
+}
+
+.research-intelligence h3,
+.research-intelligence h4 {
+  margin: 0;
+}
+
+.code-block {
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+}
+
 .status-approved_for_rag,
 .status-ingested,
 .status-info {

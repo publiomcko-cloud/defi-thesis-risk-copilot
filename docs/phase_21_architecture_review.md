@@ -1,10 +1,12 @@
 # Phase 21 Architecture Review
 
-Date: 2026-09-07
+Date: 2026-09-10
 
 21A–21B base: PR #32, `37fc065b95434622dbfdf407a2bda7930f2c4547`
 
-Branch: `agent/v1-phase-21c-quality-feedback-governance`
+21C merge: PR #33, `772e0a5461a56f52729d8fa91a728594e615e61a`
+
+Branch: `agent/v1-phase-21d-research-intelligence`
 
 ## Existing foundations to reuse
 
@@ -128,14 +130,30 @@ promote, route, or mutate model/prompt state. Export, deletion, organization
 context clearing, report expiry, and audit/analytics non-leakage reuse existing
 lifecycle boundaries.
 
+## 21D saved-thesis tenant authority
+
+Saved thesis creator attribution is not organization authorization. Private
+theses retain their existing owner-only policy, while organization-visible
+theses use a dedicated policy that requires an active, non-deleted organization
+and an active membership with the applicable role for every list, get, update,
+delete, history, assumption, catalyst, and monitoring path. Platform-admin or
+historical creator state is not a fallback for those organization resources.
+Disablement, deletion, and membership removal therefore cannot leave a
+creator-access bypass.
+
+Scope changes are serialized by the saved-thesis row lock and require the
+current revision plus authority in the destination scope. The service inspects
+all retained authoritative report-backed evidence before changing visibility:
+an organization report cannot become private lineage, and a private report
+cannot become organization lineage. Missing/corrupt referenced reports fail
+closed. Unverified external labels do not become authoritative evidence.
+
 ## Remaining Phase 21 gaps
 
 The current model path is intentionally simple and does not yet satisfy the
 Phase 21 contract:
 
-1. thesis/catalyst/assumption/report-comparison intelligence is not yet a
-   dedicated domain;
-2. model evaluation/training is not yet represented as bounded Phase 17 worker
+1. model evaluation/training is not yet represented as bounded Phase 17 worker
    jobs with durable model/dataset lineage.
 
 ## Refactoring direction

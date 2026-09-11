@@ -770,7 +770,17 @@ never dataset content or routing/training authority. Runtime continues to check
 the global disabled kill switch, route/evidence/model/prompt linkage, exact
 server-configured adapter identity, and private/organization privacy before it
 may invoke a provider. There is no browser provider authority, paid-provider
-activation, or production activation. Checkpoint 21D is next; 21E–21F remain
-planned and Phase 22 remains the later deployed-provider/legal validation phase.
+activation, or production activation. Checkpoint 21D adds a deterministic
+research-intelligence layer around existing saved theses and reports: immutable
+local thesis revisions, append-only assumption history, uncertainty-preserving
+catalysts, same-scope report comparison with input checksums, durable
+citation-lineage staleness inspection, deterministic scenario deltas, and
+research questions only. Existing thesis CRUD remains authoritative; a legacy
+baseline preserves original fields without provider use. Derived data is
+disposed on thesis/account/organization lifecycle events and always rechecks
+report/thesis authority at read time. 21D creates no model task, provider route,
+schedule, notification, trading, wallet, or advice authority. Checkpoint
+21E–21F remain planned and Phase 22 remains the later deployed-provider/legal
+validation phase.
 
 Deterministic risk and non-execution boundaries remain permanent.
