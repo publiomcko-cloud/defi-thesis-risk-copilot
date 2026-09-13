@@ -1,6 +1,6 @@
 # Phase 21 Data-Model Review
 
-Status: **21A–21E implemented locally; 21F is next.**
+Status: **21A–21E implemented; Draft PR #35 required hosted checks are green; 21F is next.**
 
 ## 21E Training-Compute Governance State
 

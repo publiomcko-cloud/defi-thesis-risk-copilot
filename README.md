@@ -56,7 +56,7 @@ V1 Phase 21: ACTIVE
   - 21A–21B governance/evaluated routing: merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32
   - 21C quality, source-safety, and feedback governance: merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33; synthesis remains disabled by default
   - 21D research intelligence: merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34; source-grounded and deterministic by default
-  - 21E worker compute/training governance: implemented locally on `agent/v1-phase-21e-worker-compute-training-governance`; exact-head hosted validation remains pending
+  - 21E worker compute/training governance: implemented on `agent/v1-phase-21e-worker-compute-training-governance`; Draft PR #35 required hosted checks are green
   - 21F: planned; Phase 22 remains the later provider/legal release-validation phase
 ```
 

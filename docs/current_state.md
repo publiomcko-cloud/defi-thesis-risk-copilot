@@ -69,7 +69,7 @@ V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
 V1 Phase 20 — Complete — Portfolio Profile and merged at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 20E is omitted, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
-V1 Phase 21 — Active on `agent/v1-phase-21e-worker-compute-training-governance`; 21A–21B are merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32, 21C quality/feedback governance is merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33, 21D research intelligence is merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34, 21E local training-compute governance is implemented pending exact-head hosted validation, and 21F remains planned
+V1 Phase 21 — Active on `agent/v1-phase-21e-worker-compute-training-governance`; 21A–21B are merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32, 21C quality/feedback governance is merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33, 21D research intelligence is merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34, 21E local training-compute governance is implemented with green required hosted checks on Draft PR #35, and 21F remains planned
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -560,8 +560,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   synthetic training evidence, a Phase 17 local-fake/dry-run job, a one-slot
   zero-cost compute profile, and checksummed non-production artifacts. No
   private data, feedback, organization material, real Vast rental, model
-  registration, promotion, routing, or deployment activation is added. Exact
-  hosted validation remains a gate; 21F is not started.
+  registration, promotion, routing, or deployment activation is added. Draft
+  PR #35 required hosted checks are green; 21F is not started.
 - Phase 22 — final provider, legal, and launch validation.
 
 See [`future_phase_contracts.md`](future_phase_contracts.md) for complete requirements.
