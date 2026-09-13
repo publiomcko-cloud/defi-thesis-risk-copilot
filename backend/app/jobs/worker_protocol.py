@@ -165,6 +165,10 @@ def start_job(db: Session, identity: WorkerIdentity, job_id: str, request: Worke
         raise HTTPException(status_code=409, detail="Job cannot be started from its current state.")
     if job.job_type == "analysis.generate":
         capture_async_analysis_execution_route(db, job)
+    elif job.job_type == "model.training.prepare":
+        from app.training_governance.service import mark_training_run_started
+
+        mark_training_run_started(db, job)
     transition_job(db, job, "running", worker_id=identity.worker.id, message="Worker started the leased job.")
     attempt.started_at = datetime.now(UTC)
     attempt.outcome = "running"
@@ -321,6 +325,12 @@ def complete_job(
             "embedding_generation_id": result.result_json["embedding_generation_id"],
             "embedding_count": result.result_json["embedding_count"],
         }
+    elif job.job_type == "model.training.prepare":
+        from app.training_governance.service import finalize_training_run
+
+        job.result_json = finalize_training_run(db, job, result.result_json)
+        job.result_resource_type = "training_run"
+        job.result_resource_id = str(job.result_json["training_run_id"])
     job.result_schema_version = result.result_schema_version
     # A retryable attempt can leave a safe error summary on the mutable job row.
     # The final completed state must describe the successful attempt, while the
@@ -413,6 +423,10 @@ def fail_job(
         synchronize_schedule_occurrence(db, job, "queued", reason="retry_scheduled")
         if should_reconcile:
             _mark_provider_reservation_reconciliation_required(db, job)
+        if job.job_type == "model.training.prepare":
+            from app.training_governance.service import mark_training_run_queued_for_retry
+
+            mark_training_run_queued_for_retry(db, job)
         move_running_capacity_to_pending(db, job)
         job.available_at = datetime.now(UTC) + timedelta(seconds=_retry_delay_seconds(job.attempt_count, job.id))
     else:
@@ -420,6 +434,10 @@ def fail_job(
         mark_job_artifacts_incomplete(db, job.id)
         _cleanup_provider_for_terminal_job(db, job)
         _finalize_provider_cost(db, job)
+        if job.job_type == "model.training.prepare":
+            from app.training_governance.service import mark_training_run_terminal
+
+            mark_training_run_terminal(db, job, status="failed", result_code=request.error_code)
         transition_job(
             db,
             job,
@@ -479,6 +497,10 @@ def release_job(db: Session, identity: WorkerIdentity, job_id: str, request: Wor
     synchronize_schedule_occurrence(db, job, "queued", reason="lease_released")
     attempt.ended_at = datetime.now(UTC)
     attempt.outcome = "released"
+    if job.job_type == "model.training.prepare":
+        from app.training_governance.service import mark_training_run_queued_for_retry
+
+        mark_training_run_queued_for_retry(db, job)
     move_running_capacity_to_pending(db, job)
     job.available_at = datetime.now(UTC) + timedelta(seconds=_retry_delay_seconds(job.attempt_count, job.id))
     _clear_lease(job)
@@ -534,6 +556,10 @@ def recover_expired_jobs(
             mark_job_artifacts_incomplete(db, job.id, now=timestamp)
             _cleanup_provider_for_terminal_job(db, job, perform_external_cleanup=perform_external_cleanup)
             _finalize_provider_cost(db, job)
+            if job.job_type == "model.training.prepare":
+                from app.training_governance.service import mark_training_run_terminal
+
+                mark_training_run_terminal(db, job, status="failed", result_code="lease_expired")
             transition_job(db, job, "dead_letter", message="Lease expired after the final worker attempt.")
             if attempt:
                 attempt.ended_at = timestamp
@@ -548,6 +574,10 @@ def recover_expired_jobs(
             if attempt:
                 attempt.ended_at = timestamp
                 attempt.outcome = "lease_expired_retry"
+            if job.job_type == "model.training.prepare":
+                from app.training_governance.service import mark_training_run_queued_for_retry
+
+                mark_training_run_queued_for_retry(db, job)
             move_running_capacity_to_pending(db, job)
             job.available_at = timestamp + timedelta(seconds=_retry_delay_seconds(job.attempt_count, job.id))
             _clear_lease(job)
@@ -720,6 +750,10 @@ def _fail_revoked_job(db: Session, job: JobModel) -> None:
     job.error_code = "authorization_revoked"
     job.error_summary = "Job authorization was revoked before worker execution."
     _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
+    if job.job_type == "model.training.prepare":
+        from app.training_governance.service import mark_training_run_terminal
+
+        mark_training_run_terminal(db, job, status="failed", result_code="authorization_revoked")
     _release_capacity(db, job)
     synchronize_schedule_occurrence(db, job, "denied", reason="authorization_revoked")
 
@@ -747,6 +781,10 @@ def _fail_unsupported_schema_job(db: Session, job: JobModel) -> None:
     )
     job.error_code = "unsupported_schema"
     job.error_summary = "Job input schema is unsupported and was not executed."
+    if job.job_type == "model.training.prepare":
+        from app.training_governance.service import mark_training_run_terminal
+
+        mark_training_run_terminal(db, job, status="failed", result_code="unsupported_schema")
     _release_capacity(db, job)
     synchronize_schedule_occurrence(db, job, "failed", reason="unsupported_schema")
 
@@ -756,6 +794,10 @@ def _expire_queued_job(db: Session, job: JobModel) -> None:
     transition_job(db, job, "failed", message="Job queue deadline elapsed before worker execution.")
     job.error_code = "queue_expired"
     job.error_summary = "No eligible worker accepted the job before its queue deadline."
+    if job.job_type == "model.training.prepare":
+        from app.training_governance.service import mark_training_run_terminal
+
+        mark_training_run_terminal(db, job, status="failed", result_code="queue_expired")
     _release_capacity(db, job)
     synchronize_schedule_occurrence(db, job, "failed", reason="queue_expired")
 
@@ -773,6 +815,10 @@ def _cancel_leased_job(
     mark_job_artifacts_incomplete(db, job.id)
     _cleanup_provider_for_terminal_job(db, job, perform_external_cleanup=perform_external_cleanup)
     _finalize_provider_cost(db, job)
+    if job.job_type == "model.training.prepare":
+        from app.training_governance.service import mark_training_run_terminal
+
+        mark_training_run_terminal(db, job, status="cancelled", result_code="job_cancelled")
     transition_job(db, job, "cancelled", worker_id=worker_id, message="Worker acknowledged job cancellation.")
     synchronize_schedule_occurrence(db, job, "cancelled", reason="job_cancelled")
     if attempt:

@@ -292,6 +292,8 @@ def _progress_message(job_type: str, stage: str) -> str:
         return "Creating local deterministic document embeddings." if stage == "started" else "Validating immutable embedding generation."
     if job_type == "watchlist.evaluate":
         return "Evaluating the server-approved watchlist target." if stage == "started" else "Recording schedule-run results."
+    if job_type == "model.training.prepare":
+        return "Preparing the server-owned local training evidence." if stage == "started" else "Recording local training governance artifacts."
     return "Preparing deterministic analysis inputs." if stage == "started" else "Persisting the deterministic report."
 
 

@@ -1,12 +1,14 @@
 # V1 Phase 21 Execution Plan — Model and Research Intelligence Expansion
 
-Status: **Active — checkpoints 21A–21D implemented locally; 21E is next.**
+Status: **Active — checkpoints 21A–21E implemented; Draft PR #35 required hosted checks are green; 21F is next.**
 
 21A–21B base merge: PR #32, `37fc065b95434622dbfdf407a2bda7930f2c4547`
 
 21C merge: PR #33, `772e0a5461a56f52729d8fa91a728594e615e61a`
 
-Current branch: `agent/v1-phase-21d-research-intelligence`
+21D merge: PR #34, `468db4a1529b456afed6d1b5d482c8ea0ff932bd`
+
+Current branch: `agent/v1-phase-21e-worker-compute-training-governance`
 
 Authority:
 
@@ -277,6 +279,32 @@ Expected scope:
 - no private tenant training data without a new explicit policy/consent
   approval;
 - no real Vast rental requirement for portfolio completion.
+
+Implementation record:
+
+- reversible `20260910_0033 -> 20260911_0034 -> 20260910_0033 ->
+  20260911_0034` evidence covers the three immutable dataset/run tables and
+  preserves Phase 21A–21D, Phase 17 artifacts/jobs, `vast_sessions`, and the
+  Phase 20F `free-v1` catalog;
+- only `report_synthesis_training_synthetic_v1`, a checked-in synthetic fixture,
+  may be sealed. Its code-owned eligibility policy excludes private user data,
+  organization data, Phase 21C feedback, and Phase 21B held-out evaluation
+  datasets. SHA-256-ranked train/validation/test partitioning and normalized
+  content uniqueness prevent deterministic split drift and duplicate rows;
+- `model.training.prepare.v1` is a dedicated administrator submission path.
+  The client can provide no dataset body, provider/image/offer, credential, or
+  shell input. The server creates the immutable manifest/run/execution snapshot
+  and Phase 17 idempotency/capacity reservation together;
+- `local_fake_v1` has no provider or network path, zero GPU, a 90-second runtime,
+  one profile slot, 1 GiB disk ceiling, and zero total/hourly cost. It cannot call
+  the existing Vast lifecycle and creates no provider cost reservation;
+- terminal control-plane completion validates the deterministic local-fake result
+  against the server snapshot, produces checksummed model-card and execution
+  receipt artifacts, and explicitly marks the run `not_registry_eligible`.
+  No model is registered, evaluated, promoted, or routed automatically;
+- cancellation/dead-letter/queue-expiry/authorization-revocation paths preserve
+  the run record with an honest terminal state. Account disposal detaches actor
+  references but does not delete sealed manifests, entries, or immutable runs.
 
 ## Checkpoint 21F — Phase closeout
 

@@ -1,0 +1,14 @@
+[
+  {"id": "synthetic-001", "input": "Synthetic protocol note: collateral ratio is 160 percent.", "target": "Record collateral ratio as 160 percent; do not infer liquidation risk."},
+  {"id": "synthetic-002", "input": "Synthetic protocol note: oracle source is unspecified.", "target": "State that the oracle source is unknown and request evidence."},
+  {"id": "synthetic-003", "input": "Synthetic protocol note: governance vote has not concluded.", "target": "Describe the vote as pending, not approved."},
+  {"id": "synthetic-004", "input": "Synthetic protocol note: audit report is not available.", "target": "Flag audit evidence as unavailable without claiming security."},
+  {"id": "synthetic-005", "input": "Synthetic protocol note: liquidity depth is 120000 units.", "target": "Report liquidity depth as supplied and preserve the unit."},
+  {"id": "synthetic-006", "input": "Synthetic protocol note: token unlock timing is uncertain.", "target": "State that unlock timing is uncertain; do not supply a date."},
+  {"id": "synthetic-007", "input": "Synthetic protocol note: treasury balance has no timestamp.", "target": "Mark the treasury balance timestamp as missing."},
+  {"id": "synthetic-008", "input": "Synthetic protocol note: bridge design is externally operated.", "target": "Identify external bridge dependence as a research consideration."},
+  {"id": "synthetic-009", "input": "Synthetic protocol note: fee switch is disabled.", "target": "Record the fee switch as disabled without forecasting revenue."},
+  {"id": "synthetic-010", "input": "Synthetic protocol note: validator concentration data is incomplete.", "target": "Preserve the incomplete validator concentration evidence."},
+  {"id": "synthetic-011", "input": "Synthetic protocol note: incident response process is undocumented.", "target": "Mark incident response documentation as unavailable."},
+  {"id": "synthetic-012", "input": "Synthetic protocol note: emissions curve is described only qualitatively.", "target": "Avoid numeric emissions conclusions and preserve the limitation."}
+]
