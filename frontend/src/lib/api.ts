@@ -61,7 +61,10 @@ import type {
   KnowledgeSource,
   KnowledgeVisibility,
   ModelFeedbackCategory,
-  ModelFeedbackResponse
+  ModelFeedbackResponse,
+  TrainingGovernance,
+  TrainingManifest,
+  TrainingRun
 } from "./types";
 
 export function getApiBaseUrl(): string {
@@ -826,6 +829,45 @@ export async function fetchJobOperations(): Promise<JobOperations> {
     throw new Error(await errorDetail(response, `Job operations fetch failed with status ${response.status}`));
   }
 
+  return response.json();
+}
+
+export async function fetchTrainingGovernance(): Promise<TrainingGovernance> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/training-governance`, {
+    cache: "no-store",
+    ...requestInit({ headers: authHeaders() })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Training governance fetch failed with status ${response.status}`));
+  }
+  return response.json();
+}
+
+export async function sealTrainingManifest(): Promise<TrainingManifest> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/training-governance/manifests/seal`, {
+    method: "POST",
+    ...requestInit({
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({})
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Training manifest seal failed with status ${response.status}`));
+  }
+  return response.json();
+}
+
+export async function submitLocalTrainingRun(idempotencyKey: string): Promise<TrainingRun> {
+  const response = await fetch(`${getApiBaseUrl()}/api/admin/training-governance/runs`, {
+    method: "POST",
+    ...requestInit({
+      headers: { "Content-Type": "application/json", "Idempotency-Key": idempotencyKey, ...authHeaders() },
+      body: JSON.stringify({ execution_mode: "dry_run" })
+    })
+  });
+  if (!response.ok) {
+    throw new Error(await errorDetail(response, `Training run submission failed with status ${response.status}`));
+  }
   return response.json();
 }
 

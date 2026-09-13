@@ -6,7 +6,9 @@ Date: 2026-09-10
 
 21C merge: PR #33, `772e0a5461a56f52729d8fa91a728594e615e61a`
 
-Branch: `agent/v1-phase-21d-research-intelligence`
+21D merge: PR #34, `468db4a1529b456afed6d1b5d482c8ea0ff932bd`
+
+Branch: `agent/v1-phase-21e-worker-compute-training-governance`
 
 ## Existing foundations to reuse
 
@@ -148,13 +150,38 @@ an organization report cannot become private lineage, and a private report
 cannot become organization lineage. Missing/corrupt referenced reports fail
 closed. Unverified external labels do not become authoritative evidence.
 
+## 21E worker compute and training governance
+
+Migration `20260911_0034` adds only sealed `training_dataset_manifests`,
+immutable normalized `training_dataset_entries`, and a one-job `training_runs`
+provenance record. The only admissible source is the checked-in synthetic
+`report_synthesis_training_synthetic_v1` fixture. Deterministic SHA-256 splits
+and normalized fingerprints reject duplicates; current 21B/21C corpora are
+fingerprinted as held-out exclusions and never enter the training snapshot.
+Private/user/organization/retrieved/report/knowledge/upload/feedback material
+has no admissible API path.
+
+`model.training.prepare.v1` reuses the Phase 17 lease, retry, cancellation,
+recovery, idempotency, event, artifact, and capacity authorities. The server
+seals a credential-free snapshot with its manifest, code-owned recipe, approved
+local-fake runtime identity, expected artifacts, profile limits, and environment.
+One durable named capacity scope prevents a second pending/running job. The
+executor has no provider, network, shell, image, offer, or credential input and
+creates no `vast_sessions` row or external call. Completion verifies the exact
+result and writes only checksummed model-card/receipt metadata. Database guards
+prevent manifest/entry mutation and run-snapshot replacement while allowing
+bounded lifecycle state and account-actor detachment. Runs are permanently
+`not_registry_eligible`: no completion registers, evaluates, promotes, or routes
+a model. Exact-head hosted validation remains required.
+
 ## Remaining Phase 21 gaps
 
 The current model path is intentionally simple and does not yet satisfy the
 Phase 21 contract:
 
-1. model evaluation/training is not yet represented as bounded Phase 17 worker
-   jobs with durable model/dataset lineage.
+1. Phase 21F must close out exact-head hosted evidence; real provider execution,
+   private training, automatic registration/promotion/routing, and commercial
+   activation remain out of scope.
 
 ## Refactoring direction
 

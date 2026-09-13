@@ -123,6 +123,10 @@ def _dispose_jobs(db: Session, statement, *, reason: str, now: datetime | None) 
                 job.error_code = "authorization_revoked"
                 job.error_summary = "Job access was revoked before execution."
                 _cleanup_knowledge_job_outputs(db, job, retryable=False, terminal=True)
+                if job.job_type == "model.training.prepare":
+                    from app.training_governance.service import mark_training_run_terminal
+
+                    mark_training_run_terminal(db, job, status="failed", result_code="authorization_revoked")
                 from app.jobs.control_service import _release_capacity
 
                 _release_capacity(db, job)

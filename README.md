@@ -55,8 +55,9 @@ V1 Phase 20 portfolio profile: COMPLETE
 V1 Phase 21: ACTIVE
   - 21A–21B governance/evaluated routing: merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32
   - 21C quality, source-safety, and feedback governance: merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33; synthesis remains disabled by default
-  - 21D research intelligence: implemented on `agent/v1-phase-21d-research-intelligence`; source-grounded and deterministic by default
-  - 21E–21F: planned; Phase 22 remains the later provider/legal release-validation phase
+  - 21D research intelligence: merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34; source-grounded and deterministic by default
+  - 21E worker compute/training governance: implemented locally on `agent/v1-phase-21e-worker-compute-training-governance`; exact-head hosted validation remains pending
+  - 21F: planned; Phase 22 remains the later provider/legal release-validation phase
 ```
 
 ## Engineering Capabilities
@@ -82,14 +83,19 @@ The repository currently demonstrates or provides foundations for:
 - durable timezone-aware private watchlist schedules with PostgreSQL one-winner dispatch, Phase 17 jobs, account lifecycle hooks, and production-disabled rollout;
 - in-app notification preferences and notification center with server-owned intents, code-owned content, duplicate-safe identity, quiet hours, daily digest surfacing, lifecycle hooks, and 30-day retention;
 - admin-controlled Vast.ai dry-run/manual warm-up with real rentals disabled.
+- platform-admin-only sealed synthetic training manifests, Phase 17 local-fake
+  training-preparation jobs, immutable execution evidence, and checksummed
+  non-production model-card/receipt artifacts; no private data training, real
+  provider compute, model registration, promotion, or route change.
 
 Phase 20 is **Complete — Portfolio Profile** and merged at
 `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 21A–21C are
 merged through PR #33 at `772e0a5461a56f52729d8fa91a728594e615e61a`. Phase 21D
-is active on `agent/v1-phase-21d-research-intelligence`, adding deterministic,
-tenant-safe thesis history, assumptions, catalysts, report comparison, citation
-staleness, scenario deltas, and research questions. It does not activate a
-provider, a model route, commercial work, or execution functionality.
+merged through PR #34 at `468db4a1529b456afed6d1b5d482c8ea0ff932bd`. Phase 21E
+is local implementation evidence only: a sealed checked-in synthetic corpus,
+one bounded local-fake Phase 17 compute slot, and non-production artifacts. It
+does not activate a provider, Vast rental, model route, commercial work, or
+execution functionality.
 
 ## Public Deployment Safety
 

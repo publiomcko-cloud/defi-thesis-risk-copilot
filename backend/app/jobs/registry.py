@@ -182,7 +182,55 @@ def _watchlist_evaluate_result(value: dict) -> None:
         raise HTTPException(status_code=422, detail="watchlist.evaluate result values are invalid.")
 
 
+def _training_prepare_input(value: dict) -> None:
+    if set(value) != {"training_run_id"}:
+        raise HTTPException(status_code=422, detail="model.training.prepare input must contain only training_run_id.")
+    run_id = value["training_run_id"]
+    if not isinstance(run_id, str) or not run_id.startswith("trainrun_") or len(run_id) > 64:
+        raise HTTPException(status_code=422, detail="model.training.prepare training run is invalid.")
+
+
+def _training_prepare_result(value: dict) -> None:
+    required = {"training_run_id", "result_code", "artifact_checksums", "real_training_occurred"}
+    checksums = value.get("artifact_checksums")
+    if (
+        set(value) != required
+        or not isinstance(value["training_run_id"], str)
+        or not value["training_run_id"].startswith("trainrun_")
+        or value["result_code"] != "local_fake_completed"
+        or value["real_training_occurred"] is not False
+        or not isinstance(checksums, dict)
+        or set(checksums) != {"training_model_card", "training_execution_receipt"}
+        or any(
+            not isinstance(checksum, str)
+            or len(checksum) != 64
+            or any(character not in "0123456789abcdef" for character in checksum)
+            for checksum in checksums.values()
+        )
+    ):
+        raise HTTPException(status_code=422, detail="model.training.prepare result is invalid.")
+
+
 JOB_TYPE_REGISTRY: dict[str, JobTypeSpec] = {
+    "model.training.prepare": JobTypeSpec(
+        job_type="model.training.prepare",
+        input_schema_versions=frozenset({"model.training.prepare.v1"}),
+        result_schema_versions=frozenset({"model.training.prepare.v1"}),
+        input_validator=_training_prepare_input,
+        result_validator=_training_prepare_result,
+        executor_name="training_prepare",
+        cost_estimator_name="deterministic_zero_cost",
+        retryable_categories=frozenset({JobErrorCategory.RETRYABLE_INFRASTRUCTURE}),
+        accepted_failure_categories=frozenset(
+            {
+                JobErrorCategory.PERMANENT_INPUT,
+                JobErrorCategory.PERMANENT_AUTHORIZATION,
+                JobErrorCategory.RETRYABLE_INFRASTRUCTURE,
+            }
+        ),
+        requires_provider=False,
+        maximum_attempt_runtime_seconds=90,
+    ),
     "watchlist.evaluate": JobTypeSpec(
         job_type="watchlist.evaluate",
         input_schema_versions=frozenset({"watchlist.evaluate.v1"}),
@@ -314,4 +362,8 @@ def executor_for_job_type(job_type: str):
         from app.scheduling.executor import WatchlistEvaluationJobExecutor
 
         return WatchlistEvaluationJobExecutor()
+    if spec.executor_name == "training_prepare":
+        from app.training_governance.executor import TrainingPreparationJobExecutor
+
+        return TrainingPreparationJobExecutor()
     raise HTTPException(status_code=422, detail="No durable executor is registered for this job type.")

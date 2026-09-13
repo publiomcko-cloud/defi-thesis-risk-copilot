@@ -507,11 +507,12 @@ and no external notification or helpdesk provider is activated.
 
 ## V1 Phase 21 — Model and research intelligence expansion — Active
 
-Checkpoint 21A is implemented on
-`agent/v1-phase-21-model-research-intelligence`: migration `20260904_0030`
-adds code-owned task governance, bounded model/prompt metadata, and immutable
-report-synthesis provenance. Existing deterministic report authority and the
-disabled-by-default model setting remain unchanged. Checkpoints 21B–21F are
+Checkpoints 21A–21D are merged through PR #34 at
+`468db4a1529b456afed6d1b5d482c8ea0ff932bd`. Checkpoint 21E is implemented
+locally on `agent/v1-phase-21e-worker-compute-training-governance`: migration
+`20260911_0034` adds sealed synthetic training governance and a one-slot local
+fake Phase 17 path without provider activation. Existing deterministic report
+authority and the disabled-by-default model setting remain unchanged. 21F is
 planned; Phase 21 is not complete.
 
 Goal: expand model-assisted research only after evaluation, provenance, privacy, cost, and rollback controls exist.

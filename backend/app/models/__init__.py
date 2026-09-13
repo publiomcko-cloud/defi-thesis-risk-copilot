@@ -63,6 +63,7 @@ from app.models.usage_quota import UsageQuotaModel
 from app.models.watchlist_item import WatchlistItemModel
 from app.models.user import UserModel
 from app.models.vast_session import VastSessionModel
+from app.models.training_governance import TrainingDatasetEntryModel, TrainingDatasetManifestModel, TrainingRunModel
 from app.models.worker import WorkerCredentialModel, WorkerModel
 
 __all__ = [
@@ -133,6 +134,9 @@ __all__ = [
     "UsageQuotaModel",
     "UserModel",
     "VastSessionModel",
+    "TrainingDatasetEntryModel",
+    "TrainingDatasetManifestModel",
+    "TrainingRunModel",
     "WatchlistItemModel",
     "WorkerCredentialModel",
     "WorkerModel",

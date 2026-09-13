@@ -988,8 +988,9 @@ Documentation must state that internal drafting is not legal certification.
 
 # V1 Phase 21 — Model and Research Intelligence Expansion
 
-Status: **Active — 21A implemented on
-`agent/v1-phase-21-model-research-intelligence`; 21B–21F remain planned.**
+Status: **Active — 21A–21D are merged; 21E is implemented locally on
+`agent/v1-phase-21e-worker-compute-training-governance` pending exact-head
+hosted validation; 21F remains planned.**
 
 ## 21.1 Goal
 

@@ -1,6 +1,35 @@
 # Phase 21 Data-Model Review
 
-Status: **21A–21D implemented locally; 21E is next.**
+Status: **21A–21E implemented locally; 21F is next.**
+
+## 21E Training-Compute Governance State
+
+`20260911_0034_add_training_compute_governance.py` follows
+`20260910_0033` and is the only 21E revision. It adds three reversible tables:
+
+- `training_dataset_manifests` is an immutable sealed identity for the only
+  allowed checked-in synthetic dataset. Its unique purpose/version and manifest
+  checksum, explicit approved eligibility result, fixed source/schema/split/
+  eligibility/lifecycle constraints, split counts, and held-out-exclusion
+  checksum make unknown or changed source state fail closed.
+- `training_dataset_entries` records immutable normalized checked-in synthetic
+  entries. Per-manifest entry and normalized-content uniqueness prevent duplicate
+  material, while a constrained train/validation/test split preserves the held-out
+  partition.
+- `training_runs` binds exactly one Phase 17 job to a sealed manifest and a full
+  server-owned recipe/profile snapshot. Database constraints fix zero-cost,
+  local-fake/dry-run execution, `not_registry_eligible` candidate class, and
+  `real_training_occurred = false`; the row cannot represent registration,
+  promotion, routing, or an external provider session. Database guards make
+  manifest/entry rows and execution-snapshot fields immutable while preserving
+  only bounded run lifecycle/result state and nullable actor detachment.
+
+The existing `jobs`, `job_capacity_reservations`, `artifacts`, and
+`vast_sessions` tables remain their respective authorities. The `local_fake_v1`
+profile reserves a named existing provider-capacity scope with one pending/running
+slot but creates no `vast_sessions` or provider-cost record. Actor deletion only
+detaches the nullable audit actor references; manifests, entries, and run
+evidence are retained. Organization data is never admitted to this model.
 
 ## 21B Migration
 

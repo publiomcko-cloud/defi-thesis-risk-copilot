@@ -1,5 +1,22 @@
 # Changelog
 
+## Phase 21E — Worker compute and training governance
+
+- Added reversible migration `20260911_0034` for sealed synthetic dataset
+  manifests/entries and immutable Phase 17 training-run execution provenance.
+  The sole server-owned fixture has deterministic train/validation/test splits,
+  normalized-content leakage rejection, and checksummed exclusion of the
+  current 21B/21C evaluation corpora; private, organization, report, knowledge,
+  upload, and feedback inputs are not admissible.
+- Added the administrator-only `model.training.prepare.v1` local-fake/dry-run
+  path. Its code-owned recipe/profile permits one zero-cost, no-network,
+  no-GPU, no-provider, no-shell job and produces checksummed database-backed
+  model-card and execution-receipt metadata only. A completion cannot register,
+  evaluate, promote, or route a model.
+- Added SQLite/PostgreSQL reversible migration, immutable-field, real worker
+  retry/recovery, cancellation, artifact-integrity, and one-slot contention
+  coverage. Real Vast rentals remain disabled and are not exercised.
+
 ## Phase 21D — Source-grounded research intelligence
 
 - Added reversible migration `20260910_0033` for immutable thesis revisions,

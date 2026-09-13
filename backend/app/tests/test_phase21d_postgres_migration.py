@@ -89,7 +89,6 @@ def _tables(connection) -> set[str]:
 def _assert_lineage() -> None:
     versions = BACKEND_DIR / "migrations" / "versions"
     assert not list(versions.glob("*0027*"))
-    assert not list(versions.glob("*0034*"))
     migration = versions / "20260910_0033_add_research_intelligence.py"
     assert migration.is_file()
     assert 'down_revision = "20260907_0032"' in migration.read_text()

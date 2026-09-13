@@ -58,6 +58,7 @@ from app.notifications.service import (
     emit_notification_intent,
 )
 from app.scheduling.service import dispose_schedules_for_account_deletion
+from app.training_governance.service import dispose_training_governance_for_account
 from app.organizations.service import revoke_pending_invitations_for_account_email
 from app.core.config import get_settings
 
@@ -558,6 +559,7 @@ def delete_account(
     tombstone_knowledge_for_account(db, current_user.id, now=now)
     dispose_schedules_for_account_deletion(db, current_user.id, now=now)
     dispose_jobs_for_account_deletion(db, current_user.id, now=now)
+    dispose_training_governance_for_account(db, current_user.id)
     dispose_product_analytics_for_account(db, current_user.id)
     dispose_notifications_for_account(db, current_user.id)
     dispose_entitlements_for_account(db, current_user.id)
