@@ -2,11 +2,17 @@ from __future__ import annotations
 
 import hashlib
 import json
-from importlib.resources import files
 from pathlib import Path
 from typing import Final
 
 from fastapi import HTTPException
+
+from app.llm.evaluation import (
+    EVALUATION_VISIBLE_CONTENT_POLICY_VERSION,
+    evaluation_candidate_visible_materials,
+    evaluation_visible_content_fingerprint,
+    normalize_evaluation_visible_content,
+)
 
 
 DATASET_KEY: Final = "report_synthesis_training_synthetic_v1"
@@ -70,18 +76,25 @@ def deterministic_splits(entry_keys: list[str]) -> dict[str, str]:
 
 def dataset_entry_snapshot(entry: dict[str, str], split: str) -> dict[str, str]:
     source_reference = f"checked-in://training-governance/{DATASET_KEY}/{entry['id']}"
-    normalized = {"input": entry["input"].strip(), "target": entry["target"].strip()}
+    stored = {"input": entry["input"].strip(), "target": entry["target"].strip()}
+    normalized = {
+        "input": normalize_evaluation_visible_content(stored["input"]),
+        "target": normalize_evaluation_visible_content(stored["target"]),
+    }
     return {
         "entry_key": entry["id"],
         "split": split,
         "source_class": "checked_in_synthetic",
         "source_reference": source_reference,
-        "input_text": normalized["input"],
-        "target_text": normalized["target"],
+        "input_text": stored["input"],
+        "target_text": stored["target"],
         "content_checksum": checksum(entry),
-        "input_checksum": checksum(normalized["input"]),
-        "target_checksum": checksum(normalized["target"]),
+        "input_checksum": evaluation_visible_content_fingerprint(entry["input"]),
+        "target_checksum": evaluation_visible_content_fingerprint(entry["target"]),
         "normalized_content_checksum": checksum(normalized),
+        "combined_visible_checksum": evaluation_visible_content_fingerprint(
+            f"{normalized['input']}\n{normalized['target']}"
+        ),
     }
 
 
@@ -168,43 +181,76 @@ def require_checked_in_dataset(dataset_key: str | None) -> None:
 
 
 def _current_evaluation_fingerprints() -> dict[str, object]:
-    """Bind the sealed dataset to the current held-out 21B/21C corpora without loading them into training."""
+    """Fingerprint actual candidate-visible held-out corpus content, never labels."""
 
-    fingerprints: list[dict[str, str]] = []
-    for filename in ("report_synthesis_public_v2.json", "report_synthesis_adversarial_v1.json"):
-        try:
-            document = json.loads(files("app.llm").joinpath(f"evaluation_data/{filename}").read_text(encoding="utf-8"))
-        except (OSError, ValueError) as exc:
-            raise RuntimeError("The held-out evaluation corpus is unavailable.") from exc
-        dataset_id = document.get("dataset_id") if isinstance(document, dict) else None
-        cases = document.get("cases") if isinstance(document, dict) else None
-        if not isinstance(dataset_id, str) or not isinstance(cases, list):
+    try:
+        material = evaluation_candidate_visible_materials()
+    except (OSError, TypeError, ValueError) as exc:
+        raise RuntimeError("The held-out evaluation corpus is unavailable.") from exc
+    if not material:
+        raise RuntimeError("The held-out evaluation corpus is invalid.")
+
+    datasets: dict[tuple[str, str], dict[str, object]] = {}
+    case_ids: list[str] = []
+    for item in material:
+        key = (item.dataset_id, item.dataset_version)
+        dataset = datasets.setdefault(
+            key,
+            {
+                "dataset_id": item.dataset_id,
+                "dataset_version": item.dataset_version,
+                "content_fingerprints": set(),
+            },
+        )
+        fingerprints = dataset["content_fingerprints"]
+        if not isinstance(fingerprints, set):
             raise RuntimeError("The held-out evaluation corpus is invalid.")
-        for case in cases:
-            if not isinstance(case, dict) or not isinstance(case.get("id"), str):
-                raise RuntimeError("The held-out evaluation corpus is invalid.")
-            fingerprints.append(
-                {
-                    "dataset_id": dataset_id,
-                    "case_id": case["id"],
-                    "case_checksum": checksum(case),
-                }
-            )
-    return {"policy": "excluded_not_loaded", "cases": sorted(fingerprints, key=lambda item: (item["dataset_id"], item["case_id"]))}
+        fingerprints.add(evaluation_visible_content_fingerprint(item.text))
+        case_ids.append(item.case_id)
+
+    serialized_datasets = [
+        {
+            "dataset_id": dataset["dataset_id"],
+            "dataset_version": dataset["dataset_version"],
+            "content_fingerprints": sorted(dataset["content_fingerprints"]),
+        }
+        for _, dataset in sorted(datasets.items())
+    ]
+    return {
+        "policy": "excluded_not_loaded",
+        "fingerprint_policy_version": EVALUATION_VISIBLE_CONTENT_POLICY_VERSION,
+        "datasets": serialized_datasets,
+        "case_identifiers": sorted(set(case_ids)),
+    }
 
 
 def _reject_training_evaluation_overlap(rows: list[dict[str, str]]) -> None:
-    """Fail before sealing if a synthetic record resembles an evaluator case or another split."""
+    """Fail before sealing if training includes held-out input or duplicate material."""
 
     evaluation = _current_evaluation_fingerprints()
-    cases = evaluation["cases"]
-    evaluation_ids = {case["case_id"] for case in cases if isinstance(case, dict)}
+    case_identifiers = evaluation["case_identifiers"]
+    datasets = evaluation["datasets"]
+    if not isinstance(case_identifiers, list) or not isinstance(datasets, list):
+        raise RuntimeError("The held-out evaluation corpus is invalid.")
+    evaluation_ids = {case_id for case_id in case_identifiers if isinstance(case_id, str)}
+    evaluation_fingerprints: set[str] = set()
+    for dataset in datasets:
+        if not isinstance(dataset, dict) or not isinstance(dataset.get("content_fingerprints"), list):
+            raise RuntimeError("The held-out evaluation corpus is invalid.")
+        evaluation_fingerprints.update(
+            fingerprint for fingerprint in dataset["content_fingerprints"] if isinstance(fingerprint, str)
+        )
     seen_normalized: dict[str, str] = {}
     for row in rows:
         entry_key = row["entry_key"]
         normalized = row["normalized_content_checksum"]
         if entry_key in evaluation_ids:
             raise RuntimeError("Training data overlaps a held-out evaluation case identifier.")
+        if any(
+            row[key] in evaluation_fingerprints
+            for key in ("input_checksum", "target_checksum", "combined_visible_checksum")
+        ):
+            raise RuntimeError("Training data overlaps held-out evaluation model-visible content.")
         existing_split = seen_normalized.get(normalized)
         if existing_split is not None:
             raise RuntimeError("Training data has a duplicate normalized content fingerprint across splits.")

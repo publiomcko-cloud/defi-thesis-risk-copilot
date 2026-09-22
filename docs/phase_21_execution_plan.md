@@ -288,9 +288,16 @@ Implementation record:
   Phase 20F `free-v1` catalog;
 - only `report_synthesis_training_synthetic_v1`, a checked-in synthetic fixture,
   may be sealed. Its code-owned eligibility policy excludes private user data,
-  organization data, Phase 21C feedback, and Phase 21B held-out evaluation
-  datasets. SHA-256-ranked train/validation/test partitioning and normalized
-  content uniqueness prevent deterministic split drift and duplicate rows;
+  organization data, Phase 21C feedback, and Phase 21B/21C held-out evaluation
+  material. Evaluation candidates receive only neutral report/public-untrusted
+  scenario stimulus; evaluator labels, expected outcomes, failure classes, and
+  case-specific fixture identifiers remain evaluator-side. The held-out checksum
+  binds dataset IDs/versions and candidate-visible fingerprints under
+  `evaluation.visible-content.nfkc-whitespace-casefold.sha256.v1` (Unicode NFKC,
+  whitespace collapse, casefold, UTF-8 SHA-256), so copied scenario text is
+  rejected even under an unrelated training ID. SHA-256-ranked
+  train/validation/test partitioning and normalized content uniqueness prevent
+  deterministic split drift and duplicate rows;
 - `model.training.prepare.v1` is a dedicated administrator submission path.
   The client can provide no dataset body, provider/image/offer, credential, or
   shell input. The server creates the immutable manifest/run/execution snapshot

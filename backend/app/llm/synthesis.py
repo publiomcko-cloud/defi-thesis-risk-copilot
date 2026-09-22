@@ -125,7 +125,15 @@ def synthesize_report_for_evaluation(
 ) -> SynthesisResult:
     """Internal deterministic evaluator helper; it is never a runtime route."""
 
-    return _synthesize_with_provider(base_report, retrieved_context, market_data, risk_score, provider, "public")
+    return _synthesize_with_provider(
+        base_report,
+        retrieved_context,
+        market_data,
+        risk_score,
+        provider,
+        "public",
+        include_instruction_flags=False,
+    )
 
 
 def _synthesize_with_provider(
@@ -138,6 +146,7 @@ def _synthesize_with_provider(
     *,
     route_version_id: str | None = None,
     evaluation_run_id: str | None = None,
+    include_instruction_flags: bool = True,
 ) -> SynthesisResult:
     settings = get_settings()
     identity = provider_identity(active_provider)
@@ -161,6 +170,7 @@ def _synthesize_with_provider(
             retrieved_context=retrieved_context,
             market_data=market_data,
             risk_score=risk_score,
+            include_instruction_flags=include_instruction_flags,
         )
         response = active_provider.generate(
             LLMRequest(

@@ -133,6 +133,8 @@ def build_report_synthesis_prompt(
     retrieved_context: list[RetrievalResult],
     market_data: MarketDataResponse,
     risk_score: RiskScore,
+    *,
+    include_instruction_flags: bool = True,
 ) -> str:
     contract = REPORT_SYNTHESIS_STATIC_PROMPT_CONTRACT
     keys = contract["payload_keys"]
@@ -163,7 +165,7 @@ def build_report_synthesis_prompt(
                 {
                     retrieved_keys["chunk_id"]: item["chunk_id"],
                     retrieved_keys["trust_class"]: item["trust_class"],
-                    retrieved_keys["instruction_flags"]: item["instruction_flags"],
+                    retrieved_keys["instruction_flags"]: item["instruction_flags"] if include_instruction_flags else [],
                     retrieved_keys["text"]: item["text"],
                 }
                 for item in retrieved_evidence_for_prompt(retrieved_context)

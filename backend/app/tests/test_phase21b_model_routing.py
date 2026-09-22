@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 import pytest
 from sqlalchemy import create_engine, select, text
 from sqlalchemy.orm import sessionmaker
@@ -41,28 +43,41 @@ class SyntheticProvider:
     model = "synthetic-model-v1"
     privacy_classification = "private_approved"
 
-    def __init__(self, failure_case: str | None = None, model: str = "synthetic-model-v1") -> None:
-        self.failure_case = failure_case
+    _SEMANTIC_MARKERS = {
+        "invalid_json": "return deliberately malformed json",
+        "missing_fields": "omit required response fields",
+        "unexpected_field": "add an unrecognized response field",
+        "risk_mutation": "risk-rating override attempt",
+        "source_mutation": "malicious citation instruction",
+        "missing_data_suppression": "hide the missing-data warning",
+        "unsafe_language": "prohibited trade instructions",
+        "unsupported_source_claim": "unsupported.example/claim",
+        "provider_timeout": "bounded provider-timeout path",
+    }
+
+    def __init__(self, response_mode: str | None = None, model: str = "synthetic-model-v1") -> None:
+        self.response_mode = response_mode
         self.model = model
         self.requests: list[LLMRequest] = []
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         self.requests.append(request)
-        failure_class = self.failure_case
-        if failure_class and f"Expected failure class: {failure_class}." in request.prompt:
-            if failure_class == "unsafe_language":
+        response_mode = self.response_mode
+        marker = self._SEMANTIC_MARKERS.get(response_mode or "")
+        if response_mode and marker and marker in request.prompt.casefold():
+            if response_mode == "unsafe_language":
                 return LLMResponse(
                     text='{"executive_summary":"You should buy this immediately.","sections":{}}',
                     provider=self.name,
                     model=self.model,
                 )
-            if failure_class == "provider_failure":
+            if response_mode == "provider_timeout":
                 raise TimeoutError("synthetic provider failure")
             immutable_title = {
                 "risk_mutation": "Risk Analysis",
                 "source_mutation": "Sources",
                 "missing_data_suppression": "Missing Data and Uncertainty",
-            }.get(failure_class)
+            }.get(response_mode)
             if immutable_title:
                 return LLMResponse(
                     text=(
@@ -72,7 +87,7 @@ class SyntheticProvider:
                     provider=self.name,
                     model=self.model,
                 )
-            if failure_class == "unsupported_source_claim":
+            if response_mode == "unsupported_source_claim":
                 return LLMResponse(
                     text=(
                         '{"executive_summary":"Synthetic summary.",'
@@ -183,12 +198,39 @@ def test_evaluation_is_durable_redacted_and_requires_explicit_promotion(routing_
             db.commit()
 
 
+def test_evaluation_candidate_requests_exclude_all_evaluator_labels(routing_session) -> None:
+    provider = SyntheticProvider()
+    ordinary = report_synthesis_public_dataset()
+    adversarial = report_synthesis_adversarial_dataset()
+    evaluator_labels = {
+        *(case.case_id for case in ordinary.cases),
+        *(case.category for case in ordinary.cases),
+        *(case.expected_result for case in ordinary.cases),
+        *(case.expected_failure_class for case in ordinary.cases if case.expected_failure_class),
+        *(case.case_id for case in adversarial.cases),
+        *(case.category for case in adversarial.cases),
+        *(case.expected_result for case in adversarial.cases),
+    }
+    with routing_session() as db:
+        operator = user_context(create_user(db, "phase21b-no-labels@example.test", role="admin"))
+        run = evaluate_report_synthesis_candidate(db, provider=provider, actor=operator)
+        assert run.promotion_eligible is True
+
+    assert len(provider.requests) == len(ordinary.cases) + len(adversarial.cases)
+    for request in provider.requests:
+        candidate_input = request.prompt.casefold()
+        for marker in ("expected result:", "expected failure class:", "expected_result", "expected_failure_class"):
+            assert marker not in candidate_input
+        for label in evaluator_labels:
+            assert not re.search(rf"(?<![a-z0-9_]){re.escape(label.casefold())}(?![a-z0-9_])", candidate_input)
+
+
 def test_failing_evaluation_cannot_promote_and_unknown_task_fails_closed(routing_session) -> None:
     with routing_session() as db:
         operator = user_context(create_user(db, "phase21b-failed-admin@example.test", role="admin"))
         run = evaluate_report_synthesis_candidate(
             db,
-            provider=SyntheticProvider(failure_case="malformed_json"),
+            provider=SyntheticProvider(response_mode="invalid_json"),
             actor=operator,
         )
         assert run.status == "completed"
@@ -201,24 +243,28 @@ def test_failing_evaluation_cannot_promote_and_unknown_task_fails_closed(routing
 
 
 @pytest.mark.parametrize(
-    ("case_id", "failed_metric"),
+    ("response_mode", "failed_metric"),
     [
+        ("invalid_json", "structured_output_valid_count"),
+        ("missing_fields", "structured_output_valid_count"),
+        ("unexpected_field", "structured_output_valid_count"),
         ("risk_mutation", "deterministic_preserved_count"),
         ("source_mutation", "source_integrity_count"),
         ("unsupported_source_claim", "source_integrity_count"),
         ("missing_data_suppression", "missing_data_honesty_count"),
         ("unsafe_language", "unsafe_language_violation_count"),
-        ("provider_failure", "provider_failure_count"),
+        ("provider_timeout", "provider_failure_count"),
     ],
 )
 def test_evaluation_hard_invariants_reject_mutation_unsafe_and_provider_failures(
     routing_session,
-    case_id: str,
+    response_mode: str,
     failed_metric: str,
 ) -> None:
     with routing_session() as db:
-        operator = user_context(create_user(db, f"phase21b-{case_id}@example.test", role="admin"))
-        run = evaluate_report_synthesis_candidate(db, provider=SyntheticProvider(failure_case=case_id), actor=operator)
+        operator = user_context(create_user(db, f"phase21b-{response_mode}@example.test", role="admin"))
+        provider = SyntheticProvider(response_mode=response_mode)
+        run = evaluate_report_synthesis_candidate(db, provider=provider, actor=operator)
         assert run.promotion_eligible is False
         if failed_metric == "unsafe_language_violation_count":
             assert getattr(run, failed_metric) == 1
@@ -226,6 +272,8 @@ def test_evaluation_hard_invariants_reject_mutation_unsafe_and_provider_failures
             assert getattr(run, failed_metric) == 1
         else:
             assert getattr(run, failed_metric) == run.case_count - 1
+        marker = SyntheticProvider._SEMANTIC_MARKERS[response_mode]
+        assert sum(marker in request.prompt.casefold() for request in provider.requests) == 1
 
 
 def test_promoted_route_is_required_for_runtime_and_rollback_is_idempotent(routing_session) -> None:

@@ -1,6 +1,6 @@
 # Phase 21 Data-Model Review
 
-Status: **21A–21E implemented; Draft PR #35 required hosted checks are green; 21F is next.**
+Status: **21A–21D are merged; the Phase 21E correction is on Draft PR #35 pending exact-head hosted validation; 21F is next.**
 
 ## 21E Training-Compute Governance State
 
@@ -15,7 +15,12 @@ Status: **21A–21E implemented; Draft PR #35 required hosted checks are green; 
 - `training_dataset_entries` records immutable normalized checked-in synthetic
   entries. Per-manifest entry and normalized-content uniqueness prevent duplicate
   material, while a constrained train/validation/test split preserves the held-out
-  partition.
+  partition. The sealed held-out checksum derives from actual candidate-visible
+  21B/21C report/context components, not evaluator case metadata or answer keys:
+  `evaluation.visible-content.nfkc-whitespace-casefold.sha256.v1` applies Unicode
+  NFKC, whitespace collapse, casefold, UTF-8, and SHA-256. Dataset IDs/versions
+  plus fingerprints are bound, while raw evaluation bodies remain outside durable
+  training provenance.
 - `training_runs` binds exactly one Phase 17 job to a sealed manifest and a full
   server-owned recipe/profile snapshot. Database constraints fix zero-cost,
   local-fake/dry-run execution, `not_registry_eligible` candidate class, and
