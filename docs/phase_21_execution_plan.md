@@ -1,6 +1,6 @@
 # V1 Phase 21 Execution Plan — Model and Research Intelligence Expansion
 
-Status: **Active — checkpoints 21A–21E implemented; Draft PR #35 exact-head hosted validation is pending for the evaluator-protocol correction; 21F is next.**
+Status: **Active — checkpoints 21A–21E implemented; Draft PR #35 required hosted checks are green for the evaluator-protocol correction at `2b3817e75f1a7130d847f0c4e58bc2aa94d3e0a9`; 21F is next.**
 
 21A–21B base merge: PR #32, `37fc065b95434622dbfdf407a2bda7930f2c4547`
 

@@ -1,6 +1,6 @@
 # Phase 21 Data-Model Review
 
-Status: **21A–21D are merged; the Phase 21E evaluator-protocol correction is awaiting exact-head hosted validation on Draft PR #35; 21F is next.**
+Status: **21A–21D are merged; the Phase 21E evaluator-protocol correction at `2b3817e75f1a7130d847f0c4e58bc2aa94d3e0a9` has required hosted checks green on Draft PR #35; 21F is next.**
 
 ## 21E Training-Compute Governance State
 
