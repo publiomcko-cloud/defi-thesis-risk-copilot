@@ -764,8 +764,12 @@ quality evidence, bounded evaluation quality metrics, and tenant-safe report
 feedback. `report_synthesis.prompt.v3` frames retrieved text as server-classified
 untrusted evidence; `report_synthesis.quality.v1` discards unsafe, poisoned,
 unsupported, citation-invalid, or deterministic-integrity-invalid wording;
-`report_synthesis.promotion.v2` requires the new hard gates and still never
-promotes automatically. Feedback review creates only a safe future reference,
+historical `report_synthesis.promotion.v2` records preserve the 21C protocol;
+current `report_synthesis.promotion.v3` adds the candidate-visible-content and
+evaluator-input-isolation protocol to the hard gates and still never promotes
+automatically. Runtime, execution snapshots, and rollback require current v3
+policy/checksum, prompt, and active ordinary/adversarial dataset authority.
+Feedback review creates only a safe future reference,
 never dataset content or routing/training authority. Runtime continues to check
 the global disabled kill switch, route/evidence/model/prompt linkage, exact
 server-configured adapter identity, and private/organization privacy before it
@@ -780,7 +784,17 @@ baseline preserves original fields without provider use. Derived data is
 disposed on thesis/account/organization lifecycle events and always rechecks
 report/thesis authority at read time. 21D creates no model task, provider route,
 schedule, notification, trading, wallet, or advice authority. Checkpoint
-21E–21F remain planned and Phase 22 remains the later deployed-provider/legal
-validation phase.
+Checkpoint 21E adds `0034` sealed synthetic training manifests/entries and a
+single Phase 17-bound local-fake training-preparation path. Its server-generated
+snapshot pins a checked-in synthetic corpus, deterministic split/exclusion
+checksums, code-owned recipe, local runtime identity, zero-cost/one-slot compute
+profile, expected artifacts, and environment. Database guards keep sealed data
+and snapshot fields immutable. Workers use existing leases, retries, recovery,
+cancellation, artifacts, and capacity reservations; completion produces only a
+checksummed non-production model card and receipt. No private/organization/
+feedback data, provider/Vast session, network, GPU, shell, model registration,
+evaluation, promotion, route, or production activation path is introduced.
+Checkpoint 21F remains planned and Phase 22 remains the later
+deployed-provider/legal validation phase.
 
 Deterministic risk and non-execution boundaries remain permanent.

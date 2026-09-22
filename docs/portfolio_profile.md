@@ -2,8 +2,9 @@
 
 Status: **Phase 20 Complete — Portfolio Profile.** Phase 20J merged through
 PR #31 at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`. Phase 21 is active on
-`agent/v1-phase-21-model-research-intelligence`; 21A is the implemented
-governance checkpoint and 21B–21F remain planned.
+`agent/v1-phase-21e-worker-compute-training-governance`; 21A–21D are merged,
+21E is implemented with green required hosted checks on Draft PR #35, and 21F
+remains planned.
 
 This repository is currently developed as a production-grade portfolio anchor, not as an actively commercialized SaaS product.
 

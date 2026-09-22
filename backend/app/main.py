@@ -32,6 +32,7 @@ from app.api.routes_research_intelligence import router as research_intelligence
 from app.api.routes_schedules import router as schedules_router
 from app.api.routes_simulation import router as simulation_router
 from app.api.routes_theses import router as theses_router
+from app.api.routes_training_governance import router as training_governance_router
 from app.api.routes_vast import router as vast_router
 from app.api.routes_watchlist import router as watchlist_router
 from app.core.config import get_settings
@@ -152,6 +153,7 @@ def create_app() -> FastAPI:
     app.include_router(demo_router, prefix="/api")
     app.include_router(deployment_router, prefix="/api")
     app.include_router(admin_router, prefix="/api")
+    app.include_router(training_governance_router, prefix="/api")
     app.include_router(analysis_router, prefix="/api")
     app.include_router(jobs_router, prefix="/api")
     app.include_router(reports_router, prefix="/api")

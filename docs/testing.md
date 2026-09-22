@@ -779,6 +779,32 @@ and Phase 20F `free-v1`; downgrade removes only 21D tables. These checks do not
 claim hosted CI, model-provider activation, automatic monitoring, trading, or
 production activation.
 
+Checkpoint 21E validates only controlled offline governance. Focused tests seal
+the one checked-in synthetic dataset; prove reproducible non-overlapping
+train/validation/test partitions, current 21B/21C evaluation exclusion, and
+rejection of private/org/report/knowledge/upload/feedback and arbitrary
+provider/image/offer/shell inputs. Real Phase 17 worker tests exercise start,
+forged-result rejection, exact completion, cancellation, terminal failure,
+lease-loss retry/recovery, stale completion, and exactly one two-artifact set.
+SQLite/PostgreSQL migration cycles prove `0033 -> 0034 -> 0033 -> 0034` while
+preserving prior tables and `free-v1`; PostgreSQL additionally proves a single
+durable local-fake slot and direct manifest/snapshot mutation rejection.
+
+```bash
+cd backend
+python -m compileall -q app scripts migrations
+RUN_POSTGRES_INTEGRATION=true python -m pytest -q \
+  app/tests/test_phase21e_training_governance.py \
+  app/tests/test_phase21e_sqlite_migration.py \
+  app/tests/test_phase21e_postgres.py \
+  app/tests/test_phase21e_postgres_migration.py
+cd ../frontend
+npm run lint && npm run test:phase21e && npm run build
+```
+
+These checks use no paid provider, real Vast rental, credentials, private data,
+or model promotion/route. Hosted exact-head evidence remains required.
+
 ## 11. CI expectations
 
 CI should progressively include:

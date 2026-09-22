@@ -875,3 +875,54 @@ export type OptionsAnalysisResponse = {
   volatility_summary: string;
   disclaimer: string;
 };
+
+export type TrainingArtifact = {
+  id: string;
+  artifact_type: string;
+  status: string;
+  checksum?: string | null;
+  size_bytes?: number | null;
+  content_type?: string | null;
+  storage_backend?: string | null;
+};
+
+export type TrainingManifest = {
+  id: string;
+  dataset_version: string;
+  manifest_checksum: string;
+  content_checksum: string;
+  held_out_evaluation_checksum: string;
+  entry_count: number;
+  train_count: number;
+  validation_count: number;
+  test_count: number;
+  created_at: string;
+};
+
+export type TrainingRun = {
+  id: string;
+  job_id: string;
+  manifest_id: string;
+  manifest_checksum: string;
+  recipe_key: string;
+  recipe_version: string;
+  base_model_identity: string;
+  compute_profile_id: string;
+  compute_profile_version: string;
+  execution_mode: string;
+  status: string;
+  candidate_class: string;
+  real_training_occurred: boolean;
+  result_code?: string | null;
+  created_at: string;
+  started_at?: string | null;
+  completed_at?: string | null;
+  artifacts: TrainingArtifact[];
+};
+
+export type TrainingGovernance = {
+  manifests: TrainingManifest[];
+  runs: TrainingRun[];
+  compute_profile: Record<string, unknown>;
+  recipe: Record<string, unknown>;
+};

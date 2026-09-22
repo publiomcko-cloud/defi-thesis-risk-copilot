@@ -79,9 +79,10 @@ def submit_job(
     allow_document_ingest: bool = False,
     allow_document_embedding: bool = False,
     allow_scheduled_watchlist: bool = False,
+    allow_training_governance: bool = False,
     before_commit: Callable[[JobModel], None] | None = None,
     commit: bool = True,
-    extra_server_context: dict[str, str] | None = None,
+    extra_server_context: dict[str, object] | None = None,
 ) -> tuple[JobModel, bool]:
     """Create one queued job and its reservation in a single database transaction.
 
@@ -99,7 +100,9 @@ def submit_job(
         raise HTTPException(status_code=403, detail="Document embedding requires the dedicated source endpoint.")
     if request.job_type == "watchlist.evaluate" and not allow_scheduled_watchlist:
         raise HTTPException(status_code=403, detail="Watchlist evaluation jobs require the durable schedule dispatcher.")
-    if extra_server_context and request.job_type != "watchlist.evaluate":
+    if request.job_type == "model.training.prepare" and not allow_training_governance:
+        raise HTTPException(status_code=403, detail="Training jobs require the dedicated governance endpoint.")
+    if extra_server_context and request.job_type not in {"watchlist.evaluate", "model.training.prepare"}:
         raise HTTPException(status_code=403, detail="Additional server context is not allowed for this job type.")
     if len(idempotency_key.strip()) < 8 or len(idempotency_key) > 128:
         raise HTTPException(status_code=422, detail="Idempotency-Key must be between 8 and 128 characters.")
@@ -279,6 +282,10 @@ def cancel_job(db: Session, actor: UserContext, job_id: str) -> JobModel:
             actor_user_id=actor.id,
             message="Queued job cancelled before worker execution.",
         )
+        if job.job_type == "model.training.prepare":
+            from app.training_governance.service import mark_training_run_terminal
+
+            mark_training_run_terminal(db, job, status="cancelled", result_code="job_cancelled")
         _release_capacity(db, job)
     record_audit_event(db, actor.id, "job.cancel_requested", "job", job.id, {"status": job.status}, commit=False)
     db.commit()
@@ -426,7 +433,7 @@ def _create_reserved_job(
     fingerprint: str,
     replay_of_job_id: str | None,
     created_by_user_id: str,
-    extra_server_context: dict[str, str] | None = None,
+    extra_server_context: dict[str, object] | None = None,
 ) -> JobModel:
     _validate_enabled_job_type(request.job_type)
     estimated_cost_microusd = _estimated_job_cost_microusd(request.job_type)
@@ -653,9 +660,20 @@ def _capacity_scopes(
     job_type: str,
 ) -> list[tuple[str, str, int, int, str]]:
     settings = get_settings()
+    provider_scope = ("provider", f"controlled:{job_type}", settings.job_provider_pending_limit, settings.job_provider_running_limit, "provider")
+    if job_type == "model.training.prepare":
+        # The code-owned local profile is the hard authority. General job limits still
+        # apply through the surrounding global/user/organization reservation records.
+        provider_scope = (
+            "provider",
+            "training_compute:local_fake_v1",
+            min(settings.job_provider_pending_limit, 1),
+            min(settings.job_provider_running_limit, 1),
+            "training compute",
+        )
     scopes = [
         ("global", "all", settings.job_global_pending_limit, settings.job_global_running_limit, "global"),
-        ("provider", f"controlled:{job_type}", settings.job_provider_pending_limit, settings.job_provider_running_limit, "provider"),
+        provider_scope,
         ("user", owner_user_id, settings.job_user_pending_limit, settings.job_user_running_limit, "user"),
     ]
     if organization_id:
@@ -743,7 +761,7 @@ def _reserve_quota(db: Session, actor: UserContext, job_type: str) -> None:
         return
     if actor.is_admin and get_settings().quota_admin_exempt:
         return
-    if job_type in {"document.ingest", "document.embed"}:
+    if job_type in {"document.ingest", "document.embed", "model.training.prepare"}:
         return
     action = ACTION_ANALYSIS if job_type == "analysis.generate" else None
     if action is None:
@@ -794,6 +812,8 @@ def _validate_enabled_job_type(job_type: str) -> None:
         return
     if job_type == "watchlist.evaluate" and get_settings().schedule_dispatch_enabled:
         return
+    if job_type == "model.training.prepare":
+        return
     raise HTTPException(status_code=403, detail="This job type is not enabled.")
 
 
@@ -813,6 +833,8 @@ def _preallocate_result_resource(job_type: str) -> tuple[str, str, dict[str, str
         return "knowledge_embedding_generation", "pending", {}
     if job_type == "watchlist.evaluate":
         return "watchlist_item", "pending", {}
+    if job_type == "model.training.prepare":
+        return "training_run", "pending", {}
     raise HTTPException(status_code=403, detail="This job type is not enabled.")
 
 
