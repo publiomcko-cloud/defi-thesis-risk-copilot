@@ -1,6 +1,6 @@
 # Phase 21 Data-Model Review
 
-Status: **21A–21D are merged; the Phase 21E correction is implemented on Draft PR #35 with required hosted checks green at `457ad0fd5aae2029709cc1b73c9a36ad71338c18`; 21F is next.**
+Status: **21A–21D are merged; the Phase 21E evaluator-protocol correction is awaiting exact-head hosted validation on Draft PR #35; 21F is next.**
 
 ## 21E Training-Compute Governance State
 
@@ -89,13 +89,17 @@ route explicitly recorded as the previous known-good route, otherwise it clears
 the pointer to the deterministic baseline. History and evaluation evidence are
 never deleted by rollback.
 
-Promotion also verifies the completed run against the current code-owned
-policy version/checksum, checked-in dataset identity/version/checksum, and
-current exact prompt linkage. This makes older or altered evidence ineligible
-without mutating it. Assignment changes are prospective: a valid historical
-execution snapshot is independently verifiable after a later promotion or
-rollback, while missing/corrupt/mismatched snapshot evidence falls back to
-deterministic wording with bounded provenance.
+Promotion, current routing, and rollback restoration share one read-only
+current-evidence predicate. It requires the completed run's exact current
+`report_synthesis.promotion.v3` checksum, current prompt linkage, and active
+ordinary and adversarial dataset identity/version/checksum/count. v3 binds the
+candidate-visible-content fingerprint policy and evaluator input-isolation
+policy. `report_synthesis.promotion.v2` rows remain immutable historical
+records but cannot promote, route, or restore. Assignment changes remain
+prospective for routes whose evidence is still current; a snapshot tied to an
+obsolete v2 evaluation fails closed before provider execution, while a
+missing/corrupt/mismatched snapshot falls back to deterministic wording with
+bounded provenance.
 
 ## 21C Migration And Quality/Feedback State
 

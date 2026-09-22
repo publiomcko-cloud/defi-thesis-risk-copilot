@@ -116,13 +116,16 @@ Failure discards generated wording while retaining truthful route/evaluation
 provenance and the deterministic report.
 
 The separate checked-in 17-case `report_synthesis_adversarial_v1` fixture is
-public/synthetic. `report_synthesis.promotion.v2` requires it and the ordinary
-dataset, with 100% hard quality invariants and zero unsafe or poisoning
-violations. v1 policy and historical prompt records remain immutable; promotion
-is still explicit platform-admin authority. Rollback restores a prior route
-only when its prompt, policy, datasets, model, and completed evaluation still
-meet current authority; otherwise it clears the assignment to deterministic
-output rather than installing obsolete evidence.
+public/synthetic. Historical `report_synthesis.promotion.v2` records retain the
+21C evidence, while current `report_synthesis.promotion.v3` additionally binds
+the candidate-visible-content fingerprint and evaluator-input-isolation
+protocol. Both corpora retain 100% hard quality invariants and zero unsafe or
+poisoning violations. Historical records and prompt versions remain immutable;
+promotion is still explicit platform-admin authority. Promotion, current route
+resolution, execution snapshots, and rollback all require the current v3
+policy/checksum, prompt, and active ordinary/adversarial corpus authority. A
+v2 route fails closed before provider execution; rollback clears rather than
+restores it.
 
 Feedback is server-derived from accessible report scope and limited to the
 approved closed taxonomy. It is user-readable only within that scope, admin

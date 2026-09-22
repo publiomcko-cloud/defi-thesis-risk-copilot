@@ -764,8 +764,12 @@ quality evidence, bounded evaluation quality metrics, and tenant-safe report
 feedback. `report_synthesis.prompt.v3` frames retrieved text as server-classified
 untrusted evidence; `report_synthesis.quality.v1` discards unsafe, poisoned,
 unsupported, citation-invalid, or deterministic-integrity-invalid wording;
-`report_synthesis.promotion.v2` requires the new hard gates and still never
-promotes automatically. Feedback review creates only a safe future reference,
+historical `report_synthesis.promotion.v2` records preserve the 21C protocol;
+current `report_synthesis.promotion.v3` adds the candidate-visible-content and
+evaluator-input-isolation protocol to the hard gates and still never promotes
+automatically. Runtime, execution snapshots, and rollback require current v3
+policy/checksum, prompt, and active ordinary/adversarial dataset authority.
+Feedback review creates only a safe future reference,
 never dataset content or routing/training authority. Runtime continues to check
 the global disabled kill switch, route/evidence/model/prompt linkage, exact
 server-configured adapter identity, and private/organization privacy before it

@@ -13,15 +13,27 @@ from app.db.base import Base
 from app.llm.base import LLMRequest, LLMResponse
 from app.llm.evaluation import (
     ModelEvaluationError,
+    PROMOTION_POLICY_CHECKSUM,
+    PROMOTION_POLICY_VERSION,
     ensure_report_synthesis_evaluation_dataset,
     evaluate_report_synthesis_candidate,
     promote_evaluation_route,
     rollback_route,
 )
+from app.llm.evaluation_authority import (
+    EVALUATION_VISIBLE_CONTENT_POLICY_VERSION,
+    EVALUATOR_INPUT_ISOLATION_POLICY_VERSION,
+    PROMOTION_POLICY,
+)
 from app.llm.evaluation_data import report_synthesis_adversarial_dataset, report_synthesis_public_dataset
 from app.llm.governance import ensure_report_synthesis_prompt_version, record_model_run_provenance
 from app.llm.provenance import build_report_synthesis_candidate
-from app.llm.routing import server_environment, resolve_report_synthesis_route
+from app.llm.routing import (
+    capture_report_synthesis_execution_route,
+    resolve_report_synthesis_execution_route,
+    resolve_report_synthesis_route,
+    server_environment,
+)
 from app.llm.synthesis import synthesize_report
 from app.models.model_governance import (
     ModelEvaluationCaseResultModel,
@@ -36,6 +48,9 @@ from app.models.model_governance import (
 from app.models.analysis_request import AnalysisRequestModel
 from app.models.report import ReportModel
 from app.schemas.analysis import AnalysisRequest
+
+
+LEGACY_PROMOTION_POLICY_V2_CHECKSUM = "229ead3eed24d098883a7389dae4bb04409750ac3be9b415522baa73c3cca6d2"
 
 
 class SyntheticProvider:
@@ -215,6 +230,16 @@ def test_evaluation_candidate_requests_exclude_all_evaluator_labels(routing_sess
         operator = user_context(create_user(db, "phase21b-no-labels@example.test", role="admin"))
         run = evaluate_report_synthesis_candidate(db, provider=provider, actor=operator)
         assert run.promotion_eligible is True
+        assert run.policy_version == PROMOTION_POLICY_VERSION == "report_synthesis.promotion.v3"
+        assert run.policy_checksum == PROMOTION_POLICY_CHECKSUM
+        assert run.policy_checksum != LEGACY_PROMOTION_POLICY_V2_CHECKSUM
+        assert PROMOTION_POLICY["evaluator_protocol"] == {
+            "candidate_visible_content_policy_version": EVALUATION_VISIBLE_CONTENT_POLICY_VERSION,
+            "candidate_input_isolation_policy_version": EVALUATOR_INPUT_ISOLATION_POLICY_VERSION,
+            "candidate_metadata_policy": "no-case-ids-labels-or-answer-keys.v1",
+            "candidate_prompt_policy": "no-evaluation-only-instruction-flags.v1",
+        }
+        assert (run.dataset_id, run.adversarial_dataset_id) == (ordinary.dataset_id, adversarial.dataset_id)
 
     assert len(provider.requests) == len(ordinary.cases) + len(adversarial.cases)
     for request in provider.requests:
@@ -223,6 +248,155 @@ def test_evaluation_candidate_requests_exclude_all_evaluator_labels(routing_sess
             assert marker not in candidate_input
         for label in evaluator_labels:
             assert not re.search(rf"(?<![a-z0-9_]){re.escape(label.casefold())}(?![a-z0-9_])", candidate_input)
+
+
+def test_historical_v2_evidence_cannot_promote_or_resolve_current_or_snapshot_routes(routing_session) -> None:
+    with routing_session() as db:
+        operator = user_context(create_user(db, "phase21e-v2-authority@example.test", role="admin"))
+        historical = evaluate_report_synthesis_candidate(
+            db,
+            provider=SyntheticProvider(model="phase21e-historical-v2"),
+            actor=operator,
+        )
+        historical_model = db.get(ModelRegistryModel, historical.candidate_model_registry_id)
+        assert historical.status == "completed"
+        assert historical.promotion_eligible is True
+        assert historical_model is not None and historical_model.lifecycle_state != "retired"
+        db.execute(
+            ModelEvaluationRunModel.__table__.update()
+            .where(ModelEvaluationRunModel.id == historical.id)
+            .values(
+                policy_version="report_synthesis.promotion.v2",
+                policy_checksum=LEGACY_PROMOTION_POLICY_V2_CHECKSUM,
+            )
+        )
+        db.expire_all()
+        with pytest.raises(ModelEvaluationError, match="current promotion policy"):
+            promote_evaluation_route(db, evaluation_run_id=historical.id, actor=operator)
+
+        provider = SyntheticProvider(model="phase21e-promoted-then-obsolete")
+        current = evaluate_report_synthesis_candidate(db, provider=provider, actor=operator)
+        route = promote_evaluation_route(db, evaluation_run_id=current.id, actor=operator)
+        snapshot = capture_report_synthesis_execution_route(
+            db,
+            content_scope="private",
+            configured_provider=provider,
+        )
+        assert snapshot["route_version_id"] == route.id
+        db.execute(
+            ModelEvaluationRunModel.__table__.update()
+            .where(ModelEvaluationRunModel.id == current.id)
+            .values(
+                policy_version="report_synthesis.promotion.v2",
+                policy_checksum=LEGACY_PROMOTION_POLICY_V2_CHECKSUM,
+            )
+        )
+        db.commit()
+
+        before = len(provider.requests)
+        resolution = resolve_report_synthesis_route(db, content_scope="private", configured_provider=provider)
+        assert resolution.provider is None
+        assert resolution.fallback_reason == "invalid_route_evidence"
+        base, context, market, risk = _runtime_inputs()
+        result = synthesize_report(base, context, market, risk, provider=provider, content_scope="private", db=db)
+        assert result.used_llm is False
+        assert result.fallback_reason == "invalid_route_evidence"
+        snapshot_resolution = resolve_report_synthesis_execution_route(
+            db,
+            content_scope="private",
+            snapshot_payload=snapshot,
+            configured_provider=provider,
+        )
+        assert snapshot_resolution.provider is None
+        assert snapshot_resolution.fallback_reason == "invalid_execution_route_evidence"
+        assert len(provider.requests) == before
+
+
+def test_rollback_clears_a_historical_v2_previous_route(routing_session) -> None:
+    with routing_session() as db:
+        operator = user_context(create_user(db, "phase21e-v2-rollback@example.test", role="admin"))
+        historical = evaluate_report_synthesis_candidate(
+            db,
+            provider=SyntheticProvider(model="phase21e-v2-rollback-a"),
+            actor=operator,
+        )
+        route_a = promote_evaluation_route(db, evaluation_run_id=historical.id, actor=operator)
+        db.execute(
+            ModelEvaluationRunModel.__table__.update()
+            .where(ModelEvaluationRunModel.id == historical.id)
+            .values(
+                policy_version="report_synthesis.promotion.v2",
+                policy_checksum=LEGACY_PROMOTION_POLICY_V2_CHECKSUM,
+            )
+        )
+        db.commit()
+
+        current = evaluate_report_synthesis_candidate(
+            db,
+            provider=SyntheticProvider(model="phase21e-v3-rollback-b"),
+            actor=operator,
+        )
+        route_b = promote_evaluation_route(db, evaluation_run_id=current.id, actor=operator)
+        assert route_b.previous_route_version_id == route_a.id
+        assignment = rollback_route(db, route_version_id=route_b.id, actor=operator)
+        assert assignment.active_route_version_id is None
+
+
+@pytest.mark.parametrize("tampered_authority", ["ordinary_dataset", "adversarial_dataset", "policy_checksum", "prompt_version"])
+def test_runtime_rejects_each_tampered_current_evidence_authority(routing_session, tampered_authority: str) -> None:
+    with routing_session() as db:
+        operator = user_context(create_user(db, f"phase21e-tamper-{tampered_authority}@example.test", role="admin"))
+        provider = SyntheticProvider(model=f"phase21e-tamper-{tampered_authority}")
+        run = evaluate_report_synthesis_candidate(db, provider=provider, actor=operator)
+        route = promote_evaluation_route(db, evaluation_run_id=run.id, actor=operator)
+        if tampered_authority == "ordinary_dataset":
+            db.execute(
+                ModelEvaluationDatasetModel.__table__.update()
+                .where(ModelEvaluationDatasetModel.id == run.dataset_id)
+                .values(dataset_checksum="0" * 64)
+            )
+        elif tampered_authority == "adversarial_dataset":
+            db.execute(
+                ModelEvaluationDatasetModel.__table__.update()
+                .where(ModelEvaluationDatasetModel.id == run.adversarial_dataset_id)
+                .values(dataset_checksum="0" * 64)
+            )
+        elif tampered_authority == "policy_checksum":
+            db.execute(
+                ModelEvaluationRunModel.__table__.update()
+                .where(ModelEvaluationRunModel.id == run.id)
+                .values(policy_checksum="0" * 64)
+            )
+        else:
+            current_prompt = ensure_report_synthesis_prompt_version(db)
+            historical_prompt = ModelPromptVersionModel(
+                id="prompt_phase21e_historical",
+                task_key=current_prompt.task_key,
+                task_version=current_prompt.task_version,
+                prompt_version="report_synthesis.prompt.v2",
+                output_schema_version=current_prompt.output_schema_version,
+                safety_policy_version=current_prompt.safety_policy_version,
+                prompt_checksum="f" * 64,
+            )
+            db.add(historical_prompt)
+            db.flush()
+            db.execute(
+                ModelEvaluationRunModel.__table__.update()
+                .where(ModelEvaluationRunModel.id == run.id)
+                .values(prompt_version_id=historical_prompt.id)
+            )
+            db.execute(
+                ModelRouteVersionModel.__table__.update()
+                .where(ModelRouteVersionModel.id == route.id)
+                .values(prompt_version_id=historical_prompt.id)
+            )
+        db.commit()
+
+        before = len(provider.requests)
+        resolution = resolve_report_synthesis_route(db, content_scope="private", configured_provider=provider)
+        assert resolution.provider is None
+        assert resolution.fallback_reason == "invalid_route_evidence"
+        assert len(provider.requests) == before
 
 
 def test_failing_evaluation_cannot_promote_and_unknown_task_fails_closed(routing_session) -> None:
@@ -286,6 +460,8 @@ def test_promoted_route_is_required_for_runtime_and_rollback_is_idempotent(routi
         assert no_route.fallback_reason == "no_promoted_route"
 
         run = evaluate_report_synthesis_candidate(db, provider=provider, actor=operator)
+        assert run.policy_version == PROMOTION_POLICY_VERSION
+        assert run.policy_checksum == PROMOTION_POLICY_CHECKSUM
         assert db.scalars(select(ModelRouteAssignmentModel)).all() == []
         route = promote_evaluation_route(db, evaluation_run_id=run.id, actor=operator)
         resolved = synthesize_report(base, context, market, risk, provider=provider, content_scope="public", db=db)

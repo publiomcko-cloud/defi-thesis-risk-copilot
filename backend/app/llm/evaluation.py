@@ -17,6 +17,14 @@ from sqlalchemy.orm import Session
 from app.auth.schemas import UserContext
 from app.auth.service import record_audit_event
 from app.core.config import get_settings
+from app.llm.evaluation_authority import (
+    EVALUATION_VISIBLE_CONTENT_POLICY_VERSION,
+    PROMOTION_POLICY,
+    PROMOTION_POLICY_CHECKSUM,
+    PROMOTION_POLICY_VERSION,
+    has_current_evaluation_dataset_evidence,
+    has_current_promotable_evaluation_evidence,
+)
 from app.llm.evaluation_data import (
     AdversarialEvaluationCase,
     EvaluationCase,
@@ -44,29 +52,6 @@ from app.rag.retriever import RetrievalResult
 from app.risk.framework import RiskComponent, RiskScore
 from app.schemas.market_data import MarketDataResponse
 from app.schemas.reports import ReportResponse, ReportSection, SourceReference
-
-
-PROMOTION_POLICY_VERSION = "report_synthesis.promotion.v2"
-PROMOTION_POLICY = {
-    "structured_output_valid_percent": 100,
-    "deterministic_preservation_percent": 100,
-    "source_integrity_percent": 100,
-    "citation_consistency_percent": 100,
-    "unsupported_claim_count": 0,
-    "uncertainty_preservation_percent": 100,
-    "source_poisoning_authority_violation_count": 0,
-    "deterministic_integrity_percent": 100,
-    "missing_data_honesty_percent": 100,
-    "unsafe_language_violation_count": 0,
-    "privacy_policy_violation_count": 0,
-    "provider_failure_rate_percent": 0,
-    "max_average_latency_ms": 1000,
-    "cost_policy": "informational_no_ceiling",
-}
-PROMOTION_POLICY_CHECKSUM = sha256(
-    json.dumps(PROMOTION_POLICY, sort_keys=True, separators=(",", ":")).encode()
-).hexdigest()
-EVALUATION_VISIBLE_CONTENT_POLICY_VERSION = "evaluation.visible-content.nfkc-whitespace-casefold.sha256.v1"
 
 
 @dataclass(frozen=True)
@@ -249,10 +234,11 @@ def promote_evaluation_route(
         raise ModelEvaluationError("Passing completed evaluation evidence is required")
     if run.policy_version != PROMOTION_POLICY_VERSION or run.policy_checksum != PROMOTION_POLICY_CHECKSUM:
         raise ModelEvaluationError("Evaluation evidence requires the current promotion policy")
-    _require_current_dataset_evidence(db, run)
     task = get_model_task_definition(run.task_key)
     prompt = ensure_report_synthesis_prompt_version(db)
     candidate = db.get(ModelRegistryModel, run.candidate_model_registry_id)
+    if not has_current_evaluation_dataset_evidence(db, run):
+        raise ModelEvaluationError("Evaluation evidence requires the current authoritative dataset")
     if (
         task.key != "report_synthesis"
         or run.task_version != task.version
@@ -260,6 +246,15 @@ def promote_evaluation_route(
         or candidate is None
         or candidate.lifecycle_state == "retired"
         or candidate.evaluation_state != "evaluated"
+    ):
+        raise ModelEvaluationError("Evaluation evidence cannot be promoted")
+    if not has_current_promotable_evaluation_evidence(
+        db,
+        run,
+        task_key=task.key,
+        task_version=task.version,
+        prompt_version_id=prompt.id,
+        candidate_model_registry_id=candidate.id,
     ):
         raise ModelEvaluationError("Evaluation evidence cannot be promoted")
     assignment = _locked_assignment(db, run.task_key, run.task_version, run.environment)
@@ -609,15 +604,14 @@ def _valid_previous_route_id(db: Session, route: ModelRouteVersionModel) -> str 
     model = db.get(ModelRegistryModel, previous.model_registry_id)
     if not (
         evaluation
-        and evaluation.task_key == task.key
-        and evaluation.task_version == task.version
-        and evaluation.candidate_model_registry_id == previous.model_registry_id
-        and evaluation.prompt_version_id == prompt.id
-        and evaluation.status == "completed"
-        and evaluation.promotion_eligible
-        and evaluation.policy_version == PROMOTION_POLICY_VERSION
-        and evaluation.policy_checksum == PROMOTION_POLICY_CHECKSUM
-        and _has_current_dataset_evidence(db, evaluation)
+        and has_current_promotable_evaluation_evidence(
+            db,
+            evaluation,
+            task_key=task.key,
+            task_version=task.version,
+            prompt_version_id=prompt.id,
+            candidate_model_registry_id=previous.model_registry_id,
+        )
         and model
         and model.lifecycle_state != "retired"
         and model.evaluation_state == "evaluated"
@@ -791,36 +785,6 @@ def _ordinary_evaluation_stimulus(case: EvaluationCase) -> str:
         "provider_failure": "Synthetic public context exercises a bounded provider-timeout path.",
     }
     return by_case_id.get(case.case_id, "Synthetic public retrieved context with bounded protocol facts.")
-
-
-def _require_current_dataset_evidence(db: Session, run: ModelEvaluationRunModel) -> None:
-    if not _has_current_dataset_evidence(db, run):
-        raise ModelEvaluationError("Evaluation evidence requires the current authoritative dataset")
-
-
-def _has_current_dataset_evidence(db: Session, run: ModelEvaluationRunModel) -> bool:
-    definition = report_synthesis_public_dataset()
-    dataset = db.get(ModelEvaluationDatasetModel, run.dataset_id)
-    adversarial_definition = report_synthesis_adversarial_dataset()
-    adversarial_dataset = db.get(ModelEvaluationDatasetModel, run.adversarial_dataset_id)
-    return bool(
-        dataset
-        and dataset.id == definition.dataset_id
-        and dataset.task_key == definition.task_key
-        and dataset.task_version == definition.task_version
-        and dataset.dataset_version == definition.dataset_version
-        and dataset.dataset_checksum == definition.checksum
-        and dataset.case_count == len(definition.cases)
-        and dataset.lifecycle_state == "active"
-        and adversarial_dataset
-        and adversarial_dataset.id == adversarial_definition.dataset_id
-        and adversarial_dataset.task_key == adversarial_definition.task_key
-        and adversarial_dataset.task_version == adversarial_definition.task_version
-        and adversarial_dataset.dataset_version == adversarial_definition.dataset_version
-        and adversarial_dataset.dataset_checksum == adversarial_definition.checksum
-        and adversarial_dataset.case_count == len(adversarial_definition.cases)
-        and adversarial_dataset.lifecycle_state == "active"
-    )
 
 
 def _evaluation_market_data() -> MarketDataResponse:

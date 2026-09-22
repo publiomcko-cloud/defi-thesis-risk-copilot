@@ -1,6 +1,6 @@
 # V1 Phase 21 Execution Plan — Model and Research Intelligence Expansion
 
-Status: **Active — checkpoints 21A–21E implemented; Draft PR #35 required hosted checks are green at `457ad0fd5aae2029709cc1b73c9a36ad71338c18`; 21F is next.**
+Status: **Active — checkpoints 21A–21E implemented; Draft PR #35 exact-head hosted validation is pending for the evaluator-protocol correction; 21F is next.**
 
 21A–21B base merge: PR #32, `37fc065b95434622dbfdf407a2bda7930f2c4547`
 
@@ -180,9 +180,12 @@ Implementation record:
   missing-data, unsafe-advice, and safe-quoted-discussion cases. SQL stores
   immutable corpus identity/checksum and bounded results, never chunk text;
 - `report_synthesis.quality.v1` persists one immutable linked quality record
-  per model run. `report_synthesis.promotion.v2` is a new immutable policy
-  requiring all hard citation, deterministic, missing-data, uncertainty, and
-  source-poisoning invariants. Evaluation remains explicit-operator promotion
+  per model run. Historical `report_synthesis.promotion.v2` records preserve
+  the original 21C protocol but are obsolete for current authority;
+  `report_synthesis.promotion.v3` binds the corrected candidate-visible-content
+  and evaluator-input-isolation policies while retaining every hard quality
+  invariant: citation, deterministic, missing-data, uncertainty, and
+  source-poisoning. Evaluation remains explicit-operator promotion
   only;
 - worker completion treats its quality envelope as bounded execution evidence,
   never final persistence authority. After verifying the server-owned route
@@ -312,6 +315,11 @@ Implementation record:
 - cancellation/dead-letter/queue-expiry/authorization-revocation paths preserve
   the run record with an honest terminal state. Account disposal detaches actor
   references but does not delete sealed manifests, entries, or immutable runs.
+- current promotion, runtime route resolution, execution-route validation, and
+  rollback restoration share exact v3 policy/checksum, prompt, and active
+  ordinary/adversarial dataset freshness checks. A v2 route or v2 execution
+  snapshot fails closed before provider use; rollback clears rather than restores
+  an obsolete v2 predecessor.
 
 ## Checkpoint 21F — Phase closeout
 

@@ -9,12 +9,12 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.llm.evaluation_authority import has_current_promotable_evaluation_evidence
 from app.llm.governance import ensure_report_synthesis_prompt_version
 from app.llm.provenance import ModelIdentity, provider_identity, provider_is_eligible_for_scope
 from app.llm.providers import get_llm_provider
 from app.llm.task_registry import get_model_task_definition
 from app.models.model_governance import (
-    ModelEvaluationDatasetModel,
     ModelEvaluationRunModel,
     ModelRegistryModel,
     ModelRouteAssignmentModel,
@@ -292,25 +292,18 @@ def _valid_evidence(
     route: ModelRouteVersionModel,
     prompt_id: str,
 ) -> bool:
-    from app.llm.evaluation_data import report_synthesis_public_dataset
-
-    definition = report_synthesis_public_dataset()
-    dataset = db.get(ModelEvaluationDatasetModel, evaluation.dataset_id) if evaluation else None
     return bool(
         evaluation
         and evaluation.id == route.evaluation_run_id
-        and evaluation.candidate_model_registry_id == route.model_registry_id
-        and evaluation.prompt_version_id == prompt_id == route.prompt_version_id
-        and evaluation.status == "completed"
-        and evaluation.promotion_eligible
-        and dataset
-        and dataset.id == definition.dataset_id
-        and dataset.task_key == definition.task_key
-        and dataset.task_version == definition.task_version
-        and dataset.dataset_version == definition.dataset_version
-        and dataset.dataset_checksum == definition.checksum
-        and dataset.case_count == len(definition.cases)
-        and dataset.lifecycle_state == "active"
+        and route.prompt_version_id == prompt_id
+        and has_current_promotable_evaluation_evidence(
+            db,
+            evaluation,
+            task_key=route.task_key,
+            task_version=route.task_version,
+            prompt_version_id=prompt_id,
+            candidate_model_registry_id=route.model_registry_id,
+        )
     )
 
 

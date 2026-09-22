@@ -19,7 +19,7 @@ from app.core.config import get_settings
 from app.llm.base import LLMRequest, LLMResponse
 from app.llm.evaluation import evaluate_report_synthesis_candidate, promote_evaluation_route, rollback_route
 from app.llm.governance import ensure_report_synthesis_prompt_version
-from app.llm.routing import capture_report_synthesis_execution_route, resolve_report_synthesis_execution_route
+from app.llm.routing import capture_report_synthesis_execution_route, resolve_report_synthesis_execution_route, resolve_report_synthesis_route
 from app.models.model_governance import (
     ModelEvaluationCaseResultModel,
     ModelEvaluationRunModel,
@@ -51,6 +51,7 @@ PHASE21B_TABLES = {
     "model_route_assignments",
     "model_route_transitions",
 }
+LEGACY_PROMOTION_POLICY_V2_CHECKSUM = "229ead3eed24d098883a7389dae4bb04409750ac3be9b415522baa73c3cca6d2"
 
 
 pytestmark = pytest.mark.postgres_integration
@@ -62,8 +63,10 @@ class PostgresSyntheticProvider:
 
     def __init__(self, model: str) -> None:
         self.model = model
+        self.request_count = 0
 
     def generate(self, request: LLMRequest) -> LLMResponse:
+        self.request_count += 1
         return LLMResponse(
             text=(
                 '{"executive_summary":"Synthetic educational summary preserves uncertainty.",'
@@ -198,6 +201,62 @@ def test_postgres_execution_snapshot_remains_historical_across_route_changes(pos
             )
             assert (after_rollback.route_version_id, after_rollback.evaluation_run_id) == (route_a.id, run_a)
             assert assignment.active_route_version_id is None
+    finally:
+        get_settings.cache_clear()
+        _cleanup_routes(postgres_sessions, suffix)
+
+
+def test_postgres_v2_evidence_invalidates_current_and_execution_snapshot_routes(postgres_sessions: sessionmaker, monkeypatch) -> None:
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    suffix = uuid4().hex[:12]
+    operator_id, run_a, _ = _seed_passing_runs(postgres_sessions, suffix)
+    try:
+        from app.models.user import UserModel
+
+        provider = PostgresSyntheticProvider(f"model-a-{suffix}")
+        with postgres_sessions() as db:
+            operator = user_context(db.get(UserModel, operator_id))
+            route = promote_evaluation_route(db, evaluation_run_id=run_a, actor=operator)
+            snapshot = capture_report_synthesis_execution_route(
+                db,
+                content_scope="private",
+                configured_provider=provider,
+            )
+            db.execute(
+                ModelEvaluationRunModel.__table__.update()
+                .where(ModelEvaluationRunModel.id == run_a)
+                .values(
+                    policy_version="report_synthesis.promotion.v2",
+                    policy_checksum=LEGACY_PROMOTION_POLICY_V2_CHECKSUM,
+                )
+            )
+            db.commit()
+
+            current = resolve_report_synthesis_route(
+                db,
+                content_scope="private",
+                configured_provider=provider,
+            )
+            assert current.provider is None
+            assert current.fallback_reason == "invalid_route_evidence"
+            snapshot_resolution = resolve_report_synthesis_execution_route(
+                db,
+                content_scope="private",
+                snapshot_payload=snapshot,
+                configured_provider=provider,
+            )
+            assert snapshot_resolution.provider is None
+            assert snapshot_resolution.fallback_reason == "invalid_execution_route_evidence"
+            assert provider.request_count == 0
+            assignment = db.scalars(
+                select(ModelRouteAssignmentModel).where(
+                    ModelRouteAssignmentModel.task_key == route.task_key,
+                    ModelRouteAssignmentModel.task_version == route.task_version,
+                    ModelRouteAssignmentModel.environment == route.environment,
+                )
+            ).one()
+            assert assignment.active_route_version_id == route.id
     finally:
         get_settings.cache_clear()
         _cleanup_routes(postgres_sessions, suffix)
