@@ -1,5 +1,17 @@
 # Changelog
 
+## Phase 21F — Model and research intelligence closeout
+
+- Began the documentation-only Phase 21 reconciliation: the Phase 21E final
+  merge is PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`, while
+  `2b3817e75f1a7130d847f0c4e58bc2aa94d3e0a9` remains the historical
+  evaluator-protocol correction evidence.
+- Recorded the complete `0029 -> 0030 -> 0031 -> 0032 -> 0033 -> 0034`
+  lineage, v3 evaluator/promotion authority, disabled rollout defaults, and
+  Phase 22 provider/legal handoff. The required hosted suite passed on
+  `c5b39f6595046b9e1dc05ca44e302d5954a2df25` in Draft PR #36; this is not a
+  provider, commercial, or production-activation claim.
+
 ## Phase 21E — Worker compute and training governance
 
 - Added reversible migration `20260911_0034` for sealed synthetic dataset

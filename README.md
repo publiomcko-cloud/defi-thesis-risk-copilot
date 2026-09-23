@@ -32,7 +32,8 @@ The original productization requirements are preserved rather than deleted:
 - [Productization backlog](docs/productization_backlog.md) — deferred provider, legal, billing, operational, and launch work;
 - [Phase 20 execution plan](docs/phase_20_execution_plan.md) — portfolio implementation sequence and completion gates.
 - [Phase 20 closeout](docs/phase_20_closeout.md) — final architecture audit and evidence state.
-- [Phase 21 execution plan](docs/phase_21_execution_plan.md) — active 21A–21F model/research checkpoint sequence.
+- [Phase 21 execution plan](docs/phase_21_execution_plan.md) — 21A–21F portfolio checkpoint sequence and closeout gates.
+- [Phase 21 closeout](docs/phase_21_closeout.md) — model/research architecture and validation record.
 
 A future return to product mode should activate reviewed adapters and policies through existing boundaries instead of requiring an architectural rewrite.
 
@@ -52,12 +53,12 @@ V1 Phase 20 portfolio profile: COMPLETE
   - 20H organization invitation/seat controls: merged at `54329c6`
   - 20I bounded support/privacy/status: merged at `f55ee37`
   - 20J architecture closeout: merged with Phase 20 at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` via PR #31
-V1 Phase 21: ACTIVE
+V1 Phase 21: COMPLETE — PORTFOLIO PROFILE
   - 21A–21B governance/evaluated routing: merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32
   - 21C quality, source-safety, and feedback governance: merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33; synthesis remains disabled by default
   - 21D research intelligence: merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34; source-grounded and deterministic by default
-  - 21E worker compute/training governance: implemented on `agent/v1-phase-21e-worker-compute-training-governance`; Draft PR #35 required hosted checks are green
-  - 21F: planned; Phase 22 remains the later provider/legal release-validation phase
+  - 21E worker compute/training governance: merged at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52` through PR #35; the evaluator-protocol correction `2b3817e` is historical evidence
+  - 21F: documentation/full-regression closeout hosted evidence passed on `c5b39f6` in Draft PR #36; Phase 22 remains the later provider/legal release-validation phase
 ```
 
 ## Engineering Capabilities
@@ -91,11 +92,13 @@ The repository currently demonstrates or provides foundations for:
 Phase 20 is **Complete — Portfolio Profile** and merged at
 `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 21A–21C are
 merged through PR #33 at `772e0a5461a56f52729d8fa91a728594e615e61a`. Phase 21D
-merged through PR #34 at `468db4a1529b456afed6d1b5d482c8ea0ff932bd`. Phase 21E
-is local implementation evidence only: a sealed checked-in synthetic corpus,
-one bounded local-fake Phase 17 compute slot, and non-production artifacts. It
-does not activate a provider, Vast rental, model route, commercial work, or
-execution functionality.
+merged through PR #34 at `468db4a1529b456afed6d1b5d482c8ea0ff932bd`, and 21E
+merged through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`. Its sealed
+checked-in synthetic corpus, bounded local-fake Phase 17 compute slot, and
+non-production artifacts do not activate a provider, Vast rental, model route,
+commercial work, or execution functionality. Phase 21F closed the portfolio
+implementation evidence on `c5b39f6` in Draft PR #36; the final documentation
+head remains subject to the same exact-head hosted gate.
 
 ## Public Deployment Safety
 

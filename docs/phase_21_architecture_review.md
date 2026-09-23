@@ -8,7 +8,9 @@ Date: 2026-09-10
 
 21D merge: PR #34, `468db4a1529b456afed6d1b5d482c8ea0ff932bd`
 
-Branch: `agent/v1-phase-21e-worker-compute-training-governance`
+21E merge: PR #35, `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`
+
+Current closeout branch: `agent/v1-phase-21f-closeout`
 
 ## Existing foundations to reuse
 
@@ -177,14 +179,13 @@ bounded lifecycle state and account-actor detachment. Runs are permanently
 `not_registry_eligible`: no completion registers, evaluates, promotes, or routes
 a model. Exact-head hosted validation remains required.
 
-## Remaining Phase 21 gaps
+## Phase 21 complete — portfolio profile
 
-The current model path is intentionally simple and does not yet satisfy the
-Phase 21 contract:
-
-1. Phase 21F must close out exact-head hosted evidence; real provider execution,
-   private training, automatic registration/promotion/routing, and commercial
-   activation remain out of scope.
+The implementation is complete through 21F. Its documentation-only closeout
+reconciled migration lineage, full regression, and all-green hosted evidence on
+`c5b39f6` in Draft PR #36. Real provider execution, private training, automatic
+registration/promotion/routing, commercial activation, and legal/deployment
+approval remain outside Phase 21 and are deferred to Phase 22.
 
 ## Refactoring direction
 

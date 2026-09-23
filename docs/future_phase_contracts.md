@@ -4,11 +4,12 @@ This document is the authoritative implementation contract for V1 Phases
 17–22. Phases 16–18 are complete on `main`; the Phase 19 repository
 foundations are merged with external completion gates still pending; Phase 20
 is **Complete — Portfolio Profile** and merged at
-`2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 21 is the
-active model/research intelligence expansion on
-`agent/v1-phase-21-model-research-intelligence`; Phase 22 is the later final
-deployed-provider/legal validation phase. Production analytics remains disabled
-pending qualified privacy/legal review.
+`2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 21A–21E are
+merged, including PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`; the
+documentation-only 21F closeout passed required hosted checks on `c5b39f6` in
+Draft PR #36. Phase 22 is the later final deployed-provider/legal validation
+phase. Production analytics remains disabled pending qualified privacy/legal
+review.
 
 Future implementation prompts should reference this file, [`development_plan.md`](development_plan.md), [`current_state.md`](current_state.md), and the selected phase section instead of restating the entire scope.
 
@@ -988,9 +989,10 @@ Documentation must state that internal drafting is not legal certification.
 
 # V1 Phase 21 — Model and Research Intelligence Expansion
 
-Status: **Active — 21A–21D are merged; 21E is implemented locally on
-`agent/v1-phase-21e-worker-compute-training-governance` pending exact-head
-hosted validation; 21F remains planned.**
+Status: **Complete — Portfolio Profile.** 21A–21E are merged, including 21E
+through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`; the
+documentation-only 21F closeout passed required hosted checks on `c5b39f6` in
+Draft PR #36 and adds no capability.
 
 ## 21.1 Goal
 

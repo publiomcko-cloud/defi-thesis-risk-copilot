@@ -805,6 +805,15 @@ npm run lint && npm run test:phase21e && npm run build
 These checks use no paid provider, real Vast rental, credentials, private data,
 or model promotion/route. Hosted exact-head evidence remains required.
 
+Checkpoint 21F adds no product capability. Its closeout evidence reruns the
+full backend/PostgreSQL suite from a fresh upgraded database, the five adjacent
+Phase 21 migration cycles plus clean SQLite/fresh PostgreSQL upgrades,
+frontend lint/build/BFF/accessibility/browser/security checks, Phase 19 failure
+exercises, Compose validation, and supply-chain checks. The authoritative result
+is recorded in [`phase_21_closeout.md`](phase_21_closeout.md). The required
+hosted suite passed on `c5b39f6` in Draft PR #36; no local or hosted portfolio
+run implies provider or production activation.
+
 ## 11. CI expectations
 
 CI should progressively include:

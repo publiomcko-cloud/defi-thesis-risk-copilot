@@ -505,15 +505,16 @@ Production safety remains explicit: analytics collection and schedule dispatch
 are disabled, private pgvector remains gated, real Vast rentals are disabled,
 and no external notification or helpdesk provider is activated.
 
-## V1 Phase 21 — Model and research intelligence expansion — Active
+## V1 Phase 21 — Model and research intelligence expansion — Complete — Portfolio Profile
 
 Checkpoints 21A–21D are merged through PR #34 at
-`468db4a1529b456afed6d1b5d482c8ea0ff932bd`. Checkpoint 21E is implemented
-locally on `agent/v1-phase-21e-worker-compute-training-governance`: migration
-`20260911_0034` adds sealed synthetic training governance and a one-slot local
-fake Phase 17 path without provider activation. Existing deterministic report
-authority and the disabled-by-default model setting remain unchanged. 21F is
-planned; Phase 21 is not complete.
+`468db4a1529b456afed6d1b5d482c8ea0ff932bd`. Checkpoint 21E merged through PR
+#35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`: migration `20260911_0034`
+adds sealed synthetic training governance and a one-slot local-fake Phase 17
+path without provider activation. Existing deterministic report authority and
+the disabled-by-default model setting remain unchanged. 21F performed only
+documentation, full-regression, migration-lineage, and hosted closeout
+validation; required checks passed on `c5b39f6` in Draft PR #36.
 
 Goal: expand model-assisted research only after evaluation, provenance, privacy, cost, and rollback controls exist.
 

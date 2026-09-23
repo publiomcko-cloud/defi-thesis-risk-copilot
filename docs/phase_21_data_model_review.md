@@ -1,6 +1,12 @@
 # Phase 21 Data-Model Review
 
-Status: **21A–21D are merged; the Phase 21E evaluator-protocol correction at `2b3817e75f1a7130d847f0c4e58bc2aa94d3e0a9` has required hosted checks green on Draft PR #35; 21F is next.**
+Status: **Complete — Portfolio Profile.** 21A–21E are merged and the
+documentation-only 21F closeout hosted evidence passed on `c5b39f6` in Draft
+PR #36.
+
+21E final merge: PR #35, `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`.
+The evaluator-protocol correction `2b3817e75f1a7130d847f0c4e58bc2aa94d3e0a9`
+is retained as historical evidence, not relabeled as the final merge.
 
 ## 21E Training-Compute Governance State
 
