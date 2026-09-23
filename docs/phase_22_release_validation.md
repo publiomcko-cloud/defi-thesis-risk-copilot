@@ -13,10 +13,11 @@ commercial operation.
 | Repository migration head | `20260911_0034` only; `0027` intentionally absent |
 | Initial observation time | 2026-09-23T11:42Z |
 | Corrective observation time | 2026-09-23T16:43Z |
+| Render authority recheck | 2026-09-23T17:09Z: no authorized CLI/session, API credential/integration, deploy hook, repository webhook, or accessible GitHub App-installation interface |
 | Public backend evidence | `/health`, `/ready`, `/docs`, and `/api/deployment/status` returned HTTPS 200 |
 | Public frontend evidence | Canonical Vercel `/`, `/demo`, and `/status` returned HTTPS 200 |
 | Vercel provenance result | **VERIFIED:** GitHub deployment `6612919047` records successful Vercel Production deployment of exact candidate `abc83d36` |
-| Render provenance result | **BLOCKED_EXTERNAL:** backend still reports `6f07ef9`; no authorized Render deployment interface is available |
+| Render provenance result | **BLOCKED_EXTERNAL:** backend still reports `6f07ef9`; a second authority audit found no authorized deployment interface |
 
 `6f07ef95b36a0b4cd96c91836c8965004b0d82e7` is the older `Add scheduled
 Phase 17 worker` commit and is an ancestor of the candidate by 21 commits.
@@ -28,11 +29,11 @@ establish that the required release candidate is deployed to Render.
 | Component | Observed state | Evidence boundary |
 | --- | --- | --- |
 | Vercel frontend | GitHub deployment `6612919047` successfully deployed exact candidate `abc83d36` to `Production`; canonical public routes responded 200 | The immutable deployment alias is Vercel-auth protected. The GitHub deployment record, rather than public HTML, establishes commit provenance. |
-| Render backend | Publicly reachable, production/public-demo/auth-enabled status; still reports stale commit `6f07ef9` | `BLOCKED_EXTERNAL - RENDER DEPLOYMENT AUTHORITY REQUIRED`. No authorized CLI, API credential, deploy hook, or provider session exists in this environment. |
+| Render backend | Publicly reachable, production/public-demo/auth-enabled status; still reports stale commit `6f07ef9` | `BLOCKED_EXTERNAL - RENDER DEPLOYMENT AUTHORITY REQUIRED`. The 17:09Z recheck found no authorized CLI/session, API credential/integration, deploy hook, repository webhook, or accessible GitHub App-installation interface. |
 | Supabase database/auth | Backend says database connected and authentication enabled | Provider configuration, migration head, SMTP, redirects, and policies are externally unverified. |
 | Object storage | No public activation evidence | Default-disabled repository capability; provider policy and RLS evidence absent. |
 | pgvector | Local schema/preflight evidence only | Production extension/index/cutover state unverified; primary path remains disabled by default. |
-| Trusted worker | Scheduled Phase 17 worker run `35878131521` on candidate `abc83d36` failed during claim/process | `BLOCKED_EXTERNAL`; no secret values were inspected and no worker/provider configuration was changed. An authorized operator must diagnose and evidence this path separately. |
+| Trusted worker | Scheduled Phase 17 worker run `35878131521` on candidate `abc83d36` timed out in `POST /internal/workers/v1/claim` after the worker's 20-second HTTP read timeout | Setup, checkout, Python, and dependency steps succeeded; no authentication/schema/provider failure was observed first. Rerun is intentionally deferred until authorized Render candidate deployment. |
 | SMTP/email | No configuration evidence | Custom SMTP is mandatory for product launch and remains blocked. |
 | Monitoring/alerts | Local/isolated foundation only | Receiver, pager, escalation, and owner evidence absent. |
 | Backup/restore | Runbook/template only | Provider backup, restore drill, RPO/RTO, and owners absent. |
@@ -54,6 +55,17 @@ production private storage requires scanning and server credentials; production
 authentication requires a server BFF audit secret; and production worker API
 requires a server token pepper. These are architecture controls, not evidence of
 the live provider configuration.
+
+## Scheduled Worker Evidence
+
+GitHub scheduled workflow `35878131521` checked out exact `main` candidate
+`abc83d36` and failed only in `Claim and process one durable job` at
+2026-09-23T14:59Z. The bounded observed failure is `TimeoutError: The read
+operation timed out` from the worker runner's 20-second claim request. The
+known credential remains masked; no database URL, credential, job payload, or
+raw sensitive response was retained. Because the Render service still reports
+stale `6f07ef9` and no authorized deployment route exists, this pass does not
+rerun the worker against that service or change worker code.
 
 ## Local Exact-Head Regression
 

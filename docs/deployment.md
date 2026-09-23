@@ -822,9 +822,10 @@ Current state: **HOLD.** On 2026-09-23 GitHub recorded successful Vercel
 Production deployment of required candidate
 `abc83d36c115b4122a1a1964fde101fbf9c407e4`, while the live Render backend
 continued to report `6f07ef9`. Do not use otherwise healthy endpoint responses
-as evidence that the Render candidate is deployed. An authorized Render
-operator must deploy and prove the reviewed candidate before disposable-account
-or provider validation. The bounded evidence record is in
+as evidence that the Render candidate is deployed. A second authority audit
+found no authorized Render deployment path, so an authorized Render operator
+must deploy and prove the reviewed candidate before disposable-account or
+provider validation. The bounded evidence record is in
 [`phase_22_release_validation.md`](phase_22_release_validation.md).
 
 Test on Vercel/Render preview deployments:

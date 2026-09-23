@@ -2,6 +2,13 @@
 
 ## Phase 22 - Final release validation
 
+- Rechecked the Render deployment authority and bounded public endpoints. No
+  authorized Render CLI/session, API integration, deploy hook, repository
+  webhook, or accessible GitHub App-installation interface is present; the
+  backend remains healthy but reports stale `6f07ef9`. The Phase 17 scheduled
+  worker's prior candidate run is now recorded as a 20-second claim read timeout
+  and was not rerun against the stale service. No runtime code or provider
+  configuration changed.
 - Remediated GitHub release controls with active `main` ruleset `23890276`:
   pull requests, current exact-check contexts, resolved conversations, and
   force-push/deletion protection. The single-maintainer admin recovery path is

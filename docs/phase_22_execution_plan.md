@@ -3,9 +3,10 @@
 Status: **ACTIVE - HOLD.** This is a validation and approval phase; it adds no
 product capability or migration. On 2026-09-23, repository release controls
 were remediated and GitHub recorded a successful Vercel production deployment
-of required candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`. The public
-Render backend still reports older commit `6f07ef9`, and no authorized Render
-deployment interface is available here. That is a
+of required candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`. A second
+authority audit at 2026-09-23T17:09Z confirmed that the public Render backend
+still reports older commit `6f07ef9` and that no authorized Render deployment
+interface is available here. That is a
 `BLOCKED_EXTERNAL - RENDER DEPLOYMENT AUTHORITY REQUIRED` hold, not evidence
 that the candidate is running on Render.
 

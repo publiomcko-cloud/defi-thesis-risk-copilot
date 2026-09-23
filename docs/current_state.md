@@ -567,10 +567,13 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   capability and passed required hosted checks on `c5b39f6` in Draft PR #36.
 - Phase 22 — active validation hold. On 2026-09-23 GitHub release controls and
   Vercel Production deployment of candidate `abc83d36` were verified. The live
-  Render backend still reports older ancestor `6f07ef9`, and this environment
-  lacks authorized Render deployment access. SMTP, disposable-account auth,
-  tenant/organization isolation, provider operations, backup/restore, legal
-  review, and release approval remain external or human gates. See
+  Render backend still reports older ancestor `6f07ef9`; a second authority
+  audit found no authorized Render CLI/session, API integration, deploy hook,
+  or repository webhook. The scheduled worker's stale-service claim timed out
+  after 20 seconds and is not rerun until Render provenance is corrected. SMTP,
+  disposable-account auth, tenant/organization isolation, provider operations,
+  backup/restore, legal review, and release approval remain external or human
+  gates. See
   [`phase_22_release_validation.md`](phase_22_release_validation.md).
 
 See [`future_phase_contracts.md`](future_phase_contracts.md) for complete requirements.
