@@ -55,7 +55,8 @@ the live provider configuration.
 
 ## Local Exact-Head Regression
 
-Status: **VERIFIED locally on 2026-09-23; hosted exact-head evidence pending.**
+Status: **VERIFIED locally on 2026-09-23; required hosted checks passed on
+`d89b5bb92bf66029d1ba696f34951ead67130b40`.**
 The Phase 22 working tree contained documentation-only changes above the
 reviewed `abc83d36` implementation. The following isolated commands completed
 with exit status 0 and do not prove a deployed/provider condition:
@@ -78,9 +79,12 @@ with exit status 0 and do not prove a deployed/provider condition:
   worker-loss/retry recovery, outage recovery, migration rollback, and negative
   authorization checks.
 
-Local CodeQL is not installed in this validation environment. CodeQL and all
-other required workflows must run on the final Phase 22 pull-request SHA before
-the repository-regression decision can become `PASS`.
+Local CodeQL is not installed in this validation environment. Required hosted
+checks passed on `d89b5bb`: Backend and PostgreSQL, Frontend, Docker Compose,
+CodeQL Python/JavaScript, Workflow Policy and SBOM, Dependency Review, Secret
+Scan, Dependency and Container Security, isolated Phase 19 failure exercises,
+and Vercel preview. Any subsequent documentation-only SHA must retain those
+green checks before the repository-regression decision can become `PASS`.
 
 ## Auth, Isolation, And Storage Gates
 
@@ -150,7 +154,7 @@ activation.
 
 | Decision | Result | Basis |
 | --- | --- | --- |
-| Repository / Architecture Regression | `HOLD` | Local regression is verified; required CodeQL and all final exact-head hosted checks remain pending. |
+| Repository / Architecture Regression | `HOLD` | Local regression and all required hosted categories passed on `d89b5bb`; the final documentation-only SHA must retain green checks. |
 | Public Portfolio Deployment Validation | `HOLD` | Candidate deployment provenance failed. |
 | External Provider / Operations Gates | `HOLD` / `DEFERRED` | SMTP, provider config, worker, monitoring, backup/restore, and rate-limit evidence are unavailable; storage/pgvector/billing remain deferred. |
 | GitHub Release Controls | `HOLD` | Direct audit found no repository rulesets/protected `main`, disabled secret scanning/Dependabot security updates, and optional action SHA pinning. |
