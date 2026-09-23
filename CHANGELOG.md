@@ -1,5 +1,42 @@
 # Changelog
 
+## Phase 22 - Final release validation
+
+- Rechecked the Render deployment authority and bounded public endpoints. No
+  authorized Render CLI/session, API integration, deploy hook, repository
+  webhook, or accessible GitHub App-installation interface is present; the
+  backend remains healthy but reports stale `6f07ef9`. The Phase 17 scheduled
+  worker's prior candidate run is now recorded as a 20-second claim read timeout
+  and was not rerun against the stale service. No runtime code or provider
+  configuration changed.
+- Remediated GitHub release controls with active `main` ruleset `23890276`:
+  pull requests, current exact-check contexts, resolved conversations, and
+  force-push/deletion protection. The single-maintainer admin recovery path is
+  pull-request-only. Enabled native Actions SHA pinning, dependency graph/SBOM
+  evidence, Dependabot alerts/security updates, secret scanning, and push
+  protection; unavailable generic-pattern/validity scanning remains a GitHub
+  feature-availability hold, without a scanner exemption.
+- Verified GitHub's successful Vercel Production deployment record for exact
+  Phase 21 closeout candidate `abc83d36`. The live Render backend still reports
+  `6f07ef9`; no authorized Render deploy interface, credential, hook, or CLI is
+  present, so that candidate deployment remains `BLOCKED_EXTERNAL` and Phase 22
+  remains on hold. No provider or commercial capability was activated.
+- Added the Phase 22 execution plan, evidence matrix, and bounded release
+  validation record. A public smoke check found the live Render backend reports
+  `6f07ef9`, not the required Phase 21 closeout merge
+  `abc83d36c115b4122a1a1964fde101fbf9c407e4`; the candidate-deployment gate is
+  therefore explicitly failed and Phase 22 is on hold.
+- Classified unavailable SMTP, disposable-account, provider configuration,
+  storage/RLS, worker/operations, backup/restore, and legal evidence as external
+  or human blockers. No paid/external capability was activated, and commercial
+  launch is not approved.
+- Completed isolated local regression on the reviewed implementation: fresh
+  PostgreSQL/pgvector migration and rollback cycle, full backend suite,
+  runtime/corpus checks, frontend/browser E2E, Compose, supply-chain scans,
+  fresh backend/frontend image scans, and the Phase 19 exercise catalog passed.
+  Required hosted categories passed on documentation-only SHA `d89b5bb`; the
+  Draft PR check view retains the final exact-SHA result.
+
 ## Phase 21F — Model and research intelligence closeout
 
 - Began the documentation-only Phase 21 reconciliation: the Phase 21E final
