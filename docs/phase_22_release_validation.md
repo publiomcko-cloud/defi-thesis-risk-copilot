@@ -11,26 +11,28 @@ commercial operation.
 | Required candidate | `abc83d36c115b4122a1a1964fde101fbf9c407e4` (PR #36 merge) |
 | Phase 22 branch | `agent/v1-phase-22-final-release-validation` |
 | Repository migration head | `20260911_0034` only; `0027` intentionally absent |
-| Observation time | 2026-09-23T11:42Z |
-| Public backend evidence | `/health`, `/ready`, and `/api/deployment/status` returned HTTPS 200 |
-| Public frontend evidence | Vercel root, `/demo`, and `/status` returned HTTPS 200 |
-| Deployment provenance result | **FAILED:** backend reported `6f07ef9`, not the candidate |
+| Initial observation time | 2026-09-23T11:42Z |
+| Corrective observation time | 2026-09-23T16:43Z |
+| Public backend evidence | `/health`, `/ready`, `/docs`, and `/api/deployment/status` returned HTTPS 200 |
+| Public frontend evidence | Canonical Vercel `/`, `/demo`, and `/status` returned HTTPS 200 |
+| Vercel provenance result | **VERIFIED:** GitHub deployment `6612919047` records successful Vercel Production deployment of exact candidate `abc83d36` |
+| Render provenance result | **BLOCKED_EXTERNAL:** backend still reports `6f07ef9`; no authorized Render deployment interface is available |
 
 `6f07ef95b36a0b4cd96c91836c8965004b0d82e7` is the older `Add scheduled
 Phase 17 worker` commit and is an ancestor of the candidate by 21 commits.
-Health and readiness therefore show that a live service is responsive; they do
-not establish that the required release candidate is deployed.
+Health and readiness show that a live service is responsive; they do not
+establish that the required release candidate is deployed to Render.
 
 ## Deployment Inventory
 
 | Component | Observed state | Evidence boundary |
 | --- | --- | --- |
-| Vercel frontend | Publicly reachable; commit identity unverified | No approved Vercel deployment/configuration interface available. |
-| Render backend | Publicly reachable, production/public-demo/auth-enabled status; stale commit `6f07ef9` | Candidate-provenance gate failed. |
+| Vercel frontend | GitHub deployment `6612919047` successfully deployed exact candidate `abc83d36` to `Production`; canonical public routes responded 200 | The immutable deployment alias is Vercel-auth protected. The GitHub deployment record, rather than public HTML, establishes commit provenance. |
+| Render backend | Publicly reachable, production/public-demo/auth-enabled status; still reports stale commit `6f07ef9` | `BLOCKED_EXTERNAL - RENDER DEPLOYMENT AUTHORITY REQUIRED`. No authorized CLI, API credential, deploy hook, or provider session exists in this environment. |
 | Supabase database/auth | Backend says database connected and authentication enabled | Provider configuration, migration head, SMTP, redirects, and policies are externally unverified. |
 | Object storage | No public activation evidence | Default-disabled repository capability; provider policy and RLS evidence absent. |
 | pgvector | Local schema/preflight evidence only | Production extension/index/cutover state unverified; primary path remains disabled by default. |
-| Trusted worker | No deployed-worker evidence | Worker control plane exists in code but external operation is unverified. |
+| Trusted worker | Scheduled Phase 17 worker run `35878131521` on candidate `abc83d36` failed during claim/process | `BLOCKED_EXTERNAL`; no secret values were inspected and no worker/provider configuration was changed. An authorized operator must diagnose and evidence this path separately. |
 | SMTP/email | No configuration evidence | Custom SMTP is mandatory for product launch and remains blocked. |
 | Monitoring/alerts | Local/isolated foundation only | Receiver, pager, escalation, and owner evidence absent. |
 | Backup/restore | Runbook/template only | Provider backup, restore drill, RPO/RTO, and owners absent. |
@@ -115,12 +117,21 @@ alert delivery, incident ownership, backup/restore, and secret rotation require
 approved external or human evidence. They remain `BLOCKED_EXTERNAL` or
 `BLOCKED_HUMAN_APPROVAL` as listed in the matrix.
 
-The 2026-09-23 direct GitHub REST audit is a separate failed release gate: the
-repository has no returned rulesets, `main` branch protection returned 404,
-secret scanning and push protection are disabled, Dependabot security updates
-are disabled, and GitHub Actions does not require immutable action SHA pinning.
-These observed control-plane states do not alter the repository workflows; they
-require administrator-owned remediation and fresh exact-head PR evidence.
+The 2026-09-23 corrective GitHub REST audit verified active repository ruleset
+`23890276` for `main`. It requires pull requests, resolved review threads,
+current-head checks, blocks ref deletion and non-fast-forward updates, and
+requires the ten actual GitHub Actions contexts named in the evidence matrix.
+The single-maintainer recovery mechanism is deliberately restricted to the
+repository-admin role through a pull request; GitHub reports
+`current_user_can_bypass=pull_requests_only`.
+
+Native Actions immutable-SHA enforcement is enabled and complements the
+repository's fully pinned workflow source policy. The dependency-graph SBOM
+endpoint returned 200; Dependabot alerts/security updates, secret scanning, and
+push protection are enabled. Generic-pattern and validity-check scanning are
+not available through the current GitHub feature set, so they remain
+`BLOCKED_EXTERNAL - GITHUB PLAN/FEATURE AVAILABILITY`, with no rule exclusion
+or scanner suppression.
 
 ## Legal Review Checklist
 
@@ -144,33 +155,34 @@ Supported now: the public portfolio is reachable; bounded health/readiness and
 public demo/status routes responded successfully on the observation date; the
 repository retains fail-closed defaults and completed architecture evidence.
 
-Not supported: candidate deployment provenance, real-user auth/email results,
-tenant/organization isolation on the candidate, provider backup/restore,
-centralized telemetry/pager operation, legal approval, commercial launch,
-production storage/RLS, real Vast/model execution, or paid/external capability
-activation.
+Not supported: Render candidate deployment provenance, real-user auth/email
+results, tenant/organization isolation on the candidate, provider
+backup/restore, centralized telemetry/pager operation, legal approval,
+commercial launch, production storage/RLS, real Vast/model execution, or
+paid/external capability activation.
 
 ## Decision Matrix
 
 | Decision | Result | Basis |
 | --- | --- | --- |
 | Repository / Architecture Regression | `PASS` | Local regression and all required hosted categories are green; see Draft PR #37 for the final documentation-only SHA. |
-| Public Portfolio Deployment Validation | `HOLD` | Candidate deployment provenance failed. |
+| Public Portfolio Deployment Validation | `HOLD` | Vercel candidate provenance is verified; Render candidate deployment is blocked by unavailable authorized deployment access. |
 | External Provider / Operations Gates | `HOLD` / `DEFERRED` | SMTP, provider config, worker, monitoring, backup/restore, and rate-limit evidence are unavailable; storage/pgvector/billing remain deferred. |
-| GitHub Release Controls | `HOLD` | Direct audit found no repository rulesets/protected `main`, disabled secret scanning/Dependabot security updates, and optional action SHA pinning. |
+| GitHub Release Controls | `PASS` | Active `main` ruleset, native SHA pinning, dependency-graph evidence, Dependabot, secret scanning, and push protection are verified. |
 | Qualified Legal / Privacy / Commercial Review | `HOLD` | Qualified human evidence is absent. |
 | Commercial Production Launch Approval | `NOT APPROVED` | Mandatory provenance, external, operational, and human gates remain unsatisfied. |
 
 ## Resume Criteria And Rollback
 
-Before resuming public deployment validation, an authorized operator must deploy
-`abc83d36` (or a later reviewed Phase 22 candidate) to both Render and Vercel,
-then provide bounded deployment identifiers. The platform rollback path, if
-needed, is a deployment rollback to the last approved build; it must not use a
-production database downgrade as recovery.
+Before resuming public deployment validation, an authorized Render operator must
+deploy `abc83d36` (or a later reviewed Phase 22 candidate) and provide a
+bounded deployment identifier. Vercel's exact-candidate deployment is already
+recorded in GitHub. The platform rollback path, if needed, is a deployment
+rollback to the last approved build; it must not use a production database
+downgrade as recovery.
 
-After provenance is verified, the remaining tests require approved disposable
-identities, read-only platform configuration access, custom SMTP approval,
-external backup/restore evidence, named operational ownership, GitHub
-administrator remediation of the observed release controls, and qualified
-legal/privacy/commercial review. No activation is authorized by this document.
+After Render provenance is verified, the remaining tests require approved
+disposable identities, read-only platform configuration access, custom SMTP
+approval, external backup/restore evidence, named operational ownership, and
+qualified legal/privacy/commercial review. No activation is authorized by this
+document.

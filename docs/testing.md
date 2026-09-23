@@ -817,11 +817,12 @@ run implies provider or production activation.
 ## 11. Phase 22 release validation
 
 Phase 22 uses evidence states rather than treating local or mocked validation
-as deployed evidence. Its current deployment-provenance gate is **FAILED**: on
-2026-09-23 the live Render deployment status reported `6f07ef9`, not required
-candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`. Until that is corrected,
-do not run real-account, email, tenant, provider, storage, backup, or production
-chaos checks against the public environment.
+as deployed evidence. On 2026-09-23 GitHub controls and exact-candidate Vercel
+provenance were verified, but the live Render deployment status still reported
+`6f07ef9`, not required candidate
+`abc83d36c115b4122a1a1964fde101fbf9c407e4`. Until an authorized Render
+operator corrects that, do not run real-account, email, tenant, provider,
+storage, backup, or production-chaos checks against the public environment.
 
 The repository regression remains safe to run with its ordinary isolated
 commands: full PostgreSQL pytest and migration coverage, frontend contracts and

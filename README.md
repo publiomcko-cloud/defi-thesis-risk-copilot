@@ -62,9 +62,9 @@ V1 Phase 21: COMPLETE — PORTFOLIO PROFILE
   - 21E worker compute/training governance: merged at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52` through PR #35; the evaluator-protocol correction `2b3817e` is historical evidence
   - 21F: documentation/full-regression closeout hosted evidence passed on `c5b39f6` in Draft PR #36; Phase 22 remains the later provider/legal release-validation phase
 V1 Phase 22: ACTIVE - HOLD
-  - bounded public smoke found the live Render backend at `6f07ef9`, not the required `abc83d36` candidate
+  - GitHub release controls and Vercel Production deployment of `abc83d36` are verified; Render still reports `6f07ef9` and needs authorized candidate deployment
   - no provider, email, storage, model, Vast, billing, or commercial capability was activated
-  - commercial launch remains not approved pending candidate deployment, external evidence, and qualified human review
+  - commercial launch remains not approved pending Render provenance, external evidence, and qualified human review
 ```
 
 ## Engineering Capabilities

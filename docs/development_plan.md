@@ -535,12 +535,13 @@ Core outcomes:
 
 Goal: close the external validation and legal gates deferred from Phase 16 after the V1 implementation phases are complete. This phase adds no new end-user product capability.
 
-The first bounded public deployment check on 2026-09-23 found the live Render
-backend reporting commit `6f07ef9`, not the required Phase 21 closeout merge
-`abc83d36c115b4122a1a1964fde101fbf9c407e4`. Candidate provenance is therefore
-failed and Phase 22 is on hold. The detailed evidence and resume requirements
-are in [`phase_22_release_validation.md`](phase_22_release_validation.md); no
-provider, storage, model, Vast, billing, or commercial activation is authorized.
+The 2026-09-23 corrective evidence verifies GitHub release controls and a
+successful Vercel Production deployment of required Phase 21 closeout merge
+`abc83d36c115b4122a1a1964fde101fbf9c407e4`. The live Render backend still
+reports `6f07ef9` and authorized Render deployment access is unavailable, so
+Phase 22 remains on hold. The detailed evidence and resume requirements are in
+[`phase_22_release_validation.md`](phase_22_release_validation.md); no provider,
+storage, model, Vast, billing, or commercial activation is authorized.
 
 Required outcomes:
 
