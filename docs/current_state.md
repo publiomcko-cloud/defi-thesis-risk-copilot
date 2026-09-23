@@ -71,7 +71,7 @@ V1 Phase 18 — Complete and merged into main; production features remain featur
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
 V1 Phase 20 — Complete — Portfolio Profile and merged at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 20E is omitted, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
 V1 Phase 21 — Complete — Portfolio Profile; 21A–21B are merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32, 21C quality/feedback governance is merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33, 21D research intelligence is merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34, 21E local training-compute governance merged through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`, and the documentation-only 21F closeout hosted evidence passed on `c5b39f6` in Draft PR #36
-V1 Phase 22 — Planned final release validation and launch approval
+V1 Phase 22 — Active - HOLD: a bounded 2026-09-23 public smoke found the live Render backend reports `6f07ef9`, not required candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`; no provider or commercial activation is authorized
 ```
 
 Reviewed Phase 16 correction commit:
@@ -565,6 +565,12 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   earlier evaluator-protocol correction `2b3817e75f1a7130d847f0c4e58bc2aa94d3e0a9`
   remains historical evidence. The documentation-only 21F closeout adds no
   capability and passed required hosted checks on `c5b39f6` in Draft PR #36.
-- Phase 22 — final provider, legal, and launch validation.
+- Phase 22 — active validation hold. The live Render backend's public deployment
+  status reported `6f07ef9` on 2026-09-23, an older ancestor rather than the
+  required `abc83d36` candidate. Health/readiness and public routes were
+  reachable, but candidate provenance failed. SMTP, disposable-account auth,
+  tenant/organization isolation, provider operations, backup/restore, legal
+  review, and release approval remain external or human gates. See
+  [`phase_22_release_validation.md`](phase_22_release_validation.md).
 
 See [`future_phase_contracts.md`](future_phase_contracts.md) for complete requirements.

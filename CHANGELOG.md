@@ -1,5 +1,26 @@
 # Changelog
 
+## Phase 22 - Final release validation
+
+- Added the Phase 22 execution plan, evidence matrix, and bounded release
+  validation record. A public smoke check found the live Render backend reports
+  `6f07ef9`, not the required Phase 21 closeout merge
+  `abc83d36c115b4122a1a1964fde101fbf9c407e4`; the candidate-deployment gate is
+  therefore explicitly failed and Phase 22 is on hold.
+- Classified unavailable SMTP, disposable-account, provider configuration,
+  storage/RLS, worker/operations, backup/restore, release-control, and legal
+  evidence as external or human blockers. No deployed setting or paid/external
+  capability was changed, and commercial launch is not approved.
+- A direct GitHub control-plane audit also found no returned repository rulesets,
+  no branch protection on `main`, disabled secret scanning/Dependabot security
+  updates, and optional Actions SHA pinning; these administrator-owned controls
+  are explicit release holds rather than inferred workflow protections.
+- Completed isolated local regression on the reviewed implementation: fresh
+  PostgreSQL/pgvector migration and rollback cycle, full backend suite,
+  runtime/corpus checks, frontend/browser E2E, Compose, supply-chain scans,
+  fresh backend/frontend image scans, and the Phase 19 exercise catalog passed.
+  Required hosted checks on the final Phase 22 SHA remain pending.
+
 ## Phase 21F — Model and research intelligence closeout
 
 - Began the documentation-only Phase 21 reconciliation: the Phase 21E final

@@ -6,6 +6,11 @@ including 21E through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`.
 The documentation-only 21F closeout passed required hosted checks on `c5b39f6`
 in Draft PR #36 and adds no portfolio capability.
 
+Phase 22 is **Active - HOLD**. Its bounded public smoke found the live Render
+backend reporting `6f07ef9`, not required candidate `abc83d36`; the deployment,
+provider, and human-review gates remain uncompleted. The portfolio profile does
+not authorize commercial activation while that hold remains.
+
 This repository is currently developed as a production-grade portfolio anchor, not as an actively commercialized SaaS product.
 
 The goal is to demonstrate realistic architecture, security, data engineering, AI engineering, multi-tenant backend design, durable workflows, lifecycle handling, testing, and operational discipline while avoiding the ongoing legal, provider, tax, payment, support, and production-operations burden of running a commercial service.

@@ -232,6 +232,18 @@ Internal architecture documents and project-owner decisions are not legal certif
 
 The active portfolio profile may use Phase 22 to validate the public portfolio deployment.
 
+Current Phase 22 reconciliation: **HOLD.** On 2026-09-23 the live Render
+backend reported commit `6f07ef9`, not required candidate `abc83d36`. No
+productization item is activated by this observation. The relevant states are:
+
+| Area | Current state |
+| --- | --- |
+| Analytics, notifications, billing, paid plans, external helpdesk | `DEFERRED_PRODUCTIZATION` |
+| Private storage and pgvector primary | `DEFERRED_PRODUCTIZATION` with JSON fallback retained |
+| SMTP, real provider/worker operation, backup/restore, monitoring/alerts, rate-limit rollout | `BLOCKED_EXTERNAL` |
+| Terms/privacy/retention/consent/product claims and release owner | `BLOCKED_HUMAN_APPROVAL` |
+| Public portfolio deployment | `HOLD` until Render and Vercel both prove the reviewed candidate |
+
 A future commercial launch must run an expanded product-mode Phase 22 that includes:
 
 - production provider configuration;

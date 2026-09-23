@@ -800,3 +800,13 @@ in Draft PR #36. Phase 22 remains the later
 deployed-provider/legal validation phase.
 
 Deterministic risk and non-execution boundaries remain permanent.
+
+## 21. Phase 22 validation hold
+
+Phase 22 adds no architecture or product capability. Its bounded public
+deployment evidence on 2026-09-23 found the Render backend reporting
+`6f07ef9`, an older ancestor rather than required candidate `abc83d36`. The
+repository architecture remains fail-closed, but that does not prove the
+candidate deployment, provider configuration, real-user isolation, backup,
+operations, or legal approval. Those gates remain held as recorded in
+[`phase_22_release_validation.md`](phase_22_release_validation.md).

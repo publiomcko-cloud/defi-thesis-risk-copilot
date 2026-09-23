@@ -34,6 +34,8 @@ The original productization requirements are preserved rather than deleted:
 - [Phase 20 closeout](docs/phase_20_closeout.md) — final architecture audit and evidence state.
 - [Phase 21 execution plan](docs/phase_21_execution_plan.md) — 21A–21F portfolio checkpoint sequence and closeout gates.
 - [Phase 21 closeout](docs/phase_21_closeout.md) — model/research architecture and validation record.
+- [Phase 22 execution plan](docs/phase_22_execution_plan.md) — final release-validation gates and evidence states.
+- [Phase 22 release validation](docs/phase_22_release_validation.md) — bounded deployment record and explicit release hold.
 
 A future return to product mode should activate reviewed adapters and policies through existing boundaries instead of requiring an architectural rewrite.
 
@@ -59,6 +61,10 @@ V1 Phase 21: COMPLETE — PORTFOLIO PROFILE
   - 21D research intelligence: merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34; source-grounded and deterministic by default
   - 21E worker compute/training governance: merged at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52` through PR #35; the evaluator-protocol correction `2b3817e` is historical evidence
   - 21F: documentation/full-regression closeout hosted evidence passed on `c5b39f6` in Draft PR #36; Phase 22 remains the later provider/legal release-validation phase
+V1 Phase 22: ACTIVE - HOLD
+  - bounded public smoke found the live Render backend at `6f07ef9`, not the required `abc83d36` candidate
+  - no provider, email, storage, model, Vast, billing, or commercial capability was activated
+  - commercial launch remains not approved pending candidate deployment, external evidence, and qualified human review
 ```
 
 ## Engineering Capabilities

@@ -818,6 +818,14 @@ docker compose up -d --build
 
 ### V1 Phase 22 manual release verification
 
+Current state: **HOLD.** A bounded public check on 2026-09-23 found the live
+Render backend reporting `6f07ef9`, not required release candidate
+`abc83d36c115b4122a1a1964fde101fbf9c407e4`. Do not use the otherwise healthy
+endpoint responses as evidence that the candidate is deployed. Deploy and
+verify the reviewed candidate on both Render and Vercel before running any
+disposable-account or provider validation. The bounded evidence record is in
+[`phase_22_release_validation.md`](phase_22_release_validation.md).
+
 Test on Vercel/Render preview deployments:
 
 - public seeded report;

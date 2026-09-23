@@ -1191,7 +1191,10 @@ Fine-tuned outputs remain advisory unless deterministic validation independently
 
 # V1 Phase 22 — Final Release Validation and Launch Approval
 
-Status: **Planned**
+Status: **Active - HOLD.** The public Render deployment reported `6f07ef9` on
+2026-09-23 instead of required candidate
+`abc83d36c115b4122a1a1964fde101fbf9c407e4`. This hard-stop provenance failure
+must be resolved before deployed validation or launch approval can continue.
 
 ## 22.1 Goal
 
