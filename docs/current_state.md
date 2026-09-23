@@ -70,7 +70,7 @@ V1 Phase 17 — Complete
 V1 Phase 18 — Complete and merged into main; production features remain feature-gated
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
 V1 Phase 20 — Complete — Portfolio Profile and merged at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 20E is omitted, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
-V1 Phase 21 — Closeout validation pending on `agent/v1-phase-21f-closeout`; 21A–21B are merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32, 21C quality/feedback governance is merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33, 21D research intelligence is merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34, and 21E local training-compute governance merged through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`; 21F adds no capability and awaits full-regression/exact-head hosted evidence
+V1 Phase 21 — Complete — Portfolio Profile; 21A–21B are merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32, 21C quality/feedback governance is merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33, 21D research intelligence is merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34, 21E local training-compute governance merged through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`, and the documentation-only 21F closeout hosted evidence passed on `c5b39f6` in Draft PR #36
 V1 Phase 22 — Planned final release validation and launch approval
 ```
 
@@ -535,7 +535,7 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   support claim, or production/legal approval is made. Phase 20I passed its
   hosted merge gate; Phase 20J then merged through PR #31 as
   `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`.
-- Phase 21 — closeout validation pending on `agent/v1-phase-21f-closeout`. PR #32 merge
+- Phase 21 — complete portfolio profile. PR #32 merge
   `37fc065b95434622dbfdf407a2bda7930f2c4547` supplies the 21A–21B base. Those
   checkpoints
   add bounded governance/provenance plus evaluated `report_synthesis` routing:
@@ -563,8 +563,8 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   registration, promotion, routing, or deployment activation is added. 21E
   merged through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`; the
   earlier evaluator-protocol correction `2b3817e75f1a7130d847f0c4e58bc2aa94d3e0a9`
-  remains historical evidence. 21F adds no capability and awaits its
-  full-regression/exact-head hosted closeout gate.
+  remains historical evidence. The documentation-only 21F closeout adds no
+  capability and passed required hosted checks on `c5b39f6` in Draft PR #36.
 - Phase 22 — final provider, legal, and launch validation.
 
 See [`future_phase_contracts.md`](future_phase_contracts.md) for complete requirements.

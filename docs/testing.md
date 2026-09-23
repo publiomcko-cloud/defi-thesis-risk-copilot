@@ -810,9 +810,9 @@ full backend/PostgreSQL suite from a fresh upgraded database, the five adjacent
 Phase 21 migration cycles plus clean SQLite/fresh PostgreSQL upgrades,
 frontend lint/build/BFF/accessibility/browser/security checks, Phase 19 failure
 exercises, Compose validation, and supply-chain checks. The authoritative result
-is recorded in [`phase_21_closeout.md`](phase_21_closeout.md) only after the
-draft PR's exact head is green; no local run implies provider or production
-activation.
+is recorded in [`phase_21_closeout.md`](phase_21_closeout.md). The required
+hosted suite passed on `c5b39f6` in Draft PR #36; no local or hosted portfolio
+run implies provider or production activation.
 
 ## 11. CI expectations
 

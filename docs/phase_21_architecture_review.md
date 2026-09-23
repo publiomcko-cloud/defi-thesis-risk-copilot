@@ -179,11 +179,11 @@ bounded lifecycle state and account-actor detachment. Runs are permanently
 `not_registry_eligible`: no completion registers, evaluates, promotes, or routes
 a model. Exact-head hosted validation remains required.
 
-## Phase 21 closeout status
+## Phase 21 complete — portfolio profile
 
-The implementation is complete through 21E. Phase 21F adds no capability: it
-reconciles the migration lineage, full regression, and exact-head hosted
-evidence. Real provider execution, private training, automatic
+The implementation is complete through 21F. Its documentation-only closeout
+reconciled migration lineage, full regression, and all-green hosted evidence on
+`c5b39f6` in Draft PR #36. Real provider execution, private training, automatic
 registration/promotion/routing, commercial activation, and legal/deployment
 approval remain outside Phase 21 and are deferred to Phase 22.
 

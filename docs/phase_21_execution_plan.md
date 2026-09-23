@@ -1,6 +1,8 @@
 # V1 Phase 21 Execution Plan — Model and Research Intelligence Expansion
 
-Status: **Closeout validation pending — checkpoints 21A–21E are merged; 21F is reconciling full-regression and exact-head hosted evidence without adding capability.**
+Status: **Complete — Portfolio Profile.** Checkpoints 21A–21E are merged and
+the 21F closeout evidence passed required hosted checks on
+`c5b39f6595046b9e1dc05ca44e302d5954a2df25` in Draft PR #36.
 
 21A–21B base merge: PR #32, `37fc065b95434622dbfdf407a2bda7930f2c4547`
 
@@ -344,8 +346,8 @@ Required:
 - Phase 22 handoff with remaining deployed-provider/legal gates intact.
 
 Completion record: [`phase_21_closeout.md`](phase_21_closeout.md) tracks this
-documentation-only checkpoint. It may label Phase 21 complete only after the
-new draft PR's exact head has passed every required hosted check.
+documentation-only checkpoint and the all-green hosted result. The final
+documentation head is submitted for the same exact-head confirmation.
 
 ## Checkpoint discipline
 

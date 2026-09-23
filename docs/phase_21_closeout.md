@@ -1,6 +1,9 @@
 # Phase 21 Closeout — Model and Research Intelligence
 
-Status: **Closeout validation submitted; exact-head hosted evidence pending.**
+Status: **Complete — Portfolio Profile.** Required hosted checks passed on the
+closeout evidence head `c5b39f6595046b9e1dc05ca44e302d5954a2df25` in Draft PR
+#36 on 2026-09-23. This documentation update is submitted for one final
+exact-head confirmation before the draft is merge-ready.
 
 Phase 21E merged through PR #35 at
 `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`. The earlier evaluator-protocol
@@ -73,5 +76,9 @@ Local evidence passed before this draft PR was opened:
   migration rollback.
 
 Required hosted checks remain the authority for the new exact head. This
-document is updated to **Complete — Portfolio Profile** only after that draft
-PR is fully green.
+document now records the actual hosted result: Backend and PostgreSQL, Frontend,
+Docker Compose Config, Isolated failure exercises, both CodeQL analyzers,
+Workflow Policy and SBOM, Dependency Review, Secret Scan, Dependency and
+Container Security, and Vercel Preview Comments all passed on `c5b39f6` in
+Draft PR #36. The final documentation head must repeat that exact-head gate;
+neither result is a production-activation claim.

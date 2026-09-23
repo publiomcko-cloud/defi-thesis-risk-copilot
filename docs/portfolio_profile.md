@@ -1,10 +1,10 @@
 # Portfolio Implementation Profile
 
-Status: **Phase 20 Complete — Portfolio Profile.** Phase 20J merged through
+Status: **Phases 20–21 Complete — Portfolio Profile.** Phase 20J merged through
 PR #31 at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7`. Phase 21A–21E are merged,
 including 21E through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`.
-Phase 21F is documentation/full-regression/exact-head closeout validation only;
-it adds no portfolio capability and is pending hosted evidence.
+The documentation-only 21F closeout passed required hosted checks on `c5b39f6`
+in Draft PR #36 and adds no portfolio capability.
 
 This repository is currently developed as a production-grade portfolio anchor, not as an actively commercialized SaaS product.
 

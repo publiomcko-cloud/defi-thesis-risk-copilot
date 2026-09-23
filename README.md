@@ -53,12 +53,12 @@ V1 Phase 20 portfolio profile: COMPLETE
   - 20H organization invitation/seat controls: merged at `54329c6`
   - 20I bounded support/privacy/status: merged at `f55ee37`
   - 20J architecture closeout: merged with Phase 20 at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` via PR #31
-V1 Phase 21: CLOSEOUT VALIDATION PENDING
+V1 Phase 21: COMPLETE — PORTFOLIO PROFILE
   - 21A–21B governance/evaluated routing: merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32
   - 21C quality, source-safety, and feedback governance: merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33; synthesis remains disabled by default
   - 21D research intelligence: merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34; source-grounded and deterministic by default
   - 21E worker compute/training governance: merged at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52` through PR #35; the evaluator-protocol correction `2b3817e` is historical evidence
-  - 21F: documentation, full-regression, and exact-head hosted closeout validation in progress; Phase 22 remains the later provider/legal release-validation phase
+  - 21F: documentation/full-regression closeout hosted evidence passed on `c5b39f6` in Draft PR #36; Phase 22 remains the later provider/legal release-validation phase
 ```
 
 ## Engineering Capabilities
@@ -96,8 +96,9 @@ merged through PR #34 at `468db4a1529b456afed6d1b5d482c8ea0ff932bd`, and 21E
 merged through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`. Its sealed
 checked-in synthetic corpus, bounded local-fake Phase 17 compute slot, and
 non-production artifacts do not activate a provider, Vast rental, model route,
-commercial work, or execution functionality. Phase 21F exact-head closeout
-validation is pending.
+commercial work, or execution functionality. Phase 21F closed the portfolio
+implementation evidence on `c5b39f6` in Draft PR #36; the final documentation
+head remains subject to the same exact-head hosted gate.
 
 ## Public Deployment Safety
 

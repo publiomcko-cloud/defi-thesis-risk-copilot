@@ -8,8 +8,9 @@
   evaluator-protocol correction evidence.
 - Recorded the complete `0029 -> 0030 -> 0031 -> 0032 -> 0033 -> 0034`
   lineage, v3 evaluator/promotion authority, disabled rollout defaults, and
-  Phase 22 provider/legal handoff. Exact-head hosted closeout validation is
-  pending; this is not a provider, commercial, or production-activation claim.
+  Phase 22 provider/legal handoff. The required hosted suite passed on
+  `c5b39f6595046b9e1dc05ca44e302d5954a2df25` in Draft PR #36; this is not a
+  provider, commercial, or production-activation claim.
 
 ## Phase 21E — Worker compute and training governance
 
