@@ -752,7 +752,7 @@ web-request timer.
 
 ---
 
-## 20. Phase 21 active — model/research expansion
+## 20. Phase 21 closeout validation — model/research expansion
 
 Checkpoint 21A adds a code-owned seven-task registry, bounded durable model and
 task-capability metadata, immutable prompt/schema/safety metadata, and one
@@ -794,7 +794,9 @@ cancellation, artifacts, and capacity reservations; completion produces only a
 checksummed non-production model card and receipt. No private/organization/
 feedback data, provider/Vast session, network, GPU, shell, model registration,
 evaluation, promotion, route, or production activation path is introduced.
-Checkpoint 21F remains planned and Phase 22 remains the later
+Checkpoint 21F adds no product capability: it reconciles full regression,
+migration lineage, documentation, and exact-head hosted evidence before the
+portfolio phase can be labeled complete. Phase 22 remains the later
 deployed-provider/legal validation phase.
 
 Deterministic risk and non-execution boundaries remain permanent.

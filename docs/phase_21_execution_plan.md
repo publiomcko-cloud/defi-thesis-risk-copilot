@@ -1,6 +1,6 @@
 # V1 Phase 21 Execution Plan — Model and Research Intelligence Expansion
 
-Status: **Active — checkpoints 21A–21E implemented; Draft PR #35 required hosted checks are green for the evaluator-protocol correction at `2b3817e75f1a7130d847f0c4e58bc2aa94d3e0a9`; 21F is next.**
+Status: **Closeout validation pending — checkpoints 21A–21E are merged; 21F is reconciling full-regression and exact-head hosted evidence without adding capability.**
 
 21A–21B base merge: PR #32, `37fc065b95434622dbfdf407a2bda7930f2c4547`
 
@@ -8,7 +8,12 @@ Status: **Active — checkpoints 21A–21E implemented; Draft PR #35 required ho
 
 21D merge: PR #34, `468db4a1529b456afed6d1b5d482c8ea0ff932bd`
 
-Current branch: `agent/v1-phase-21e-worker-compute-training-governance`
+21E merge: PR #35, `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`
+
+Historical 21E evaluator-protocol correction:
+`2b3817e75f1a7130d847f0c4e58bc2aa94d3e0a9`
+
+Current branch: `agent/v1-phase-21f-closeout`
 
 Authority:
 
@@ -72,8 +77,8 @@ Implemented scope:
 
 21A is backend/governance authority. It does not activate new model tasks or
 add a public provider-selection UI. Migration `20260904_0030` and the focused
-SQLite/PostgreSQL evidence record the implementation; Phase 21 remains active
-until every later checkpoint is complete.
+SQLite/PostgreSQL evidence record the implementation; Phase 21 remained active
+until every later checkpoint was complete.
 
 ## Checkpoint 21B — Evaluation, promotion, routing, rollback
 
@@ -337,6 +342,10 @@ Required:
 - current-state/architecture/development-plan reconciliation;
 - accurate implemented/enabled/disabled/deferred labels;
 - Phase 22 handoff with remaining deployed-provider/legal gates intact.
+
+Completion record: [`phase_21_closeout.md`](phase_21_closeout.md) tracks this
+documentation-only checkpoint. It may label Phase 21 complete only after the
+new draft PR's exact head has passed every required hosted check.
 
 ## Checkpoint discipline
 
