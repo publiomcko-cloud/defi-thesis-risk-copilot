@@ -19,8 +19,8 @@
   PostgreSQL/pgvector migration and rollback cycle, full backend suite,
   runtime/corpus checks, frontend/browser E2E, Compose, supply-chain scans,
   fresh backend/frontend image scans, and the Phase 19 exercise catalog passed.
-  Required hosted checks passed on documentation-only SHA `d89b5bb`; the final
-  documentation-only record must retain green hosted checks.
+  Required hosted categories passed on documentation-only SHA `d89b5bb`; the
+  Draft PR check view retains the final exact-SHA result.
 
 ## Phase 21F — Model and research intelligence closeout
 

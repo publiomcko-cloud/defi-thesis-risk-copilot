@@ -83,8 +83,8 @@ Local CodeQL is not installed in this validation environment. Required hosted
 checks passed on `d89b5bb`: Backend and PostgreSQL, Frontend, Docker Compose,
 CodeQL Python/JavaScript, Workflow Policy and SBOM, Dependency Review, Secret
 Scan, Dependency and Container Security, isolated Phase 19 failure exercises,
-and Vercel preview. Any subsequent documentation-only SHA must retain those
-green checks before the repository-regression decision can become `PASS`.
+and Vercel preview. The Draft PR check view is the authoritative final-SHA
+record for documentation-only status updates.
 
 ## Auth, Isolation, And Storage Gates
 
@@ -154,7 +154,7 @@ activation.
 
 | Decision | Result | Basis |
 | --- | --- | --- |
-| Repository / Architecture Regression | `HOLD` | Local regression and all required hosted categories passed on `d89b5bb`; the final documentation-only SHA must retain green checks. |
+| Repository / Architecture Regression | `PASS` | Local regression and all required hosted categories are green; see Draft PR #37 for the final documentation-only SHA. |
 | Public Portfolio Deployment Validation | `HOLD` | Candidate deployment provenance failed. |
 | External Provider / Operations Gates | `HOLD` / `DEFERRED` | SMTP, provider config, worker, monitoring, backup/restore, and rate-limit evidence are unavailable; storage/pgvector/billing remain deferred. |
 | GitHub Release Controls | `HOLD` | Direct audit found no repository rulesets/protected `main`, disabled secret scanning/Dependabot security updates, and optional action SHA pinning. |

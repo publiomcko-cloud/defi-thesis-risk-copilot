@@ -46,7 +46,7 @@ source bodies, or secret-bearing screenshots.
 | Workstream | Required evidence | Current state | Exit condition |
 | --- | --- | --- | --- |
 | Baseline and schema | Candidate SHA, merged PR #36, one Alembic head, no fabricated `0027`, safe defaults | `VERIFIED` locally on 2026-09-23 | Preserved through final exact-head validation. |
-| Repository regression | Full PostgreSQL/backend/frontend/browser/Compose/security/Phase 19 suite and exact-head hosted checks | `VERIFIED` locally; all required hosted checks passed on `d89b5bb` | Preserve green required checks through the final documentation-only Phase 22 PR SHA. |
+| Repository regression | Full PostgreSQL/backend/frontend/browser/Compose/security/Phase 19 suite and exact-head hosted checks | `PASS` | Fresh local evidence and required hosted categories are green; the Draft PR check view is the authoritative final-SHA record. |
 | Public portfolio smoke | HTTPS frontend/demo/status and backend health/readiness/deployment status | `VERIFIED` for bounded unauthenticated endpoints | Re-run only after the candidate is deployed. |
 | Deployment provenance | Render and Vercel deployments both identify the candidate SHA | `FAILED` | Deploy and safely prove the exact candidate on both services. |
 | Production configuration | Read-only provider configuration audit and header/origin/cookie evidence | `BLOCKED_EXTERNAL` | Approved platform access, redacted categorical inventory, and candidate deployment. |
