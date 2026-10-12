@@ -42,7 +42,7 @@ speculative code or configuration change.
 | Supabase database/auth | Backend says database connected and authentication enabled | Provider configuration, migration head, SMTP, redirects, and policies are externally unverified. |
 | Object storage | No public activation evidence | Default-disabled repository capability; provider policy and RLS evidence absent. |
 | pgvector | The existing database lacks PostgreSQL `vector`, as reported by startup migration `20260727_0018` | The primary path remains disabled; extension provisioning for migration startup is a separate database prerequisite and does not establish primary cutover approval. |
-| Trusted worker | Scheduled Phase 17 worker run `35878131521` on candidate `abc83d36` timed out in `POST /internal/workers/v1/claim` after the worker's 20-second HTTP read timeout | Setup, checkout, Python, and dependency steps succeeded; no authentication/schema/provider failure was observed first. Rerun is intentionally deferred until authorized Render candidate deployment. |
+| Trusted worker | Candidate-specific Phase 17 worker run `35878131521` on `abc83d36` timed out; later automatic cron run `38288308792` on main `9c9403aa` completed at workflow level | The candidate run timed out in `POST /internal/workers/v1/claim` after 20 seconds. The later run used the existing `schedule` event and succeeded as a GitHub job in `production-worker`; it does not establish deployed-candidate provenance or whether a job was claimed. No manual dispatch or candidate-specific rerun was made. |
 | SMTP/email | No configuration evidence | Custom SMTP is mandatory for product launch and remains blocked. |
 | Monitoring/alerts | Local/isolated foundation only | Receiver, pager, escalation, and owner evidence absent. |
 | Backup/restore | Runbook/template only | Provider backup, restore drill, RPO/RTO, and owners absent. |
@@ -94,10 +94,21 @@ GitHub scheduled workflow `35878131521` checked out exact `main` candidate
 2026-09-23T14:59Z. The bounded observed failure is `TimeoutError: The read
 operation timed out` from the worker runner's 20-second claim request. The
 known credential remains masked; no database URL, credential, job payload, or
-raw sensitive response was retained. The worker was not rerun because the
-2026-10-12 Render candidate deployment failed at startup and the public
-service still reports `6f07ef9`. It may be rerun only after a successful exact
-candidate deployment and provenance check; no worker code changed.
+raw sensitive response was retained. The candidate-specific run was not
+manually rerun because the 2026-10-12 Render candidate deployment failed at
+startup and the public service still reports `6f07ef9`.
+
+After PR #39 merged, GitHub automatically ran the existing Phase 17 Scheduled
+Worker cron as workflow run `38288308792` at `2026-10-12T18:03:06Z`, event
+`schedule`, on main SHA `9c9403aa71a52050de7d4a892beff675458386b6`. Its
+`process-one-job` job completed successfully at `18:03:31Z` in the
+`production-worker` environment. The workflow checks out `main` and invokes
+`python -m app.jobs.worker_runner --once`. This run was not manually dispatched
+or requested as a Phase 22 test. Its workflow-level success does not establish
+that a durable job was claimed, nor does it establish provenance for the
+undeployed candidate `abc83d36`. No raw logs or job payload were inspected or
+retained. This automatic run does not replace the historical candidate timeout
+or clear the worker/deployment evidence gate.
 
 ## Render Candidate Deployment Failure
 

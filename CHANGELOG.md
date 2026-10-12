@@ -9,9 +9,13 @@
   required GitHub checks passed on exact PR head
   `c6d7cfdce8d81170184ef995dc8ea832f86ff1d9`; the protected merge was recorded
   with first parent `abc83d36c115b4122a1a1964fde101fbf9c407e4`. The merge is a
-  repository source revision, not a new deployment candidate. No deployment,
-  production database action, or worker rerun followed it; Phase 22 remains
-  **HOLD** on the original candidate's external blockers.
+  repository source revision, not a new deployment candidate. No deployment
+  or production database action followed it. GitHub's existing Phase 17
+  Scheduled Worker cron automatically ran at 2026-10-12T18:03:06Z on this main
+  SHA (run `38288308792`, event `schedule`; job conclusion `success`). This was
+  not manually dispatched and is not candidate-specific release evidence; see
+  the release record. Phase 22 remains **HOLD** on the original candidate's
+  external blockers.
 - The Phase 22 documentation branch was reconciled with the merged `main`
   revision while retaining the original candidate SHA, failed Render attempt,
   prior Vercel success, and worker timeout as historical evidence. PR #37
@@ -32,8 +36,10 @@
 - Recorded the Render service identity, source branch/configuration, categorical
   environment audit, bounded failure classification, and post-failure public
   endpoint results in the Phase 22 release record. The Phase 17 scheduled
-  worker's earlier candidate run timed out after 20 seconds and was not rerun
-  because the candidate is not live.
+  worker's earlier candidate run timed out after 20 seconds. No manual
+  candidate-specific rerun was requested; the later automatic cron run on
+  `9c9403aa` is recorded separately and does not establish candidate
+  provenance.
 - Final hosted checks on documentation head `2da7820` passed nine of ten
   required contexts. `Dependency and Container Security` failed because
   `pip-audit` found eight advisories in unchanged `pypdf` 6.16.1. At that point,

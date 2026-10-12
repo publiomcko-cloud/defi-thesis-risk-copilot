@@ -578,8 +578,12 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   required checks passed on exact head `c6d7cfdce8d81170184ef995dc8ea832f86ff1d9`,
   and it merged as `9c9403aa71a52050de7d4a892beff675458386b6`. That main
   revision is not deployed and is not a new release candidate. The original
-  candidate SHA and its deployment evidence remain unchanged. The scheduled
-  worker remains gated on successful candidate provenance.
+  candidate SHA and its deployment evidence remain unchanged. Candidate-specific
+  worker validation remains unproven: after the merge, the existing Phase 17
+  cron automatically ran workflow `38288308792` on main SHA `9c9403aa` at
+  2026-10-12T18:03Z and its job concluded successfully. This scheduled run does
+  not establish provenance for the undeployed candidate; no manual worker
+  dispatch was made.
   SMTP, disposable-account auth, tenant/organization isolation, provider
   operations, backup/restore, legal review, and release approval remain
   external or human gates. See
