@@ -1,14 +1,14 @@
 # V1 Phase 22 Execution Plan - Final Release Validation
 
 Status: **ACTIVE - HOLD.** This is a validation and approval phase; it adds no
-product capability or migration. On 2026-09-23, repository release controls
-were remediated and GitHub recorded a successful Vercel production deployment
-of required candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`. A second
-authority audit at 2026-09-23T17:09Z confirmed that the public Render backend
-still reports older commit `6f07ef9` and that no authorized Render deployment
-interface is available here. That is a
-`BLOCKED_EXTERNAL - RENDER DEPLOYMENT AUTHORITY REQUIRED` hold, not evidence
-that the candidate is running on Render.
+product capability or migration. On 2026-10-12 the exact reviewed candidate
+`abc83d36c115b4122a1a1964fde101fbf9c407e4` was submitted to the identified
+production Render backend. Its build succeeded, but startup failed while
+applying migration `20260727_0018`: the existing database does not have the
+required PostgreSQL `vector` extension. The old deployment remains responsive
+and reports `6f07ef9`; the candidate is not running on Render. This is a
+`22 HOLD` pending an externally authorized database prerequisite and a later
+successful deployment/provenance check.
 
 ## Authority And Scope
 
@@ -51,9 +51,9 @@ source bodies, or secret-bearing screenshots.
 | --- | --- | --- | --- |
 | Baseline and schema | Candidate SHA, merged PR #36, one Alembic head, no fabricated `0027`, safe defaults | `VERIFIED` locally on 2026-09-23 | Preserved through final exact-head validation. |
 | Repository regression | Full PostgreSQL/backend/frontend/browser/Compose/security/Phase 19 suite and exact-head hosted checks | `PASS` | Fresh local evidence and required hosted categories are green; the Draft PR check view is the authoritative final-SHA record. |
-| Public portfolio smoke | HTTPS frontend/demo/status and backend health/readiness/deployment status | `VERIFIED` for bounded unauthenticated endpoints | Re-run only after the candidate is deployed. |
-| Deployment provenance | Render and Vercel deployments both identify the candidate SHA | `BLOCKED_EXTERNAL` | Vercel candidate provenance is verified; an authorized Render operator must deploy and safely prove the exact candidate. |
-| Production configuration | Read-only provider configuration audit and header/origin/cookie evidence | `BLOCKED_EXTERNAL` | Approved platform access, redacted categorical inventory, and candidate deployment. |
+| Public portfolio smoke | HTTPS frontend/demo/status and backend health/readiness/deployment status | `VERIFIED` for bounded unauthenticated endpoints on the currently serving deployment | Render `/health`, `/ready`, and `/api/deployment/status` returned 200 after the failed candidate attempt; this does not prove candidate provenance. |
+| Deployment provenance | Render and Vercel deployments both identify the candidate SHA | `FAILED` for the attempted Render candidate; Vercel `VERIFIED` | Render build succeeded but startup failed at migration `20260727_0018` because the existing database lacks `vector`; do not retry until the database prerequisite is handled under separate authorization. |
+| Production configuration | Read-only categorical configuration audit and header/origin/cookie evidence | `VERIFIED` for the authorized Render categorical inventory; remaining evidence `BLOCKED_EXTERNAL` | Render service metadata and safe flag categories are recorded in the release validation record; other platform and browser-level configuration remains unverified. |
 | Supabase auth and SMTP | Custom SMTP plus disposable-account confirmation, recovery, reset, refresh/logout, and MFA evidence | `BLOCKED_EXTERNAL` | Approved SMTP/configuration and safe disposable-account evidence. |
 | Tenant and organization isolation | Two disposable users, removal/revocation, knowledge boundary, and lifecycle evidence on candidate deployment | `BLOCKED_EXTERNAL` | Approved disposable identities and candidate deployment. |
 | Storage and pgvector | Provider bucket/RLS, pgvector/readiness, rollback rehearsal, and JSON fallback evidence | `DEFERRED_PRODUCTIZATION` | Separate policy/provider approval; do not enable merely for this phase. |
@@ -90,17 +90,24 @@ weakened rule was added.
 
 ## Hard Stops And Rollback
 
-The missing Render candidate deployment prohibits the remaining public
+The failed Render candidate deployment prohibits the remaining public
 portfolio release validation, real-account testing, production migration
-actions, and any commercial-launch claim. No production downgrade, feature
-activation, provider purchase, real rental, paid inference, customer email,
-payment object, or customer-data test is permitted to work around it.
+actions, and any commercial-launch claim. The bounded logs identify the
+external prerequisite: an authorized database administrator must provision
+the PostgreSQL `vector` extension required by migration `20260727_0018` before
+a later deployment attempt can be considered. No database change, retry,
+production downgrade, feature activation, provider purchase, real rental,
+paid inference, customer email, payment object, or customer-data test was made
+to work around the failure.
 
-The deployment recovery path is operator-owned: Vercel already has a successful
-candidate deployment record; an authorized Render operator must deploy the
-same candidate, record a bounded identifier, and verify safe status plus
-health/readiness. If rollback is needed, use the platform's approved deployment
-rollback; Alembic downgrade is not production data recovery.
+The deployment recovery path is operator-owned: Vercel has a successful
+candidate deployment record. The existing Render deployment attempt is
+`dep-db6ghojrjlhs738e933g` and failed at startup. After the database prerequisite
+is separately authorized and completed, an authorized operator can consider a
+new exact-candidate deployment, record its bounded identifier, and verify safe
+status plus health/readiness. If rollback is needed, use the platform's
+approved deployment rollback; Alembic downgrade is not production data
+recovery.
 
 ## Completion Model
 

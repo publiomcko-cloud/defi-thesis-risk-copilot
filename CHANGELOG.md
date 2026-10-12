@@ -2,13 +2,19 @@
 
 ## Phase 22 - Final release validation
 
-- Rechecked the Render deployment authority and bounded public endpoints. No
-  authorized Render CLI/session, API integration, deploy hook, repository
-  webhook, or accessible GitHub App-installation interface is present; the
-  backend remains healthy but reports stale `6f07ef9`. The Phase 17 scheduled
-  worker's prior candidate run is now recorded as a 20-second claim read timeout
-  and was not rerun against the stale service. No runtime code or provider
-  configuration changed.
+- On 2026-10-12, submitted exact candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`
+  to the identified production Render backend. Build succeeded; startup failed
+  during migration `20260727_0018` because the existing database lacks the
+  PostgreSQL `vector` extension. Deployment `dep-db6ghojrjlhs738e933g` ended
+  `update_failed`; the previous deployment still serves and reports `6f07ef9`.
+  No database change, retry, environment change, runtime code change, or provider
+  activation was made. Candidate provenance remains on hold pending an
+  independently authorized database prerequisite and later successful deploy.
+- Recorded the Render service identity, source branch/configuration, categorical
+  environment audit, bounded failure classification, and post-failure public
+  endpoint results in the Phase 22 release record. The Phase 17 scheduled
+  worker's earlier candidate run timed out after 20 seconds and was not rerun
+  because the candidate is not live.
 - Remediated GitHub release controls with active `main` ruleset `23890276`:
   pull requests, current exact-check contexts, resolved conversations, and
   force-push/deletion protection. The single-maintainer admin recovery path is
@@ -17,10 +23,9 @@
   protection; unavailable generic-pattern/validity scanning remains a GitHub
   feature-availability hold, without a scanner exemption.
 - Verified GitHub's successful Vercel Production deployment record for exact
-  Phase 21 closeout candidate `abc83d36`. The live Render backend still reports
-  `6f07ef9`; no authorized Render deploy interface, credential, hook, or CLI is
-  present, so that candidate deployment remains `BLOCKED_EXTERNAL` and Phase 22
-  remains on hold. No provider or commercial capability was activated.
+  Phase 21 closeout candidate `abc83d36`. Render remains unaligned after the
+  startup failure above, so Phase 22 remains on hold. No provider or commercial
+  capability was activated.
 - Added the Phase 22 execution plan, evidence matrix, and bounded release
   validation record. A public smoke check found the live Render backend reports
   `6f07ef9`, not the required Phase 21 closeout merge

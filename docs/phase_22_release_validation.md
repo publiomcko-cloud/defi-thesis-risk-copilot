@@ -13,26 +13,32 @@ commercial operation.
 | Repository migration head | `20260911_0034` only; `0027` intentionally absent |
 | Initial observation time | 2026-09-23T11:42Z |
 | Corrective observation time | 2026-09-23T16:43Z |
-| Render authority recheck | 2026-09-23T17:09Z: no authorized CLI/session, API credential/integration, deploy hook, repository webhook, or accessible GitHub App-installation interface |
-| Public backend evidence | `/health`, `/ready`, `/docs`, and `/api/deployment/status` returned HTTPS 200 |
+| Render target | `srv-d9bt2461a83c73bt5vg0` (`defi-thesis-risk-copilot`), existing production web service for this repository, branch `main` |
+| Render deployment attempt | `dep-db6ghojrjlhs738e933g`, exact candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`, submitted 2026-10-12; terminal result `update_failed` at 2026-10-12T16:21:41Z |
+| Render deployment result | Build succeeded; container startup failed during migration `20260727_0018` because PostgreSQL extension `vector` is not installed in the existing database. No database mutation or retry was made. |
+| Public backend evidence | After the failed attempt, `/health`, `/ready`, and `/api/deployment/status` returned HTTPS 200; readiness reported database and RAG index true on the still-serving prior deployment. |
 | Public frontend evidence | Canonical Vercel `/`, `/demo`, and `/status` returned HTTPS 200 |
 | Vercel provenance result | **VERIFIED:** GitHub deployment `6612919047` records successful Vercel Production deployment of exact candidate `abc83d36` |
-| Render provenance result | **BLOCKED_EXTERNAL:** backend still reports `6f07ef9`; a second authority audit found no authorized deployment interface |
+| Render provenance result | **HOLD / FAILED ATTEMPT:** exact candidate deployment failed at startup; public endpoint still reports old commit `6f07ef9` |
 
 `6f07ef95b36a0b4cd96c91836c8965004b0d82e7` is the older `Add scheduled
 Phase 17 worker` commit and is an ancestor of the candidate by 21 commits.
 Health and readiness show that a live service is responsive; they do not
-establish that the required release candidate is deployed to Render.
+establish that the required release candidate is deployed to Render. Render's
+deployment API identifies the target as the repository's production web service
+on `main`, using Docker context `.` and `./Dockerfile.backend`. The bounded
+startup logs show the database extension prerequisite; they do not justify a
+speculative code or configuration change.
 
 ## Deployment Inventory
 
 | Component | Observed state | Evidence boundary |
 | --- | --- | --- |
 | Vercel frontend | GitHub deployment `6612919047` successfully deployed exact candidate `abc83d36` to `Production`; canonical public routes responded 200 | The immutable deployment alias is Vercel-auth protected. The GitHub deployment record, rather than public HTML, establishes commit provenance. |
-| Render backend | Publicly reachable, production/public-demo/auth-enabled status; still reports stale commit `6f07ef9` | `BLOCKED_EXTERNAL - RENDER DEPLOYMENT AUTHORITY REQUIRED`. The 17:09Z recheck found no authorized CLI/session, API credential/integration, deploy hook, repository webhook, or accessible GitHub App-installation interface. |
+| Render backend | Service `srv-d9bt2461a83c73bt5vg0` (`defi-thesis-risk-copilot`), source branch `main`; exact candidate deployment `dep-db6ghojrjlhs738e933g` ended `update_failed`; public status still reports `6f07ef9` | Candidate build succeeded, but startup failed when migration `20260727_0018` required an uninstalled PostgreSQL `vector` extension. This external DB prerequisite needs separate authorization before another attempt. |
 | Supabase database/auth | Backend says database connected and authentication enabled | Provider configuration, migration head, SMTP, redirects, and policies are externally unverified. |
 | Object storage | No public activation evidence | Default-disabled repository capability; provider policy and RLS evidence absent. |
-| pgvector | Local schema/preflight evidence only | Production extension/index/cutover state unverified; primary path remains disabled by default. |
+| pgvector | The existing database lacks PostgreSQL `vector`, as reported by startup migration `20260727_0018` | The primary path remains disabled; extension provisioning for migration startup is a separate database prerequisite and does not establish primary cutover approval. |
 | Trusted worker | Scheduled Phase 17 worker run `35878131521` on candidate `abc83d36` timed out in `POST /internal/workers/v1/claim` after the worker's 20-second HTTP read timeout | Setup, checkout, Python, and dependency steps succeeded; no authentication/schema/provider failure was observed first. Rerun is intentionally deferred until authorized Render candidate deployment. |
 | SMTP/email | No configuration evidence | Custom SMTP is mandatory for product launch and remains blocked. |
 | Monitoring/alerts | Local/isolated foundation only | Receiver, pager, escalation, and owner evidence absent. |
@@ -42,12 +48,34 @@ establish that the required release candidate is deployed to Render.
 
 ## Safe Deployment Posture Observed
 
-The bounded public status response confirms `APP_ENV=production`, public demo
+The bounded public status response confirms production environment, public demo
 mode, authentication enabled, database connectivity, synthesis disabled, model
-provider disabled, semantic RAG disabled, and Vast disabled/dry-run. The public
-endpoint does not expose analytics, schedule-dispatch, storage, pgvector-primary,
-worker, CORS, cookie, or secret values, so those deployment states are not
-inferred from repository defaults.
+provider disabled, semantic RAG disabled, and Vast disabled/dry-run. A read-only
+Render environment audit inspected categories only; no values were recorded.
+The target had 25 direct environment variables and zero attached environment
+groups. The public endpoint did not expose the listed flags, so their values
+below come from that Render audit rather than repository defaults.
+
+| Configuration key/category | Observed category |
+| --- | --- |
+| `APP_ENV` | `production` |
+| `PUBLIC_DEMO_MODE` | enabled |
+| `AUTH_ENABLED` | enabled |
+| `AUTH_PROVIDER` | present |
+| `FRONTEND_ORIGIN` | present |
+| `PRODUCT_ANALYTICS_ENABLED` | absent |
+| `SCHEDULE_DISPATCH_ENABLED` | absent |
+| `KNOWLEDGE_STORAGE_ENABLED` | absent |
+| `KNOWLEDGE_PGVECTOR_PRIMARY_ENABLED` | absent |
+| `LLM_SYNTHESIS_ENABLED` | disabled |
+| `VAST_DRY_RUN` | enabled |
+| `VAST_REAL_RENTALS_ENABLED` | disabled |
+| Monitoring/synthetic flags | none configured |
+
+No provider, analytics, scheduling, storage, pgvector-primary, paid inference,
+or real Vast activation was made. The absent pgvector-primary flag is distinct
+from the PostgreSQL `vector` extension prerequisite required by the candidate
+migration at startup.
 
 Repository configuration retains fail-closed constraints: production analytics,
 schedule dispatch, and pgvector-primary are rejected by settings validation;
@@ -63,9 +91,28 @@ GitHub scheduled workflow `35878131521` checked out exact `main` candidate
 2026-09-23T14:59Z. The bounded observed failure is `TimeoutError: The read
 operation timed out` from the worker runner's 20-second claim request. The
 known credential remains masked; no database URL, credential, job payload, or
-raw sensitive response was retained. Because the Render service still reports
-stale `6f07ef9` and no authorized deployment route exists, this pass does not
-rerun the worker against that service or change worker code.
+raw sensitive response was retained. The worker was not rerun because the
+2026-10-12 Render candidate deployment failed at startup and the public
+service still reports `6f07ef9`. It may be rerun only after a successful exact
+candidate deployment and provenance check; no worker code changed.
+
+## Render Candidate Deployment Failure
+
+The exact reviewed candidate deployment `dep-db6ghojrjlhs738e933g` built
+successfully, then exited with status 1 during container startup. The startup
+path ran Alembic migrations and failed on `20260727_0018` with the explicit
+prerequisite that a database administrator install PostgreSQL extension
+`vector`. Render marked the deployment `update_failed` at
+`2026-10-12T16:21:41Z`. The production database was not modified, the
+deployment was not retried, no environment variables were changed, and no
+runtime code or migration was edited. The required external action is an
+authorized DBA provision of this extension, followed by a separately reviewed
+deployment attempt.
+
+After failure, public `/health` returned HTTPS 200/healthy, `/ready` returned
+HTTPS 200 with database and RAG index ready, and `/api/deployment/status`
+returned HTTPS 200 with the expected safe feature posture. It still reported
+`6f07ef9`; these responses describe the prior deployment, not the candidate.
 
 ## Local Exact-Head Regression
 
@@ -178,7 +225,7 @@ paid/external capability activation.
 | Decision | Result | Basis |
 | --- | --- | --- |
 | Repository / Architecture Regression | `PASS` | Local regression and all required hosted categories are green; see Draft PR #37 for the final documentation-only SHA. |
-| Public Portfolio Deployment Validation | `HOLD` | Vercel candidate provenance is verified; Render candidate deployment is blocked by unavailable authorized deployment access. |
+| Public Portfolio Deployment Validation | `HOLD` | Vercel candidate provenance is verified; the Render candidate build succeeded but startup failed because the existing database lacks the required `vector` extension. |
 | External Provider / Operations Gates | `HOLD` / `DEFERRED` | SMTP, provider config, worker, monitoring, backup/restore, and rate-limit evidence are unavailable; storage/pgvector/billing remain deferred. |
 | GitHub Release Controls | `PASS` | Active `main` ruleset, native SHA pinning, dependency-graph evidence, Dependabot, secret scanning, and push protection are verified. |
 | Qualified Legal / Privacy / Commercial Review | `HOLD` | Qualified human evidence is absent. |
@@ -186,12 +233,14 @@ paid/external capability activation.
 
 ## Resume Criteria And Rollback
 
-Before resuming public deployment validation, an authorized Render operator must
-deploy `abc83d36` (or a later reviewed Phase 22 candidate) and provide a
-bounded deployment identifier. Vercel's exact-candidate deployment is already
-recorded in GitHub. The platform rollback path, if needed, is a deployment
-rollback to the last approved build; it must not use a production database
-downgrade as recovery.
+Before resuming public deployment validation, an authorized database
+administrator must provision the PostgreSQL `vector` extension required by
+`20260727_0018`. Then an authorized operator can consider a new deployment of
+the exact reviewed candidate and provide a successful bounded deployment
+identifier plus endpoint provenance. Vercel's exact-candidate deployment is
+already recorded in GitHub. The platform rollback path, if needed, is a
+deployment rollback to the last approved build; it must not use a production
+database downgrade as recovery.
 
 After Render provenance is verified, the remaining tests require approved
 disposable identities, read-only platform configuration access, custom SMTP
