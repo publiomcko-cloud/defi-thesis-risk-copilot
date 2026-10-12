@@ -15,8 +15,11 @@
 - The Phase 22 documentation branch was reconciled with the merged `main`
   revision while retaining the original candidate SHA, failed Render attempt,
   prior Vercel success, and worker timeout as historical evidence. PR #37
-  remains draft and unmerged. Its reconciliation does not change the original
-  deployment candidate or clear the external provisioning blocker.
+  remains draft and unmerged. All ten required exact-head contexts passed on
+  reconciled head `5d1003b701df53d22fba85015e1bebb971047892`; the GitHub PR
+  record tracks the current head and its exact-head checks. The reconciliation
+  does not change the original deployment candidate or clear the external
+  provisioning blocker.
 
 - On 2026-10-12, submitted exact candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`
   to the identified production Render backend. Build succeeded; startup failed

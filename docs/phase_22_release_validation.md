@@ -184,9 +184,9 @@ Its historical candidate remains `abc83d36c115b4122a1a1964fde101fbf9c407e4`;
 the security-corrected `main` commit is an undeployed source revision, not a
 new or replacement deployment candidate. No deployment, database action,
 migration change, provider activation, or worker rerun followed the merge.
-PR #37 remains draft and unmerged while exact-head checks run on its reconciled
-documentation revision. Its final PR head and required check results are
-maintained in the GitHub PR/check records.
+All ten required exact-head contexts passed on the reconciled PR #37 revision
+listed below. PR #37 remains open and draft. Its current branch head and check
+results are maintained in the GitHub PR/check records.
 
 The post-merge push workflows on `9c9403aa71a52050de7d4a892beff675458386b6`
 completed successfully for backend/PostgreSQL, frontend, Compose, CodeQL for
@@ -196,6 +196,15 @@ skipped because that required context runs for pull requests; it passed on the
 exact PR #39 head before merge. No scanner thresholds or branch rules changed.
 The external release blocker remains **`BLOCKED_EXTERNAL — PGVECTOR EXTENSION
 PROVISIONING AUTHORIZATION REQUIRED`**. The production database was not changed.
+
+On reconciled PR #37 head `5d1003b701df53d22fba85015e1bebb971047892`, all ten
+required exact-head contexts passed: Backend and PostgreSQL, Frontend, Docker
+Compose Config, CodeQL (python), CodeQL (javascript-typescript), Workflow Policy
+and SBOM, Dependency Review, Secret Scan, Dependency and Container Security,
+and Isolated failure exercises. The Vercel preview integration also succeeded.
+The PR remained open and draft. A subsequent evidence-only documentation
+commit advances the branch; the current head's own exact check results are
+authoritative in the GitHub PR record.
 
 ## Auth, Isolation, And Storage Gates
 
@@ -274,10 +283,10 @@ paid/external capability activation.
 
 | Decision | Result | Basis |
 | --- | --- | --- |
-| Repository / Architecture Regression | `PENDING` for reconciled Phase 22 head | The historical `pypdf` finding was corrected in PR #39; all ten required contexts passed on its exact head `c6d7cfd`. The reconciled Phase 22 documentation head must also pass all ten before this row is verified. |
+| Repository / Architecture Regression | `VERIFIED` on PR #37 exact head `5d1003b` | The historical `pypdf` finding was corrected in PR #39; all ten required contexts passed on its exact head `c6d7cfd` and also on reconciled PR #37 head `5d1003b`. Any later PR #37 head requires fresh exact-head checks; the GitHub PR record identifies the current SHA and result. |
 | Public Portfolio Deployment Validation | `HOLD` | Vercel candidate provenance is verified; the Render candidate build succeeded but startup failed because the existing database lacks the required `vector` extension. |
 | External Provider / Operations Gates | `HOLD` / `DEFERRED` | SMTP, provider config, worker, monitoring, backup/restore, and rate-limit evidence are unavailable; storage/pgvector/billing remain deferred. |
-| GitHub Release Controls | `VERIFIED` for PR #39; Phase 22 remains on hold | Active `main` ruleset, native SHA pinning, dependency-graph evidence, Dependabot, secret scanning, and push protection remain enabled; PR #39 passed all ten required exact-head checks and merged normally. PR #37 exact-head checks remain pending. |
+| GitHub Release Controls | `VERIFIED` for PR #39 and PR #37 head `5d1003b`; Phase 22 remains on hold | Active `main` ruleset, native SHA pinning, dependency-graph evidence, Dependabot, secret scanning, and push protection remain enabled; PR #39 passed all ten required exact-head checks and merged normally. PR #37 passed all ten on exact head `5d1003b`; any subsequent head must pass its own exact checks. |
 | Qualified Legal / Privacy / Commercial Review | `HOLD` | Qualified human evidence is absent. |
 | Commercial Production Launch Approval | `NOT APPROVED` | Mandatory provenance, external, operational, and human gates remain unsatisfied. |
 
