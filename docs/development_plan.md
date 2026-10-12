@@ -543,6 +543,14 @@ Phase 22 remains on hold. The detailed evidence and resume requirements are in
 [`phase_22_release_validation.md`](phase_22_release_validation.md); no provider,
 storage, model, Vast, billing, or commercial activation is authorized.
 
+The exact Render attempt for that original candidate failed at startup because
+the production database lacks the PostgreSQL `vector` extension required by
+`20260727_0018`. PR #39 subsequently merged the dependency security correction
+as repository revision `9c9403aa71a52050de7d4a892beff675458386b6`. That
+revision has not been deployed and does not replace the historical candidate
+or its Vercel/Render evidence. The dependency correction does not clear the
+external provisioning or release-approval gates.
+
 Required outcomes:
 
 - configure and validate reliable Supabase custom SMTP delivery;

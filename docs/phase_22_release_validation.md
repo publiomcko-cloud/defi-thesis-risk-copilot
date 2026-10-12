@@ -9,6 +9,8 @@ commercial operation.
 | Field | Value |
 | --- | --- |
 | Required candidate | `abc83d36c115b4122a1a1964fde101fbf9c407e4` (PR #36 merge) |
+| Security-corrected main source revision | `9c9403aa71a52050de7d4a892beff675458386b6` (PR #39 merge); not deployed and not designated as a new release candidate |
+| New external deployment candidate | None designated; all historical deployment evidence below remains tied to `abc83d36c115b4122a1a1964fde101fbf9c407e4` |
 | Phase 22 branch | `agent/v1-phase-22-final-release-validation` |
 | Repository migration head | `20260911_0034` only; `0027` intentionally absent |
 | Initial observation time | 2026-09-23T11:42Z |
@@ -148,7 +150,7 @@ Scan, Dependency and Container Security, isolated Phase 19 failure exercises,
 and Vercel preview. The Draft PR check view is the authoritative final-SHA
 record for documentation-only status updates.
 
-### Hosted result for documentation head `2da7820`
+### Historical hosted results before the dependency correction
 
 On documentation head `2da78205fb005d3b9c566642428c8e11fe792f51`, nine of the
 ten required checks passed: Backend and PostgreSQL, Frontend, Docker Compose
@@ -164,6 +166,36 @@ this documentation head. The existing successful Vercel Production deployment
 The same required security check failed again on documentation head
 `dd646ecfb4ae6a553cb874d94ebea4a10838726b`; the other nine required contexts
 passed. No Vercel status/deployment was emitted for that documentation head.
+
+### Subsequent dependency security correction and Phase 22 reconciliation
+
+On 2026-10-12, PR #39 independently reviewed and corrected the dependency
+findings. It upgraded backend `pypdf` from 6.16.1 to 6.20.0 and frontend
+`next` 15.5.25 to 15.5.27, `sharp` 0.35.4 to 0.35.5, and `source-map-js`
+1.2.1 to 1.2.2. All ten required branch-protection contexts passed on exact PR
+head `c6d7cfdce8d81170184ef995dc8ea832f86ff1d9`. PR #39 was marked ready and
+merged through the normal protected workflow as merge commit
+`9c9403aa71a52050de7d4a892beff675458386b6`, with first parent
+`abc83d36c115b4122a1a1964fde101fbf9c407e4` and second parent
+`c6d7cfdce8d81170184ef995dc8ea832f86ff1d9`.
+
+The Phase 22 documentation branch was then reconciled with updated `main`.
+Its historical candidate remains `abc83d36c115b4122a1a1964fde101fbf9c407e4`;
+the security-corrected `main` commit is an undeployed source revision, not a
+new or replacement deployment candidate. No deployment, database action,
+migration change, provider activation, or worker rerun followed the merge.
+PR #37 remains draft and unmerged while exact-head checks run on its reconciled
+documentation revision. Its final PR head and required check results are
+maintained in the GitHub PR/check records.
+
+The post-merge push workflows on `9c9403aa71a52050de7d4a892beff675458386b6`
+completed successfully for backend/PostgreSQL, frontend, Compose, CodeQL for
+Python and JavaScript/TypeScript, workflow policy/SBOM, secret scan, and
+dependency/container security. The push-event `Dependency Review` job was
+skipped because that required context runs for pull requests; it passed on the
+exact PR #39 head before merge. No scanner thresholds or branch rules changed.
+The external release blocker remains **`BLOCKED_EXTERNAL — PGVECTOR EXTENSION
+PROVISIONING AUTHORIZATION REQUIRED`**. The production database was not changed.
 
 ## Auth, Isolation, And Storage Gates
 
@@ -242,10 +274,10 @@ paid/external capability activation.
 
 | Decision | Result | Basis |
 | --- | --- | --- |
-| Repository / Architecture Regression | `HOLD` | Local regression evidence passes, but the exact-head `Dependency and Container Security` required check failed on the `pypdf` advisories. |
+| Repository / Architecture Regression | `PENDING` for reconciled Phase 22 head | The historical `pypdf` finding was corrected in PR #39; all ten required contexts passed on its exact head `c6d7cfd`. The reconciled Phase 22 documentation head must also pass all ten before this row is verified. |
 | Public Portfolio Deployment Validation | `HOLD` | Vercel candidate provenance is verified; the Render candidate build succeeded but startup failed because the existing database lacks the required `vector` extension. |
 | External Provider / Operations Gates | `HOLD` / `DEFERRED` | SMTP, provider config, worker, monitoring, backup/restore, and rate-limit evidence are unavailable; storage/pgvector/billing remain deferred. |
-| GitHub Release Controls | `HOLD` for current-head readiness | Active `main` ruleset, native SHA pinning, dependency-graph evidence, Dependabot, secret scanning, and push protection are verified; one required exact-head check is failing. |
+| GitHub Release Controls | `VERIFIED` for PR #39; Phase 22 remains on hold | Active `main` ruleset, native SHA pinning, dependency-graph evidence, Dependabot, secret scanning, and push protection remain enabled; PR #39 passed all ten required exact-head checks and merged normally. PR #37 exact-head checks remain pending. |
 | Qualified Legal / Privacy / Commercial Review | `HOLD` | Qualified human evidence is absent. |
 | Commercial Production Launch Approval | `NOT APPROVED` | Mandatory provenance, external, operational, and human gates remain unsatisfied. |
 
@@ -253,7 +285,8 @@ paid/external capability activation.
 
 Before resuming public deployment validation, an authorized database
 administrator must provision the PostgreSQL `vector` extension required by
-`20260727_0018`. Then an authorized operator can consider a new deployment of
+`20260727_0018` under blocker **`BLOCKED_EXTERNAL — PGVECTOR EXTENSION
+PROVISIONING AUTHORIZATION REQUIRED`**. Then an authorized operator can consider a new deployment of
 the exact reviewed candidate and provide a successful bounded deployment
 identifier plus endpoint provenance. Vercel's exact-candidate deployment is
 already recorded in GitHub. The platform rollback path, if needed, is a

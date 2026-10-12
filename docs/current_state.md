@@ -71,7 +71,7 @@ V1 Phase 18 — Complete and merged into main; production features remain featur
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
 V1 Phase 20 — Complete — Portfolio Profile and merged at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 20E is omitted, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
 V1 Phase 21 — Complete — Portfolio Profile; 21A–21B are merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32, 21C quality/feedback governance is merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33, 21D research intelligence is merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34, 21E local training-compute governance merged through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`, and the documentation-only 21F closeout hosted evidence passed on `c5b39f6` in Draft PR #36
-V1 Phase 22 — Active - HOLD: the exact Render deployment of candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4` failed at startup on 2026-10-12 because migration `20260727_0018` requires the missing PostgreSQL `vector` extension; the prior live deployment still reports `6f07ef9`; a hosted security check also reports eight advisories in `pypdf` 6.16.1; no provider or commercial activation is authorized
+V1 Phase 22 — Active - HOLD: original candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4` remains the subject of the verified Vercel deployment and failed Render deployment `dep-db6ghojrjlhs738e933g`; Render still requires an independently authorized PostgreSQL `vector` extension before a later deployment, and the prior live deployment reports `6f07ef9`. `BLOCKED_EXTERNAL — PGVECTOR EXTENSION PROVISIONING AUTHORIZATION REQUIRED`. PR #39 merged dependency security fixes at repository revision `9c9403aa71a52050de7d4a892beff675458386b6`; that source revision is not deployed or designated as a replacement candidate. No provider or commercial activation is authorized.
 ```
 
 Reviewed Phase 16 correction commit:
@@ -572,10 +572,14 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   failed at startup on 2026-10-12 because migration `20260727_0018` requires
   PostgreSQL `vector`, which is absent from the existing database; the prior
   deployment still reports `6f07ef9`. No database change or retry was made.
-  A required hosted security check on docs head `2da7820` failed because
-  `pip-audit` found eight advisories in unchanged `pypdf` 6.16.1; no dependency
-  change was made in this validation phase. The scheduled worker remains gated
-  on successful candidate provenance.
+  Historical exact-head checks on docs heads `2da7820` and `dd646ec` failed
+  because `pip-audit` found eight advisories in `pypdf` 6.16.1. PR #39
+  subsequently upgraded `pypdf` and affected frontend dependencies; its ten
+  required checks passed on exact head `c6d7cfdce8d81170184ef995dc8ea832f86ff1d9`,
+  and it merged as `9c9403aa71a52050de7d4a892beff675458386b6`. That main
+  revision is not deployed and is not a new release candidate. The original
+  candidate SHA and its deployment evidence remain unchanged. The scheduled
+  worker remains gated on successful candidate provenance.
   SMTP, disposable-account auth, tenant/organization isolation, provider
   operations, backup/restore, legal review, and release approval remain
   external or human gates. See

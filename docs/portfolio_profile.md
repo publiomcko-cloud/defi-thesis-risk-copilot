@@ -12,6 +12,14 @@ backend still reports `6f07ef9`; Render deployment authority, provider, and
 human-review gates remain uncompleted. The portfolio profile does not authorize
 commercial activation while that hold remains.
 
+The exact Render attempt for original candidate
+`abc83d36c115b4122a1a1964fde101fbf9c407e4` failed because the production
+database lacks the PostgreSQL `vector` extension required by migration
+`20260727_0018`. PR #39 later merged the dependency security correction at
+`9c9403aa71a52050de7d4a892beff675458386b6`; this is an undeployed repository
+revision, not a newly designated deployment candidate. No production retry or
+provider activation was made, and the Phase 22 hold remains.
+
 This repository is currently developed as a production-grade portfolio anchor, not as an actively commercialized SaaS product.
 
 The goal is to demonstrate realistic architecture, security, data engineering, AI engineering, multi-tenant backend design, durable workflows, lifecycle handling, testing, and operational discipline while avoiding the ongoing legal, provider, tax, payment, support, and production-operations burden of running a commercial service.

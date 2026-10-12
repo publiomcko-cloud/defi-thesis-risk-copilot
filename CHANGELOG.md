@@ -2,6 +2,22 @@
 
 ## Phase 22 - Final release validation
 
+- PR #39 merged the independently reviewed dependency security correction at
+  `9c9403aa71a52050de7d4a892beff675458386b6`. It updates `pypdf` from 6.16.1
+  to 6.20.0 and the affected frontend packages (`next` 15.5.25 to 15.5.27,
+  `sharp` 0.35.4 to 0.35.5, and `source-map-js` 1.2.1 to 1.2.2). All ten
+  required GitHub checks passed on exact PR head
+  `c6d7cfdce8d81170184ef995dc8ea832f86ff1d9`; the protected merge was recorded
+  with first parent `abc83d36c115b4122a1a1964fde101fbf9c407e4`. The merge is a
+  repository source revision, not a new deployment candidate. No deployment,
+  production database action, or worker rerun followed it; Phase 22 remains
+  **HOLD** on the original candidate's external blockers.
+- The Phase 22 documentation branch was reconciled with the merged `main`
+  revision while retaining the original candidate SHA, failed Render attempt,
+  prior Vercel success, and worker timeout as historical evidence. PR #37
+  remains draft and unmerged. Its reconciliation does not change the original
+  deployment candidate or clear the external provisioning blocker.
+
 - On 2026-10-12, submitted exact candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`
   to the identified production Render backend. Build succeeded; startup failed
   during migration `20260727_0018` because the existing database lacks the
