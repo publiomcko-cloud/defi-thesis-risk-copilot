@@ -36,9 +36,10 @@
   because the candidate is not live.
 - Final hosted checks on documentation head `2da7820` passed nine of ten
   required contexts. `Dependency and Container Security` failed because
-  `pip-audit` found eight advisories in unchanged `pypdf` 6.16.1. This phase
-  retains a release hold for a separately reviewed dependency correction; the
-  active GitHub release ruleset was not changed.
+  `pip-audit` found eight advisories in unchanged `pypdf` 6.16.1. At that point,
+  the release gate remained held pending a separately reviewed dependency
+  correction. PR #39 later supplied that correction and passed its exact-head
+  checks, as recorded above; the active GitHub release ruleset was not changed.
 - Remediated GitHub release controls with active `main` ruleset `23890276`:
   pull requests, current exact-check contexts, resolved conversations, and
   force-push/deletion protection. The single-maintainer admin recovery path is

@@ -7,10 +7,11 @@ The documentation-only 21F closeout passed required hosted checks on `c5b39f6`
 in Draft PR #36 and adds no portfolio capability.
 
 Phase 22 is **Active - HOLD**. GitHub release controls and a successful Vercel
-Production deployment of candidate `abc83d36` are verified, but the live Render
-backend still reports `6f07ef9`; Render deployment authority, provider, and
-human-review gates remain uncompleted. The portfolio profile does not authorize
-commercial activation while that hold remains.
+Production deployment of original candidate `abc83d36` are verified, but its
+Render deployment failed at startup and the live backend still reports
+`6f07ef9`. Render candidate provenance, provider, and human-review gates remain
+uncompleted. The portfolio profile does not authorize commercial activation
+while that hold remains.
 
 The exact Render attempt for original candidate
 `abc83d36c115b4122a1a1964fde101fbf9c407e4` failed because the production

@@ -537,8 +537,10 @@ Goal: close the external validation and legal gates deferred from Phase 16 after
 
 The 2026-09-23 corrective evidence verifies GitHub release controls and a
 successful Vercel Production deployment of required Phase 21 closeout merge
-`abc83d36c115b4122a1a1964fde101fbf9c407e4`. The live Render backend still
-reports `6f07ef9` and authorized Render deployment access is unavailable, so
+`abc83d36c115b4122a1a1964fde101fbf9c407e4`. At that observation, the live
+Render backend reported `6f07ef9` and authorized deployment access was
+unavailable. A later exact-candidate Render attempt failed at startup because
+the production database lacks the required PostgreSQL `vector` extension, so
 Phase 22 remains on hold. The detailed evidence and resume requirements are in
 [`phase_22_release_validation.md`](phase_22_release_validation.md); no provider,
 storage, model, Vast, billing, or commercial activation is authorized.
