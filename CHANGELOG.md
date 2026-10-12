@@ -15,6 +15,11 @@
   endpoint results in the Phase 22 release record. The Phase 17 scheduled
   worker's earlier candidate run timed out after 20 seconds and was not rerun
   because the candidate is not live.
+- Final hosted checks on documentation head `2da7820` passed nine of ten
+  required contexts. `Dependency and Container Security` failed because
+  `pip-audit` found eight advisories in unchanged `pypdf` 6.16.1. This phase
+  retains a release hold for a separately reviewed dependency correction; the
+  active GitHub release ruleset was not changed.
 - Remediated GitHub release controls with active `main` ruleset `23890276`:
   pull requests, current exact-check contexts, resolved conversations, and
   force-push/deletion protection. The single-maintainer admin recovery path is

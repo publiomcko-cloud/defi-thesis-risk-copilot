@@ -147,6 +147,19 @@ Scan, Dependency and Container Security, isolated Phase 19 failure exercises,
 and Vercel preview. The Draft PR check view is the authoritative final-SHA
 record for documentation-only status updates.
 
+### Hosted result for documentation head `2da7820`
+
+On documentation head `2da78205fb005d3b9c566642428c8e11fe792f51`, nine of the
+ten required checks passed: Backend and PostgreSQL, Frontend, Docker Compose
+Config, both CodeQL languages, Workflow Policy and SBOM, Dependency Review,
+Secret Scan, and Isolated failure exercises. `Dependency and Container
+Security` failed because `pip-audit` found eight known advisories for unchanged
+dependency `pypdf` 6.16.1. This documentation-only phase does not change runtime
+dependencies; the current-head security gate remains on hold for a separately
+reviewed dependency correction. No Vercel status/deployment was recorded for
+this documentation head. The existing successful Vercel Production deployment
+`6612919047` remains tied to runtime candidate `abc83d36`.
+
 ## Auth, Isolation, And Storage Gates
 
 No candidate deployment plus owner-approved disposable test identities were
@@ -224,10 +237,10 @@ paid/external capability activation.
 
 | Decision | Result | Basis |
 | --- | --- | --- |
-| Repository / Architecture Regression | `PASS` | Local regression and all required hosted categories are green; see Draft PR #37 for the final documentation-only SHA. |
+| Repository / Architecture Regression | `HOLD` | Local regression evidence passes, but the exact-head `Dependency and Container Security` required check failed on the `pypdf` advisories. |
 | Public Portfolio Deployment Validation | `HOLD` | Vercel candidate provenance is verified; the Render candidate build succeeded but startup failed because the existing database lacks the required `vector` extension. |
 | External Provider / Operations Gates | `HOLD` / `DEFERRED` | SMTP, provider config, worker, monitoring, backup/restore, and rate-limit evidence are unavailable; storage/pgvector/billing remain deferred. |
-| GitHub Release Controls | `PASS` | Active `main` ruleset, native SHA pinning, dependency-graph evidence, Dependabot, secret scanning, and push protection are verified. |
+| GitHub Release Controls | `HOLD` for current-head readiness | Active `main` ruleset, native SHA pinning, dependency-graph evidence, Dependabot, secret scanning, and push protection are verified; one required exact-head check is failing. |
 | Qualified Legal / Privacy / Commercial Review | `HOLD` | Qualified human evidence is absent. |
 | Commercial Production Launch Approval | `NOT APPROVED` | Mandatory provenance, external, operational, and human gates remain unsatisfied. |
 
