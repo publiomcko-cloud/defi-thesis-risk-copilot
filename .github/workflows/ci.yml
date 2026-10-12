@@ -35,6 +35,7 @@ jobs:
       VAST_ENABLED: "false"
       VAST_DRY_RUN: "true"
       RUN_POSTGRES_INTEGRATION: "true"
+      PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN: "true"
     defaults:
       run:
         working-directory: backend
