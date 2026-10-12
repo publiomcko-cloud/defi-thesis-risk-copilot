@@ -2,9 +2,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from hashlib import sha256
+from io import BytesIO
 
 import pytest
 from fastapi import HTTPException
+from pypdf import PdfWriter
+from pypdf.generic import DecodedStreamObject, DictionaryObject, NameObject
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -13,6 +16,7 @@ from app.auth.service import create_user, user_context
 from app.core.config import get_settings
 from app.db.base import Base
 from app.jobs.cancellation import CancellationContext
+from app.jobs.errors import JobErrorCategory, JobExecutionError, classify_exception
 from app.jobs.control_service import submit_job
 from app.jobs.schemas import JobSubmissionRequest, WorkerClaimedJob, WorkerLeaseRequest
 from app.jobs.worker_protocol import WorkerIdentity, claim_next_job, complete_job, start_job
@@ -219,7 +223,125 @@ def test_html_parser_removes_scripts_and_rejects_empty_text() -> None:
         )
 
 
-def _seed_uploaded_version(Session, storage, *, approved: bool = True):
+def test_pdf_parser_extracts_text_and_fails_closed_for_malformed_or_bounded_inputs(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    chunks = extract_normalize_and_chunk(
+        content=_pdf_document("Oracle checks before liquidations"),
+        media_type="application/pdf",
+        cancellation=CancellationContext(),
+    )
+    assert "Oracle checks before liquidations" in " ".join(chunk.content for chunk in chunks)
+
+    with pytest.raises(JobExecutionError) as malformed:
+        extract_normalize_and_chunk(
+            content=b"%PDF-1.7\nnot a valid PDF",
+            media_type="application/pdf",
+            cancellation=CancellationContext(),
+        )
+    assert malformed.value.category is JobErrorCategory.PERMANENT_INPUT
+    assert malformed.value.code == "unreadable_pdf"
+    assert not classify_exception(malformed.value).retryable
+
+    monkeypatch.setenv("KNOWLEDGE_INGEST_MAX_PDF_PAGES", "1")
+    get_settings.cache_clear()
+    try:
+        with pytest.raises(JobExecutionError) as page_limit:
+            extract_normalize_and_chunk(
+                content=_pdf_document("First page", "Second page"),
+                media_type="application/pdf",
+                cancellation=CancellationContext(),
+            )
+        assert page_limit.value.category is JobErrorCategory.PERMANENT_INPUT
+        assert page_limit.value.code == "pdf_page_limit_exceeded"
+
+        monkeypatch.setenv("KNOWLEDGE_INGEST_MAX_PDF_PAGES", "100")
+        monkeypatch.setenv("KNOWLEDGE_INGEST_MAX_TEXT_BYTES", "8")
+        get_settings.cache_clear()
+        with pytest.raises(JobExecutionError) as text_limit:
+            extract_normalize_and_chunk(
+                content=_pdf_document("This extracted text exceeds eight bytes"),
+                media_type="application/pdf",
+                cancellation=CancellationContext(),
+            )
+        assert text_limit.value.category is JobErrorCategory.PERMANENT_INPUT
+        assert text_limit.value.code == "extracted_text_too_large"
+    finally:
+        get_settings.cache_clear()
+
+
+def test_pdf_document_ingestion_extracts_and_activates_only_after_completion(
+    ingestion_session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    Session, storage = ingestion_session
+    content = _pdf_document("Borrower health factors and oracle failure controls")
+    owner_id, _, document_id, version_id = _seed_uploaded_version(
+        Session,
+        storage,
+        content=content,
+        media_type="application/pdf",
+        filename="risk.pdf",
+    )
+    monkeypatch.setattr("app.knowledge.ingestion_executor.create_private_object_storage", lambda: storage)
+    with Session() as db:
+        owner = db.get(UserModel, owner_id)
+        job, _ = submit_document_ingestion(db, user_context(owner), version_id, "phase18c-pdf-key")
+        claimed = _claimed_job(job)
+
+    result = DocumentIngestJobExecutor(session_factory=Session).execute(claimed)
+    with Session() as db:
+        job = db.get(JobModel, claimed.id)
+        version = db.get(KnowledgeDocumentVersionModel, version_id)
+        document = db.get(KnowledgeDocumentModel, document_id)
+        chunks = db.execute(
+            select(KnowledgeChunkModel).where(KnowledgeChunkModel.document_version_id == version_id)
+        ).scalars().all()
+        assert version is not None and version.status == "ingesting"
+        assert document is not None and document.current_version_id is None
+        assert "oracle failure controls" in " ".join(chunk.content for chunk in chunks).lower()
+        finalize_document_ingestion(db, job, result.result_json)
+        db.commit()
+        assert db.get(KnowledgeDocumentVersionModel, version_id).status == "ready"
+        assert db.get(KnowledgeDocumentModel, document_id).current_version_id == version_id
+
+
+def _pdf_document(*page_text: str) -> bytes:
+    writer = PdfWriter()
+    for text in page_text:
+        page = writer.add_blank_page(width=300, height=100)
+        font = DictionaryObject(
+            {
+                NameObject("/Type"): NameObject("/Font"),
+                NameObject("/Subtype"): NameObject("/Type1"),
+                NameObject("/BaseFont"): NameObject("/Helvetica"),
+            }
+        )
+        page[NameObject("/Resources")] = DictionaryObject(
+            {
+                NameObject("/Font"): DictionaryObject(
+                    {NameObject("/F1"): writer._add_object(font)}
+                )
+            }
+        )
+        stream = DecodedStreamObject()
+        escaped = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+        stream.set_data(f"BT /F1 12 Tf 10 50 Td ({escaped}) Tj ET".encode("ascii"))
+        page[NameObject("/Contents")] = writer._add_object(stream)
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
+def _seed_uploaded_version(
+    Session,
+    storage,
+    *,
+    approved: bool = True,
+    content: bytes | None = None,
+    media_type: str = "text/markdown",
+    filename: str = "risk.md",
+):
     with Session() as db:
         owner = create_user(db, "phase18c-owner@example.test")
         source = create_knowledge_source(
@@ -233,11 +355,11 @@ def _seed_uploaded_version(Session, storage, *, approved: bool = True):
         document = KnowledgeDocumentModel(
             id="kdoc_phase18c",
             knowledge_source_id=source.id,
-            filename="risk.md",
-            media_type="text/markdown",
+            filename=filename,
+            media_type=media_type,
             status="uploaded",
         )
-        content = b"# Oracle controls\n\nUse multiple oracle checks before liquidations.\n\n## Risks\n\nLiquidity can disappear during volatility.\n"
+        content = content or b"# Oracle controls\n\nUse multiple oracle checks before liquidations.\n\n## Risks\n\nLiquidity can disappear during volatility.\n"
         version = KnowledgeDocumentVersionModel(
             id="kver_phase18c",
             document_id=document.id,
