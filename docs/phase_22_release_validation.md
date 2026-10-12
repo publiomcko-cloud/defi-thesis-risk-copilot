@@ -14,6 +14,7 @@ commercial operation.
 | Initial observation time | 2026-09-23T11:42Z |
 | Corrective observation time | 2026-09-23T16:43Z |
 | Render target | `srv-d9bt2461a83c73bt5vg0` (`defi-thesis-risk-copilot`), existing production web service for this repository, branch `main` |
+| Last successful Render deployment before this attempt | `dep-d9jj1mnaqgkc739najsg`, source commit `0c31d7f4598ce66da4f353f2d48c32d49474bb3b` (an ancestor of the candidate); public `/api/deployment/status` reports `6f07ef9` from the configured `DEPLOYMENT_COMMIT` release metadata |
 | Render deployment attempt | `dep-db6ghojrjlhs738e933g`, exact candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`, submitted 2026-10-12; terminal result `update_failed` at 2026-10-12T16:21:41Z |
 | Render deployment result | Build succeeded; container startup failed during migration `20260727_0018` because PostgreSQL extension `vector` is not installed in the existing database. No database mutation or retry was made. |
 | Public backend evidence | After the failed attempt, `/health`, `/ready`, and `/api/deployment/status` returned HTTPS 200; readiness reported database and RAG index true on the still-serving prior deployment. |
@@ -35,7 +36,7 @@ speculative code or configuration change.
 | Component | Observed state | Evidence boundary |
 | --- | --- | --- |
 | Vercel frontend | GitHub deployment `6612919047` successfully deployed exact candidate `abc83d36` to `Production`; canonical public routes responded 200 | The immutable deployment alias is Vercel-auth protected. The GitHub deployment record, rather than public HTML, establishes commit provenance. |
-| Render backend | Service `srv-d9bt2461a83c73bt5vg0` (`defi-thesis-risk-copilot`), source branch `main`; exact candidate deployment `dep-db6ghojrjlhs738e933g` ended `update_failed`; public status still reports `6f07ef9` | Candidate build succeeded, but startup failed when migration `20260727_0018` required an uninstalled PostgreSQL `vector` extension. This external DB prerequisite needs separate authorization before another attempt. |
+| Render backend | Service `srv-d9bt2461a83c73bt5vg0` (`defi-thesis-risk-copilot`), source branch `main`; last successful deployment `dep-d9jj1mnaqgkc739najsg` used source commit `0c31d7f4598ce66da4f353f2d48c32d49474bb3b`; candidate deployment `dep-db6ghojrjlhs738e933g` ended `update_failed`; public status reports `6f07ef9` from `DEPLOYMENT_COMMIT` metadata | Candidate build succeeded, but startup failed when migration `20260727_0018` required an uninstalled PostgreSQL `vector` extension. Candidate is not live, so no release-metadata variable correction was made. The database prerequisite needs separate authorization before another attempt. |
 | Supabase database/auth | Backend says database connected and authentication enabled | Provider configuration, migration head, SMTP, redirects, and policies are externally unverified. |
 | Object storage | No public activation evidence | Default-disabled repository capability; provider policy and RLS evidence absent. |
 | pgvector | The existing database lacks PostgreSQL `vector`, as reported by startup migration `20260727_0018` | The primary path remains disabled; extension provisioning for migration startup is a separate database prerequisite and does not establish primary cutover approval. |
@@ -159,6 +160,10 @@ dependencies; the current-head security gate remains on hold for a separately
 reviewed dependency correction. No Vercel status/deployment was recorded for
 this documentation head. The existing successful Vercel Production deployment
 `6612919047` remains tied to runtime candidate `abc83d36`.
+
+The same required security check failed again on documentation head
+`dd646ecfb4ae6a553cb874d94ebea4a10838726b`; the other nine required contexts
+passed. No Vercel status/deployment was emitted for that documentation head.
 
 ## Auth, Isolation, And Storage Gates
 
