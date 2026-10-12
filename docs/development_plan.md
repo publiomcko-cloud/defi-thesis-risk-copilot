@@ -531,9 +531,27 @@ Core outcomes:
 - safe worker-based ephemeral GPU execution;
 - fine-tuning dataset/model governance.
 
-## V1 Phase 22 — Final release validation and launch approval — Planned
+## V1 Phase 22 — Final release validation and launch approval — Active - HOLD
 
 Goal: close the external validation and legal gates deferred from Phase 16 after the V1 implementation phases are complete. This phase adds no new end-user product capability.
+
+The 2026-09-23 corrective evidence verifies GitHub release controls and a
+successful Vercel Production deployment of required Phase 21 closeout merge
+`abc83d36c115b4122a1a1964fde101fbf9c407e4`. At that observation, the live
+Render backend reported `6f07ef9` and authorized deployment access was
+unavailable. A later exact-candidate Render attempt failed at startup because
+the production database lacks the required PostgreSQL `vector` extension, so
+Phase 22 remains on hold. The detailed evidence and resume requirements are in
+[`phase_22_release_validation.md`](phase_22_release_validation.md); no provider,
+storage, model, Vast, billing, or commercial activation is authorized.
+
+The exact Render attempt for that original candidate failed at startup because
+the production database lacks the PostgreSQL `vector` extension required by
+`20260727_0018`. PR #39 subsequently merged the dependency security correction
+as repository revision `9c9403aa71a52050de7d4a892beff675458386b6`. That
+revision has not been deployed and does not replace the historical candidate
+or its Vercel/Render evidence. The dependency correction does not clear the
+external provisioning or release-approval gates.
 
 Required outcomes:
 

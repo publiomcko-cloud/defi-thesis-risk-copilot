@@ -814,7 +814,25 @@ is recorded in [`phase_21_closeout.md`](phase_21_closeout.md). The required
 hosted suite passed on `c5b39f6` in Draft PR #36; no local or hosted portfolio
 run implies provider or production activation.
 
-## 11. CI expectations
+## 11. Phase 22 release validation
+
+Phase 22 uses evidence states rather than treating local or mocked validation
+as deployed evidence. On 2026-09-23 GitHub controls and exact-candidate Vercel
+provenance were verified, but the live Render deployment status still reported
+`6f07ef9`, not required candidate
+`abc83d36c115b4122a1a1964fde101fbf9c407e4`. Until an authorized Render
+operator corrects that, do not run real-account, email, tenant, provider,
+storage, backup, or production-chaos checks against the public environment.
+
+The repository regression remains safe to run with its ordinary isolated
+commands: full PostgreSQL pytest and migration coverage, frontend contracts and
+browser E2E, Compose, pgvector/public-retrieval/runtime checks, supply-chain
+checks, and the isolated Phase 19 catalog. Those results prove repository
+behavior only. The detailed external evidence states and resume criteria are in
+[`phase_22_evidence_matrix.md`](phase_22_evidence_matrix.md) and
+[`phase_22_release_validation.md`](phase_22_release_validation.md).
+
+## 12. CI expectations
 
 CI should progressively include:
 
