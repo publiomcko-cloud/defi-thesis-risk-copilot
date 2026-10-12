@@ -103,12 +103,14 @@ Worker cron as workflow run `38288308792` at `2026-10-12T18:03:06Z`, event
 `schedule`, on main SHA `9c9403aa71a52050de7d4a892beff675458386b6`. Its
 `process-one-job` job completed successfully at `18:03:31Z` in the
 `production-worker` environment. The workflow checks out `main` and invokes
-`python -m app.jobs.worker_runner --once`. This run was not manually dispatched
+`python -m app.jobs.worker_runner --once` with the worker-only
+`WORKER_DATABASE_URL` secret configured. This run was not manually dispatched
 or requested as a Phase 22 test. Its workflow-level success does not establish
-that a durable job was claimed, nor does it establish provenance for the
-undeployed candidate `abc83d36`. No raw logs or job payload were inspected or
-retained. This automatic run does not replace the historical candidate timeout
-or clear the worker/deployment evidence gate.
+that the worker connected to the database, that a durable job was claimed, or
+whether worker data was written; those effects are unverified. It also does not
+establish provenance for the undeployed candidate `abc83d36`. No raw logs or
+job payload were inspected or retained. This automatic run does not replace
+the historical candidate timeout or clear the worker/deployment evidence gate.
 
 ## Render Candidate Deployment Failure
 

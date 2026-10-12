@@ -9,13 +9,14 @@
   required GitHub checks passed on exact PR head
   `c6d7cfdce8d81170184ef995dc8ea832f86ff1d9`; the protected merge was recorded
   with first parent `abc83d36c115b4122a1a1964fde101fbf9c407e4`. The merge is a
-  repository source revision, not a new deployment candidate. No deployment
-  or production database action followed it. GitHub's existing Phase 17
-  Scheduled Worker cron automatically ran at 2026-10-12T18:03:06Z on this main
-  SHA (run `38288308792`, event `schedule`; job conclusion `success`). This was
-  not manually dispatched and is not candidate-specific release evidence; see
-  the release record. Phase 22 remains **HOLD** on the original candidate's
-  external blockers.
+  repository source revision, not a new deployment candidate. No deployment,
+  database provisioning, or migration action followed it. GitHub's existing
+  Phase 17 Scheduled Worker cron automatically ran at 2026-10-12T18:03:06Z on
+  this main SHA (run `38288308792`, event `schedule`; job conclusion `success`).
+  The workflow has a worker database credential; whether it connected, claimed
+  a job, or wrote worker data is unverified. This was not manually dispatched
+  and is not candidate-specific release evidence; see the release record.
+  Phase 22 remains **HOLD** on the original candidate's external blockers.
 - The Phase 22 documentation branch was reconciled with the merged `main`
   revision while retaining the original candidate SHA, failed Render attempt,
   prior Vercel success, and worker timeout as historical evidence. PR #37

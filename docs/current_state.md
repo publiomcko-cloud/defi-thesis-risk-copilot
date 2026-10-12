@@ -582,8 +582,9 @@ The deferred deployed provider and legal checks are Phase 22 requirements.
   worker validation remains unproven: after the merge, the existing Phase 17
   cron automatically ran workflow `38288308792` on main SHA `9c9403aa` at
   2026-10-12T18:03Z and its job concluded successfully. This scheduled run does
-  not establish provenance for the undeployed candidate; no manual worker
-  dispatch was made.
+  not establish provenance for the undeployed candidate. The workflow carries
+  a worker database credential, so database contact or worker-data effects are
+  unverified; no manual worker dispatch was made.
   SMTP, disposable-account auth, tenant/organization isolation, provider
   operations, backup/restore, legal review, and release approval remain
   external or human gates. See
