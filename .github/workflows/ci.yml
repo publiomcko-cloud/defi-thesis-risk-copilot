@@ -29,12 +29,14 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/defi_copilot_test
+      PHASE19_GUARD_TEST_DATABASE_URL: postgresql+psycopg://postgres:postgres@127.0.0.1:5432/defi_copilot_exercises
       APP_ENV: test
       PUBLIC_DEMO_MODE: "false"
       AUTH_ENABLED: "false"
       VAST_ENABLED: "false"
       VAST_DRY_RUN: "true"
       RUN_POSTGRES_INTEGRATION: "true"
+      PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN: "true"
     defaults:
       run:
         working-directory: backend
@@ -60,10 +62,20 @@ jobs:
       - name: Provision pgvector for integration database
         env:
           PGPASSWORD: postgres
-        run: psql -h 127.0.0.1 -U postgres -d defi_copilot_test -c "CREATE EXTENSION IF NOT EXISTS vector"
+        run: psql -h 127.0.0.1 -U postgres -d defi_copilot_test -c "COMMENT ON DATABASE defi_copilot_test IS 'phase22-pgvector-isolated-test-v1'; CREATE EXTENSION IF NOT EXISTS vector"
+
+      - name: Provision Phase 19 guard test database
+        env:
+          PGPASSWORD: postgres
+        run: |
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d postgres -c "CREATE DATABASE defi_copilot_exercises"
+          psql -v ON_ERROR_STOP=1 -h 127.0.0.1 -U postgres -d defi_copilot_exercises -c "COMMENT ON DATABASE defi_copilot_exercises IS 'phase19-isolated-exercise-test-v1'"
 
       - name: Verify pgvector preflight
         run: python -m scripts.preflight_pgvector
+
+      - name: Verify isolated migration database target
+        run: python -c "from app.tests.conftest import verify_test_database_target; verify_test_database_target()"
 
       - name: Apply PostgreSQL migrations
         run: alembic upgrade head

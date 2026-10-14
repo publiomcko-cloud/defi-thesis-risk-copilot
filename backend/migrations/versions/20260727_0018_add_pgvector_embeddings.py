@@ -27,14 +27,50 @@ def upgrade() -> None:
         # Provisioning the extension is an infrastructure responsibility. The
         # application migration role must not be assumed to hold CREATE
         # EXTENSION privileges in Supabase or another managed PostgreSQL host.
-        has_vector = bind.execute(
-            sa.text("SELECT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'vector')")
-        ).scalar()
-        if not has_vector:
+        extension = bind.execute(
+            sa.text(
+                "SELECT n.nspname AS schema_name, t.oid AS vector_type_oid, "
+                "has_schema_privilege(current_user, n.oid, 'USAGE') AS schema_usage, "
+                "CASE WHEN t.oid IS NULL THEN false "
+                "ELSE has_type_privilege(current_user, t.oid, 'USAGE') END AS type_usage "
+                "FROM pg_extension e "
+                "JOIN pg_namespace n ON n.oid = e.extnamespace "
+                "LEFT JOIN pg_type t ON t.typnamespace = n.oid AND t.typname = 'vector' "
+                "WHERE e.extname = :extension_name"
+            ),
+            {"extension_name": "vector"},
+        ).mappings().one_or_none()
+        if extension is None:
             raise RuntimeError(
                 "pgvector extension is not installed. A database administrator must run "
                 "CREATE EXTENSION vector before applying Phase 18 migrations."
             )
+        if extension["vector_type_oid"] is None:
+            raise RuntimeError(
+                "pgvector extension is installed but its vector type is unavailable. "
+                "A database administrator must verify the extension installation."
+            )
+        if not extension["schema_usage"]:
+            raise RuntimeError(
+                "pgvector extension schema is not accessible to the migration role. "
+                "A database administrator must grant USAGE on schema "
+                f"{extension['schema_name']!r} before applying Phase 18 migrations."
+            )
+        if not extension["type_usage"]:
+            raise RuntimeError(
+                "pgvector vector type is not accessible to the migration role. "
+                "A database administrator must grant USAGE on the extension's vector type "
+                "before applying Phase 18 migrations."
+            )
+
+        # Resolve both pgvector objects from the extension catalog rather than
+        # search_path. Quote the catalog-derived schema as one SQL identifier;
+        # extension schemas are not restricted to simple, unquoted names.
+        quoted_extension_schema = bind.dialect.identifier_preparer.quote(
+            extension["schema_name"]
+        )
+        vector_type = f"{quoted_extension_schema}.vector(384)"
+        cosine_operator_class = f"{quoted_extension_schema}.vector_cosine_ops"
 
     op.create_table(
         "knowledge_embedding_profiles",
@@ -138,10 +174,14 @@ def upgrade() -> None:
     op.create_index("ix_knowledge_chunk_embeddings_generation", "knowledge_chunk_embeddings", ["embedding_generation_id", "deleted_at"])
 
     if is_postgres:
-        op.execute("ALTER TABLE knowledge_chunk_embeddings ADD COLUMN embedding_vector vector(384)")
+        op.execute(
+            "ALTER TABLE knowledge_chunk_embeddings "
+            f"ADD COLUMN embedding_vector {vector_type}"
+        )
         op.execute(
             "CREATE INDEX ix_knowledge_chunk_embeddings_vector_hnsw "
-            "ON knowledge_chunk_embeddings USING hnsw (embedding_vector vector_cosine_ops) "
+            "ON knowledge_chunk_embeddings USING hnsw "
+            f"(embedding_vector {cosine_operator_class}) "
             "WHERE status = 'completed' AND deleted_at IS NULL"
         )
 
