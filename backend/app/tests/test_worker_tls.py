@@ -89,6 +89,7 @@ def _make_local_certificate(directory: Path, name: str = "local-ca") -> tuple[Pa
 
 def _local_tls_handshake(certificate: Path, private_key: Path, hostname: str) -> None:
     server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    server_context.minimum_version = ssl.TLSVersion.TLSv1_2
     server_context.load_cert_chain(str(certificate), str(private_key))
     listener = socket.socket()
     listener.bind(("127.0.0.1", 0))
@@ -109,6 +110,7 @@ def _local_tls_handshake(certificate: Path, private_key: Path, hostname: str) ->
     server = threading.Thread(target=serve_once, daemon=True)
     server.start()
     client_context = ssl.create_default_context(cafile=str(certificate))
+    client_context.minimum_version = ssl.TLSVersion.TLSv1_2
     client_error: ssl.SSLError | None = None
     try:
         with socket.create_connection(("127.0.0.1", port), timeout=3) as raw:
