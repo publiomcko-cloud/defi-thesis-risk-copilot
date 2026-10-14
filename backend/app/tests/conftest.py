@@ -10,8 +10,20 @@ from app.db.session import engine as application_engine
 from app.db.session import init_db
 
 
-ISOLATED_TEST_DATABASE = "defi_copilot_test"
-ISOLATED_TEST_DATABASE_MARKER = "phase22-pgvector-isolated-test-v1"
+POSTGRES_TEST_PROFILES = {
+    "phase22-pgvector": {
+        "authorization": "PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN",
+        "app_env": "test",
+        "database": "defi_copilot_test",
+        "marker": "phase22-pgvector-isolated-test-v1",
+    },
+    "phase19-exercises": {
+        "authorization": "PHASE19_FAILURE_EXERCISE_TEST_ADMIN",
+        "app_env": "exercise",
+        "database": "defi_copilot_exercises",
+        "marker": "phase19-isolated-exercise-test-v1",
+    },
+}
 CONNECTION_OVERRIDE_PARAMETERS = {
     "database",
     "dbname",
@@ -50,17 +62,25 @@ def verify_test_database_target() -> None:
             raise RuntimeError("refusing tests against an unsupported or non-isolated database target")
         return
 
+    selected_profiles = [
+        (name, profile)
+        for name, profile in POSTGRES_TEST_PROFILES.items()
+        if os.getenv(profile["authorization"]) == "true"
+    ]
+    if len(selected_profiles) != 1:
+        raise RuntimeError("refusing PostgreSQL tests without exactly one explicit isolated-test profile")
+    profile_name, profile = selected_profiles[0]
+    if settings.app_env.strip().lower() != profile["app_env"]:
+        raise RuntimeError("refusing PostgreSQL tests because APP_ENV does not match the selected isolated-test profile")
+
     if url.host not in {"localhost", "127.0.0.1", "::1"}:
         raise RuntimeError("refusing PostgreSQL tests unless DATABASE_URL targets loopback")
-    if url.database != ISOLATED_TEST_DATABASE:
-        raise RuntimeError("refusing PostgreSQL tests unless DATABASE_URL targets the dedicated test database")
+    if url.database != profile["database"]:
+        raise RuntimeError("refusing PostgreSQL tests unless DATABASE_URL targets the database named by its isolated-test profile")
     if CONNECTION_OVERRIDE_PARAMETERS.intersection(url.query):
         raise RuntimeError("refusing PostgreSQL tests with connection overrides")
     if LIBPQ_TARGET_OVERRIDE_ENV.intersection(os.environ):
         raise RuntimeError("refusing PostgreSQL tests with libpq target overrides")
-    if os.getenv("PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN") != "true":
-        raise RuntimeError("refusing PostgreSQL test migrations without explicit isolated-admin authorization")
-
     try:
         with application_engine.connect() as connection:
             identity = connection.execute(
@@ -78,11 +98,13 @@ def verify_test_database_target() -> None:
 
     if (
         identity is None
-        or identity.database_name != ISOLATED_TEST_DATABASE
-        or identity.isolation_marker != ISOLATED_TEST_DATABASE_MARKER
+        or identity.database_name != profile["database"]
+        or identity.isolation_marker != profile["marker"]
         or not identity.is_superuser
     ):
-        raise RuntimeError("refusing PostgreSQL tests because the connected database is not the authorized isolated test target")
+        raise RuntimeError(
+            f"refusing PostgreSQL tests because the connected database is not the authorized {profile_name} target"
+        )
 
 
 # conftest is imported before collection and before session fixtures, so this

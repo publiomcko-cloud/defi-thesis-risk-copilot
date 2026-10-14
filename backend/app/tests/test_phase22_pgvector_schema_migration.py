@@ -21,13 +21,25 @@ ISOLATED_TEST_DATABASE = "defi_copilot_test"
 ISOLATED_TEST_DATABASE_MARKER = "phase22-pgvector-isolated-test-v1"
 
 
-def _run_guard_subprocess(database_url: str, *, app_env: str = "test", admin: bool = True) -> subprocess.CompletedProcess[str]:
+def _run_guard_subprocess(
+    database_url: str | None = None,
+    *,
+    app_env: str = "test",
+    admin: bool = True,
+    phase19_admin: bool = False,
+    extra_environment: dict[str, str] | None = None,
+) -> subprocess.CompletedProcess[str]:
     environment = os.environ.copy()
-    environment.update({"DATABASE_URL": database_url, "APP_ENV": app_env})
+    environment.update({"APP_ENV": app_env})
+    if database_url is not None:
+        environment["DATABASE_URL"] = database_url
+    environment.pop("PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN", None)
+    environment.pop("PHASE19_FAILURE_EXERCISE_TEST_ADMIN", None)
     if admin:
         environment["PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN"] = "true"
-    else:
-        environment.pop("PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN", None)
+    if phase19_admin:
+        environment["PHASE19_FAILURE_EXERCISE_TEST_ADMIN"] = "true"
+    environment.update(extra_environment or {})
     return subprocess.run(
         [sys.executable, "-c", "from app.tests.conftest import verify_test_database_target; verify_test_database_target()"],
         cwd=BACKEND_DIR,
@@ -42,7 +54,7 @@ def _run_guard_subprocess(database_url: str, *, app_env: str = "test", admin: bo
     ("database_url", "admin", "message"),
     [
         ("postgresql+psycopg://user:guard-secret@db.example.invalid:5432/defi_copilot_test", True, "loopback"),
-        ("postgresql+psycopg://user:guard-secret@127.0.0.1:5432/production", True, "dedicated test database"),
+        ("postgresql+psycopg://user:guard-secret@127.0.0.1:5432/production", True, "database named by its isolated-test profile"),
         (
             "postgresql+psycopg://user:guard-secret@127.0.0.1:5432/defi_copilot_test?hostaddr=203.0.113.10",
             True,
@@ -53,7 +65,7 @@ def _run_guard_subprocess(database_url: str, *, app_env: str = "test", admin: bo
             True,
             "connection overrides",
         ),
-        ("postgresql+psycopg://user:guard-secret@127.0.0.1:5432/defi_copilot_test", False, "isolated-admin authorization"),
+        ("postgresql+psycopg://user:guard-secret@127.0.0.1:5432/defi_copilot_test", False, "exactly one explicit isolated-test profile"),
     ],
 )
 def test_central_database_guard_rejects_unsafe_postgres_targets_without_leaking_urls(
@@ -85,6 +97,153 @@ def test_central_database_guard_rejects_libpq_environment_target_override() -> N
     )
     assert result.returncode != 0
     assert "libpq target overrides" in result.stderr
+    assert "guard-secret" not in result.stdout + result.stderr
+
+
+def test_phase19_profile_accepts_only_the_marked_exercise_database() -> None:
+    database_url = os.getenv("PHASE19_GUARD_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("CI must provision the dedicated marked Phase 19 guard test database")
+    result = _run_guard_subprocess(
+        database_url,
+        app_env="exercise",
+        admin=False,
+        phase19_admin=True,
+    )
+    assert result.returncode == 0, result.stderr
+    assert "guard-secret" not in result.stdout + result.stderr
+
+
+def test_phase19_profile_rejects_unmarked_database_before_pytest_can_migrate() -> None:
+    database_url = os.getenv("PHASE19_GUARD_TEST_DATABASE_URL")
+    if not database_url:
+        pytest.skip("CI must provision the dedicated Phase 19 guard test database")
+
+    exercise_engine = create_engine(make_url(database_url))
+    admin_engine = create_engine(
+        make_url(os.environ["DATABASE_URL"]).set(database="postgres"),
+        isolation_level="AUTOCOMMIT",
+    )
+    marker_before = "phase19-isolated-exercise-test-v1"
+    revision_before: str | None = None
+    try:
+        with exercise_engine.connect() as connection:
+            identity = connection.execute(
+                text(
+                    "SELECT current_database(), shobj_description(oid, 'pg_database') "
+                    "FROM pg_database WHERE datname = current_database()"
+                )
+            ).one()
+            assert identity == ("defi_copilot_exercises", marker_before)
+            migration_state_before = connection.execute(
+                text("SELECT to_regclass('alembic_version')")
+            ).scalar_one_or_none()
+            if migration_state_before is not None:
+                revision_before = connection.execute(
+                    text("SELECT version_num FROM alembic_version")
+                ).scalar_one()
+
+        with admin_engine.connect() as connection:
+            connection.exec_driver_sql(
+                "COMMENT ON DATABASE defi_copilot_exercises "
+                "IS 'phase19-test-marker-must-not-authorize'"
+            )
+        environment = os.environ.copy()
+        environment.update(
+            {
+                "APP_ENV": "exercise",
+                "DATABASE_URL": database_url,
+                "PHASE19_FAILURE_EXERCISE_TEST_ADMIN": "true",
+            }
+        )
+        environment.pop("PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN", None)
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "-q", "app/tests/test_access_control.py"],
+            cwd=BACKEND_DIR,
+            env=environment,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "not the authorized phase19-exercises target" in result.stderr
+        assert "guard-secret" not in result.stdout + result.stderr
+        with exercise_engine.connect() as connection:
+            migration_state_after = connection.execute(
+                text("SELECT to_regclass('alembic_version')")
+            ).scalar_one_or_none()
+            assert migration_state_after == migration_state_before
+            if migration_state_before is not None:
+                revision_after = connection.execute(
+                    text("SELECT version_num FROM alembic_version")
+                ).scalar_one()
+                assert revision_after == revision_before
+    finally:
+        with admin_engine.connect() as connection:
+            connection.exec_driver_sql(
+                "COMMENT ON DATABASE defi_copilot_exercises "
+                "IS 'phase19-isolated-exercise-test-v1'"
+            )
+        exercise_engine.dispose()
+        admin_engine.dispose()
+
+
+@pytest.mark.parametrize(
+    ("database_url", "app_env", "phase19_admin", "extra_environment", "message"),
+    [
+        (
+            "postgresql+psycopg://postgres:guard-secret@127.0.0.1:5432/defi_copilot_test",
+            "exercise",
+            True,
+            {},
+            "database named by its isolated-test profile",
+        ),
+        (
+            None,
+            "production",
+            True,
+            {},
+            "APP_ENV=production",
+        ),
+        (
+            None,
+            "exercise",
+            True,
+            {"PGHOSTADDR": "203.0.113.10"},
+            "libpq target overrides",
+        ),
+    ],
+)
+def test_phase19_profile_rejects_wrong_database_production_and_forwarded_targets(
+    database_url: str | None,
+    app_env: str,
+    phase19_admin: bool,
+    extra_environment: dict[str, str],
+    message: str,
+) -> None:
+    target = database_url or os.getenv("PHASE19_GUARD_TEST_DATABASE_URL")
+    if target is None:
+        pytest.skip("CI must provision the dedicated Phase 19 guard test database")
+    result = _run_guard_subprocess(
+        target,
+        app_env=app_env,
+        admin=False,
+        phase19_admin=phase19_admin,
+        extra_environment=extra_environment,
+    )
+    assert result.returncode != 0
+    assert message in result.stderr
+    assert "guard-secret" not in result.stdout + result.stderr
+
+
+def test_postgres_guard_rejects_both_test_profiles_enabled() -> None:
+    result = _run_guard_subprocess(
+        "postgresql+psycopg://user:guard-secret@127.0.0.1:5432/defi_copilot_test",
+        admin=True,
+        phase19_admin=True,
+    )
+    assert result.returncode != 0
+    assert "exactly one explicit isolated-test profile" in result.stderr
     assert "guard-secret" not in result.stdout + result.stderr
 
 
@@ -127,7 +286,7 @@ def test_wrong_database_marker_rejects_unrelated_selection_without_migration_sid
             check=False,
         )
         assert result.returncode != 0
-        assert "not the authorized isolated test target" in result.stderr
+        assert "not the authorized phase22-pgvector target" in result.stderr
         with application_engine.connect() as connection:
             revision_after = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
         assert revision_after == revision_before
