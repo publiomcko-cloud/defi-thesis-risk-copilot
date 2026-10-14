@@ -12,10 +12,131 @@ from alembic.script import ScriptDirectory
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import URL, make_url
 
+from app.db.session import engine as application_engine
 
 pytestmark = pytest.mark.postgres_integration
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
+ISOLATED_TEST_DATABASE = "defi_copilot_test"
+ISOLATED_TEST_DATABASE_MARKER = "phase22-pgvector-isolated-test-v1"
+
+
+def _run_guard_subprocess(database_url: str, *, app_env: str = "test", admin: bool = True) -> subprocess.CompletedProcess[str]:
+    environment = os.environ.copy()
+    environment.update({"DATABASE_URL": database_url, "APP_ENV": app_env})
+    if admin:
+        environment["PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN"] = "true"
+    else:
+        environment.pop("PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN", None)
+    return subprocess.run(
+        [sys.executable, "-c", "from app.tests.conftest import verify_test_database_target; verify_test_database_target()"],
+        cwd=BACKEND_DIR,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+
+@pytest.mark.parametrize(
+    ("database_url", "admin", "message"),
+    [
+        ("postgresql+psycopg://user:guard-secret@db.example.invalid:5432/defi_copilot_test", True, "loopback"),
+        ("postgresql+psycopg://user:guard-secret@127.0.0.1:5432/production", True, "dedicated test database"),
+        (
+            "postgresql+psycopg://user:guard-secret@127.0.0.1:5432/defi_copilot_test?hostaddr=203.0.113.10",
+            True,
+            "connection overrides",
+        ),
+        (
+            "postgresql+psycopg://user:guard-secret@127.0.0.1:5432/defi_copilot_test?dbname=production",
+            True,
+            "connection overrides",
+        ),
+        ("postgresql+psycopg://user:guard-secret@127.0.0.1:5432/defi_copilot_test", False, "isolated-admin authorization"),
+    ],
+)
+def test_central_database_guard_rejects_unsafe_postgres_targets_without_leaking_urls(
+    database_url: str, admin: bool, message: str
+) -> None:
+    result = _run_guard_subprocess(database_url, admin=admin)
+    assert result.returncode != 0
+    assert message in result.stderr
+    assert "guard-secret" not in result.stdout + result.stderr
+
+
+def test_central_database_guard_rejects_libpq_environment_target_override() -> None:
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "APP_ENV": "test",
+            "DATABASE_URL": "postgresql+psycopg://user:guard-secret@127.0.0.1:5432/defi_copilot_test",
+            "PHASE22_PGVECTOR_MIGRATION_TEST_ADMIN": "true",
+            "PGHOSTADDR": "203.0.113.10",
+        }
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", "from app.tests.conftest import verify_test_database_target; verify_test_database_target()"],
+        cwd=BACKEND_DIR,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "libpq target overrides" in result.stderr
+    assert "guard-secret" not in result.stdout + result.stderr
+
+
+def test_unrelated_pytest_selection_rejects_production_before_database_creation(tmp_path: Path) -> None:
+    database_path = tmp_path / "must-not-be-created.sqlite"
+    environment = os.environ.copy()
+    environment.update(
+        {
+            "APP_ENV": "production",
+            "DATABASE_URL": f"sqlite:///{database_path}",
+        }
+    )
+    result = subprocess.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "app/tests/test_access_control.py"],
+        cwd=BACKEND_DIR,
+        env=environment,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode != 0
+    assert "APP_ENV=production" in result.stderr
+    assert not database_path.exists()
+
+
+@pytest.mark.skipif(application_engine.dialect.name != "postgresql", reason="requires the isolated PostgreSQL test database")
+def test_wrong_database_marker_rejects_unrelated_selection_without_migration_side_effects() -> None:
+    with application_engine.connect() as connection:
+        revision_before = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        connection.exec_driver_sql("COMMENT ON DATABASE defi_copilot_test IS 'not-the-authorized-test-database'")
+        connection.commit()
+    try:
+        environment = os.environ.copy()
+        result = subprocess.run(
+            [sys.executable, "-m", "pytest", "--collect-only", "app/tests/test_access_control.py"],
+            cwd=BACKEND_DIR,
+            env=environment,
+            text=True,
+            capture_output=True,
+            check=False,
+        )
+        assert result.returncode != 0
+        assert "not the authorized isolated test target" in result.stderr
+        with application_engine.connect() as connection:
+            revision_after = connection.execute(text("SELECT version_num FROM alembic_version")).scalar_one()
+        assert revision_after == revision_before
+    finally:
+        with application_engine.connect() as connection:
+            connection.exec_driver_sql(
+                "COMMENT ON DATABASE defi_copilot_test IS 'phase22-pgvector-isolated-test-v1'"
+            )
+            connection.commit()
 
 
 @pytest.fixture
@@ -44,6 +165,21 @@ def migration_sandbox(request: pytest.FixtureRequest) -> dict[str, object]:
     target_admin_engine = None
     migrator_engine = None
     try:
+        with admin_engine.connect() as connection:
+            database_facts = connection.execute(
+                text(
+                    "SELECT current_database() AS database_name, "
+                    "shobj_description(d.oid, 'pg_database') AS isolation_marker "
+                    "FROM pg_database d WHERE d.datname = current_database()"
+                )
+            ).one()
+        assert database_facts.database_name == ISOLATED_TEST_DATABASE, (
+            "refusing to mutate a database other than the dedicated Phase 22 test database"
+        )
+        assert database_facts.isolation_marker == ISOLATED_TEST_DATABASE_MARKER, (
+            "refusing to mutate a PostgreSQL cluster without the explicit isolated-test marker"
+        )
+
         with admin_engine.connect() as connection:
             admin_role = connection.execute(
                 text(
@@ -74,8 +210,10 @@ def migration_sandbox(request: pytest.FixtureRequest) -> dict[str, object]:
             "public": "public",
             "extensions": "extensions",
             "extensions_without_usage": "extensions",
+            "extensions_without_type_usage": "extensions",
             "quoted_schema": 'vector schema "quoted',
             "missing": None,
+            "missing_btree_gist": "public",
             "schema_conflict": "public",
         }[case]
         target_quote = target_admin_engine.dialect.identifier_preparer.quote_identifier
@@ -94,7 +232,8 @@ def migration_sandbox(request: pytest.FixtureRequest) -> dict[str, object]:
             # Migration 20260821_0026 contains CREATE EXTENSION IF NOT EXISTS
             # btree_gist. Provision that separate prerequisite as the fixture
             # administrator so the migration role remains unable to install extensions.
-            connection.exec_driver_sql("CREATE EXTENSION btree_gist")
+            if case != "missing_btree_gist":
+                connection.exec_driver_sql("CREATE EXTENSION btree_gist")
             if extension_schema is not None:
                 if extension_schema != "public":
                     connection.exec_driver_sql(
@@ -107,6 +246,11 @@ def migration_sandbox(request: pytest.FixtureRequest) -> dict[str, object]:
                     connection.exec_driver_sql(
                         f"GRANT USAGE ON SCHEMA {target_quote(extension_schema)} "
                         f"TO {quote_identifier(role_name)}"
+                    )
+                if case == "extensions_without_type_usage":
+                    connection.exec_driver_sql(
+                        f"REVOKE USAGE ON TYPE {target_quote(extension_schema)}.vector "
+                        f"FROM PUBLIC, {quote_identifier(role_name)}"
                     )
 
         migrator_url: URL = admin_url.set(
@@ -293,6 +437,7 @@ def test_pgvector_schema_layout_migrates_to_head_and_hnsw_is_usable(
     [
         ("missing", "pgvector extension is not installed"),
         ("extensions_without_usage", "pgvector extension schema is not accessible"),
+        ("extensions_without_type_usage", "pgvector vector type is not accessible"),
     ],
     indirect=["migration_sandbox"],
 )
@@ -340,3 +485,35 @@ def test_failed_phase18_ddl_rolls_back_every_partial_artifact(
         ).one()
     assert version == "20260727_0017"
     assert artifacts == (None, None)
+
+
+@pytest.mark.parametrize("migration_sandbox", ["missing_btree_gist"], indirect=True)
+def test_btree_gist_must_be_provisioned_before_the_least_privilege_upgrade(
+    migration_sandbox: dict[str, object],
+) -> None:
+    result = _upgrade(migration_sandbox)
+    assert result.returncode != 0
+    assert "btree_gist" in result.stderr
+    assert any(
+        message in result.stderr.lower()
+        for message in ("permission denied", "must be superuser", "must be owner")
+    )
+
+    engine = migration_sandbox["migrator_engine"]
+    with engine.connect() as connection:
+        version = connection.execute(
+            text("SELECT version_num FROM app.alembic_version")
+        ).scalar_one()
+        artifacts = connection.execute(
+            text(
+                "SELECT to_regclass('app.knowledge_embedding_profiles'), "
+                "to_regclass('app.knowledge_embedding_generations'), "
+                "to_regclass('app.knowledge_chunk_embeddings'), "
+                "to_regclass('app.plan_versions'), "
+                "to_regclass('app.plan_entitlements'), "
+                "to_regclass('app.entitlement_assignments'), "
+                "to_regclass('app.non_billable_usage_events')"
+            )
+        ).one()
+    assert version == "20260727_0017"
+    assert artifacts == (None, None, None, None, None, None, None)

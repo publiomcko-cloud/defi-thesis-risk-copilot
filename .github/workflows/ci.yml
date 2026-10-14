@@ -61,10 +61,13 @@ jobs:
       - name: Provision pgvector for integration database
         env:
           PGPASSWORD: postgres
-        run: psql -h 127.0.0.1 -U postgres -d defi_copilot_test -c "CREATE EXTENSION IF NOT EXISTS vector"
+        run: psql -h 127.0.0.1 -U postgres -d defi_copilot_test -c "COMMENT ON DATABASE defi_copilot_test IS 'phase22-pgvector-isolated-test-v1'; CREATE EXTENSION IF NOT EXISTS vector"
 
       - name: Verify pgvector preflight
         run: python -m scripts.preflight_pgvector
+
+      - name: Verify isolated migration database target
+        run: python -c "from app.tests.conftest import verify_test_database_target; verify_test_database_target()"
 
       - name: Apply PostgreSQL migrations
         run: alembic upgrade head
