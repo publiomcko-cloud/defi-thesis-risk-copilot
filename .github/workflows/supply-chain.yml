@@ -109,7 +109,7 @@ jobs:
         if: ${{ always() && steps.npm-audit.outcome != 'skipped' }}
         run: python3 scripts/supply_chain.py audit-summary --audit-file "$RUNNER_TEMP/npm-audit.json"
       - name: Scan repository configuration
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
           scan-type: fs
           scanners: vuln,secret,misconfig
@@ -123,7 +123,7 @@ jobs:
       - name: Build frontend image without deployment secrets
         run: docker build -f Dockerfile.frontend -t local/defi-thesis-risk-copilot-frontend:phase19f .
       - name: Scan backend container image
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
           image-ref: local/defi-thesis-risk-copilot-backend:phase19f
           format: table
@@ -132,7 +132,7 @@ jobs:
           ignorefile: .trivyignore
           exit-code: "1"
       - name: Scan frontend container image
-        uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1 # 0.35.0
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # 0.36.0
         with:
           image-ref: local/defi-thesis-risk-copilot-frontend:phase19f
           format: table
