@@ -14,6 +14,9 @@
 - Added a same-origin thesis research form and report evidence panel. The
   backend deadline is 25 seconds, the BFF abort is 30 seconds, and the route
   maximum duration is 35 seconds.
+- Updated the PDF parser pin from pypdf 6.20.0 to 6.21.1 after the PR's
+  dependency audit found six advisories; focused PDF ingestion and F1 tests
+  pass with the patched release.
 - Added focused backend and frontend contract checks. This branch remains a
   candidate; Phase 22 remains ACTIVE — HOLD. No worker, schedule, deployment,
   experimental PostgreSQL time floor, owner decision, or merge was activated.

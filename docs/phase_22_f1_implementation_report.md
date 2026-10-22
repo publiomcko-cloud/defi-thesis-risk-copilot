@@ -19,6 +19,7 @@
 - `F1_FRONTEND_WORKFLOW_STATUS`: **IMPLEMENTED_BUILD_AND_SMOKE_CHECKED** — question submission from the saved-thesis workspace, synchronous status, retry key reuse while the form remains mounted, saved-run links, evidence/freshness display, report view, comparison, and export. Frontend typecheck, build, BFF contracts, and F1 UI contract passed. A local built-page smoke is recorded below.
 - `F1_AUTH_TENANT_ISOLATION_STATUS`: **PRIVATE_OWNER_SCOPE_TESTED** — authentication is required; only the authenticated owner of an active private thesis can submit or read its runs; another user receives `404`. Reports retain existing owner authorization. Tests use isolated SQLite and synthetic user identities.
 - `F1_REGRESSION_STATUS`: **SELECTED_BACKEND_AND_FRONTEND_REGRESSIONS_PASS** — see validation record below. This was a focused changed-path run, not a claim that the full application suite passed.
+- `F1_DEPENDENCY_AUDIT_STATUS`: **BASELINE_PYPDF_FINDINGS_PATCHED** — the initial PR audit found six pypdf advisories on the unchanged main pin `6.20.0`; F1 updates it to upstream-fixed `6.21.1`, and focused PDF-ingestion tests pass on that version. The fix and final CI status are recorded below.
 - `F1_REAL_MODEL_ACCEPTANCE_STATUS`: **NOT_PERFORMED** — no real provider route was enabled, no actual private thesis data was transmitted, and no provider charge or deployment occurred. Fake-provider tests are not real-model acceptance.
 - `F1_OWNER_ACTIVATION_REQUIREMENTS`: **OWNER_DECISIONS_REQUIRED** — before supervised model acceptance, explicitly approve provider/model, private-data transmission and retention boundary, `private_approved` model classification and server-owned route promotion, credential source, token budget, and a per-run cost ceiling based on current registered rates. Keep synthesis disabled until those choices and the acceptance plan are recorded. No provider, price cap, or privacy threshold was inferred. The ten R3.15 decisions remain pending.
 - `F1_REVIEWER_PROVENANCE_STATUS`: **AGENT_REVIEW_ONLY** — implementation and report prepared by the OpenAI Codex agent in this session. No authenticated human identity or independent second-party separation is evidenced.
@@ -81,6 +82,15 @@ The selected changed-path regression across F1, synthesis, model routing,
 Phase 21D research intelligence, and market adapters also passed after the
 saved-assumption integration. The final narrow F1 rerun above includes the
 subsequent Markdown inertness change.
+
+The first PR CI run's dependency audit found six known pypdf issues on the
+base-branch pin `6.20.0` (six advisories in one package). Upstream releases
+`6.20.1`, `6.21.0`, and `6.21.1` record fixes for cyclic outline handling,
+bounded parsing work, and JPEG image decoder validation. The candidate now
+pins `pypdf==6.21.1`; `app/tests/test_phase18c_ingestion.py` and the final F1
+module passed on that version. See the [upstream 6.21.1 release](https://github.com/py-pdf/pypdf/releases/tag/6.21.1),
+[stream-processing fix release](https://github.com/py-pdf/pypdf/releases/tag/6.21.0),
+and [JPEG loading advisory](https://github.com/py-pdf/pypdf/security/advisories/GHSA-5hx5-vpf9-5wcv).
 
 An isolated temporary SQLite database passed Alembic
 `upgrade head -> downgrade 20260911_0034 -> upgrade head`, including migration

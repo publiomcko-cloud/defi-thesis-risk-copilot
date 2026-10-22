@@ -83,6 +83,9 @@ hosted runtime were not inspected.
   private thesis text was sent to a provider and no provider charge was made.
 - Source publication time can be absent; observed retrieval/adapter time and
   the missing source timestamp are shown instead of being inferred.
+- The first draft CI audit found six pypdf advisories in the pre-existing
+  `6.20.0` pin. F1 updates the pin to `6.21.1`, whose upstream release includes
+  the relevant fixes; focused PDF-ingestion and F1 tests pass on that version.
 
 ## Deferred owner activation decisions
 
