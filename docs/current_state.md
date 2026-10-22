@@ -24,6 +24,14 @@ Authoritative references:
 
 ---
 
+## Portfolio direction and evidence boundary — October 2026
+
+**Current checked-in behavior must be distinguished from the new acceptance target.** The owner now targets a restricted personal Research Copilot with bounded multi-step AI-assisted investigation, deterministic risk/stress calculations, source-attributed reports, thesis history/comparison, and user-owned scheduled monitoring with in-app alerts. See [completion contract](portfolio_completion_contract.md) and [execution plan](portfolio_finalization_plan.md).
+
+The existing application already implements much of the deterministic analysis, research metadata, Phase 17 durable jobs, Phase 20C scheduling and Phase 20D notification foundation. **Optional LLM synthesis and production schedule dispatch remain disabled by default**; the complete AI deep-research/monitoring workflow has not been accepted as running end-to-end. Workers are background task execution infrastructure, not proof of autonomous research agents.
+
+The locally sealed R3.26–R3.31 candidates/benchmarks and the owner-supplied R3.32-R review are **not integrated into GitHub `main`**. The review identified strict deadline equality, pre-lock witness ticket/time authority, post-sample lease/commit behavior, and unapproved forward-jump semantics as blockers to enabled worker/schedule integration. Seven historical occurrences and ten R3.15 owner decisions remain open. Phase 22: **ACTIVE — HOLD**; no production activation is authorized by this documentation change.
+
 ## 1. Live deployment
 
 - Frontend: `https://defi-thesis-risk-copilot.vercel.app`
