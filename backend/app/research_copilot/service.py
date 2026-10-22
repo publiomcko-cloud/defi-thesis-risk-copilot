@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import traceback
 from datetime import UTC, datetime
 from hashlib import sha256
 from time import monotonic
@@ -300,7 +301,14 @@ def _start_thesis_research_owned(
         _mark_failed(db, run.id, "research_execution_failed", started_at, provider_call_state="uncertain")
         detail = "Research could not be completed safely."
         if settings.app_env.strip().lower() in {"development", "test"}:
-            detail = f"{detail} [stage={failure_stage}; error_type={type(exc).__name__}]"
+            frames = traceback.extract_tb(exc.__traceback__)
+            source = frames[-1] if frames else None
+            location = (
+                f"{source.filename.rsplit('/', 1)[-1]}:{source.lineno}:{source.name}"
+                if source is not None
+                else "location=unavailable"
+            )
+            detail = f"{detail} [stage={failure_stage}; error_type={type(exc).__name__}; {location}]"
         raise HTTPException(status_code=503, detail=detail) from None
     finally:
         mark_local_run_inactive(run.id)
