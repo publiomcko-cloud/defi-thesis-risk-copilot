@@ -57,7 +57,7 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
   const [pendingRunKey, setPendingRunKey] = useState<string | null>(null);
   const [pendingRunQuestion, setPendingRunQuestion] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (): Promise<ResearchRunSummary[]> => {
     const [history, assumptionResponse, catalystResponse, questionsResponse, runResponse] = await Promise.all([
       fetchPanelResource(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/history`),
       fetchPanelResource(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/assumptions`),
@@ -74,7 +74,18 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
     if (assumptionResponse?.ok) setAssumptions((await assumptionResponse.json()).items as Assumption[]);
     if (catalystResponse?.ok) setCatalysts((await catalystResponse.json()).items as Catalyst[]);
     if (questionsResponse?.ok) setQuestions((await questionsResponse.json()).questions as string[]);
-    if (runResponse?.ok) setRuns((await runResponse.json()).items as ResearchRunSummary[]);
+    if (runResponse?.ok) {
+      const items = (await runResponse.json()).items as ResearchRunSummary[];
+      setRuns(items);
+      const unresolved = items.find((item) => ["running", "failed", "interrupted", "uncertain"].includes(item.status));
+      if (unresolved) {
+        setPendingRunKey(unresolved.idempotency_key);
+        setPendingRunQuestion(unresolved.question);
+        setQuestion((current) => current.trim() ? current : unresolved.question);
+      }
+      return items;
+    }
+    return [];
   }, [thesisId]);
 
   useEffect(() => {
@@ -148,6 +159,12 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
       });
       const body = await response.json() as ResearchRunSummary & { detail?: string };
       if (!response.ok) {
+        if (response.status === 504 || response.status === 503) {
+          const items = await refresh();
+          const persisted = items.find((item) => item.idempotency_key === idempotencyKey);
+          setMessage(persisted ? runStatusMessage(persisted) : "The browser stopped waiting; server execution may have continued. Outcome is unknown until the saved run appears. The same idempotency key is retained; do not retry with a new key.");
+          return;
+        }
         throw new Error(body.detail ?? `Research request failed with status ${response.status}.`);
       }
       let run = body;
@@ -165,10 +182,8 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
       }
       if (run.status === "failed") {
         setMessage(`Research failed safely (${run.error_code ?? "unknown error"}). No report was saved.`);
-        setPendingRunKey(null);
-        setPendingRunQuestion(null);
-      } else if (run.status === "running") {
-        setMessage("The run is still processing. Refresh the thesis workspace to check its saved status.");
+      } else if (run.status === "running" || run.status === "uncertain" || run.status === "interrupted") {
+        setMessage(runStatusMessage(run));
       } else {
         setQuestion("");
         setPendingRunKey(null);
@@ -179,7 +194,11 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
       }
       await refresh();
     } catch (caught) {
-      setMessage(caught instanceof Error ? caught.message : "Research request could not be completed.");
+      const items = await refresh();
+      const persisted = items.find((item) => item.idempotency_key === idempotencyKey);
+      setMessage(persisted
+        ? runStatusMessage(persisted)
+        : "The request outcome is unknown; the browser connection ended before a saved status was available. The same idempotency key is retained. Refresh to reconcile; do not retry with a new key.");
     } finally {
       setIsRunning(false);
     }
@@ -262,7 +281,9 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
               <li key={run.run_id}>
                 {run.status === "completed"
                   ? (run.metadata?.status === "completed_with_gaps" ? "Completed with evidence gaps" : "Completed")
-                  : run.status}
+                  : run.status === "interrupted" ? "Interrupted; provider outcome uncertain"
+                    : run.status === "uncertain" ? "Outcome uncertain; do not replay"
+                      : run.status}
                 : {run.question} · {new Date(run.started_at).toLocaleString()}
                 {run.metadata ? ` · ${run.metadata.llm_used ? "LLM used" : "deterministic fallback"}` : ""}
                 {run.report_id ? <> · <a className="text-link" href={`/reports/${encodeURIComponent(run.report_id)}`}>Open report</a></> : null}
@@ -273,7 +294,15 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
         ) : <p>No research runs saved for this thesis.</p>}
       </div>
       {latestReport ? <ReportResearchPanel reportId={latestReport} /> : null}
-      {message ? <p className={message.includes("failed") || message.includes("could not") ? "error" : "form-success"} aria-live="polite">{message}</p> : null}
+      {message ? <p className={message.includes("failed") || message.includes("unknown") || message.includes("uncertain") || message.includes("do not retry") ? "error" : "form-success"} aria-live="polite">{message}</p> : null}
     </section>
   );
+}
+
+function runStatusMessage(run: ResearchRunSummary): string {
+  if (run.status === "completed") return "Research report saved and available in run history.";
+  if (run.status === "failed") return `Research failed (${run.error_code ?? "unknown error"}); provider outcome ${run.outcome_certainty ?? "unknown"}, usage ${run.usage_status ?? "unknown"}. The same idempotency key is retained.`;
+  if (run.status === "interrupted") return "The execution ended before a report was committed. Provider outcome and charges may be uncertain; do not replay under a new key.";
+  if (run.status === "uncertain") return "The execution owner cannot be verified. No replay was attempted; do not retry under a new key.";
+  return "The server still reports this run as executing. The browser timeout did not cancel backend execution; keep the same idempotency key and refresh later.";
 }

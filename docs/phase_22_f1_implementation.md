@@ -17,9 +17,10 @@ preserved; implementation and tests run in `/home/publio/phase22-f1-implementati
 
 The F0 handoff records the verified sealed R3.26–R3.31 artifacts, seven
 historical failures H1–H7 as open, and the ten R3.15 owner decisions as pending.
-F1 touches no R3.15 reserved path, resolves none of the failures, and accepts
-none of those decisions. The R3 time-floor experiment remains outside the
-application architecture.
+F1-C restores `docs/deployment.md` byte-for-byte to the verified base; reserved
+R3.15 decision #9 remains pending. No historical failure or owner decision is
+resolved. The R3 time-floor experiment remains outside the application
+architecture.
 
 ## Implemented workflow
 
@@ -30,16 +31,26 @@ synchronous service:
 1. Authorizes and locks the private thesis before reading its strategy, protocol tags, legacy saved assumptions, and current explicit assumption heads.
 2. Reserves one owner-scoped idempotency key, checksums the bounded assumption snapshot with the thesis/question input, and applies the existing analysis quota.
 3. Runs the existing strategy parser, curated retrieval, market adapters, deterministic risk scoring, scenarios, and report writer.
-4. Performs one bounded follow-up retrieval pass if protocol coverage or document count leaves an evidence gap.
-5. Validates citation metadata, removes invalid source chunks, and keeps deterministic fields authoritative.
-6. Uses the existing promoted and scope-approved `report_synthesis` route only if explicitly enabled; otherwise it records deterministic fallback.
-7. Saves the report, provenance, run metadata, tool hashes, source freshness, gaps, and completion status through the existing report model.
-8. Supports saved-run reopen, same-scope report comparison, and Markdown export.
+4. Matches bounded source sentences to the research question, cites each excerpt, reports unmatched question terms and possible lexical conflicts, and returns an explicit insufficient-evidence answer when no relevant sentence is found. Lexical matches remain marked weak; they never establish semantic entailment.
+5. Performs at most one question-focused retrieval pass when question terms remain unmatched or required protocol evidence is absent; the semantic-entailment limitation and document count alone do not trigger that pass.
+6. Validates citation metadata and URLs, removes invalid source chunks, and keeps deterministic fields authoritative.
+7. Uses the existing promoted and scope-approved `report_synthesis` route only if explicitly enabled; otherwise it records deterministic fallback.
+8. Saves the report, provenance, run metadata, tool hashes, source freshness, gaps, and completion status through the existing report model.
+9. Supports saved-run reopen, same-scope report comparison, and Markdown export.
 
 Saved assumptions are copied into an immutable report section after synthesis,
 marked owner-provided and unverified, and never included in the model prompt.
 The run checksum includes the exact bounded snapshot so a reused idempotency
 key cannot silently bind to different displayed assumptions.
+
+Research questions and strategy descriptions are separate, labeled untrusted
+task-input fields. Retrieved text, source metadata, URLs, and market observations
+are untrusted data. Provider adapters send code-owned policy in a real system
+message/field; user JSON contains only task data. The F1-C prompt contract is
+`report_synthesis.prompt.v4` with safety policy `report_synthesis.safety.v3`.
+The prior v3 prompt record remains immutable. Existing promoted routes for v3
+do not authorize v4; v4 requires normal evaluation and promotion before model
+use.
 
 Source version identifiers and checksums are included when retrieval metadata
 supplies them. Legacy curated sources without a version identity are labeled as
@@ -62,9 +73,12 @@ tokens and cost from registered route rates.
 
 The BFF forwards the idempotency key and enforces a 30-second upstream abort;
 the Next.js route declares `maxDuration = 35`. The backend run deadline is 25
-seconds. The route-level maximum is within Vercel's currently documented Hobby
-Node.js function maximum; the actual linked plan, Fluid Compute setting, and
-hosted runtime were not inspected.
+seconds. A browser or BFF timeout only ends waiting; it does not assert backend
+cancellation. Run history is refreshed after timeout and carries the original
+idempotency key so refresh/retry cannot start a second provider call. Hosted
+Vercel plan, function settings, candidate deployment, and route behavior remain
+**DEPLOYMENT_UNVERIFIED**; the previous reviewer received HTTP 403 during
+read-only project inspection.
 
 ## Safety and limitations
 
@@ -75,10 +89,29 @@ hosted runtime were not inspected.
 - Untrusted retrieved content remains evidence, not instructions. Traces store
   digests; raw private questions and source text are not written to product
   analytics.
-- A process crash after reservation can leave a persisted `running` row. Its
-  idempotency key prevents duplicate model work; F1 provides no worker or
-  automatic stale-run recovery. Do not replay such a run under a new key while
-  the previous outcome is unknown.
+- PostgreSQL holds a transaction-scoped advisory execution lock across the
+  synchronous run. A status read that obtains the lock checks for a committed
+  report and otherwise marks the run `interrupted` with provider outcome and
+  usage explicitly uncertain. SQLite cannot prove ownership across processes;
+  it reports `uncertain` and does not cancel or replay a run. In either case the
+  same key returns the persisted terminal state. Do not retry an unknown run
+  under a new key. No automatic worker recovery exists.
+- Thesis and account deletion scrub F1 questions, strategy snapshots, source and
+  model provenance, report JSON, and Markdown while retaining only a redacted
+  disposition record. Report access rejects tombstoned rows. Owner privacy
+  export includes live F1 run metadata and full report JSON/Markdown. F1 rows
+  have no automatic TTL; they are retained until the owner deletes the thesis
+  or account, when F1 payloads are scrubbed in the existing lifecycle
+  transaction.
+- Citation destinations are limited to public HTTPS without credentials and
+  recognized `docs/` or `knowledge_base/` Markdown references. Unsafe metadata
+  is removed from F1 evidence before answer generation and sanitized again in
+  report APIs, Markdown export, and frontend links.
+- Provider provenance distinguishes no attempt, pre-transmission rejection,
+  response received but rejected, uncertain transport outcome, and accepted
+  output. Observed tokens and cost remain visible on rejected responses; missing
+  usage is marked unknown and never reported as zero. Post-call rejection does
+  not reverse provider charges.
 - A local synthetic/fake-provider test is not real-model acceptance. No actual
   private thesis text was sent to a provider and no provider charge was made.
 - Source publication time can be absent; observed retrieval/adapter time and

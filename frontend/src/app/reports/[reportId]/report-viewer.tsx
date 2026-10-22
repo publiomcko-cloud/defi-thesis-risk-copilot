@@ -15,6 +15,7 @@ import { SourcesPanel } from "@/components/SourcesPanel";
 import { fetchReport } from "@/lib/api";
 import { formatProtocolName } from "@/lib/formatting";
 import type { ReportResponse } from "@/lib/types";
+import { safeCitationHref } from "@/lib/citation-url";
 
 type ReportViewerProps = {
   reportId: string;
@@ -24,7 +25,8 @@ const separatelyRenderedSections = new Set([
   "Monitoring Checklist",
   "Sources",
   "Disclaimer",
-  "Risk Rating"
+  "Risk Rating",
+  "Question-Specific Answer"
 ]);
 
 export function ReportViewer({ reportId }: ReportViewerProps) {
@@ -122,6 +124,30 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
           <ReportSection key={section.title} section={section} />
         ))}
       </section>
+
+      {report.question_answer ? (
+        <section className="panel stack" aria-labelledby="question-answer-heading">
+          <h2 id="question-answer-heading">Answer to the research question</h2>
+          <p><strong>Evidence status:</strong> {report.question_answer.status}</p>
+          <p>{report.question_answer.answer}</p>
+          {report.question_answer.citations.length ? (
+            <ol className="compact-list">
+              {report.question_answer.citations.map((citation, index) => (
+                <li key={`${citation.source_id}-${index}`}>
+                  <strong>[S{index + 1}] {citation.title}</strong>
+                  <p>{citation.excerpt}</p>
+                  {safeCitationHref(citation.url) ? <a className="text-link" href={safeCitationHref(citation.url) ?? undefined} rel="noreferrer" target="_blank">Open cited source</a> : null}
+                </li>
+              ))}
+            </ol>
+          ) : null}
+          {report.question_answer.unsupported_aspects.length ? <p>Unsupported aspects: {report.question_answer.unsupported_aspects.join(", ")}</p> : null}
+          {report.question_answer.potential_contradictions.length ? (
+            <div><h3>Potential contradictions</h3><ul className="compact-list">{report.question_answer.potential_contradictions.map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}</ul></div>
+          ) : <p>No potential contradiction was detected by the bounded lexical check; semantic conflicts may still be missed.</p>}
+          <p className="muted-small">{report.question_answer.method}</p>
+        </section>
+      ) : null}
 
       {report.research ? <ResearchRunEvidencePanel research={report.research} /> : null}
 

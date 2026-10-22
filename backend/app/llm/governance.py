@@ -25,7 +25,7 @@ from app.models.model_governance import (
 )
 
 
-REPORT_SYNTHESIS_PROMPT_ID = "prompt_report_synthesis_v3"
+REPORT_SYNTHESIS_PROMPT_ID = "prompt_report_synthesis_v4"
 
 
 class ModelGovernanceConflict(ValueError):

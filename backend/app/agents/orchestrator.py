@@ -23,6 +23,7 @@ from app.llm.provenance import ModelRunCandidate, build_report_synthesis_candida
 from app.llm.quality import ModelQualityEvidence
 from app.llm.synthesis import SynthesisResult
 from app.rag.citations import validate_retrieval_citations
+from app.research_copilot.evidence import build_question_answer, question_evidence_needs_followup
 from app.rag.retriever import RetrievalResult
 from app.rag.scope import derive_retrieval_scope
 from app.risk.framework import RiskScore
@@ -51,6 +52,8 @@ class AnalysisWorkflowResult:
     tool_invocation_count: int = 0
     tool_trace: list[ResearchToolTrace] | None = None
     model_call_count: int = 0
+    provider_call_state: str = "not_attempted"
+    usage_status: str = "not_applicable"
 
 
 def run_analysis_workflow(
@@ -162,6 +165,11 @@ def run_analysis_workflow(
 
     pass_count = 1
     followup_gap = False
+    question_answer = (
+        build_question_answer(research_question, retrieved_context)
+        if ledger is not None and research_question is not None
+        else None
+    )
     if ledger is not None and research_max_passes > 1:
         known_protocols = set(_bounded_protocols(parsed_strategy.protocols))
         covered_protocols = {
@@ -169,11 +177,14 @@ def run_analysis_workflow(
             for item in retrieved_context
         }
         missing_protocols = sorted(known_protocols - covered_protocols)
-        followup_gap = bool(missing_protocols or len(retrieved_context) < 2)
+        followup_gap = bool(
+            missing_protocols
+            or question_evidence_needs_followup(question_answer)
+        )
         remaining_documents = source_document_budget - len(retrieved_context)
         if followup_gap and remaining_documents > 0 and ledger.remaining_invocations >= 3:
             pass_count = 2
-            focus = ", ".join(missing_protocols) if missing_protocols else "additional independent protocol evidence"
+            focus = ", ".join(missing_protocols) if missing_protocols else "question-relevant evidence"
             followup_query = (
                 f"Research question: {research_question}. Follow-up evidence gap: {focus}. "
                 "Find separate curated protocol documentation relevant to this question."
@@ -216,6 +227,8 @@ def run_analysis_workflow(
 
     retrieved_context, followup_citation_issues = _validated_context(retrieved_context)
     citation_issues = initial_citation_issues + followup_citation_issues
+    if ledger is not None and research_question is not None:
+        question_answer = build_question_answer(research_question, retrieved_context)
     missing_data = _build_missing_data(retrieved_context, market_data.missing_fields)
     if ledger is not None:
         final_covered_protocols = {
@@ -229,10 +242,15 @@ def run_analysis_workflow(
             f"Research evidence gap: no curated source was retrieved for {protocol}"
             for protocol in still_missing_protocols
         )
-        if len(retrieved_context) < 2:
-            missing_data.append("Research evidence gap: fewer than two distinct curated documents were retrieved")
     if citation_issues:
         missing_data.append("Research evidence gap: retrieved material with incomplete citation metadata was omitted")
+    if question_answer is not None and question_evidence_needs_followup(question_answer):
+        missing_data.append(
+            "Research evidence gap: question-specific evidence is "
+            + ("weak" if question_answer.status == "weak" else "insufficient")
+        )
+    if question_answer is not None and question_answer.potential_contradictions:
+        missing_data.append("Research evidence gap: potentially conflicting source statements require review")
     risk_score: RiskScore
     if ledger is None:
         risk_score = score_parsed_strategy(parsed_strategy, missing_data)
@@ -293,6 +311,7 @@ def run_analysis_workflow(
                 research_question=research_question,
                 synthesis_budget=synthesis_budget,
                 thesis_assumptions=thesis_assumptions,
+                question_answer=question_answer,
             )
             synthesis_holder["value"] = result
             return ReportSynthesisOutput(
@@ -341,6 +360,8 @@ def run_analysis_workflow(
         tool_invocation_count=len(ledger.trace) if ledger else 0,
         tool_trace=[ResearchToolTrace.model_validate(item) for item in ledger.trace] if ledger else None,
         model_call_count=int(synthesis.provider_call_made),
+        provider_call_state=synthesis.provider_call_state,
+        usage_status=synthesis.usage_status,
     )
 
 

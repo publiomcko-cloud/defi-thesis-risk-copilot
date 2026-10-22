@@ -1,4 +1,5 @@
 import type { ResearchRunMetadata } from "@/lib/types";
+import { safeCitationHref } from "@/lib/citation-url";
 
 type ResearchRunEvidencePanelProps = {
   research: ResearchRunMetadata;
@@ -23,13 +24,11 @@ export function ResearchRunEvidencePanel({ research }: ResearchRunEvidencePanelP
       <p>
         {research.llm_used
           ? `Approved route used: ${research.model_provider ?? "provider unknown"} / ${research.model_key ?? "model unknown"}.`
-          : `Deterministic synthesis used; no LLM call completed (${research.llm_outcome}${research.llm_fallback_reason ? ` · ${research.llm_fallback_reason}` : ""}).`}
+          : `Deterministic synthesis used; provider call state: ${research.provider_call_state}${research.llm_fallback_reason ? ` · ${research.llm_fallback_reason}` : ""}.`}
       </p>
-      {research.llm_used ? (
-        <p className="muted-small">
-          Model calls: {research.model_call_count}; tokens: {research.total_tokens ?? "not reported"}; cost: {research.cost_microusd === null || research.cost_microusd === undefined ? "not reported" : `${research.cost_microusd} microUSD`}.
-        </p>
-      ) : null}
+      <p className="muted-small">
+        Provider calls observed: {research.model_call_count}; usage: {research.usage_status}; tokens: {research.total_tokens ?? "unknown"}; cost: {research.cost_microusd === null || research.cost_microusd === undefined ? "unknown" : `${research.cost_microusd} microUSD`}.
+      </p>
       <div>
         <h3>Bounded tool trace</h3>
         <ul className="compact-list">
@@ -52,7 +51,7 @@ export function ResearchRunEvidencePanel({ research }: ResearchRunEvidencePanelP
               <span>Observed: {dateLabel(source.observed_at)}</span>
               {source.source_timestamp ? <span>Source timestamp: {dateLabel(source.source_timestamp)}</span> : null}
               <span>{source.freshness_note}</span>
-              {source.url ? <a className="text-link" href={source.url} rel="noreferrer" target="_blank">Open source</a> : null}
+              {safeCitationHref(source.url) ? <a className="text-link" href={safeCitationHref(source.url) ?? undefined} rel="noreferrer" target="_blank">Open source</a> : null}
             </li>
           ))}
         </ul>

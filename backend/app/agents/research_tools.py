@@ -77,7 +77,7 @@ class ReportSynthesisOutput(BaseModel):
     outcome: str = Field(max_length=64)
     provider: str | None = Field(default=None, max_length=64)
     model_key: str | None = Field(default=None, max_length=128)
-    total_tokens: int | None = Field(default=None, ge=0, le=12_000)
+    total_tokens: int | None = Field(default=None, ge=0, le=10_000_000)
     cost_microusd: int | None = Field(default=None, ge=0)
 
     model_config = ConfigDict(extra="forbid")

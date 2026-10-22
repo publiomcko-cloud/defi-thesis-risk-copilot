@@ -7,6 +7,7 @@ class LLMRequest:
     prompt: str
     timeout_seconds: float
     max_output_tokens: int | None = None
+    system_prompt: str = ""
 
 
 @dataclass(frozen=True)

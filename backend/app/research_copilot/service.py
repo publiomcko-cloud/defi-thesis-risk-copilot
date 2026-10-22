@@ -21,6 +21,12 @@ from app.models.analysis_request import AnalysisRequestModel
 from app.models.report import ReportModel
 from app.models.research_intelligence import ThesisAssumptionHeadModel, ThesisAssumptionModel
 from app.models.saved_thesis import SavedThesisModel
+from app.research_copilot.execution import (
+    is_local_run_active,
+    mark_local_run_active,
+    mark_local_run_inactive,
+    try_acquire_execution_lock,
+)
 from app.product_analytics.service import emit_product_event_safely
 from app.quotas.service import ACTION_ANALYSIS, consume_quota
 from app.reports.markdown_export import render_markdown_report
@@ -107,6 +113,12 @@ def start_thesis_research(
         db.rollback()
         raise
 
+    mark_local_run_active(run.id)
+    execution_lock = try_acquire_execution_lock(db, run.id)
+    if execution_lock is False:
+        mark_local_run_inactive(run.id)
+        return _run_response(db, run, stable_thesis_id)
+
     synthesis_budget = SynthesisBudget(
         total_tokens=settings.research_run_token_budget,
         max_output_tokens=min(1_000, max(256, settings.research_run_token_budget // 4)),
@@ -166,6 +178,8 @@ def start_thesis_research(
             output_tokens=model_run.output_tokens,
             total_tokens=model_run.total_tokens,
             cost_microusd=model_run.cost_microusd,
+            provider_call_state=workflow.provider_call_state,
+            usage_status=workflow.usage_status,
         )
         report = workflow.report.model_copy(update={"research": metadata})
         run.research_status = "completed"
@@ -217,17 +231,19 @@ def start_thesis_research(
         )
         return _run_response(db, run, stable_thesis_id)
     except ResearchWorkflowTimeout:
-        _mark_failed(db, run.id, "request_timeout", started_at)
+        _mark_failed(db, run.id, "request_timeout", started_at, provider_call_state="uncertain")
         raise HTTPException(
             status_code=504,
             detail="The bounded research request exceeded its configured time budget; no report was saved.",
         ) from None
     except HTTPException:
-        _mark_failed(db, run.id, "research_execution_rejected", started_at)
+        _mark_failed(db, run.id, "research_execution_rejected", started_at, provider_call_state="uncertain")
         raise
     except Exception:
-        _mark_failed(db, run.id, "research_execution_failed", started_at)
+        _mark_failed(db, run.id, "research_execution_failed", started_at, provider_call_state="uncertain")
         raise HTTPException(status_code=503, detail="Research could not be completed safely.") from None
+    finally:
+        mark_local_run_inactive(run.id)
 
 
 def list_thesis_research_runs(db: Session, actor: UserContext, thesis_id: str) -> ResearchRunsResponse:
@@ -240,7 +256,7 @@ def list_thesis_research_runs(db: Session, actor: UserContext, thesis_id: str) -
         .order_by(AnalysisRequestModel.created_at.desc())
         .limit(50)
     ).scalars().all()
-    return ResearchRunsResponse(items=[_run_response(db, run, thesis_id) for run in runs])
+    return ResearchRunsResponse(items=[_reconciled_run_response(db, run, thesis_id) for run in runs])
 
 
 def get_thesis_research_run(
@@ -259,7 +275,7 @@ def get_thesis_research_run(
     ).scalars().one_or_none()
     if run is None:
         raise HTTPException(status_code=404, detail="Research run not found")
-    return _run_response(db, run, thesis_id)
+    return _reconciled_run_response(db, run, thesis_id)
 
 
 def _authorized_private_thesis(db: Session, actor: UserContext, thesis_id: str) -> SavedThesisModel:
@@ -353,7 +369,66 @@ def _existing_run_response(
 ) -> ResearchRunSummary:
     if run.thesis_id != thesis_id or run.research_input_checksum != input_checksum:
         raise HTTPException(status_code=409, detail="Idempotency-Key is already bound to different research input.")
+    return _reconciled_run_response(db, run, thesis_id)
+
+
+def _reconciled_run_response(
+    db: Session,
+    run: AnalysisRequestModel,
+    thesis_id: str,
+) -> ResearchRunSummary:
+    _reconcile_run_state(db, run)
     return _run_response(db, run, thesis_id)
+
+
+def _reconcile_run_state(db: Session, run: AnalysisRequestModel) -> None:
+    if run.research_status != "running":
+        return
+    if db.get_bind().dialect.name != "postgresql":
+        if is_local_run_active(run.id):
+            return
+        _mark_uncertain(db, run, "execution_owner_unverifiable")
+        return
+    if not try_acquire_execution_lock(db, run.id):
+        return
+    report = db.execute(
+        select(ReportModel).where(ReportModel.analysis_request_id == run.id)
+    ).scalars().one_or_none()
+    now = datetime.now(UTC)
+    if report is not None:
+        run.research_status = "completed"
+        run.research_completed_at = report.created_at
+        report_research = report.report_json.get("research") if isinstance(report.report_json, dict) else None
+        run.research_metadata_json = report_research if isinstance(report_research, dict) else run.research_metadata_json
+    else:
+        run.research_status = "interrupted"
+        run.research_completed_at = now
+        run.research_metadata_json = {
+            "error_code": "execution_interrupted_outcome_unknown",
+            "outcome_certainty": "uncertain",
+            "provider_call_state": "uncertain",
+            "usage_status": "unknown",
+            "started_at": run.created_at.isoformat(),
+            "completed_at": now.isoformat(),
+            "limits": _limits(get_settings()).model_dump(mode="json"),
+        }
+    db.commit()
+
+
+def _mark_uncertain(db: Session, run: AnalysisRequestModel, error_code: str) -> None:
+    now = datetime.now(UTC)
+    run.research_status = "uncertain"
+    run.research_completed_at = now
+    run.research_metadata_json = {
+        "error_code": error_code,
+        "outcome_certainty": "uncertain",
+        "provider_call_state": "uncertain",
+        "usage_status": "unknown",
+        "started_at": run.created_at.isoformat(),
+        "completed_at": now.isoformat(),
+        "limits": _limits(get_settings()).model_dump(mode="json"),
+    }
+    db.commit()
 
 
 def _run_response(db: Session, run: AnalysisRequestModel, thesis_id: str) -> ResearchRunSummary:
@@ -377,13 +452,29 @@ def _run_response(db: Session, run: AnalysisRequestModel, thesis_id: str) -> Res
         started_at=run.created_at,
         completed_at=run.research_completed_at,
         metadata=metadata,
+        idempotency_key=run.research_run_key or "",
+        provider_call_state=(payload.get("provider_call_state") if isinstance(payload, dict) else None),
+        usage_status=(payload.get("usage_status") if isinstance(payload, dict) else None),
+        outcome_certainty=(payload.get("outcome_certainty") if isinstance(payload, dict) else None),
     )
 
 
-def _mark_failed(db: Session, run_id: str, error_code: str, started_at: datetime) -> None:
+def _mark_failed(
+    db: Session,
+    run_id: str,
+    error_code: str,
+    started_at: datetime,
+    provider_call_state: str = "not_attempted",
+) -> None:
     db.rollback()
     run = db.get(AnalysisRequestModel, run_id)
     if run is None:
+        return
+    if db.get_bind().dialect.name == "postgresql" and not try_acquire_execution_lock(db, run_id):
+        db.rollback()
+        return
+    if run.research_status != "running":
+        db.rollback()
         return
     completed_at = datetime.now(UTC)
     run.research_status = "failed"
@@ -393,6 +484,9 @@ def _mark_failed(db: Session, run_id: str, error_code: str, started_at: datetime
         "started_at": started_at.isoformat(),
         "completed_at": completed_at.isoformat(),
         "limits": _limits(get_settings()).model_dump(mode="json"),
+        "provider_call_state": provider_call_state,
+        "usage_status": "unknown" if provider_call_state == "uncertain" else "not_applicable",
+        "outcome_certainty": "uncertain" if provider_call_state == "uncertain" else "known_failure",
     }
     db.commit()
 

@@ -12,6 +12,7 @@ from app.auth.schemas import UserContext
 from app.models.report import ReportModel
 from app.models.research_intelligence import ThesisAssumptionModel, ThesisCatalystModel
 from app.models.saved_thesis import SavedThesisModel
+from app.research_copilot.lifecycle import ActiveResearchRunError, dispose_research_runs_for_thesis
 from app.product_analytics.service import emit_product_event_safely
 from app.quotas.service import RESOURCE_SAVED_THESES, enforce_resource_count_limit
 from app.research_intelligence.service import (
@@ -122,6 +123,11 @@ def delete_thesis(db: Session, actor: UserContext, thesis_id: str) -> ThesisResp
     ).scalars().one_or_none()
     if record is None or not can_update_saved_thesis(db, actor, record):
         raise HTTPException(status_code=404, detail="Thesis not found")
+    try:
+        dispose_research_runs_for_thesis(db, record.id)
+    except ActiveResearchRunError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="A research run may still be executing; retry thesis deletion after it settles.") from None
     dispose_research_intelligence_for_thesis(db, record.id)
     record.deleted_at = datetime.now(UTC)
     db.commit()

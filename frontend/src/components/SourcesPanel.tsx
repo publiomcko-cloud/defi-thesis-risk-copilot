@@ -1,4 +1,5 @@
 import type { SourceReference } from "@/lib/types";
+import { safeCitationHref } from "@/lib/citation-url";
 
 type SourcesPanelProps = {
   sources: SourceReference[];
@@ -16,8 +17,8 @@ export function SourcesPanel({ sources }: SourcesPanelProps) {
             <li key={`${source.title}-${source.url ?? source.source_type}`}>
               <strong>{source.title}</strong>
               <span>{source.source_type}{source.protocol ? ` · ${source.protocol}` : ""}</span>
-              {source.url ? (
-                <a className="text-link" href={source.url} rel="noreferrer" target="_blank">
+              {safeCitationHref(source.url) ? (
+                <a className="text-link" href={safeCitationHref(source.url) ?? undefined} rel="noreferrer" target="_blank">
                   Open source
                 </a>
               ) : null}

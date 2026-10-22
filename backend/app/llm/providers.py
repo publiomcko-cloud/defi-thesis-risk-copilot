@@ -19,6 +19,7 @@ class OllamaProvider:
             json={
                 "model": self.model,
                 "prompt": request.prompt,
+                "system": request.system_prompt,
                 "stream": False,
                 "format": "json",
                 **(
@@ -55,7 +56,7 @@ class OpenAICompatibleProvider:
             "messages": [
                 {
                     "role": "system",
-                    "content": "You write educational, non-advisory DeFi risk reports.",
+                    "content": request.system_prompt or "You write educational, non-advisory DeFi risk reports.",
                 },
                 {"role": "user", "content": request.prompt},
             ],

@@ -491,6 +491,14 @@ export type ReportResponse = {
   executive_summary: string;
   strategy_description: string;
   research_question?: string | null;
+  question_answer?: {
+    status: "supported" | "weak" | "insufficient";
+    answer: string;
+    citations: Array<{ source_id: string; title: string; excerpt: string; url?: string | null }>;
+    unsupported_aspects: string[];
+    potential_contradictions: string[];
+    method: string;
+  } | null;
   protocols: string[];
   assumptions: string[];
   missing_data: string[];
@@ -550,18 +558,24 @@ export type ResearchRunMetadata = {
   output_tokens?: number | null;
   total_tokens?: number | null;
   cost_microusd?: number | null;
+  provider_call_state: "not_attempted" | "rejected_before_transmission" | "response_received_rejected" | "uncertain" | "output_accepted";
+  usage_status: "not_applicable" | "known" | "partial" | "unknown";
 };
 
 export type ResearchRunSummary = {
   run_id: string;
   thesis_id: string;
-  status: "running" | "completed" | "failed";
+  status: "running" | "completed" | "failed" | "interrupted" | "uncertain";
   question: string;
   report_id?: string | null;
   error_code?: string | null;
   started_at: string;
   completed_at?: string | null;
   metadata?: ResearchRunMetadata | null;
+  idempotency_key: string;
+  provider_call_state?: "not_attempted" | "rejected_before_transmission" | "response_received_rejected" | "uncertain" | "output_accepted" | null;
+  usage_status?: "not_applicable" | "known" | "partial" | "unknown" | null;
+  outcome_certainty?: "known_failure" | "uncertain" | null;
 };
 
 export type ModelFeedbackCategory =

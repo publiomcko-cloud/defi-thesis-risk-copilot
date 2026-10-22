@@ -11,7 +11,7 @@ from app.llm.base import SynthesisBudget
 from app.llm.synthesis import SynthesisResult, synthesize_report
 from app.reports.renderer import make_section, validate_report_structure
 from app.schemas.market_data import MarketDataResponse
-from app.schemas.reports import ReportResponse, SourceReference
+from app.schemas.reports import QuestionAnswer, ReportResponse, SourceReference
 from app.simulation.simulator import (
     simulation_request_from_market_data,
     summarize_simulation,
@@ -45,6 +45,7 @@ def write_research_report(
     research_question: str | None = None,
     synthesis_budget: SynthesisBudget | None = None,
     thesis_assumptions: list[str] | None = None,
+    question_answer: QuestionAnswer | None = None,
 ) -> SynthesisResult:
     stress_scenarios = generate_stress_scenarios(risk_score)
     monitoring_checklist = generate_monitoring_checklist(risk_score)
@@ -61,6 +62,7 @@ def write_research_report(
         executive_summary=_build_summary(protocols, risk_score),
         strategy_description=strategy_description,
         research_question=research_question,
+        question_answer=question_answer,
         protocols=protocols,
         assumptions=[
             RAG_AND_LLM_ASSUMPTION,
@@ -73,6 +75,11 @@ def write_research_report(
             *(
                 [make_section("Research Question", research_question)]
                 if research_question is not None
+                else []
+            ),
+            *(
+                [make_section("Question-Specific Answer", _question_answer_section(question_answer))]
+                if question_answer is not None
                 else []
             ),
             make_section("Protocols Involved", ", ".join(protocols)),
@@ -189,6 +196,23 @@ def _markdown_inline_code(value: str) -> str:
     fence = "`" * (longest_run + 1)
     padding = " " if value.startswith(("`", " ")) or value.endswith(("`", " ")) else ""
     return f"{fence}{padding}{value}{padding}{fence}"
+
+
+def _question_answer_section(answer: QuestionAnswer) -> str:
+    lines = [f"Evidence status: {answer.status}", answer.answer]
+    if answer.citations:
+        lines.append("Supporting source excerpts:")
+        lines.extend(
+            f"[S{index}] {citation.title}: {_markdown_inline_code(citation.excerpt)}"
+            for index, citation in enumerate(answer.citations, start=1)
+        )
+    if answer.unsupported_aspects:
+        lines.append("Unresolved question terms: " + ", ".join(answer.unsupported_aspects))
+    if answer.potential_contradictions:
+        lines.append("Potential contradictions:")
+        lines.extend(f"- {item}" for item in answer.potential_contradictions)
+    lines.append(answer.method)
+    return "\n\n".join(lines)
 
 
 def _summarize_retrieved_context(retrieved_context: list[RetrievalResult]) -> str:

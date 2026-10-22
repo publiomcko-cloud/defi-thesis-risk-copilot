@@ -24,6 +24,7 @@ from app.models.knowledge import (
 )
 from app.rag.retriever import RetrievalResult
 from app.rag.embeddings import TOKEN_PATTERN
+from app.rag.source_urls import curated_source_reference
 
 
 _MIN_RELEVANT_SIMILARITY = 0.1
@@ -108,7 +109,9 @@ def retrieve_public_durable_context(
             metadata={
                 **item.chunk.metadata_json,
                 "protocol": item.source.protocol or "unknown",
-                "source_url": item.source.canonical_uri or item.source.source_uri or "knowledge_base/README.md",
+                "source_url": curated_source_reference(
+                    item.source.canonical_uri or item.source.source_uri or "knowledge_base/README.md"
+                ),
                 "document_title": item.source.title,
                 "section_title": item.chunk.heading_path[-1] if item.chunk.heading_path else item.source.title,
                 "knowledge_scope": "public_curated",

@@ -6,11 +6,17 @@ from math import ceil
 from time import monotonic, perf_counter
 from typing import Any
 
+import httpx
+
 from app.core.config import get_settings
 from sqlalchemy.orm import Session
 
-from app.llm.base import LLMProvider, LLMRequest, SynthesisBudget
-from app.llm.prompts import SYNTHESIZABLE_SECTION_TITLES, build_report_synthesis_prompt
+from app.llm.base import LLMProvider, LLMRequest, LLMResponse, SynthesisBudget
+from app.llm.prompts import (
+    REPORT_SYNTHESIS_SYSTEM_PROMPT,
+    SYNTHESIZABLE_SECTION_TITLES,
+    build_report_synthesis_prompt,
+)
 from app.llm.quality import ModelQualityEvidence, evaluate_report_synthesis_quality
 from app.llm.provenance import ModelIdentity, provider_identity, provider_is_eligible_for_scope
 from app.models.model_governance import ModelRegistryModel
@@ -54,6 +60,8 @@ class SynthesisResult:
     deterministic_report: ReportResponse | None = None
     quality_evidence: ModelQualityEvidence | None = None
     provider_call_made: bool = False
+    provider_call_state: str = "not_attempted"
+    usage_status: str = "not_applicable"
 
 
 class SynthesisValidationError(ValueError):
@@ -183,6 +191,9 @@ def _synthesize_with_provider(
         )
 
     started = perf_counter()
+    response: LLMResponse | None = None
+    actual_cost: int | None = None
+    actual_total_tokens: int | None = None
     try:
         prompt = build_report_synthesis_prompt(
             base_report=base_report,
@@ -225,10 +236,35 @@ def _synthesize_with_provider(
                 prompt=prompt,
                 timeout_seconds=provider_timeout,
                 max_output_tokens=max_output_tokens,
+                system_prompt=REPORT_SYNTHESIS_SYSTEM_PROMPT,
             )
         )
         actual_cost = response.cost_microusd
+        actual_total_tokens = response.total_tokens
+        if actual_total_tokens is None and response.input_tokens is not None and response.output_tokens is not None:
+            actual_total_tokens = response.input_tokens + response.output_tokens
+        if actual_cost is None and cost_rates is not None:
+            input_rate, output_rate = cost_rates
+            if response.input_tokens is not None and response.output_tokens is not None:
+                actual_cost = ceil(
+                    (
+                        response.input_tokens * input_rate
+                        + response.output_tokens * output_rate
+                    )
+                    / 1_000_000
+                )
         if budget is not None:
+            if any(value is None for value in (response.input_tokens, response.output_tokens, actual_total_tokens, actual_cost)):
+                return _budget_fallback(
+                    base_report,
+                    identity,
+                    "provider_usage_unverifiable",
+                    route_version_id,
+                    evaluation_run_id,
+                    response=response,
+                    actual_cost=actual_cost,
+                    actual_total_tokens=actual_total_tokens,
+                )
             if (
                 response.output_tokens is not None
                 and response.output_tokens > max_output_tokens
@@ -242,17 +278,10 @@ def _synthesize_with_provider(
                     "provider_exceeded_token_budget",
                     route_version_id,
                     evaluation_run_id,
+                    response=response,
+                    actual_cost=actual_cost,
+                    actual_total_tokens=actual_total_tokens,
                 )
-            if actual_cost is None and cost_rates is not None:
-                input_rate, output_rate = cost_rates
-                if response.input_tokens is not None and response.output_tokens is not None:
-                    actual_cost = ceil(
-                        (
-                            response.input_tokens * input_rate
-                            + response.output_tokens * output_rate
-                        )
-                        / 1_000_000
-                    )
             if actual_cost is not None and actual_cost > budget.cost_ceiling_microusd:
                 return _budget_fallback(
                     base_report,
@@ -260,6 +289,9 @@ def _synthesize_with_provider(
                     "provider_exceeded_cost_ceiling",
                     route_version_id,
                     evaluation_run_id,
+                    response=response,
+                    actual_cost=actual_cost,
+                    actual_total_tokens=actual_total_tokens,
                 )
         payload = _parse_json_object(response.text)
         _validate_synthesis_payload(payload)
@@ -273,6 +305,9 @@ def _synthesize_with_provider(
                 quality,
                 route_version_id,
                 evaluation_run_id,
+                response=response,
+                actual_cost=actual_cost,
+                actual_total_tokens=actual_total_tokens,
             )
         synthesized = _with_assumption(
             synthesized,
@@ -289,19 +324,36 @@ def _synthesize_with_provider(
             latency_ms=_elapsed_ms(started),
             input_tokens=response.input_tokens,
             output_tokens=response.output_tokens,
-            total_tokens=response.total_tokens,
+            total_tokens=actual_total_tokens,
             cost_microusd=actual_cost,
             route_version_id=route_version_id,
             evaluation_run_id=evaluation_run_id,
             quality_evidence=quality,
             provider_call_made=True,
+            provider_call_state="output_accepted",
+            usage_status=_usage_status(response, actual_cost, actual_total_tokens),
         )
     except json.JSONDecodeError:
-        return _validation_fallback(base_report, identity, started, "invalid_json", "malformed_json", route_version_id, evaluation_run_id)
+        return _validation_fallback(base_report, identity, started, "invalid_json", "malformed_json", route_version_id, evaluation_run_id, response, actual_cost, actual_total_tokens)
     except SynthesisValidationError as exc:
-        return _validation_fallback(base_report, identity, started, exc.result, exc.reason, route_version_id, evaluation_run_id)
+        return _validation_fallback(base_report, identity, started, exc.result, exc.reason, route_version_id, evaluation_run_id, response, actual_cost, actual_total_tokens)
     except ValueError:
-        return _validation_fallback(base_report, identity, started, "schema_invalid", "schema_validation_failed", route_version_id, evaluation_run_id)
+        return _validation_fallback(base_report, identity, started, "schema_invalid", "schema_validation_failed", route_version_id, evaluation_run_id, response, actual_cost, actual_total_tokens)
+    except (httpx.ConnectError, httpx.ConnectTimeout):
+        return SynthesisResult(
+            report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
+            used_llm=False,
+            reason="provider_unavailable",
+            outcome="provider_unavailable",
+            validation_result="connection_not_established",
+            fallback_reason="provider_connection_failed_before_transmission",
+            provider=identity,
+            latency_ms=_elapsed_ms(started),
+            route_version_id=route_version_id,
+            evaluation_run_id=evaluation_run_id,
+            provider_call_state="rejected_before_transmission",
+            usage_status="not_applicable",
+        )
     except Exception:
         return SynthesisResult(
             report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
@@ -315,6 +367,8 @@ def _synthesize_with_provider(
             route_version_id=route_version_id,
             evaluation_run_id=evaluation_run_id,
             provider_call_made=True,
+            provider_call_state="uncertain",
+            usage_status="unknown",
         )
 
 
@@ -365,6 +419,10 @@ def _budget_fallback(
     reason: str,
     route_version_id: str | None,
     evaluation_run_id: str | None,
+    *,
+    response: LLMResponse | None = None,
+    actual_cost: int | None = None,
+    actual_total_tokens: int | None = None,
 ) -> SynthesisResult:
     return SynthesisResult(
         report=_with_assumption(report, LLM_SKIPPED_ASSUMPTION),
@@ -376,6 +434,13 @@ def _budget_fallback(
         provider=provider,
         route_version_id=route_version_id,
         evaluation_run_id=evaluation_run_id,
+        input_tokens=response.input_tokens if response else None,
+        output_tokens=response.output_tokens if response else None,
+        total_tokens=actual_total_tokens if response else None,
+        cost_microusd=actual_cost,
+        provider_call_made=response is not None,
+        provider_call_state="response_received_rejected" if response else "not_attempted",
+        usage_status=_usage_status(response, actual_cost, actual_total_tokens),
     )
 
 
@@ -387,6 +452,9 @@ def _validation_fallback(
     fallback_reason: str,
     route_version_id: str | None = None,
     evaluation_run_id: str | None = None,
+    response: LLMResponse | None = None,
+    actual_cost: int | None = None,
+    actual_total_tokens: int | None = None,
 ) -> SynthesisResult:
     return SynthesisResult(
         report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
@@ -399,7 +467,13 @@ def _validation_fallback(
         latency_ms=_elapsed_ms(started),
         route_version_id=route_version_id,
         evaluation_run_id=evaluation_run_id,
-        provider_call_made=True,
+        input_tokens=response.input_tokens if response else None,
+        output_tokens=response.output_tokens if response else None,
+        total_tokens=actual_total_tokens if response else None,
+        cost_microusd=actual_cost,
+        provider_call_made=response is not None,
+        provider_call_state="response_received_rejected" if response else "not_attempted",
+        usage_status=_usage_status(response, actual_cost, actual_total_tokens),
     )
 
 
@@ -410,6 +484,9 @@ def _quality_fallback(
     quality: ModelQualityEvidence,
     route_version_id: str | None,
     evaluation_run_id: str | None,
+    response: LLMResponse | None = None,
+    actual_cost: int | None = None,
+    actual_total_tokens: int | None = None,
 ) -> SynthesisResult:
     return SynthesisResult(
         report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
@@ -423,8 +500,28 @@ def _quality_fallback(
         route_version_id=route_version_id,
         evaluation_run_id=evaluation_run_id,
         quality_evidence=quality,
-        provider_call_made=True,
+        input_tokens=response.input_tokens if response else None,
+        output_tokens=response.output_tokens if response else None,
+        total_tokens=actual_total_tokens if response else None,
+        cost_microusd=actual_cost,
+        provider_call_made=response is not None,
+        provider_call_state="response_received_rejected" if response else "not_attempted",
+        usage_status=_usage_status(response, actual_cost, actual_total_tokens),
     )
+
+
+def _usage_status(
+    response: LLMResponse | None,
+    actual_cost: int | None,
+    actual_total_tokens: int | None = None,
+) -> str:
+    if response is None:
+        return "not_applicable"
+    total = actual_total_tokens if actual_total_tokens is not None else response.total_tokens
+    evidence = (response.input_tokens, response.output_tokens, total, actual_cost)
+    if all(value is not None for value in evidence):
+        return "known"
+    return "partial" if any(value is not None for value in evidence) else "unknown"
 
 
 def _resolution_fallback(base_report: ReportResponse, resolution: RouteResolution) -> SynthesisResult:
@@ -466,6 +563,7 @@ def _enforce_immutable_fields(report: ReportResponse, base_report: ReportRespons
     report.risk_rating = base_report.risk_rating
     report.strategy_description = base_report.strategy_description
     report.research_question = base_report.research_question
+    report.question_answer = deepcopy(base_report.question_answer)
     report.protocols = deepcopy(base_report.protocols)
     report.missing_data = deepcopy(base_report.missing_data)
     report.sources = deepcopy(base_report.sources)
@@ -474,6 +572,7 @@ def _enforce_immutable_fields(report: ReportResponse, base_report: ReportRespons
     immutable_sections = {
         "Strategy Description",
         "Research Question",
+        "Question-Specific Answer",
         "Protocols Involved",
         "Risk Analysis",
         "Risk Rating",

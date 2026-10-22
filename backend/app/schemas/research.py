@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.rag.source_urls import normalize_citation_url
 
 
 class ResearchQuestionRequest(BaseModel):
@@ -45,6 +47,11 @@ class ResearchSourceObservation(BaseModel):
     source_timestamp: datetime | None = None
     freshness_note: str = Field(max_length=256)
 
+    @field_validator("url", mode="before")
+    @classmethod
+    def safe_url(cls, value):
+        return normalize_citation_url(value) if value is not None else None
+
     model_config = ConfigDict(extra="forbid")
 
 
@@ -72,10 +79,14 @@ class ResearchRunMetadata(BaseModel):
     route_version_id: str | None = Field(default=None, max_length=64)
     evaluation_run_id: str | None = Field(default=None, max_length=64)
     prompt_checksum: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
-    input_tokens: int | None = Field(default=None, ge=0, le=12_000)
-    output_tokens: int | None = Field(default=None, ge=0, le=12_000)
-    total_tokens: int | None = Field(default=None, ge=0, le=12_000)
+    input_tokens: int | None = Field(default=None, ge=0, le=10_000_000)
+    output_tokens: int | None = Field(default=None, ge=0, le=10_000_000)
+    total_tokens: int | None = Field(default=None, ge=0, le=10_000_000)
     cost_microusd: int | None = Field(default=None, ge=0)
+    provider_call_state: Literal[
+        "not_attempted", "rejected_before_transmission", "response_received_rejected", "uncertain", "output_accepted"
+    ] = "not_attempted"
+    usage_status: Literal["not_applicable", "known", "partial", "unknown"] = "not_applicable"
 
     model_config = ConfigDict(extra="forbid")
 
@@ -83,13 +94,19 @@ class ResearchRunMetadata(BaseModel):
 class ResearchRunSummary(BaseModel):
     run_id: str
     thesis_id: str
-    status: Literal["running", "completed", "failed"]
+    status: Literal["running", "completed", "failed", "interrupted", "uncertain"]
     question: str
     report_id: str | None = None
     error_code: str | None = None
     started_at: datetime
     completed_at: datetime | None = None
     metadata: ResearchRunMetadata | None = None
+    idempotency_key: str = Field(min_length=8, max_length=128)
+    provider_call_state: Literal[
+        "not_attempted", "rejected_before_transmission", "response_received_rejected", "uncertain", "output_accepted"
+    ] | None = None
+    usage_status: Literal["not_applicable", "known", "partial", "unknown"] | None = None
+    outcome_certainty: Literal["known_failure", "uncertain"] | None = None
 
 
 class ResearchRunsResponse(BaseModel):
