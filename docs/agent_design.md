@@ -6,6 +6,31 @@ The agent layer coordinates research, retrieval, market data lookup, risk scorin
 
 The MVP starts with a controlled workflow rather than a fully autonomous agent. Post-MVP development should keep that same design principle: bounded workflows, explicit tool calls, visible missing data, and human review before trusting newly discovered sources.
 
+## Portfolio target: bounded deep research, not unrestricted autonomy
+
+The owner-facing **Research Copilot** orchestrates tools that already exist or are being integrated: public/approved protocol retrieval, public/manual market adapters, deterministic risk/stress/options, thesis history, governed model synthesis and report persistence. A logical agent/tool role is **not** a dedicated worker process. Phase 17 workers provide optional durable background execution, leasing/cancellation/recovery; Phase 20C schedules reuse that substrate.
+
+The next accepted flow must be **multi-step but bounded**:
+
+```text
+Owner thesis -> authorized bounded research run
+  -> retrieve curated and approved protocol sources + provenance/freshness
+  -> fetch permitted market data -> deterministic scenario/risk results
+  -> model-assisted explanation with validated cited claims
+  -> at most a bounded follow-up on explicit evidence gaps
+  -> structured report/version/compare/export
+  -> optional owner-approved scheduled watch -> deterministic delta evaluation
+  -> in-app change/failure notification; optional budgeted research follow-up
+```
+
+Non-negotiable: tool whitelist, typed contracts, run/token/time/cost bounds, opt-in model route, secret-safe source prompts, source approval and tenant scope. Model output does not edit deterministic scores, underlying market facts or source identity. If source/model/provider data is unavailable, preserve missing/stale markers and deterministic fallback; do not hallucinate a research completion.
+
+The implementation must label **implemented** vs **enabled** vs **validated**. The checked-in Phase 21D research intelligence is primarily deterministic; optional LLM synthesis is off by default. No autonomous end-to-end deeper-research agent or running private scheduled AI research is claimed yet.
+
+A scheduled watch is a separate owner-controlled workflow (existing Phase 20C/20D), minimum hourly, maximum five active per user, DST/timezone-aware, one-winner/idempotent, notifications in-app. It checks deterministic deltas first and calls an approved LLM only if explicitly enabled and useful. Public scheduled dispatch stays off. Temporal/lease/recovery safety of the actual worker candidate must pass before activating personal dispatch; Phase 22 stays HOLD.
+
+The [completion contract](portfolio_completion_contract.md) defines gates; [finalization plan](portfolio_finalization_plan.md) defines slices. The original MVP workflow below remains historical implemented behavior, not proof of this target.
+
 ## 2. Current MVP Agent Workflow
 
 ```text
