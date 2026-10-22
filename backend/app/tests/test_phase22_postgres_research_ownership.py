@@ -390,7 +390,7 @@ def test_postgres_owner_fence_closes_reservation_handoff_and_deletion_races(monk
         assert not thread.is_alive()
         status, result = thread_result.get_nowait()
         assert status == "ok", repr(result)
-        assert result.status == "completed_with_gaps"
+        assert result.status == "completed"
         assert shared_workflow_calls.value == 1
 
         with Session() as db:
