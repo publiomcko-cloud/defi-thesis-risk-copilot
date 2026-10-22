@@ -64,6 +64,7 @@ def _new_case(Session) -> tuple[str, str, str]:
                 updated_at=now,
             )
         )
+        db.flush()
         db.add(
             SavedThesisModel(
                 id=thesis_id,

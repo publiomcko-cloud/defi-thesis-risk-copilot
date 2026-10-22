@@ -28,15 +28,6 @@ from app.theses.policies import can_read_saved_thesis, can_update_saved_thesis
 
 
 def create_thesis(db: Session, actor: UserContext, request: ThesisCreateRequest) -> ThesisResponse:
-    with hold_research_owner_lock(db, actor.id) as acquired:
-        if not acquired:
-            db.rollback()
-            raise HTTPException(status_code=409, detail="Account research or lifecycle work is active; retry thesis creation.")
-        _require_active_owner(db, actor.id)
-        return _create_thesis_with_owner_lock(db, actor, request)
-
-
-def _create_thesis_with_owner_lock(db: Session, actor: UserContext, request: ThesisCreateRequest) -> ThesisResponse:
     enforce_resource_count_limit(db, actor, RESOURCE_SAVED_THESES)
     if request.visibility == "organization":
         if not request.organization_id or not has_org_role(db, actor.id, request.organization_id, {"owner", "admin", "member"}):

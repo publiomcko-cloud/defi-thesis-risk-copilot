@@ -96,8 +96,9 @@ read-only project inspection.
   analytics.
 - PostgreSQL holds an owner-scoped transaction advisory lock on a dedicated,
   pinned connection from before quota/run reservation through report commit.
-  Research starts, thesis create/update/delete, account deletion, and stale-run
-  reconciliation use this same owner fence. A status read that cannot obtain
+  Research starts, thesis update/delete, account deletion, and stale-run
+  reconciliation use this same owner fence. Independent thesis creation does
+  not hold the research fence. A status read that cannot obtain
   it leaves an active `running` reservation untouched; after the fence is
   released, reconciliation finds a committed report or marks the run
   `interrupted` with provider outcome and usage explicitly uncertain. Process
