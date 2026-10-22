@@ -7,18 +7,19 @@ This document defines how Codex or another implementation agent should work on t
 Before implementation, read documents in this order:
 
 1. [`current_state.md`](current_state.md) — what is actually implemented and deployed;
-2. [`development_plan.md`](development_plan.md) — phase ordering and status;
-3. the selected phase contract:
+2. [`portfolio_profile.md`](portfolio_profile.md) and [`portfolio_completion_contract.md`](portfolio_completion_contract.md) — approved portfolio target and enabled-path gates; then [`portfolio_finalization_plan.md`](portfolio_finalization_plan.md) for new F0–F5 work;
+3. [`development_plan.md`](development_plan.md) — phase ordering and status;
+4. the selected phase contract:
    - the [archived Phase 16 contract](archive/v1_phase_16/phase_16_identity_ownership_contract.md) when maintaining its implementation, or
    - the [archived Phase 17 record](archive/v1_phase_17/) when maintaining durable jobs,
    - the [archived Phase 18 record](archive/v1_phase_18/) when maintaining durable knowledge/retrieval, or
    - [`phase_19_execution_plan.md`](phase_19_execution_plan.md) when maintaining the merged Phase 19 foundation,
    - [`phase_20_execution_plan.md`](phase_20_execution_plan.md) for active Phase 20 work, or
    - [`future_phase_contracts.md`](future_phase_contracts.md) for later phases;
-4. [`architecture.md`](architecture.md) — trust boundaries and system design;
-5. [`deployment.md`](deployment.md) — environment and production behavior;
-6. [`testing.md`](testing.md) — required validation;
-7. domain documents such as RAG, risk, data-source, or agent design files.
+5. [`architecture.md`](architecture.md) — trust boundaries and system design;
+6. [`deployment.md`](deployment.md) — environment and production behavior;
+7. [`testing.md`](testing.md) — required validation;
+8. domain documents such as RAG, risk, data-source, or agent design files.
 
 When code and documentation disagree:
 
@@ -26,6 +27,14 @@ When code and documentation disagree:
 - state the mismatch;
 - do not silently assume the documentation is implemented;
 - update the documentation to reflect reality or fix the code when the phase contract requires it.
+
+## Portfolio finalization execution policy
+
+For F0–F5 work in Phase 22, distinguish: existing `main` source, local sealed R3 candidates, available evidence, implementation claims, independent reviewer evidence, and owner decisions. Do not apply the R3 time-floor prototype automatically, enable schedule dispatch or LLM providers without separate approval, or accept any of the ten pending R3.15 source decisions implicitly.
+
+Explicitly test real enabled personal flows: multi-step bounded source-grounded AI research, market/risk deterministic authority, secure save/compare/export, and user-owned periodic in-app monitoring. The agent executor and the research agent are different concepts. Restricted personal scope allows simplified deployment and simulated enterprise recovery only when labeled; it does **not** permit insecure worker transport, stale claims, tenant leakage, unsafe clock semantics or duplicate capacity accounting.
+
+Keep tests proportionate: changed-path/failure-path tests, one relevant exact-candidate full regression, and built-image/UI smoke. Preserve first failures and conduct targeted causal follow-ups rather than repeated broad pass-chasing.
 
 ## 2. Required start-of-task procedure
 

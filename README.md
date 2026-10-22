@@ -37,6 +37,18 @@ The original productization requirements are preserved rather than deleted:
 
 A future return to product mode should activate reviewed adapters and policies through existing boundaries instead of requiring an architectural rewrite.
 
+## Portfolio finalization target (proposed, not deployed)
+
+The next portfolio milestone is an **owner-operated Research Copilot with scheduled private monitoring**: bounded multi-step source-grounded AI research, deterministic DeFi risk/stress analysis, saved/comparable reports, and actual user-owned scheduled watches with in-app change alerts.
+
+- Research execution uses the existing retrieval, market adapters, deterministic analysis, Phase 21 model governance and optional Phase 17 jobs. **A worker is a task executor, not synonymous with an autonomous research agent.**
+- Phase 20C durable schedules and Phase 20D in-app notifications exist as implemented foundations; production dispatch and model synthesis remain **disabled by default**. No enabled end-to-end deep-research + scheduled-monitor workflow is claimed yet.
+- Public portfolio demo remains constrained. A separately validated authenticated personal profile is the activation target.
+- Local R3.26–R3.32-R experiments/reviews are **not merged** into `main`. R3.32-R identified deadline equality, pre-lock witness eligibility and forward-jump policy blockers; Phase 22 remains **ACTIVE — HOLD**.
+- Enterprise HA, commercial provider activation, paid plans and external notification delivery are deferred; tenant/security, source trust, deterministic risk, temporal correctness and capacity integrity are not relaxed.
+
+See the [portfolio completion contract](docs/portfolio_completion_contract.md) for completion gates and the [finalization plan](docs/portfolio_finalization_plan.md) for bounded execution slices. These are **target documents**, not evidence of implementation or release approval.
+
 ## Current Phase Status
 
 ```text
@@ -300,6 +312,8 @@ Controlled research/admin routes remain explicitly protected.
 ## Authoritative Documentation
 
 - [Portfolio implementation profile](docs/portfolio_profile.md) — current scope and definition of done
+- [Research Copilot completion contract](docs/portfolio_completion_contract.md) — target AI research and monitoring acceptance gates
+- [Portfolio finalization plan](docs/portfolio_finalization_plan.md) — staged next work and release boundary
 - [Productization backlog](docs/productization_backlog.md) — deferred commercial/provider/launch requirements
 - [Current state](docs/current_state.md) — deployed versus branch reality
 - [Development plan](docs/development_plan.md) — roadmap and phase history
@@ -331,6 +345,7 @@ Future portfolio work should read the active profile before the broader product 
 ```text
 Implement the next approved V1 portfolio slice.
 Read docs/portfolio_profile.md, docs/current_state.md,
+docs/portfolio_completion_contract.md, docs/portfolio_finalization_plan.md,
 docs/phase_20_execution_plan.md, docs/phase_20_evidence_matrix.md,
 docs/architecture.md, docs/deployment.md, docs/testing.md,
 and docs/agent_execution_guide.md.

@@ -14,6 +14,16 @@ The architecture must remain deliberately convertible back into a product. Produ
 
 ---
 
+## Portfolio completion overlay (new target; no retroactive phase reclassification)
+
+The current owner target is a **functioning AI-assisted DeFi Research Copilot for personal use**, with **user-owned scheduled monitoring and in-app alerts**. Unlike a static demo, personal-ready completion requires a genuine bounded research flow with an approved LLM and safely scheduled watch occurrences. The existing Phase 20/21 completed milestones remain historical truth; do not reinterpret disabled foundations as activated capabilities.
+
+- [Portfolio completion contract](portfolio_completion_contract.md) is the forward-looking owner-acceptance target for Phase 22 personal research/monitoring.
+- [Portfolio finalization plan](portfolio_finalization_plan.md) lists bounded implementation and verification slices.
+- The productization backlog retains commercial/managed-service requirements. Portfolio scope reduces HA/commercial obligations **but not** tenant isolation, source trust, deterministic risk, credential security, or temporal/transaction correctness.
+- `LLM_SYNTHESIS_ENABLED=false` and production schedule dispatch disabled are safe current defaults, not personal-readiness completion.
+- The sealed R3 experimental record remains external to GitHub `main`. The owner-supplied R3.32-R review is NO-GO for application integration pending strict deadline and post-lock time authority, forward-jump decision, and lease/recovery semantics; Phase 22 stays ACTIVE — HOLD.
+
 ## 1. Authority and precedence
 
 For current implementation decisions:
@@ -220,6 +230,12 @@ The following may remain disabled in the public deployment:
 Synthetic and first-party implementations may still be considered complete when their required code, migration, security, lifecycle, concurrency, failure, and rollback evidence pass.
 
 ---
+
+## Personal Research Copilot acceptance (separate from completed Phase 20)
+
+The Phase 20 criteria below document completed architecture slices only. They do not substitute for the personal-use portfolio release gates: authenticated deep research with real approved optional model execution, traceable evidence and deterministic fallback; saved/comparable reports; operational private scheduled monitoring with in-app alerts; authorized and temporally safe workers; shipped-image/browser validation; and explicit owner signoff on enabled features. The full G0–G5 checklist and bounded testing rules are in [the completion contract](portfolio_completion_contract.md).
+
+For a restricted personal deployment, enterprise witness independence and managed failover are optional labeled simulations; persistent-data local restore is still validated. The Phase 20C one-hour minimum, five active watches, DST, coalescing, and 30-day run history remain the starting policy. Do not enable schedules until claim, cancellation, deadlines, lease/capacity accounting and recovery are safe on that deployment.
 
 ## 6. Portfolio definition of done
 

@@ -22,6 +22,22 @@ The former `post_mvp_development_plan.md` and `phase_10_12_expansion_plan.md` ar
 
 ---
 
+## Phase 22 portfolio completion overlay (current target; not a completed phase)
+
+**Direction changed by owner:** prioritize a functioning DeFi AI Research Copilot for restricted personal analysis and a demonstrable public portfolio, **including scheduled private monitoring and in-app change alerts**. Historical Phase 0–21 completion records, original Phase 22 product-launch contracts and archived R3 evidence are retained unchanged; this section establishes a narrower *portfolio acceptance path*, not a commercial release or permission to merge/activate providers.
+
+Authoritative forward-looking scope: [completion contract](portfolio_completion_contract.md), [finalization plan](portfolio_finalization_plan.md), [portfolio profile](portfolio_profile.md). Run phases F0–F5 from that plan under the existing Phase 22 HOLD:
+- F0 verify GitHub main against sealed R3 evidence; select exact candidate and owner decisions;
+- F1 complete bounded multi-step AI research with evaluated optional LLM, RAG and deterministic analysis;
+- F2 qualify only the enabled scheduler/worker temporal, lease, transport and recovery paths;
+- F3 connect existing Phase 20C watches to meaningful deterministic diffs and Phase 20D in-app notifications;
+- F4 deploy/validate authenticated personal workflows, persisted reports and monitoring end to end;
+- F5 owner signoff, reproducible demo/documentation and explicit deferred productization items.
+
+The owner-supplied **R3.32-R** local reviewer report verified the experimental evidence chain but remains **NO-GO for isolated application time-floor integration** due to strict deadline equality, pre-lock witness tickets, post-sample lease uncertainty, lock order and undecided forward-jump policy. R3 experiments are not part of the checked-in application `main`. Seven historical occurrences and ten R3.15 owner decisions remain preserved and pending. Do not label scheduled dispatch or agentic research as live until proved on the selected candidate.
+
+*Portfolio completion* may waive independent enterprise witness, managed failover, commercial provider contracts and c32 load SLOs, but may not waive privacy, server authorization, deterministic risk authority, no automatic source trust, credential security or transactional/temporal integrity on enabled paths.
+
 ## 1. Product mission
 
 DeFi Thesis & Risk Copilot converts a DeFi strategy or market thesis into a structured, source-grounded risk report.
@@ -532,6 +548,8 @@ Core outcomes:
 - fine-tuning dataset/model governance.
 
 ## V1 Phase 22 — Final release validation and launch approval — Planned
+
+**October 2026 portfolio overlay:** Phase 22 is ACTIVE — HOLD for enabled advanced paths; the current owner goal is the scoped research + personal scheduled monitoring completion contract, not an immediate commercial launch. Historical product-launch requirements below are preserved as future productization gates. No new release approval is implied.
 
 Goal: close the external validation and legal gates deferred from Phase 16 after the V1 implementation phases are complete. This phase adds no new end-user product capability.
 
