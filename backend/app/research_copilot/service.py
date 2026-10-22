@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from datetime import UTC, datetime
 from hashlib import sha256
@@ -49,6 +50,7 @@ from app.theses.policies import can_read_saved_thesis
 
 _RUN_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:-]{8,128}$")
 _SUPPORTED_PROTOCOLS = frozenset({"aave", "morpho", "pendle"})
+_LOGGER = logging.getLogger(__name__)
 
 
 def start_thesis_research(
@@ -162,8 +164,10 @@ def _start_thesis_research_owned(
         cost_ceiling_microusd=settings.research_run_cost_ceiling_microusd,
         deadline_monotonic=deadline,
     )
+    failure_stage = "pre_workflow_boundary"
     try:
         _assert_execution_boundary(db, actor, stable_thesis_id, run.id, input_checksum)
+        failure_stage = "workflow"
         workflow = run_analysis_workflow(
             AnalysisRequest(
                 strategy_description=strategy_text,
@@ -184,7 +188,9 @@ def _start_thesis_research_owned(
             synthesis_budget=synthesis_budget,
             thesis_assumptions=thesis_assumptions,
         )
+        failure_stage = "post_workflow_boundary"
         _assert_execution_boundary(db, actor, stable_thesis_id, run.id, input_checksum)
+        failure_stage = "report_finalization"
         completed_at = datetime.now(UTC)
         evidence_gaps = list(dict.fromkeys(workflow.missing_data))
         source_observations = _source_observations(workflow, completed_at)
@@ -249,6 +255,7 @@ def _start_thesis_research_owned(
         if actor.auth_enabled and actor.anonymous_session_id is None:
             from app.entitlements.service import emit_usage
 
+            failure_stage = "usage_recording"
             emit_usage(
                 db,
                 owner_user_id=actor.id,
@@ -256,7 +263,9 @@ def _start_thesis_research_owned(
                 source_type="report",
                 source_id=report.report_id,
             )
+        failure_stage = "report_commit"
         db.commit()
+        failure_stage = "completion_event"
         emit_product_event_safely(
             db,
             owner_user_id=actor.id,
@@ -279,7 +288,15 @@ def _start_thesis_research_owned(
     except HTTPException:
         _mark_failed(db, run.id, "research_execution_rejected", started_at, provider_call_state="uncertain")
         raise
-    except Exception:
+    except Exception as exc:
+        # Keep diagnostics useful without logging private questions, thesis
+        # inputs, provider text, SQL parameters, or exception messages.
+        _LOGGER.error(
+            "Synchronous research run %s failed at %s (%s)",
+            run.id,
+            failure_stage,
+            type(exc).__name__,
+        )
         _mark_failed(db, run.id, "research_execution_failed", started_at, provider_call_state="uncertain")
         raise HTTPException(status_code=503, detail="Research could not be completed safely.") from None
     finally:
