@@ -23,6 +23,7 @@ from app.models.report import ReportModel
 from app.models.saved_thesis import SavedThesisModel
 from app.models.usage_quota import UsageQuotaModel
 from app.models.user import UserModel
+from app.reports.templates import REQUIRED_REPORT_SECTIONS
 from app.research_copilot.execution import _owner_lock_id
 from app.research_copilot.service import get_thesis_research_run, start_thesis_research
 from app.schemas.market_data import MarketDataResponse
@@ -120,7 +121,10 @@ def _synthetic_workflow(report_id: str, request, *, on_start=None, finish_event=
         protocols=["pendle"],
         assumptions=[],
         missing_data=["Synthetic workflow fixture."],
-        sections=[ReportSection(title="Risk Analysis", content="Synthetic deterministic output.")],
+        sections=[
+            ReportSection(title=title, content="Synthetic deterministic output.")
+            for title in REQUIRED_REPORT_SECTIONS
+        ],
         sources=[],
     )
     model_result = SynthesisResult(
@@ -443,7 +447,7 @@ def test_postgres_owner_fence_closes_reservation_handoff_and_deletion_races(monk
         engine.dispose()
 
 
-def test_postgres_crash_boundaries_never_replay_or_dispose_live_work() -> None:
+def test_postgres_crash_boundaries_never_replay_or_dispose_live_work(monkeypatch) -> None:
     engine, Session = _postgres_session_factory()
     context = multiprocessing.get_context("spawn")
     database_url = _database_url(engine)
@@ -518,8 +522,12 @@ def test_postgres_crash_boundaries_never_replay_or_dispose_live_work() -> None:
 
             import app.research_copilot.service as research_service
 
-            research_service.run_analysis_workflow = lambda *_args, **_kwargs: (_ for _ in ()).throw(
-                AssertionError("uncertain interrupted work must never be replayed")
+            monkeypatch.setattr(
+                research_service,
+                "run_analysis_workflow",
+                lambda *_args, **_kwargs: (_ for _ in ()).throw(
+                    AssertionError("uncertain interrupted work must never be replayed")
+                ),
             )
             replay = start_thesis_research(
                 db,
