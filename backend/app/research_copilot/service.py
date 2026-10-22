@@ -298,7 +298,10 @@ def _start_thesis_research_owned(
             type(exc).__name__,
         )
         _mark_failed(db, run.id, "research_execution_failed", started_at, provider_call_state="uncertain")
-        raise HTTPException(status_code=503, detail="Research could not be completed safely.") from None
+        detail = "Research could not be completed safely."
+        if settings.app_env.strip().lower() in {"development", "test"}:
+            detail = f"{detail} [stage={failure_stage}; error_type={type(exc).__name__}]"
+        raise HTTPException(status_code=503, detail=detail) from None
     finally:
         mark_local_run_inactive(run.id)
 
