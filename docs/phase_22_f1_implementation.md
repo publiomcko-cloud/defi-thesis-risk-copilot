@@ -135,4 +135,5 @@ are recorded.
 
 This candidate may be independently reviewed for F1 implementation quality. It
 does not meet the portfolio contract's `PERSONAL_RESEARCH_READY` or Phase 22
-release/deployment acceptance gate. See the [checksummed report](phase_22_f1_implementation_report.md).
+release/deployment acceptance gate. See the [checksummed implementation report](phase_22_f1_implementation_report.md)
+and the [checksummed F1-C correction review](phase_22_f1c_correction_report.md).
