@@ -1,3 +1,4 @@
+import re
 from dataclasses import replace
 
 from app.rag.citations import results_to_sources
@@ -6,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.risk.checklist import generate_monitoring_checklist
 from app.risk.framework import RiskScore
 from app.risk.scenarios import generate_stress_scenarios
+from app.llm.base import SynthesisBudget
 from app.llm.synthesis import SynthesisResult, synthesize_report
 from app.reports.renderer import make_section, validate_report_structure
 from app.schemas.market_data import MarketDataResponse
@@ -40,6 +42,9 @@ def write_research_report(
     db: Session | None = None,
     execution_route_snapshot: object | None = None,
     require_execution_route_snapshot: bool = False,
+    research_question: str | None = None,
+    synthesis_budget: SynthesisBudget | None = None,
+    thesis_assumptions: list[str] | None = None,
 ) -> SynthesisResult:
     stress_scenarios = generate_stress_scenarios(risk_score)
     monitoring_checklist = generate_monitoring_checklist(risk_score)
@@ -55,6 +60,7 @@ def write_research_report(
         risk_rating=risk_score.rating,
         executive_summary=_build_summary(protocols, risk_score),
         strategy_description=strategy_description,
+        research_question=research_question,
         protocols=protocols,
         assumptions=[
             RAG_AND_LLM_ASSUMPTION,
@@ -64,6 +70,11 @@ def write_research_report(
         missing_data=missing_data,
         sections=[
             make_section("Strategy Description", strategy_description),
+            *(
+                [make_section("Research Question", research_question)]
+                if research_question is not None
+                else []
+            ),
             make_section("Protocols Involved", ", ".join(protocols)),
             make_section(
                 "Strategy Mechanics",
@@ -132,8 +143,52 @@ def write_research_report(
         db=db,
         execution_route_snapshot=execution_route_snapshot,
         require_execution_route_snapshot=require_execution_route_snapshot,
+        budget=synthesis_budget,
     )
+    if thesis_assumptions is not None:
+        assumptions_text = "\n".join(
+            f"- {_markdown_inline_code(item)}" for item in thesis_assumptions
+        )
+        section = make_section(
+            "Saved Thesis Assumptions (Owner-Provided, Unverified)",
+            assumptions_text,
+        )
+        disclaimer = (
+            "Saved thesis assumptions are owner-provided context and have not been independently verified. "
+            "They are shown as recorded and do not change deterministic calculations."
+        )
+
+        def include_assumptions(report):
+            sections = list(report.sections)
+            insert_at = next(
+                (index for index, item in enumerate(sections) if item.title == "Risk Analysis"),
+                len(sections),
+            )
+            sections.insert(insert_at, section)
+            return report.model_copy(
+                update={
+                    "assumptions": [*report.assumptions, disclaimer],
+                    "sections": sections,
+                }
+            )
+
+        synthesis = replace(
+            synthesis,
+            report=include_assumptions(synthesis.report),
+            deterministic_report=include_assumptions(report),
+        )
+        return synthesis
     return replace(synthesis, deterministic_report=report)
+
+
+def _markdown_inline_code(value: str) -> str:
+    """Keep owner-authored assumptions inert in Markdown reports and exports."""
+
+    value = value.replace("\r\n", "\\n").replace("\r", "\\r").replace("\n", "\\n")
+    longest_run = max((len(match.group(0)) for match in re.finditer(r"`+", value)), default=0)
+    fence = "`" * (longest_run + 1)
+    padding = " " if value.startswith(("`", " ")) or value.endswith(("`", " ")) else ""
+    return f"{fence}{padding}{value}{padding}{fence}"
 
 
 def _summarize_retrieved_context(retrieved_context: list[RetrievalResult]) -> str:

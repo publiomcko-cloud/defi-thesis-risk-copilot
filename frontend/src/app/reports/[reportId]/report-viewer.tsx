@@ -10,6 +10,7 @@ import { ReportSection } from "@/components/ReportSection";
 import { RiskRatingCard } from "@/components/RiskRatingCard";
 import { ReportFeedbackForm } from "@/components/ReportFeedbackForm";
 import { ReportResearchPanel } from "@/components/ReportResearchPanel";
+import { ResearchRunEvidencePanel } from "@/components/ResearchRunEvidencePanel";
 import { SourcesPanel } from "@/components/SourcesPanel";
 import { fetchReport } from "@/lib/api";
 import { formatProtocolName } from "@/lib/formatting";
@@ -121,6 +122,8 @@ export function ReportViewer({ reportId }: ReportViewerProps) {
           <ReportSection key={section.title} section={section} />
         ))}
       </section>
+
+      {report.research ? <ResearchRunEvidencePanel research={report.research} /> : null}
 
       <section className="content-grid">
         <MonitoringChecklist />

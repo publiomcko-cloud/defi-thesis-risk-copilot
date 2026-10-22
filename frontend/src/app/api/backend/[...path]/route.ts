@@ -6,6 +6,10 @@ import { ANONYMOUS_COOKIE, backendApiBaseUrl, getValidAccessToken } from "@/lib/
 import { bffBodyLimit, readBodyWithinLimit } from "@/lib/request-body-limit";
 import { hasTrustedOrigin } from "@/lib/request-security";
 
+// Leave five seconds beyond the BFF's 30-second upstream deadline to return
+// the truthful timeout response in a Vercel Node.js function.
+export const maxDuration = 35;
+
 const ALLOWED_EXACT_PATHS = [
   "/health",
   "/ready",
@@ -152,15 +156,24 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
   }
 
   let backendResponse: Response;
+  const synchronousResearchRun = request.method === "POST" && isSynchronousResearchRunPath(targetPath);
+  const researchTimeout = synchronousResearchRun ? AbortSignal.timeout(30_000) : undefined;
   try {
     backendResponse = await fetch(target, {
       method: request.method,
       headers,
       body: bodyResult.body,
       cache: "no-store",
-      redirect: "manual"
+      redirect: "manual",
+      ...(researchTimeout ? { signal: researchTimeout } : {})
     });
   } catch {
+    if (researchTimeout?.aborted) {
+      return NextResponse.json(
+        { detail: "The synchronous research request exceeded the BFF time limit. Check the run status before retrying." },
+        { status: 504 }
+      );
+    }
     return NextResponse.json({ detail: "Backend service is unavailable." }, { status: 503 });
   }
   if (backendResponse.status >= 300 && backendResponse.status < 400) {
@@ -189,6 +202,10 @@ async function forward(request: NextRequest, context: { params: Promise<{ path: 
     proxied.headers.append("set-cookie", backendCookie);
   }
   return proxied;
+}
+
+function isSynchronousResearchRunPath(path: string): boolean {
+  return /^\/api\/theses\/[A-Za-z0-9_-]+\/research$/.test(path);
 }
 
 function isAllowedBackendPath(path: string): boolean {

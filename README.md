@@ -34,6 +34,8 @@ The original productization requirements are preserved rather than deleted:
 - [Phase 20 closeout](docs/phase_20_closeout.md) — final architecture audit and evidence state.
 - [Phase 21 execution plan](docs/phase_21_execution_plan.md) — 21A–21F portfolio checkpoint sequence and closeout gates.
 - [Phase 21 closeout](docs/phase_21_closeout.md) — model/research architecture and validation record.
+- [Phase 22 F1 implementation](docs/phase_22_f1_implementation.md) — bounded synchronous Research Copilot candidate, explicit non-activation limits, and validation record.
+- [Phase 22 F1 checksummed report](docs/phase_22_f1_implementation_report.md) — portable implementation status and evidence.
 
 A future return to product mode should activate reviewed adapters and policies through existing boundaries instead of requiring an architectural rewrite.
 
@@ -59,6 +61,7 @@ V1 Phase 21: COMPLETE — PORTFOLIO PROFILE
   - 21D research intelligence: merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34; source-grounded and deterministic by default
   - 21E worker compute/training governance: merged at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52` through PR #35; the evaluator-protocol correction `2b3817e` is historical evidence
   - 21F: documentation/full-regression closeout hosted evidence passed on `c5b39f6` in Draft PR #36; Phase 22 remains the later provider/legal release-validation phase
+V1 Phase 22: ACTIVE — HOLD; F1 bounded synchronous Research Copilot implementation candidate is isolated in a draft PR. Real-model acceptance, provider/privacy/cost activation, deployment, workers, and scheduled monitoring remain unaccepted and disabled.
 ```
 
 ## Engineering Capabilities

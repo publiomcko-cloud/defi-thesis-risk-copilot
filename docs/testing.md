@@ -210,7 +210,49 @@ completed provider spend on a rebuilt global row.
 `SMOKE_BASE_URL` only when validating an isolated local API process. Optional LLM synthesis should
 be disabled for bounded smoke timing unless that provider is the explicit subject of the test.
 
-## 7. Completed Phase 18 validation
+## 7. Phase 22 F1 bounded synchronous research
+
+The isolated F1 candidate has focused API/tool tests in
+`backend/app/tests/test_phase22_research_copilot.py`. Run them with the existing
+synthesis, route-governance, thesis-intelligence, and market-adapter suites:
+
+```bash
+cd backend
+python -m pytest \
+  app/tests/test_phase22_research_copilot.py \
+  app/tests/test_llm_synthesis.py \
+  app/tests/test_phase21b_model_routing.py \
+  app/tests/test_phase21d_research_intelligence.py \
+  app/tests/test_market_data_adapters.py -q
+```
+
+These tests use synthetic fixtures and controlled fake providers. Do not enable
+a real provider or use personal thesis data in this suite. The migration is
+applied by the test application startup against isolated SQLite. The suite
+covers bounded two-pass execution, typed tool allowlisting/limits, citation
+removal, untrusted retrieved text, unavailable market data, fail-closed budget
+preflight, authenticated owner isolation, idempotent run/report persistence,
+comparison/export, and timeout failure persistence.
+
+Frontend validation for the candidate:
+
+```bash
+cd frontend
+npm run lint
+npm run build
+npm run test:bff
+npm run test:phase21d
+npm run test:phase21e
+npm run test:phase22-f1
+```
+
+The F1 UI contract script checks the research form, retry key handling,
+truthful synthesis labels, evidence/source display, and bounded BFF/function
+timeouts. It is a source contract check, not a browser interaction test. Record
+the actual built-application smoke separately and do not treat local build or
+contract checks as deployed acceptance.
+
+## 8. Completed Phase 18 validation
 
 Follow the archived [Phase 18 validation and execution record](archive/v1_phase_18/)
 when maintaining durable knowledge/retrieval behavior.

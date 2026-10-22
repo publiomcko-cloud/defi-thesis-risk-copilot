@@ -309,6 +309,52 @@ This is the completed Phase 16 implementation target. Commercial enablement and 
 
 Do not enable Mode C commercially until Phase 22 completes.
 
+### Phase 22 F1 synchronous research candidate
+
+F1 is an isolated authenticated application path for portfolio demonstration.
+The checked-in defaults remain synthesis off, provider disabled, zero
+per-run model cost, and all worker/schedule flags off. The research route uses
+an authenticated owner’s private saved thesis and the existing curated
+retrieval, approved market adapters, deterministic risk/report generation, and
+report storage. It does not use the Phase 17 worker or experimental PostgreSQL
+time-floor path.
+
+Bounded defaults in `.env.example` are:
+
+```env
+RESEARCH_RUN_MAX_PASSES=2
+RESEARCH_RUN_MAX_MODEL_CALLS=2
+RESEARCH_RUN_MAX_TOOL_INVOCATIONS=8
+RESEARCH_RUN_MAX_DOCUMENTS=4
+RESEARCH_RUN_TOKEN_BUDGET=6000
+RESEARCH_RUN_COST_CEILING_MICROUSD=0
+RESEARCH_RUN_WALL_TIME_SECONDS=25
+```
+
+The BFF aborts the backend request at 30 seconds and declares
+`maxDuration = 35` for the Next.js route, leaving time to return a safe timeout
+response. The backend accepts a 5–25 second run deadline and clips model request
+timeouts to the remaining run budget. See [Vercel's Next.js duration configuration](https://vercel.com/docs/functions/configuring-functions/duration)
+and [function duration limits](https://vercel.com/docs/functions/limitations).
+Actual project plan, Fluid Compute setting, and hosted route behavior were not
+inspected. Local build and smoke checks do not qualify deployment.
+
+These settings do not authorize a paid request. Before a supervised synthetic
+then private-data model acceptance run, the owner must approve the provider and
+model, the exact private-data transmission/retention boundary, the route's
+`private_approved` classification and server-owned promotion record, the secret
+source, and a per-run cost ceiling. The ceiling must be explicitly entered and
+large enough for the chosen prompt/output budget and registered rates; do not
+infer a price cap. Keep `LLM_SYNTHESIS_ENABLED=false` until that decision and
+acceptance run are scheduled. Verify `AUTH_ENABLED=true` and real tenant
+authorization in the intended isolated private environment. Never use actual
+personal data during fake-provider tests.
+
+An inline process crash can leave a run reservation in `running`. Its key is
+kept to prevent duplicate provider work, but there is no worker or automatic
+replay/reconciler in F1. Inspect and resolve such a row only under an explicit
+owner recovery decision. This behavior is not production recovery protection.
+
 ---
 
 ## 3. Next.js BFF configuration

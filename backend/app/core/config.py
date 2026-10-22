@@ -73,6 +73,13 @@ class Settings(BaseSettings):
     openai_compatible_api_key: str = ""
     openai_compatible_model: str = "gpt-4o-mini"
     llm_timeout_seconds: float = 8.0
+    research_run_max_passes: int = 2
+    research_run_max_model_calls: int = 2
+    research_run_max_tool_invocations: int = 8
+    research_run_max_documents: int = 4
+    research_run_token_budget: int = 6000
+    research_run_cost_ceiling_microusd: int = 0
+    research_run_wall_time_seconds: int = 25
     defillama_base_url: str = "https://api.llama.fi"
     rag_semantic_enabled: bool = False
     rag_embedding_provider: str = "local_semantic"
@@ -218,6 +225,20 @@ class Settings(BaseSettings):
             raise ValueError("OBSERVABILITY_SAMPLING_RATE must be between 0 and 1")
         if not 0 < self.observability_export_timeout_seconds <= 30:
             raise ValueError("OBSERVABILITY_EXPORT_TIMEOUT_SECONDS must be between 0 and 30")
+        if not 1 <= self.research_run_max_passes <= 2:
+            raise ValueError("RESEARCH_RUN_MAX_PASSES must be between 1 and 2")
+        if not 1 <= self.research_run_max_model_calls <= 2:
+            raise ValueError("RESEARCH_RUN_MAX_MODEL_CALLS must be between 1 and 2")
+        if not 4 <= self.research_run_max_tool_invocations <= 8:
+            raise ValueError("RESEARCH_RUN_MAX_TOOL_INVOCATIONS must be between 4 and 8")
+        if not 1 <= self.research_run_max_documents <= 8:
+            raise ValueError("RESEARCH_RUN_MAX_DOCUMENTS must be between 1 and 8")
+        if not 512 <= self.research_run_token_budget <= 12_000:
+            raise ValueError("RESEARCH_RUN_TOKEN_BUDGET must be between 512 and 12000")
+        if self.research_run_cost_ceiling_microusd < 0:
+            raise ValueError("RESEARCH_RUN_COST_CEILING_MICROUSD cannot be negative")
+        if not 5 <= self.research_run_wall_time_seconds <= 25:
+            raise ValueError("RESEARCH_RUN_WALL_TIME_SECONDS must be between 5 and 25 for the BFF deadline")
         if not 1 <= self.observability_export_queue_size <= 10_000:
             raise ValueError("OBSERVABILITY_EXPORT_QUEUE_SIZE must be between 1 and 10000")
         if self.observability_clock_timezone != "UTC":

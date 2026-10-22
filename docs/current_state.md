@@ -71,8 +71,27 @@ V1 Phase 18 — Complete and merged into main; production features remain featur
 V1 Phase 19 — Implemented Foundation and merged into main; centralized telemetry, alert delivery, provider restore drills, secret rotation, protected-branch evidence, and controlled deployment evidence remain external gates
 V1 Phase 20 — Complete — Portfolio Profile and merged at `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 20E is omitted, Phase 20G remains DEFERRED, and deployment activation plus external legal/provider evidence remain separate gates
 V1 Phase 21 — Complete — Portfolio Profile; 21A–21B are merged at `37fc065b95434622dbfdf407a2bda7930f2c4547` through PR #32, 21C quality/feedback governance is merged at `772e0a5461a56f52729d8fa91a728594e615e61a` through PR #33, 21D research intelligence is merged at `468db4a1529b456afed6d1b5d482c8ea0ff932bd` through PR #34, 21E local training-compute governance merged through PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`, and the documentation-only 21F closeout hosted evidence passed on `c5b39f6` in Draft PR #36
-V1 Phase 22 — Planned final release validation and launch approval
+V1 Phase 22 — ACTIVE — HOLD. F1 synchronous Research Copilot implementation candidate is isolated on `codex/f1-bounded-research-copilot-20261022`; see `phase_22_f1_implementation.md` and the checksummed report. It is not merged or deployed. Model/provider use, personal-ready acceptance, Phase 17 workers, schedule dispatch, and the experimental PostgreSQL time floor remain disabled or unaccepted. All seven historical R3 failures and all ten R3.15 owner decisions remain open/pending.
 ```
+
+Phase 22 F1 adds a bounded inline authenticated research route associated with
+a private saved thesis. It reuses the existing analysis workflow, curated
+retrieval, market adapters, deterministic risk/report generation, evaluated
+model routing, report persistence, comparison, and export. The candidate caps
+research at two passes, eight typed tool invocations, four source documents by
+default, 6,000 total tokens, zero configured per-run cost, and a 25-second
+backend budget. The same-origin BFF aborts at 30 seconds and declares a
+35-second Vercel Node.js function ceiling so it can return the bounded timeout
+response. These settings do not enable model use: synthesis and the provider
+remain disabled by default.
+
+The F1 UI shows saved runs, evidence gaps, source and observation timestamps,
+tool traces, deterministic-versus-model status, report links, comparison, and
+export. Run inputs and reports remain private and owner-scoped. This is an
+implementation candidate validated locally with synthetic fixtures; no real
+model, paid provider, hosted deployment, production database, worker, or
+schedule was activated. See the [F1 report](phase_22_f1_implementation_report.md)
+for commands, results, prerequisites, and limitations.
 
 Reviewed Phase 16 correction commit:
 

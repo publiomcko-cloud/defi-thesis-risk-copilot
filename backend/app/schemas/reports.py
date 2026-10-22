@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field
 
 from app.schemas.analysis import RiskRating
+from app.schemas.research import ResearchRunMetadata
 
 
 class CitationLineageReference(BaseModel):
@@ -36,11 +37,13 @@ class ReportResponse(BaseModel):
     risk_rating: RiskRating
     executive_summary: str
     strategy_description: str
+    research_question: str | None = None
     protocols: list[str]
     assumptions: list[str]
     missing_data: list[str]
     sections: list[ReportSection]
     sources: list[SourceReference]
+    research: ResearchRunMetadata | None = None
     disclaimer: str = Field(
         default=(
             "This report is for research and educational purposes only. "

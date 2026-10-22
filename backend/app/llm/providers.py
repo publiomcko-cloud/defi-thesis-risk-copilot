@@ -21,6 +21,11 @@ class OllamaProvider:
                 "prompt": request.prompt,
                 "stream": False,
                 "format": "json",
+                **(
+                    {"options": {"num_predict": request.max_output_tokens}}
+                    if request.max_output_tokens is not None
+                    else {}
+                ),
             },
             timeout=request.timeout_seconds,
         )
@@ -57,6 +62,8 @@ class OpenAICompatibleProvider:
             "temperature": 0.2,
             "response_format": {"type": "json_object"},
         }
+        if request.max_output_tokens is not None:
+            payload["max_tokens"] = request.max_output_tokens
         response = httpx.post(
             f"{self.base_url}/chat/completions",
             headers={"Authorization": f"Bearer {self.api_key}"},

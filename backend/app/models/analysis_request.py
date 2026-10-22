@@ -18,7 +18,9 @@ class AnalysisRequestModel(Base):
             "deleted_at",
         ),
         Index("ix_analysis_requests_anonymous_expires", "anonymous_session_id", "expires_at"),
+        Index("ix_analysis_requests_thesis_created", "thesis_id", "created_at"),
         UniqueConstraint("source_job_id", name="uq_analysis_requests_source_job"),
+        UniqueConstraint("owner_user_id", "research_run_key", name="uq_analysis_requests_owner_research_key"),
     )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
@@ -27,6 +29,15 @@ class AnalysisRequestModel(Base):
     market_url: Mapped[str | None] = mapped_column(Text, nullable=True)
     manual_inputs_json: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
     analysis_depth: Mapped[str] = mapped_column(String(32), nullable=False)
+    thesis_id: Mapped[str | None] = mapped_column(
+        ForeignKey("saved_theses.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    research_question: Mapped[str | None] = mapped_column(Text, nullable=True)
+    research_run_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    research_input_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    research_status: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    research_metadata_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    research_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     source_job_id: Mapped[str | None] = mapped_column(
         ForeignKey("jobs.id", ondelete="SET NULL"), nullable=True, index=True
     )

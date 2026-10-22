@@ -6,6 +6,15 @@ from typing import Protocol
 class LLMRequest:
     prompt: str
     timeout_seconds: float
+    max_output_tokens: int | None = None
+
+
+@dataclass(frozen=True)
+class SynthesisBudget:
+    total_tokens: int
+    max_output_tokens: int
+    cost_ceiling_microusd: int
+    deadline_monotonic: float | None = None
 
 
 @dataclass(frozen=True)

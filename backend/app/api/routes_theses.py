@@ -1,9 +1,16 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query, Response
 from sqlalchemy.orm import Session
 
 from app.auth.dependencies import require_authenticated_user
 from app.auth.schemas import UserContext
+from app.core.public_demo import enforce_public_compute_rate_limit
 from app.db.session import get_db
+from app.research_copilot.service import (
+    get_thesis_research_run,
+    list_thesis_research_runs,
+    start_thesis_research,
+)
+from app.schemas.research import ResearchQuestionRequest, ResearchRunSummary, ResearchRunsResponse
 from app.theses.schemas import ThesisCreateRequest, ThesisResponse, ThesesResponse, ThesisUpdateRequest
 from app.theses.service import create_thesis, delete_thesis, get_thesis, list_theses, update_thesis
 from app.research_intelligence.schemas import (
@@ -59,6 +66,44 @@ def get_thesis_route(
     actor: UserContext = Depends(require_authenticated_user),
 ) -> ThesisResponse:
     return get_thesis(db, actor, thesis_id)
+
+
+@router.post(
+    "/theses/{thesis_id}/research",
+    response_model=ResearchRunSummary,
+    dependencies=[Depends(enforce_public_compute_rate_limit)],
+)
+def post_thesis_research(
+    thesis_id: str,
+    request: ResearchQuestionRequest,
+    response: Response,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+) -> ResearchRunSummary:
+    result = start_thesis_research(db, actor, thesis_id, request, idempotency_key)
+    if result.status == "running":
+        response.status_code = 202
+    return result
+
+
+@router.get("/theses/{thesis_id}/research-runs", response_model=ResearchRunsResponse)
+def get_thesis_research_runs(
+    thesis_id: str,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> ResearchRunsResponse:
+    return list_thesis_research_runs(db, actor, thesis_id)
+
+
+@router.get("/theses/{thesis_id}/research-runs/{run_id}", response_model=ResearchRunSummary)
+def get_thesis_research_run_route(
+    thesis_id: str,
+    run_id: str,
+    db: Session = Depends(get_db),
+    actor: UserContext = Depends(require_authenticated_user),
+) -> ResearchRunSummary:
+    return get_thesis_research_run(db, actor, thesis_id, run_id)
 
 
 @router.get("/theses/{thesis_id}/history", response_model=ThesisHistoryResponse)

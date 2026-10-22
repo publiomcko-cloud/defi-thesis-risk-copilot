@@ -2,16 +2,18 @@ import json
 import re
 from copy import deepcopy
 from dataclasses import dataclass
-from time import perf_counter
+from math import ceil
+from time import monotonic, perf_counter
 from typing import Any
 
 from app.core.config import get_settings
 from sqlalchemy.orm import Session
 
-from app.llm.base import LLMProvider, LLMRequest
+from app.llm.base import LLMProvider, LLMRequest, SynthesisBudget
 from app.llm.prompts import SYNTHESIZABLE_SECTION_TITLES, build_report_synthesis_prompt
 from app.llm.quality import ModelQualityEvidence, evaluate_report_synthesis_quality
 from app.llm.provenance import ModelIdentity, provider_identity, provider_is_eligible_for_scope
+from app.models.model_governance import ModelRegistryModel
 from app.llm.routing import (
     RouteResolution,
     resolve_report_synthesis_execution_route,
@@ -30,6 +32,7 @@ LLM_USED_ASSUMPTION = (
 LLM_SKIPPED_ASSUMPTION = (
     "Optional LLM synthesis was skipped or unavailable; deterministic report template wording was used."
 )
+_PROVIDER_WRAPPER_TOKEN_RESERVE = 128
 
 
 @dataclass(frozen=True)
@@ -50,6 +53,7 @@ class SynthesisResult:
     evaluation_run_id: str | None = None
     deterministic_report: ReportResponse | None = None
     quality_evidence: ModelQualityEvidence | None = None
+    provider_call_made: bool = False
 
 
 class SynthesisValidationError(ValueError):
@@ -69,6 +73,7 @@ def synthesize_report(
     db: Session | None = None,
     execution_route_snapshot: object | None = None,
     require_execution_route_snapshot: bool = False,
+    budget: SynthesisBudget | None = None,
 ) -> SynthesisResult:
     """Synthesize only through the durable route in production workflows.
 
@@ -107,13 +112,24 @@ def synthesize_report(
             risk_score,
             resolution.provider,
             content_scope,
+            db=db,
             route_version_id=resolution.route_version_id,
             evaluation_run_id=resolution.evaluation_run_id,
+            model_registry_id=resolution.model_registry_id,
+            budget=budget,
         )
 
     if provider is None:
         return _resolution_fallback(base_report, RouteResolution(None, None, "provider_unavailable", "not_run", "no_route_context"))
-    return _synthesize_with_provider(base_report, retrieved_context, market_data, risk_score, provider, content_scope)
+    return _synthesize_with_provider(
+        base_report,
+        retrieved_context,
+        market_data,
+        risk_score,
+        provider,
+        content_scope,
+        budget=budget,
+    )
 
 
 def synthesize_report_for_evaluation(
@@ -146,6 +162,9 @@ def _synthesize_with_provider(
     *,
     route_version_id: str | None = None,
     evaluation_run_id: str | None = None,
+    model_registry_id: str | None = None,
+    budget: SynthesisBudget | None = None,
+    db: Session | None = None,
     include_instruction_flags: bool = True,
 ) -> SynthesisResult:
     settings = get_settings()
@@ -172,12 +191,76 @@ def _synthesize_with_provider(
             risk_score=risk_score,
             include_instruction_flags=include_instruction_flags,
         )
+        max_output_tokens = None
+        cost_rates: tuple[int, int] | None = None
+        if budget is not None:
+            max_output_tokens, cost_rates, budget_failure = _preflight_synthesis_budget(
+                prompt,
+                budget,
+                db,
+                model_registry_id,
+            )
+            if budget_failure is not None:
+                return _budget_fallback(
+                    base_report,
+                    identity,
+                    budget_failure,
+                    route_version_id,
+                    evaluation_run_id,
+                )
+        provider_timeout = settings.llm_timeout_seconds
+        if budget is not None and budget.deadline_monotonic is not None:
+            remaining_time = budget.deadline_monotonic - monotonic()
+            if remaining_time <= 0.01:
+                return _budget_fallback(
+                    base_report,
+                    identity,
+                    "run_wall_time_exhausted",
+                    route_version_id,
+                    evaluation_run_id,
+                )
+            provider_timeout = min(provider_timeout, remaining_time)
         response = active_provider.generate(
             LLMRequest(
                 prompt=prompt,
-                timeout_seconds=settings.llm_timeout_seconds,
+                timeout_seconds=provider_timeout,
+                max_output_tokens=max_output_tokens,
             )
         )
+        actual_cost = response.cost_microusd
+        if budget is not None:
+            if (
+                response.output_tokens is not None
+                and response.output_tokens > max_output_tokens
+            ) or (
+                response.total_tokens is not None
+                and response.total_tokens > budget.total_tokens
+            ):
+                return _budget_fallback(
+                    base_report,
+                    identity,
+                    "provider_exceeded_token_budget",
+                    route_version_id,
+                    evaluation_run_id,
+                )
+            if actual_cost is None and cost_rates is not None:
+                input_rate, output_rate = cost_rates
+                if response.input_tokens is not None and response.output_tokens is not None:
+                    actual_cost = ceil(
+                        (
+                            response.input_tokens * input_rate
+                            + response.output_tokens * output_rate
+                        )
+                        / 1_000_000
+                    )
+            if actual_cost is not None and actual_cost > budget.cost_ceiling_microusd:
+                return _budget_fallback(
+                    base_report,
+                    identity,
+                    "provider_exceeded_cost_ceiling",
+                    route_version_id,
+                    evaluation_run_id,
+                )
         payload = _parse_json_object(response.text)
         _validate_synthesis_payload(payload)
         synthesized = _apply_allowed_synthesis(base_report, payload)
@@ -207,10 +290,11 @@ def _synthesize_with_provider(
             input_tokens=response.input_tokens,
             output_tokens=response.output_tokens,
             total_tokens=response.total_tokens,
-            cost_microusd=response.cost_microusd,
+            cost_microusd=actual_cost,
             route_version_id=route_version_id,
             evaluation_run_id=evaluation_run_id,
             quality_evidence=quality,
+            provider_call_made=True,
         )
     except json.JSONDecodeError:
         return _validation_fallback(base_report, identity, started, "invalid_json", "malformed_json", route_version_id, evaluation_run_id)
@@ -230,7 +314,69 @@ def _synthesize_with_provider(
             latency_ms=_elapsed_ms(started),
             route_version_id=route_version_id,
             evaluation_run_id=evaluation_run_id,
+            provider_call_made=True,
         )
+
+
+def _preflight_synthesis_budget(
+    prompt: str,
+    budget: SynthesisBudget,
+    db: Session | None,
+    model_registry_id: str | None,
+) -> tuple[int | None, tuple[int, int] | None, str | None]:
+    # Without a provider-specific tokenizer, a UTF-8 byte count is a
+    # conservative token upper bound for text plus a fixed reserve for message
+    # framing/system instructions. Never understate the prompt for preflight.
+    estimated_input_tokens = len(prompt.encode("utf-8")) + _PROVIDER_WRAPPER_TOKEN_RESERVE
+    max_output_tokens = min(
+        budget.max_output_tokens,
+        budget.total_tokens - estimated_input_tokens,
+    )
+    if max_output_tokens < 1:
+        return None, None, "token_budget_insufficient"
+    if db is None or model_registry_id is None:
+        return None, None, "cost_ceiling_unpriced_route"
+    model = db.get(ModelRegistryModel, model_registry_id)
+    if (
+        model is None
+        or model.input_cost_microusd_per_million is None
+        or model.output_cost_microusd_per_million is None
+    ):
+        return None, None, "cost_ceiling_unpriced_route"
+    rates = (
+        model.input_cost_microusd_per_million,
+        model.output_cost_microusd_per_million,
+    )
+    maximum_cost = ceil(
+        (
+            estimated_input_tokens * rates[0]
+            + max_output_tokens * rates[1]
+        )
+        / 1_000_000
+    )
+    if maximum_cost > budget.cost_ceiling_microusd:
+        return None, rates, "cost_ceiling_exceeded"
+    return max_output_tokens, rates, None
+
+
+def _budget_fallback(
+    report: ReportResponse,
+    provider: ModelIdentity | None,
+    reason: str,
+    route_version_id: str | None,
+    evaluation_run_id: str | None,
+) -> SynthesisResult:
+    return SynthesisResult(
+        report=_with_assumption(report, LLM_SKIPPED_ASSUMPTION),
+        used_llm=False,
+        reason="validation_fallback",
+        outcome="validation_fallback",
+        validation_result="policy_denied",
+        fallback_reason=reason,
+        provider=provider,
+        route_version_id=route_version_id,
+        evaluation_run_id=evaluation_run_id,
+    )
 
 
 def _validation_fallback(
@@ -253,6 +399,7 @@ def _validation_fallback(
         latency_ms=_elapsed_ms(started),
         route_version_id=route_version_id,
         evaluation_run_id=evaluation_run_id,
+        provider_call_made=True,
     )
 
 
@@ -276,6 +423,7 @@ def _quality_fallback(
         route_version_id=route_version_id,
         evaluation_run_id=evaluation_run_id,
         quality_evidence=quality,
+        provider_call_made=True,
     )
 
 
@@ -317,6 +465,7 @@ def _enforce_immutable_fields(report: ReportResponse, base_report: ReportRespons
     report.status = base_report.status
     report.risk_rating = base_report.risk_rating
     report.strategy_description = base_report.strategy_description
+    report.research_question = base_report.research_question
     report.protocols = deepcopy(base_report.protocols)
     report.missing_data = deepcopy(base_report.missing_data)
     report.sources = deepcopy(base_report.sources)
@@ -324,6 +473,7 @@ def _enforce_immutable_fields(report: ReportResponse, base_report: ReportRespons
 
     immutable_sections = {
         "Strategy Description",
+        "Research Question",
         "Protocols Involved",
         "Risk Analysis",
         "Risk Rating",

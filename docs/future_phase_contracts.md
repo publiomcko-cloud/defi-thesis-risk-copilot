@@ -7,9 +7,15 @@ is **Complete — Portfolio Profile** and merged at
 `2de0043e2556781d8f34cc9d9308564cc2e3c8a7` through PR #31. Phase 21A–21E are
 merged, including PR #35 at `bfc52be02cf1d11d8cac94f4cc4585611e8a4d52`; the
 documentation-only 21F closeout passed required hosted checks on `c5b39f6` in
-Draft PR #36. Phase 22 is the later final deployed-provider/legal validation
-phase. Production analytics remains disabled pending qualified privacy/legal
-review.
+Draft PR #36. Phase 22 remains ACTIVE — HOLD. A later owner-provided F1
+authorization explicitly permits an isolated synchronous Research Copilot
+implementation candidate; it does not authorize real-provider use, personal
+data transmission, deployment, workers, schedules, the time-floor experiment,
+merge, or Phase 22 completion. See
+[`phase_22_f1_implementation.md`](phase_22_f1_implementation.md) and its
+[checksummed evidence report](phase_22_f1_implementation_report.md). The
+separate deployed-provider/legal release gates below remain open. Production
+analytics remains disabled pending qualified privacy/legal review.
 
 Future implementation prompts should reference this file, [`development_plan.md`](development_plan.md), [`current_state.md`](current_state.md), and the selected phase section instead of restating the entire scope.
 
@@ -46,7 +52,7 @@ Some work may overlap, but completion labels must respect dependencies.
 - Phase 19 production claims require Phase 17 and Phase 18 operational paths to exist.
 - Phase 20 billing and notifications depend on durable usage, jobs, observability, and identity.
 - Phase 21 model automation depends on evaluation, provenance, worker controls, cost controls, and auditability from Phases 17–20.
-- Phase 22 adds no product capability and closes the deferred deployed-provider and legal release gates after Phases 17–21.
+- The original Phase 22 release validation adds no product capability. The later owner-authored F1 authorization supersedes that implementation prohibition only for its isolated synchronous candidate; it does not close the deployed-provider or legal release gates.
 
 ---
 
@@ -1189,13 +1195,14 @@ Fine-tuned outputs remain advisory unless deterministic validation independently
 
 ---
 
-# V1 Phase 22 — Final Release Validation and Launch Approval
+# V1 Phase 22 — ACTIVE — HOLD; F1 candidate plus final release validation
 
-Status: **Planned**
+Status: **Active — Hold**. F1 implementation is isolated in an unmerged branch;
+the release gates in this section remain pending.
 
 ## 22.1 Goal
 
-Close the external release gates deferred from Phase 16 after all V1 implementation phases are complete. Phase 22 is a validation, evidence, and approval phase, not a feature-development phase.
+Close the external release gates deferred from Phase 16 after all V1 implementation phases are complete. The owner-authored F1 authorization is a narrowly scoped exception for the isolated synchronous research candidate; it does not alter this section's release requirements or activate the product.
 
 ## 22.2 Required validation
 
