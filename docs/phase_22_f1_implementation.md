@@ -28,7 +28,7 @@ An authenticated owner can open a private saved thesis, submit a bounded
 question, inspect persisted run history, and open the linked report. The
 synchronous service:
 
-1. Authorizes and locks the private thesis before reading its strategy, protocol tags, legacy saved assumptions, and current explicit assumption heads.
+1. Acquires an owner-scoped execution/lifecycle fence, then authorizes the private thesis before reading its strategy, protocol tags, legacy saved assumptions, and current explicit assumption heads.
 2. Reserves one owner-scoped idempotency key, checksums the bounded assumption snapshot with the thesis/question input, and applies the existing analysis quota.
 3. Runs the existing strategy parser, curated retrieval, market adapters, deterministic risk scoring, scenarios, and report writer.
 4. Matches bounded source sentences to the research question, cites each excerpt, reports unmatched question terms and possible lexical conflicts, and returns an explicit insufficient-evidence answer when no relevant sentence is found. Lexical matches remain marked weak; they never establish semantic entailment.
@@ -69,7 +69,12 @@ budget preflight uses deterministic fallback. Model text cannot replace risk,
 market observations, source lists, missing-data fields, or the disclaimer.
 Input-budget preflight uses UTF-8 byte length plus a fixed provider-wrapper
 reserve in the absence of a provider tokenizer, then derives the maximum output
-tokens and cost from registered route rates.
+tokens and cost from registered route rates. After a response, the enforced
+effective total is the maximum of the valid provider total and the valid
+input/output component sum. A malformed, incomplete, over-budget, or internally
+inconsistent usage record is rejected to deterministic output. Provider-reported
+and effective totals remain separately visible in persisted provenance and
+portfolio evidence.
 
 The BFF forwards the idempotency key and enforces a 30-second upstream abort;
 the Next.js route declares `maxDuration = 35`. The backend run deadline is 25
@@ -89,13 +94,19 @@ read-only project inspection.
 - Untrusted retrieved content remains evidence, not instructions. Traces store
   digests; raw private questions and source text are not written to product
   analytics.
-- PostgreSQL holds a transaction-scoped advisory execution lock across the
-  synchronous run. A status read that obtains the lock checks for a committed
-  report and otherwise marks the run `interrupted` with provider outcome and
-  usage explicitly uncertain. SQLite cannot prove ownership across processes;
-  it reports `uncertain` and does not cancel or replay a run. In either case the
-  same key returns the persisted terminal state. Do not retry an unknown run
-  under a new key. No automatic worker recovery exists.
+- PostgreSQL holds an owner-scoped transaction advisory lock on a dedicated,
+  pinned connection from before quota/run reservation through report commit.
+  Research starts, thesis create/update/delete, account deletion, and stale-run
+  reconciliation use this same owner fence. A status read that cannot obtain
+  it leaves an active `running` reservation untouched; after the fence is
+  released, reconciliation finds a committed report or marks the run
+  `interrupted` with provider outcome and usage explicitly uncertain. Process
+  loss releases the PostgreSQL transaction lock; transaction-pooling operation
+  requires the open transaction to pin its backend for the whole request.
+  SQLite has only a process-local fence and cannot prove cross-process
+  ownership; stale runs are marked `uncertain` and are not cancelled or
+  replayed. In either case the same key returns the persisted state. Do not
+  retry an unknown run under a new key. No automatic worker recovery exists.
 - Thesis and account deletion scrub F1 questions, strategy snapshots, source and
   model provenance, report JSON, and Markdown while retaining only a redacted
   disposition record. Report access rejects tombstoned rows. Owner privacy
@@ -103,10 +114,13 @@ read-only project inspection.
   have no automatic TTL; they are retained until the owner deletes the thesis
   or account, when F1 payloads are scrubbed in the existing lifecycle
   transaction.
-- Citation destinations are limited to public HTTPS without credentials and
-  recognized `docs/` or `knowledge_base/` Markdown references. Unsafe metadata
+- Citation destinations use the shared backend/frontend policy: ASCII DNS
+  names over HTTPS without credentials, plus recognized `docs/` or
+  `knowledge_base/` Markdown references. IP literals, IDNs, local names,
+  malformed ports, and ambiguous path encodings are rejected. Unsafe metadata
   is removed from F1 evidence before answer generation and sanitized again in
-  report APIs, Markdown export, and frontend links.
+  report APIs, Markdown export, and frontend links. The policy is display-only;
+  it does not authorize server-side fetching.
 - Provider provenance distinguishes no attempt, pre-transmission rejection,
   response received but rejected, uncertain transport outcome, and accepted
   output. Observed tokens and cost remain visible on rejected responses; missing

@@ -81,12 +81,13 @@ class ResearchRunMetadata(BaseModel):
     prompt_checksum: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
     input_tokens: int | None = Field(default=None, ge=0, le=10_000_000)
     output_tokens: int | None = Field(default=None, ge=0, le=10_000_000)
+    reported_total_tokens: int | None = Field(default=None, ge=0, le=10_000_000)
     total_tokens: int | None = Field(default=None, ge=0, le=10_000_000)
     cost_microusd: int | None = Field(default=None, ge=0)
     provider_call_state: Literal[
         "not_attempted", "rejected_before_transmission", "response_received_rejected", "uncertain", "output_accepted"
     ] = "not_attempted"
-    usage_status: Literal["not_applicable", "known", "partial", "unknown"] = "not_applicable"
+    usage_status: Literal["not_applicable", "known", "partial", "unknown", "inconsistent", "invalid"] = "not_applicable"
 
     model_config = ConfigDict(extra="forbid")
 

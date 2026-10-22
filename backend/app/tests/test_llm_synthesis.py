@@ -48,6 +48,38 @@ class UsageReturningProvider:
         )
 
 
+class BudgetUsageProvider:
+    name = "budget_usage_provider"
+    model = "budget_usage_model"
+
+    def __init__(
+        self,
+        *,
+        input_tokens: int | None,
+        output_tokens: int | None,
+        total_tokens: int | None,
+        cost_microusd: int | None = 100,
+        text: str | None = None,
+    ) -> None:
+        self.usage = (input_tokens, output_tokens, total_tokens, cost_microusd)
+        self.text = text or (
+            '{"executive_summary":"LLM educational summary that preserves uncertainty.",'
+            '"sections":{"Strategy Mechanics":"LLM explains mechanics in clearer educational language."}}'
+        )
+
+    def generate(self, request: LLMRequest) -> LLMResponse:
+        input_tokens, output_tokens, total_tokens, cost_microusd = self.usage
+        return LLMResponse(
+            provider=self.name,
+            model=self.model,
+            text=self.text,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            cost_microusd=cost_microusd,
+        )
+
+
 class FailingProvider:
     name = "failing_provider"
     model = "failing_model"
@@ -167,11 +199,110 @@ def test_over_budget_provider_response_preserves_observed_usage_and_system_bound
     assert result.provider_call_state == "response_received_rejected"
     assert result.usage_status == "known"
     assert (result.input_tokens, result.output_tokens, result.total_tokens, result.cost_microusd) == (45, 150, 195, 900)
+    assert result.reported_total_tokens == 195
     assert provider.requests[0].system_prompt == REPORT_SYNTHESIS_SYSTEM_PROMPT
     payload = json.loads(provider.requests[0].prompt)
     assert payload["strategy_description"] == {"trust_class": "untrusted_owner_task_input", "text": strategy}
     assert payload["research_question"] == {"trust_class": "untrusted_owner_task_input", "text": question}
     assert "Saved Thesis Assumptions" not in provider.requests[0].prompt
+
+
+def _run_budgeted_synthesis(monkeypatch, provider, *, total_tokens: int = 512, max_output_tokens: int = 100):
+    from app.llm.base import SynthesisBudget
+
+    monkeypatch.setenv("LLM_SYNTHESIS_ENABLED", "true")
+    get_settings.cache_clear()
+    monkeypatch.setattr(
+        "app.llm.synthesis._preflight_synthesis_budget",
+        lambda *_args, **_kwargs: (max_output_tokens, (10, 20), None),
+    )
+    return synthesize_report(
+        base_report=_base_report(),
+        retrieved_context=[],
+        market_data=_market_data(),
+        risk_score=_risk_score(),
+        provider=provider,
+        budget=SynthesisBudget(
+            total_tokens=total_tokens,
+            max_output_tokens=max_output_tokens,
+            cost_ceiling_microusd=500,
+        ),
+    )
+
+
+def test_budget_rejects_reported_total_smaller_than_input_plus_output(monkeypatch) -> None:
+    provider = BudgetUsageProvider(input_tokens=450, output_tokens=100, total_tokens=512, cost_microusd=123)
+    result = _run_budgeted_synthesis(monkeypatch, provider)
+
+    assert result.used_llm is False
+    assert result.fallback_reason == "provider_usage_inconsistent"
+    assert result.provider_call_state == "response_received_rejected"
+    assert (result.input_tokens, result.output_tokens, result.reported_total_tokens, result.total_tokens) == (450, 100, 512, 550)
+    assert result.cost_microusd == 123
+    assert result.report.executive_summary == _base_report().executive_summary
+
+
+def test_budget_rejects_reported_total_larger_than_input_plus_output(monkeypatch) -> None:
+    provider = BudgetUsageProvider(input_tokens=40, output_tokens=10, total_tokens=80, cost_microusd=12)
+    result = _run_budgeted_synthesis(monkeypatch, provider)
+
+    assert result.used_llm is False
+    assert result.fallback_reason == "provider_usage_inconsistent"
+    assert (result.reported_total_tokens, result.total_tokens) == (80, 80)
+    assert result.usage_status == "inconsistent"
+
+
+def test_budget_uses_input_plus_output_when_provider_total_is_missing(monkeypatch) -> None:
+    provider = BudgetUsageProvider(input_tokens=450, output_tokens=100, total_tokens=None, cost_microusd=123)
+    result = _run_budgeted_synthesis(monkeypatch, provider)
+
+    assert result.used_llm is False
+    assert result.fallback_reason == "provider_exceeded_token_budget"
+    assert result.reported_total_tokens is None
+    assert result.total_tokens == 550
+    assert result.cost_microusd == 123
+
+
+def test_budget_rejects_output_that_exceeds_its_independent_cap(monkeypatch) -> None:
+    provider = BudgetUsageProvider(input_tokens=40, output_tokens=101, total_tokens=141)
+    result = _run_budgeted_synthesis(monkeypatch, provider)
+
+    assert result.used_llm is False
+    assert result.fallback_reason == "provider_exceeded_token_budget"
+    assert result.output_tokens == 101
+    assert result.total_tokens == 141
+
+
+def test_budget_rejects_missing_usage_without_treating_unknown_as_zero(monkeypatch) -> None:
+    provider = BudgetUsageProvider(input_tokens=None, output_tokens=100, total_tokens=100, cost_microusd=40)
+    result = _run_budgeted_synthesis(monkeypatch, provider)
+
+    assert result.used_llm is False
+    assert result.fallback_reason == "provider_usage_unverifiable"
+    assert result.input_tokens is None
+    assert result.total_tokens == 100
+    assert result.cost_microusd == 40
+    assert result.usage_status == "partial"
+
+
+def test_budget_rejects_negative_usage_fields(monkeypatch) -> None:
+    provider = BudgetUsageProvider(input_tokens=-1, output_tokens=10, total_tokens=9, cost_microusd=12)
+    result = _run_budgeted_synthesis(monkeypatch, provider)
+
+    assert result.used_llm is False
+    assert result.fallback_reason == "provider_usage_invalid"
+    assert result.input_tokens is None
+    assert result.usage_status == "invalid"
+
+
+def test_budget_accepts_consistent_usage_exactly_at_both_limits(monkeypatch) -> None:
+    provider = BudgetUsageProvider(input_tokens=412, output_tokens=100, total_tokens=512, cost_microusd=500)
+    result = _run_budgeted_synthesis(monkeypatch, provider)
+
+    assert result.used_llm is True
+    assert result.provider_call_state == "output_accepted"
+    assert (result.input_tokens, result.output_tokens, result.reported_total_tokens, result.total_tokens) == (412, 100, 512, 512)
+    assert result.cost_microusd == 500
 
 
 def test_f1_markdown_export_rebuilds_citations_from_sanitized_source_models() -> None:

@@ -50,6 +50,7 @@ from app.research_intelligence.service import (
     export_research_intelligence,
 )
 from app.research_copilot.lifecycle import ActiveResearchRunError, dispose_research_runs_for_account
+from app.research_copilot.execution import hold_research_owner_lock
 from app.models.watchlist_item import WatchlistItemModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.notification import NotificationModel, NotificationPreferenceModel
@@ -568,6 +569,17 @@ def delete_account(
     db: Session = Depends(get_db),
     current_user: UserContext = Depends(require_authenticated_user),
 ) -> AccountDeleteResponse:
+    with hold_research_owner_lock(db, current_user.id) as acquired:
+        if not acquired:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Research or account lifecycle work is active; retry account deletion after it settles.",
+            )
+        return _delete_account_with_research_lock(db, current_user)
+
+
+def _delete_account_with_research_lock(db: Session, current_user: UserContext) -> AccountDeleteResponse:
     user = db.execute(
         select(UserModel).where(UserModel.id == current_user.id).with_for_update()
     ).scalars().one_or_none()

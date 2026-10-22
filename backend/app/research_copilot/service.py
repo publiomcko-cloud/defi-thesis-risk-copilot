@@ -21,11 +21,14 @@ from app.models.analysis_request import AnalysisRequestModel
 from app.models.report import ReportModel
 from app.models.research_intelligence import ThesisAssumptionHeadModel, ThesisAssumptionModel
 from app.models.saved_thesis import SavedThesisModel
+from app.models.user import UserModel
 from app.research_copilot.execution import (
+    hold_research_owner_lock,
     is_local_run_active,
     mark_local_run_active,
     mark_local_run_inactive,
     try_acquire_execution_lock,
+    try_acquire_research_owner_lock,
 )
 from app.product_analytics.service import emit_product_event_safely
 from app.quotas.service import ACTION_ANALYSIS, consume_quota
@@ -56,9 +59,42 @@ def start_thesis_research(
     idempotency_key: str | None,
 ) -> ResearchRunSummary:
     settings = get_settings()
-    thesis = _authorized_private_thesis(db, actor, thesis_id)
     if not idempotency_key or not _RUN_KEY_PATTERN.fullmatch(idempotency_key):
         raise HTTPException(status_code=422, detail="A valid Idempotency-Key is required for research runs.")
+    execution_started = monotonic()
+    deadline = execution_started + settings.research_run_wall_time_seconds
+    with hold_research_owner_lock(db, actor.id) as acquired:
+        if not acquired:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Research or thesis lifecycle work is already active for this account; retry with the same idempotency key.",
+            )
+        _require_active_user(db, actor.id)
+        return _start_thesis_research_owned(
+            db,
+            actor,
+            thesis_id,
+            request,
+            idempotency_key,
+            settings=settings,
+            execution_started=execution_started,
+            deadline=deadline,
+        )
+
+
+def _start_thesis_research_owned(
+    db: Session,
+    actor: UserContext,
+    thesis_id: str,
+    request: ResearchQuestionRequest,
+    idempotency_key: str,
+    *,
+    settings,
+    execution_started: float,
+    deadline: float,
+) -> ResearchRunSummary:
+    thesis = _authorized_private_thesis(db, actor, thesis_id)
     protocols = sorted({str(item).strip().lower() for item in (thesis.protocols or []) if str(item).strip()})
     strategy_text = str(thesis.strategy_text)
     stable_thesis_id = thesis.id
@@ -75,8 +111,6 @@ def start_thesis_research(
         return _existing_run_response(db, existing, thesis_id, input_checksum)
 
     started_at = datetime.now(UTC)
-    execution_started = monotonic()
-    deadline = execution_started + settings.research_run_wall_time_seconds
     run_id = f"analysis_{uuid4().hex[:16]}"
     report_id = f"report_{uuid4().hex[:16]}"
     run = AnalysisRequestModel(
@@ -98,26 +132,29 @@ def start_thesis_research(
         anonymous_session_id=None,
         created_at=started_at,
     )
+    # Mark ownership before commit makes even the short SQLite single-process
+    # reservation handoff visible to concurrent status reconciliation.
+    mark_local_run_active(run.id)
     db.add(run)
     try:
         # consume_quota commits the run reservation and quota increment together.
         consume_quota(db, actor, ACTION_ANALYSIS)
         db.commit()
     except IntegrityError:
+        mark_local_run_inactive(run.id)
         db.rollback()
         winner = _existing_run(db, actor.id, idempotency_key)
         if winner is None:
             raise HTTPException(status_code=409, detail="The research run could not be reserved safely.") from None
         return _existing_run_response(db, winner, thesis_id, input_checksum)
     except HTTPException:
+        mark_local_run_inactive(run.id)
         db.rollback()
         raise
-
-    mark_local_run_active(run.id)
-    execution_lock = try_acquire_execution_lock(db, run.id)
-    if execution_lock is False:
+    except Exception:
         mark_local_run_inactive(run.id)
-        return _run_response(db, run, stable_thesis_id)
+        db.rollback()
+        raise
 
     synthesis_budget = SynthesisBudget(
         total_tokens=settings.research_run_token_budget,
@@ -126,6 +163,7 @@ def start_thesis_research(
         deadline_monotonic=deadline,
     )
     try:
+        _assert_execution_boundary(db, actor, stable_thesis_id, run.id, input_checksum)
         workflow = run_analysis_workflow(
             AnalysisRequest(
                 strategy_description=strategy_text,
@@ -146,6 +184,7 @@ def start_thesis_research(
             synthesis_budget=synthesis_budget,
             thesis_assumptions=thesis_assumptions,
         )
+        _assert_execution_boundary(db, actor, stable_thesis_id, run.id, input_checksum)
         completed_at = datetime.now(UTC)
         evidence_gaps = list(dict.fromkeys(workflow.missing_data))
         source_observations = _source_observations(workflow, completed_at)
@@ -176,6 +215,7 @@ def start_thesis_research(
             prompt_checksum=model_run.prompt_checksum,
             input_tokens=model_run.input_tokens,
             output_tokens=model_run.output_tokens,
+            reported_total_tokens=model_run.reported_total_tokens,
             total_tokens=model_run.total_tokens,
             cost_microusd=model_run.cost_microusd,
             provider_call_state=workflow.provider_call_state,
@@ -279,8 +319,11 @@ def get_thesis_research_run(
 
 
 def _authorized_private_thesis(db: Session, actor: UserContext, thesis_id: str) -> SavedThesisModel:
+    _require_active_user(db, actor.id)
     thesis = db.execute(
-        select(SavedThesisModel).where(SavedThesisModel.id == thesis_id).with_for_update()
+        select(SavedThesisModel)
+        .where(SavedThesisModel.id == thesis_id)
+        .execution_options(populate_existing=True)
     ).scalars().one_or_none()
     if (
         thesis is None
@@ -292,6 +335,46 @@ def _authorized_private_thesis(db: Session, actor: UserContext, thesis_id: str) 
     return thesis
 
 
+def _require_active_user(db: Session, owner_user_id: str) -> UserModel:
+    user = db.execute(
+        select(UserModel)
+        .where(UserModel.id == owner_user_id)
+        .execution_options(populate_existing=True)
+    ).scalars().one_or_none()
+    if user is None or user.deleted_at is not None or not user.is_active or user.account_status != "active":
+        raise HTTPException(status_code=404, detail="Account not found")
+    return user
+
+
+def _assert_execution_boundary(
+    db: Session,
+    actor: UserContext,
+    thesis_id: str,
+    run_id: str,
+    input_checksum: str,
+) -> None:
+    """Revalidate ownership and the exact reserved input before work and save."""
+
+    thesis = _authorized_private_thesis(db, actor, thesis_id)
+    run = db.execute(
+        select(AnalysisRequestModel)
+        .where(AnalysisRequestModel.id == run_id)
+        .where(AnalysisRequestModel.owner_user_id == actor.id)
+        .where(AnalysisRequestModel.thesis_id == thesis_id)
+        .where(AnalysisRequestModel.research_input_checksum == input_checksum)
+        .execution_options(populate_existing=True)
+    ).scalars().one_or_none()
+    if run is None or run.research_status != "running" or run.deleted_at is not None:
+        raise HTTPException(status_code=409, detail="Research ownership changed before execution could safely continue.")
+    thesis_assumptions = _thesis_assumptions_snapshot(db, thesis)
+    if _research_input_checksum(
+        thesis,
+        ResearchQuestionRequest(question=str(run.research_question or "")),
+        thesis_assumptions,
+    ) != input_checksum:
+        raise HTTPException(status_code=409, detail="Thesis inputs changed before research could safely complete.")
+
+
 def _research_input_checksum(
     thesis: SavedThesisModel,
     request: ResearchQuestionRequest,
@@ -300,7 +383,13 @@ def _research_input_checksum(
     payload = {
         "thesis_id": thesis.id,
         "strategy_text": thesis.strategy_text,
-        "protocols": sorted({str(item).lower() for item in (thesis.protocols or [])}),
+        "protocols": sorted(
+            {
+                str(item).strip().lower()
+                for item in (thesis.protocols or [])
+                if str(item).strip()
+            }
+        ),
         "thesis_assumptions": thesis_assumptions,
         "question": request.question.strip(),
     }
@@ -389,7 +478,7 @@ def _reconcile_run_state(db: Session, run: AnalysisRequestModel) -> None:
             return
         _mark_uncertain(db, run, "execution_owner_unverifiable")
         return
-    if not try_acquire_execution_lock(db, run.id):
+    if not try_acquire_research_owner_lock(db, run.owner_user_id or ""):
         return
     report = db.execute(
         select(ReportModel).where(ReportModel.analysis_request_id == run.id)

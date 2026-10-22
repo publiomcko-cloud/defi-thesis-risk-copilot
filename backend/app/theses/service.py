@@ -12,7 +12,9 @@ from app.auth.schemas import UserContext
 from app.models.report import ReportModel
 from app.models.research_intelligence import ThesisAssumptionModel, ThesisCatalystModel
 from app.models.saved_thesis import SavedThesisModel
+from app.models.user import UserModel
 from app.research_copilot.lifecycle import ActiveResearchRunError, dispose_research_runs_for_thesis
+from app.research_copilot.execution import hold_research_owner_lock
 from app.product_analytics.service import emit_product_event_safely
 from app.quotas.service import RESOURCE_SAVED_THESES, enforce_resource_count_limit
 from app.research_intelligence.service import (
@@ -26,6 +28,15 @@ from app.theses.policies import can_read_saved_thesis, can_update_saved_thesis
 
 
 def create_thesis(db: Session, actor: UserContext, request: ThesisCreateRequest) -> ThesisResponse:
+    with hold_research_owner_lock(db, actor.id) as acquired:
+        if not acquired:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="Account research or lifecycle work is active; retry thesis creation.")
+        _require_active_owner(db, actor.id)
+        return _create_thesis_with_owner_lock(db, actor, request)
+
+
+def _create_thesis_with_owner_lock(db: Session, actor: UserContext, request: ThesisCreateRequest) -> ThesisResponse:
     enforce_resource_count_limit(db, actor, RESOURCE_SAVED_THESES)
     if request.visibility == "organization":
         if not request.organization_id or not has_org_role(db, actor.id, request.organization_id, {"owner", "admin", "member"}):
@@ -84,6 +95,20 @@ def update_thesis(
     thesis_id: str,
     request: ThesisUpdateRequest,
 ) -> ThesisResponse:
+    with hold_research_owner_lock(db, actor.id) as acquired:
+        if not acquired:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="Account research or lifecycle work is active; retry thesis update.")
+        _require_active_owner(db, actor.id)
+        return _update_thesis_with_owner_lock(db, actor, thesis_id, request)
+
+
+def _update_thesis_with_owner_lock(
+    db: Session,
+    actor: UserContext,
+    thesis_id: str,
+    request: ThesisUpdateRequest,
+) -> ThesisResponse:
     record = db.execute(
         select(SavedThesisModel).where(SavedThesisModel.id == thesis_id).with_for_update()
     ).scalars().one_or_none()
@@ -118,6 +143,18 @@ def update_thesis(
 
 
 def delete_thesis(db: Session, actor: UserContext, thesis_id: str) -> ThesisResponse:
+    with hold_research_owner_lock(db, actor.id) as acquired:
+        if not acquired:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Research or thesis lifecycle work is active; retry thesis deletion after it settles.",
+            )
+        _require_active_owner(db, actor.id)
+        return _delete_thesis_with_owner_lock(db, actor, thesis_id)
+
+
+def _delete_thesis_with_owner_lock(db: Session, actor: UserContext, thesis_id: str) -> ThesisResponse:
     record = db.execute(
         select(SavedThesisModel).where(SavedThesisModel.id == thesis_id).with_for_update()
     ).scalars().one_or_none()
@@ -133,6 +170,17 @@ def delete_thesis(db: Session, actor: UserContext, thesis_id: str) -> ThesisResp
     db.commit()
     db.refresh(record)
     return thesis_response(record)
+
+
+def _require_active_owner(db: Session, owner_user_id: str) -> UserModel:
+    user = db.execute(
+        select(UserModel)
+        .where(UserModel.id == owner_user_id)
+        .execution_options(populate_existing=True)
+    ).scalars().one_or_none()
+    if user is None or user.deleted_at is not None or not user.is_active or user.account_status != "active":
+        raise HTTPException(status_code=404, detail="Account not found")
+    return user
 
 
 def thesis_response(record: SavedThesisModel) -> ThesisResponse:

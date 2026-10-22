@@ -556,10 +556,11 @@ export type ResearchRunMetadata = {
   prompt_checksum?: string | null;
   input_tokens?: number | null;
   output_tokens?: number | null;
+  reported_total_tokens?: number | null;
   total_tokens?: number | null;
   cost_microusd?: number | null;
   provider_call_state: "not_attempted" | "rejected_before_transmission" | "response_received_rejected" | "uncertain" | "output_accepted";
-  usage_status: "not_applicable" | "known" | "partial" | "unknown";
+  usage_status: "not_applicable" | "known" | "partial" | "unknown" | "inconsistent" | "invalid";
 };
 
 export type ResearchRunSummary = {

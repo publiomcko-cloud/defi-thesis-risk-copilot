@@ -67,7 +67,9 @@ def _render_research_provenance(report: ReportResponse) -> str:
         else f"Deterministic output used; provider call state {research.provider_call_state}; usage {research.usage_status} ({research.llm_outcome})."
     )
     usage = (
-        f"Observed usage: {research.total_tokens} tokens; {research.cost_microusd} microUSD."
+        f"Observed usage: effective total {research.total_tokens} tokens; provider-reported total "
+        f"{research.reported_total_tokens if research.reported_total_tokens is not None else 'unknown'}; "
+        f"{research.cost_microusd if research.cost_microusd is not None else 'unknown'} microUSD."
         if research.total_tokens is not None or research.cost_microusd is not None
         else "Observed token/cost usage: unknown."
     )

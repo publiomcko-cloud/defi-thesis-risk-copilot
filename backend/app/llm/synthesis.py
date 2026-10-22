@@ -54,6 +54,7 @@ class SynthesisResult:
     input_tokens: int | None = None
     output_tokens: int | None = None
     total_tokens: int | None = None
+    reported_total_tokens: int | None = None
     cost_microusd: int | None = None
     route_version_id: str | None = None
     evaluation_run_id: str | None = None
@@ -239,22 +240,30 @@ def _synthesize_with_provider(
                 system_prompt=REPORT_SYNTHESIS_SYSTEM_PROMPT,
             )
         )
-        actual_cost = response.cost_microusd
-        actual_total_tokens = response.total_tokens
-        if actual_total_tokens is None and response.input_tokens is not None and response.output_tokens is not None:
-            actual_total_tokens = response.input_tokens + response.output_tokens
-        if actual_cost is None and cost_rates is not None:
+        actual_cost = _valid_cost_value(response.cost_microusd)
+        actual_total_tokens = _effective_total_tokens(response)
+        input_tokens = _valid_token_value(response.input_tokens)
+        output_tokens = _valid_token_value(response.output_tokens)
+        if response.cost_microusd is None and cost_rates is not None:
             input_rate, output_rate = cost_rates
-            if response.input_tokens is not None and response.output_tokens is not None:
+            if input_tokens is not None and output_tokens is not None:
                 actual_cost = ceil(
-                    (
-                        response.input_tokens * input_rate
-                        + response.output_tokens * output_rate
-                    )
-                    / 1_000_000
+                    (input_tokens * input_rate + output_tokens * output_rate) / 1_000_000
                 )
         if budget is not None:
-            if any(value is None for value in (response.input_tokens, response.output_tokens, actual_total_tokens, actual_cost)):
+            usage_status = _usage_status(response, actual_cost, actual_total_tokens)
+            if usage_status in {"invalid", "inconsistent"}:
+                return _budget_fallback(
+                    base_report,
+                    identity,
+                    "provider_usage_invalid" if usage_status == "invalid" else "provider_usage_inconsistent",
+                    route_version_id,
+                    evaluation_run_id,
+                    response=response,
+                    actual_cost=actual_cost,
+                    actual_total_tokens=actual_total_tokens,
+                )
+            if any(value is None for value in (input_tokens, output_tokens, actual_total_tokens, actual_cost)):
                 return _budget_fallback(
                     base_report,
                     identity,
@@ -265,13 +274,7 @@ def _synthesize_with_provider(
                     actual_cost=actual_cost,
                     actual_total_tokens=actual_total_tokens,
                 )
-            if (
-                response.output_tokens is not None
-                and response.output_tokens > max_output_tokens
-            ) or (
-                response.total_tokens is not None
-                and response.total_tokens > budget.total_tokens
-            ):
+            if output_tokens > max_output_tokens or actual_total_tokens > budget.total_tokens:
                 return _budget_fallback(
                     base_report,
                     identity,
@@ -282,7 +285,7 @@ def _synthesize_with_provider(
                     actual_cost=actual_cost,
                     actual_total_tokens=actual_total_tokens,
                 )
-            if actual_cost is not None and actual_cost > budget.cost_ceiling_microusd:
+            if actual_cost > budget.cost_ceiling_microusd:
                 return _budget_fallback(
                     base_report,
                     identity,
@@ -322,9 +325,10 @@ def _synthesize_with_provider(
             validation_result="accepted",
             provider=identity,
             latency_ms=_elapsed_ms(started),
-            input_tokens=response.input_tokens,
-            output_tokens=response.output_tokens,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
             total_tokens=actual_total_tokens,
+            reported_total_tokens=_valid_token_value(response.total_tokens),
             cost_microusd=actual_cost,
             route_version_id=route_version_id,
             evaluation_run_id=evaluation_run_id,
@@ -434,9 +438,10 @@ def _budget_fallback(
         provider=provider,
         route_version_id=route_version_id,
         evaluation_run_id=evaluation_run_id,
-        input_tokens=response.input_tokens if response else None,
-        output_tokens=response.output_tokens if response else None,
+        input_tokens=_valid_token_value(response.input_tokens) if response else None,
+        output_tokens=_valid_token_value(response.output_tokens) if response else None,
         total_tokens=actual_total_tokens if response else None,
+        reported_total_tokens=_valid_token_value(response.total_tokens) if response else None,
         cost_microusd=actual_cost,
         provider_call_made=response is not None,
         provider_call_state="response_received_rejected" if response else "not_attempted",
@@ -467,9 +472,10 @@ def _validation_fallback(
         latency_ms=_elapsed_ms(started),
         route_version_id=route_version_id,
         evaluation_run_id=evaluation_run_id,
-        input_tokens=response.input_tokens if response else None,
-        output_tokens=response.output_tokens if response else None,
+        input_tokens=_valid_token_value(response.input_tokens) if response else None,
+        output_tokens=_valid_token_value(response.output_tokens) if response else None,
         total_tokens=actual_total_tokens if response else None,
+        reported_total_tokens=_valid_token_value(response.total_tokens) if response else None,
         cost_microusd=actual_cost,
         provider_call_made=response is not None,
         provider_call_state="response_received_rejected" if response else "not_attempted",
@@ -500,9 +506,10 @@ def _quality_fallback(
         route_version_id=route_version_id,
         evaluation_run_id=evaluation_run_id,
         quality_evidence=quality,
-        input_tokens=response.input_tokens if response else None,
-        output_tokens=response.output_tokens if response else None,
+        input_tokens=_valid_token_value(response.input_tokens) if response else None,
+        output_tokens=_valid_token_value(response.output_tokens) if response else None,
         total_tokens=actual_total_tokens if response else None,
+        reported_total_tokens=_valid_token_value(response.total_tokens) if response else None,
         cost_microusd=actual_cost,
         provider_call_made=response is not None,
         provider_call_state="response_received_rejected" if response else "not_attempted",
@@ -517,11 +524,55 @@ def _usage_status(
 ) -> str:
     if response is None:
         return "not_applicable"
-    total = actual_total_tokens if actual_total_tokens is not None else response.total_tokens
-    evidence = (response.input_tokens, response.output_tokens, total, actual_cost)
+    observed = (response.input_tokens, response.output_tokens, response.total_tokens)
+    if any(value is not None and _valid_token_value(value) is None for value in observed):
+        return "invalid"
+    if response.cost_microusd is not None and _valid_cost_value(response.cost_microusd) is None:
+        return "invalid"
+    if (
+        response.input_tokens is not None
+        and response.output_tokens is not None
+        and response.total_tokens is not None
+        and response.total_tokens != response.input_tokens + response.output_tokens
+    ):
+        return "inconsistent"
+    total = actual_total_tokens if actual_total_tokens is not None else _effective_total_tokens(response)
+    evidence = (
+        _valid_token_value(response.input_tokens),
+        _valid_token_value(response.output_tokens),
+        total,
+        _valid_cost_value(actual_cost),
+    )
     if all(value is not None for value in evidence):
         return "known"
     return "partial" if any(value is not None for value in evidence) else "unknown"
+
+
+def _valid_token_value(value: object) -> int | None:
+    if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 10_000_000:
+        return None
+    return value
+
+
+def _valid_cost_value(value: object) -> int | None:
+    if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 2_147_483_647:
+        return None
+    return value
+
+
+def _effective_total_tokens(response: LLMResponse) -> int | None:
+    """Use the largest valid observed total; components can never be undercut."""
+
+    reported_total = _valid_token_value(response.total_tokens)
+    input_tokens = _valid_token_value(response.input_tokens)
+    output_tokens = _valid_token_value(response.output_tokens)
+    components_total = (
+        input_tokens + output_tokens
+        if input_tokens is not None and output_tokens is not None
+        else None
+    )
+    known_totals = [value for value in (reported_total, components_total) if value is not None]
+    return max(known_totals) if known_totals else None
 
 
 def _resolution_fallback(base_report: ReportResponse, resolution: RouteResolution) -> SynthesisResult:
