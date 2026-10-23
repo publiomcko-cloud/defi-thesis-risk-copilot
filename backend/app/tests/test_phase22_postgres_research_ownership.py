@@ -581,6 +581,106 @@ def test_postgres_account_deletion_wins_after_owner_lock_connection_loss(monkeyp
         engine.dispose()
 
 
+def test_postgres_reconciliation_wins_after_owner_lock_loss_without_stale_completion(monkeypatch) -> None:
+    engine, Session = _postgres_session_factory()
+    owner_id, thesis_id, key = _new_case(Session)
+    database_url = _database_url(engine)
+    context = multiprocessing.get_context("spawn")
+    reached_post_boundary = threading.Event()
+    continue_after_reconciliation = threading.Event()
+    thread_result: queue.Queue = queue.Queue()
+    application_pid: list[int] = []
+    active_session: list = []
+
+    import app.research_copilot.service as research_service
+
+    monkeypatch.setattr(
+        research_service,
+        "run_analysis_workflow",
+        lambda _request, report_id, *_args, **_kwargs: _synthetic_workflow(report_id, _request),
+    )
+    monkeypatch.setattr(research_service, "emit_product_event_safely", lambda *_args, **_kwargs: None)
+    original_source_observations = research_service._source_observations
+
+    def pause_after_post_workflow_boundary(workflow, completed_at):
+        application_pid.append(active_session[0].execute(text("SELECT pg_backend_pid()")).scalar_one())
+        reached_post_boundary.set()
+        if not continue_after_reconciliation.wait(15):
+            raise TimeoutError("reconciliation barrier was not released")
+        return original_source_observations(workflow, completed_at)
+
+    monkeypatch.setattr(research_service, "_source_observations", pause_after_post_workflow_boundary)
+
+    def start_request() -> None:
+        try:
+            with Session() as db:
+                active_session.append(db)
+                result = start_thesis_research(
+                    db,
+                    _actor(owner_id),
+                    thesis_id,
+                    ResearchQuestionRequest(question="How can maturity and liquidity change this thesis?"),
+                    key,
+                )
+            thread_result.put(("ok", result))
+        except BaseException as exc:
+            thread_result.put(("error", exc))
+
+    thread = threading.Thread(target=start_request, daemon=True)
+    try:
+        thread.start()
+        assert reached_post_boundary.wait(15), "request did not reach the post-workflow boundary"
+        owner_lock_pid = _terminate_owner_lock_backend(engine, owner_id)
+        assert owner_lock_pid != application_pid[0]
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid = :pid)"),
+                {"pid": application_pid[0]},
+            ).scalar_one() is True
+
+        with Session() as db:
+            run_id = db.execute(
+                select(AnalysisRequestModel.id).where(AnalysisRequestModel.owner_user_id == owner_id)
+            ).scalar_one()
+        reader_results = context.Queue()
+        reader = context.Process(
+            target=_reader_process,
+            args=(database_url, owner_id, thesis_id, run_id, reader_results),
+        )
+        reader.start()
+        assert reader_results.get(timeout=20) == ("ok", "interrupted")
+        reader.join(timeout=20)
+        assert reader.exitcode == 0
+
+        continue_after_reconciliation.set()
+        thread.join(timeout=20)
+        assert not thread.is_alive()
+        status, result = thread_result.get_nowait()
+        assert status == "error"
+        assert isinstance(result, HTTPException)
+        assert result.status_code == 503
+
+        with Session() as db:
+            run = db.get(AnalysisRequestModel, run_id)
+            assert run is not None
+            assert run.research_status == "interrupted"
+            assert run.deleted_at is None
+            assert run.research_metadata_json["provider_call_state"] == "uncertain"
+            assert run.research_metadata_json["outcome_certainty"] == "uncertain"
+            assert db.execute(
+                select(ReportModel).where(ReportModel.analysis_request_id == run_id)
+            ).scalars().all() == []
+            quota = db.execute(
+                select(UsageQuotaModel).where(UsageQuotaModel.subject_id == owner_id)
+            ).scalars().one()
+            assert quota.used == 1
+    finally:
+        continue_after_reconciliation.set()
+        thread.join(timeout=20)
+        _cleanup_owner(Session, owner_id)
+        engine.dispose()
+
+
 def test_postgres_row_locks_serialize_completion_before_deletion_after_owner_loss(monkeypatch) -> None:
     engine, Session = _postgres_session_factory()
     owner_id, thesis_id, key = _new_case(Session)
