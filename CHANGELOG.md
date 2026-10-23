@@ -1,5 +1,79 @@
 # Changelog
 
+## Phase 22 - Final release validation
+
+- PR #39 merged the independently reviewed dependency security correction at
+  `9c9403aa71a52050de7d4a892beff675458386b6`. It updates `pypdf` from 6.16.1
+  to 6.20.0 and the affected frontend packages (`next` 15.5.25 to 15.5.27,
+  `sharp` 0.35.4 to 0.35.5, and `source-map-js` 1.2.1 to 1.2.2). All ten
+  required GitHub checks passed on exact PR head
+  `c6d7cfdce8d81170184ef995dc8ea832f86ff1d9`; the protected merge was recorded
+  with first parent `abc83d36c115b4122a1a1964fde101fbf9c407e4`. The merge is a
+  repository source revision, not a new deployment candidate. No deployment,
+  database provisioning, or migration action followed it. GitHub's existing
+  Phase 17 Scheduled Worker cron automatically ran at 2026-10-12T18:03:06Z on
+  this main SHA (run `38288308792`, event `schedule`; job conclusion `success`).
+  The workflow has a worker database credential; whether it connected, claimed
+  a job, or wrote worker data is unverified. This was not manually dispatched
+  and is not candidate-specific release evidence; see the release record.
+  Phase 22 remains **HOLD** on the original candidate's external blockers.
+- The Phase 22 documentation branch was reconciled with the merged `main`
+  revision while retaining the original candidate SHA, failed Render attempt,
+  prior Vercel success, and worker timeout as historical evidence. PR #37
+  remains draft and unmerged. All ten required exact-head contexts passed on
+  reconciled head `5d1003b701df53d22fba85015e1bebb971047892`; the GitHub PR
+  record tracks the current head and its exact-head checks. The reconciliation
+  does not change the original deployment candidate or clear the external
+  provisioning blocker.
+
+- On 2026-10-12, submitted exact candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`
+  to the identified production Render backend. Build succeeded; startup failed
+  during migration `20260727_0018` because the existing database lacks the
+  PostgreSQL `vector` extension. Deployment `dep-db6ghojrjlhs738e933g` ended
+  `update_failed`; the previous deployment still serves and reports `6f07ef9`.
+  No database change, retry, environment change, runtime code change, or provider
+  activation was made. Candidate provenance remains on hold pending an
+  independently authorized database prerequisite and later successful deploy.
+- Recorded the Render service identity, source branch/configuration, categorical
+  environment audit, bounded failure classification, and post-failure public
+  endpoint results in the Phase 22 release record. The Phase 17 scheduled
+  worker's earlier candidate run timed out after 20 seconds. No manual
+  candidate-specific rerun was requested; the later automatic cron run on
+  `9c9403aa` is recorded separately and does not establish candidate
+  provenance.
+- Final hosted checks on documentation head `2da7820` passed nine of ten
+  required contexts. `Dependency and Container Security` failed because
+  `pip-audit` found eight advisories in unchanged `pypdf` 6.16.1. At that point,
+  the release gate remained held pending a separately reviewed dependency
+  correction. PR #39 later supplied that correction and passed its exact-head
+  checks, as recorded above; the active GitHub release ruleset was not changed.
+- Remediated GitHub release controls with active `main` ruleset `23890276`:
+  pull requests, current exact-check contexts, resolved conversations, and
+  force-push/deletion protection. The single-maintainer admin recovery path is
+  pull-request-only. Enabled native Actions SHA pinning, dependency graph/SBOM
+  evidence, Dependabot alerts/security updates, secret scanning, and push
+  protection; unavailable generic-pattern/validity scanning remains a GitHub
+  feature-availability hold, without a scanner exemption.
+- Verified GitHub's successful Vercel Production deployment record for exact
+  Phase 21 closeout candidate `abc83d36`. Render remains unaligned after the
+  startup failure above, so Phase 22 remains on hold. No provider or commercial
+  capability was activated.
+- Added the Phase 22 execution plan, evidence matrix, and bounded release
+  validation record. A public smoke check found the live Render backend reports
+  `6f07ef9`, not the required Phase 21 closeout merge
+  `abc83d36c115b4122a1a1964fde101fbf9c407e4`; the candidate-deployment gate is
+  therefore explicitly failed and Phase 22 is on hold.
+- Classified unavailable SMTP, disposable-account, provider configuration,
+  storage/RLS, worker/operations, backup/restore, and legal evidence as external
+  or human blockers. No paid/external capability was activated, and commercial
+  launch is not approved.
+- Completed isolated local regression on the reviewed implementation: fresh
+  PostgreSQL/pgvector migration and rollback cycle, full backend suite,
+  runtime/corpus checks, frontend/browser E2E, Compose, supply-chain scans,
+  fresh backend/frontend image scans, and the Phase 19 exercise catalog passed.
+  Required hosted categories passed on documentation-only SHA `d89b5bb`; the
+  Draft PR check view retains the final exact-SHA result.
+
 ## Phase 21F — Model and research intelligence closeout
 
 - Began the documentation-only Phase 21 reconciliation: the Phase 21E final

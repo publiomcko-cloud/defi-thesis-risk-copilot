@@ -1191,7 +1191,12 @@ Fine-tuned outputs remain advisory unless deterministic validation independently
 
 # V1 Phase 22 — Final Release Validation and Launch Approval
 
-Status: **Planned**
+Status: **Active - HOLD.** On 2026-09-23 GitHub release controls and Vercel
+Production deployment of required candidate
+`abc83d36c115b4122a1a1964fde101fbf9c407e4` were verified. The public Render
+deployment still reported `6f07ef9`, and no authorized Render deployment
+interface is available. This `BLOCKED_EXTERNAL` provenance gate must be
+resolved before deployed validation or launch approval can continue.
 
 ## 22.1 Goal
 

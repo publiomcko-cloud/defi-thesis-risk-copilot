@@ -818,6 +818,18 @@ docker compose up -d --build
 
 ### V1 Phase 22 manual release verification
 
+Current state: **HOLD.** GitHub records successful Vercel Production deployment
+of required candidate `abc83d36c115b4122a1a1964fde101fbf9c407e4`. The exact
+Render deployment attempt `dep-db6ghojrjlhs738e933g` on 2026-10-12 built but
+failed during startup because migration `20260727_0018` requires PostgreSQL
+extension `vector`, which is not installed in the existing database. The old
+Render deployment remains healthy and reports `6f07ef9`; its endpoint responses
+do not prove the candidate is deployed. No database change or deployment retry
+was made. An independently authorized DBA must handle the extension
+prerequisite before a later candidate deployment and disposable-account or
+provider validation. The bounded evidence record is in
+[`phase_22_release_validation.md`](phase_22_release_validation.md).
+
 Test on Vercel/Render preview deployments:
 
 - public seeded report;
