@@ -27,6 +27,9 @@ class LLMResponse:
     output_tokens: int | None = None
     total_tokens: int | None = None
     cost_microusd: int | None = None
+    # Field names only: malformed or contract-missing usage. Raw provider
+    # values are deliberately not retained in provenance.
+    usage_invalid_fields: tuple[str, ...] = ()
 
 
 class LLMProvider(Protocol):

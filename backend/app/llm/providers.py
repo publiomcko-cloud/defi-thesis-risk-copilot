@@ -32,13 +32,30 @@ class OllamaProvider:
         )
         response.raise_for_status()
         payload = response.json()
+        input_tokens, input_invalid = _required_usage(payload, "prompt_eval_count")
+        output_tokens, output_invalid = _required_usage(payload, "eval_count")
+        derived_total = _bounded_usage(input_tokens, output_tokens)
+        invalid_fields = [
+            field
+            for field, invalid in (
+                ("prompt_eval_count", input_invalid),
+                ("eval_count", output_invalid),
+            )
+            if invalid
+        ]
+        if not input_invalid and not output_invalid and derived_total is None:
+            invalid_fields.append("total_tokens")
         return LLMResponse(
             text=str(payload.get("response") or ""),
             provider=self.name,
             model=self.model,
-            input_tokens=_bounded_usage(payload.get("prompt_eval_count")),
-            output_tokens=_bounded_usage(payload.get("eval_count")),
-            total_tokens=_bounded_usage(payload.get("prompt_eval_count"), payload.get("eval_count")),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            # Ollama reports input and output counts but no separate total.
+            # Let synthesis derive the effective total without claiming the
+            # provider reported one.
+            total_tokens=None,
+            usage_invalid_fields=tuple(invalid_fields),
         )
 
 
@@ -74,14 +91,33 @@ class OpenAICompatibleProvider:
         response.raise_for_status()
         data = response.json()
         content = data["choices"][0]["message"]["content"]
-        usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+        raw_usage = data.get("usage")
+        if isinstance(raw_usage, dict):
+            usage = raw_usage
+            usage_invalid_fields: list[str] = []
+            input_tokens, input_invalid = _required_usage(usage, "prompt_tokens")
+            output_tokens, output_invalid = _required_usage(usage, "completion_tokens")
+            total_tokens, total_invalid = _required_usage(usage, "total_tokens")
+            usage_invalid_fields.extend(
+                field
+                for field, invalid in (
+                    ("prompt_tokens", input_invalid),
+                    ("completion_tokens", output_invalid),
+                    ("total_tokens", total_invalid),
+                )
+                if invalid
+            )
+        else:
+            input_tokens = output_tokens = total_tokens = None
+            usage_invalid_fields = ["usage"]
         return LLMResponse(
             text=str(content or ""),
             provider=self.name,
             model=self.model,
-            input_tokens=_bounded_usage(usage.get("prompt_tokens")),
-            output_tokens=_bounded_usage(usage.get("completion_tokens")),
-            total_tokens=_bounded_usage(usage.get("total_tokens")),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            usage_invalid_fields=tuple(usage_invalid_fields),
         )
 
 
@@ -110,3 +146,14 @@ def _bounded_usage(value: object, additional: object | None = None) -> int | Non
     if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 10_000_000:
         return None
     return value
+
+
+def _required_usage(payload: dict[str, Any], field: str) -> tuple[int | None, bool]:
+    """Read one contract-required token count without erasing invalidity."""
+
+    if field not in payload:
+        return None, True
+    value = payload[field]
+    if not isinstance(value, int) or isinstance(value, bool) or not 0 <= value <= 10_000_000:
+        return None, True
+    return value, False

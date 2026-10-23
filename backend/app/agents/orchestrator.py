@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 from time import monotonic
+from typing import Callable
 
 from sqlalchemy.orm import Session
 
@@ -73,6 +74,7 @@ def run_analysis_workflow(
     deadline_monotonic: float | None = None,
     synthesis_budget: SynthesisBudget | None = None,
     thesis_assumptions: list[str] | None = None,
+    execution_guard: Callable[[], None] | None = None,
 ) -> AnalysisWorkflowResult:
     is_research_run = research_question is not None
     if is_research_run and not 1 <= research_max_passes <= 2:
@@ -83,13 +85,14 @@ def run_analysis_workflow(
         ledger = ResearchToolLedger(
             max_invocations=max_tool_invocations,
             max_model_calls=max_model_calls,
+            execution_guard=execution_guard,
         )
     else:
         ledger = None
 
-    _check_limits(cancellation, deadline_monotonic)
+    _check_limits(cancellation, deadline_monotonic, execution_guard)
     parsed_strategy = parse_strategy(request)
-    _check_limits(cancellation, deadline_monotonic)
+    _check_limits(cancellation, deadline_monotonic, execution_guard)
     retrieval_scope = derive_retrieval_scope(db, actor)
     first_query = parsed_strategy.description
     if research_question:
@@ -133,7 +136,7 @@ def run_analysis_workflow(
             retrieve_first,
             pass_number=1,
         )
-    _check_limits(cancellation, deadline_monotonic)
+    _check_limits(cancellation, deadline_monotonic, execution_guard)
     retrieved_context, initial_citation_issues = _validated_context(retrieved_context)
 
     if ledger is None:
@@ -161,7 +164,7 @@ def run_analysis_workflow(
             pass_number=1,
         )
         market_data = market_holder["value"]
-    _check_limits(cancellation, deadline_monotonic)
+    _check_limits(cancellation, deadline_monotonic, execution_guard)
 
     pass_count = 1
     followup_gap = False
@@ -223,7 +226,7 @@ def run_analysis_workflow(
                 retrieve_followup,
                 pass_number=2,
             )
-    _check_limits(cancellation, deadline_monotonic)
+    _check_limits(cancellation, deadline_monotonic, execution_guard)
 
     retrieved_context, followup_citation_issues = _validated_context(retrieved_context)
     citation_issues = initial_citation_issues + followup_citation_issues
@@ -277,7 +280,7 @@ def run_analysis_workflow(
             pass_number=pass_count,
         )
         risk_score = risk_holder["value"]
-    _check_limits(cancellation, deadline_monotonic)
+    _check_limits(cancellation, deadline_monotonic, execution_guard)
 
     content_scope = scope_class_for_actor(actor, organization_id=organization_id)
     if ledger is None:
@@ -338,7 +341,7 @@ def run_analysis_workflow(
         synthesis = synthesis_holder["value"]
         if not synthesis.used_llm:
             ledger.trace[-1]["status"] = "fallback"
-    _check_limits(cancellation, deadline_monotonic)
+    _check_limits(cancellation, deadline_monotonic, execution_guard)
 
     deterministic_report = synthesis.deterministic_report or synthesis.report
     return AnalysisWorkflowResult(
@@ -368,7 +371,10 @@ def run_analysis_workflow(
 def _check_limits(
     cancellation: CancellationContext | None,
     deadline_monotonic: float | None,
+    execution_guard: Callable[[], None] | None = None,
 ) -> None:
+    if execution_guard is not None:
+        execution_guard()
     if cancellation is not None:
         cancellation.raise_if_cancelled()
     if deadline_monotonic is not None and monotonic() >= deadline_monotonic:

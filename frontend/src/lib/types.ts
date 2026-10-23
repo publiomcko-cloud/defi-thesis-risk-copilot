@@ -561,6 +561,7 @@ export type ResearchRunMetadata = {
   cost_microusd?: number | null;
   provider_call_state: "not_attempted" | "rejected_before_transmission" | "response_received_rejected" | "uncertain" | "output_accepted";
   usage_status: "not_applicable" | "known" | "partial" | "unknown" | "inconsistent" | "invalid";
+  usage_invalid_fields: Array<"usage" | "prompt_tokens" | "completion_tokens" | "total_tokens" | "prompt_eval_count" | "eval_count">;
 };
 
 export type ResearchRunSummary = {
@@ -575,7 +576,7 @@ export type ResearchRunSummary = {
   metadata?: ResearchRunMetadata | null;
   idempotency_key: string;
   provider_call_state?: "not_attempted" | "rejected_before_transmission" | "response_received_rejected" | "uncertain" | "output_accepted" | null;
-  usage_status?: "not_applicable" | "known" | "partial" | "unknown" | null;
+  usage_status?: "not_applicable" | "known" | "partial" | "unknown" | "inconsistent" | "invalid" | null;
   outcome_certainty?: "known_failure" | "uncertain" | null;
 };
 

@@ -6,6 +6,7 @@ import queue
 import threading
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from time import monotonic
 from uuid import uuid4
 
 import pytest
@@ -18,6 +19,7 @@ from app.db.session import create_database_engine
 from app.llm.provenance import build_report_synthesis_candidate
 from app.llm.synthesis import SynthesisResult
 from app.models.analysis_request import AnalysisRequestModel
+from app.models.access_audit_event import AccessAuditEventModel
 from app.models.model_governance import ModelRunProvenanceModel
 from app.models.report import ReportModel
 from app.models.saved_thesis import SavedThesisModel
@@ -93,6 +95,7 @@ def _cleanup_owner(Session, owner_id: str) -> None:
         db.execute(delete(ReportModel).where(ReportModel.owner_user_id == owner_id))
         db.execute(delete(AnalysisRequestModel).where(AnalysisRequestModel.owner_user_id == owner_id))
         db.execute(delete(UsageQuotaModel).where(UsageQuotaModel.subject_id == owner_id))
+        db.execute(delete(AccessAuditEventModel).where(AccessAuditEventModel.actor_user_id == owner_id))
         db.execute(delete(SavedThesisModel).where(SavedThesisModel.owner_user_id == owner_id))
         db.execute(delete(UserModel).where(UserModel.id == owner_id))
         db.commit()
@@ -192,6 +195,49 @@ def _delete_thesis_process(database_url: str, owner_id: str, thesis_id: str, res
         engine.dispose()
 
 
+def _delete_account_process(database_url: str, owner_id: str, result_queue) -> None:
+    from app.api.routes_auth import delete_account
+    from app.auth.schemas import AccountDeleteRequest
+
+    engine = create_database_engine(database_url)
+    Session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    try:
+        with Session() as db:
+            result = delete_account(AccountDeleteRequest(confirmation="DELETE"), db, _actor(owner_id))
+        result_queue.put(("deleted", result.status))
+    except HTTPException as exc:
+        result_queue.put(("http", exc.status_code))
+    except BaseException as exc:
+        result_queue.put(("error", repr(exc)))
+    finally:
+        engine.dispose()
+
+
+def _delete_thesis_process_with_pid(
+    database_url: str,
+    owner_id: str,
+    thesis_id: str,
+    started_queue,
+    result_queue,
+) -> None:
+    from app.theses.service import delete_thesis
+
+    engine = create_database_engine(database_url)
+    Session = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+    try:
+        with Session() as db:
+            backend_pid = db.execute(text("SELECT pg_backend_pid()")).scalar_one()
+            started_queue.put(backend_pid)
+            delete_thesis(db, _actor(owner_id), thesis_id)
+        result_queue.put(("deleted", 200))
+    except HTTPException as exc:
+        result_queue.put(("http", exc.status_code))
+    except BaseException as exc:
+        result_queue.put(("error", repr(exc)))
+    finally:
+        engine.dispose()
+
+
 def _same_key_process(database_url: str, owner_id: str, thesis_id: str, key: str, result_queue) -> None:
     import app.research_copilot.service as research_service
 
@@ -279,6 +325,539 @@ def _postgres_session_factory():
     if engine.dialect.name != "postgresql":
         pytest.skip("F1-C2 ownership barriers require PostgreSQL")
     return engine, sessionmaker(bind=engine, autoflush=False, autocommit=False)
+
+
+def _terminate_owner_lock_backend(engine, owner_user_id: str) -> int:
+    """Terminate only the dedicated backend and wait until PostgreSQL released its fence."""
+
+    lock_id = _owner_lock_id(owner_user_id)
+    unsigned_lock_id = lock_id & ((1 << 64) - 1)
+    lock_class = unsigned_lock_id >> 32
+    lock_object = unsigned_lock_id & 0xFFFFFFFF
+    with engine.connect() as connection:
+        pid = connection.execute(
+            text(
+                "SELECT pid FROM pg_locks WHERE locktype = 'advisory' "
+                "AND classid = CAST(:class_id AS oid) "
+                "AND objid = CAST(:object_id AS oid) AND objsubid = 1 AND granted"
+            ),
+            {"class_id": lock_class, "object_id": lock_object},
+        ).scalar_one()
+        assert connection.execute(
+            text("SELECT pg_terminate_backend(:pid)"), {"pid": pid}
+        ).scalar_one() is True
+        connection.rollback()
+
+    deadline = monotonic() + 10
+    while monotonic() < deadline:
+        with engine.connect() as connection:
+            acquired = connection.execute(
+                text("SELECT pg_try_advisory_xact_lock(:lock_id)"),
+                {"lock_id": lock_id},
+            ).scalar_one()
+            connection.rollback()
+        if acquired:
+            return pid
+        threading.Event().wait(0.02)
+    raise AssertionError("PostgreSQL did not release the terminated dedicated owner-lock backend")
+
+
+def _wait_until_backend_waits_on_lock(engine, backend_pid: int) -> None:
+    deadline = monotonic() + 10
+    while monotonic() < deadline:
+        with engine.connect() as connection:
+            waiting = connection.execute(
+                text(
+                    "SELECT EXISTS (SELECT 1 FROM pg_stat_activity "
+                    "WHERE pid = :pid AND wait_event_type = 'Lock')"
+                ),
+                {"pid": backend_pid},
+            ).scalar_one()
+        if waiting:
+            return
+        threading.Event().wait(0.02)
+    raise AssertionError("deletion backend did not reach the expected row-lock wait")
+
+
+def test_postgres_terminated_owner_lock_backend_cannot_resurrect_deleted_research(monkeypatch) -> None:
+    engine, Session = _postgres_session_factory()
+    owner_id, thesis_id, key = _new_case(Session)
+    database_url = _database_url(engine)
+    context = multiprocessing.get_context("spawn")
+    reached_post_boundary = threading.Event()
+    continue_after_deletion = threading.Event()
+    thread_result: queue.Queue = queue.Queue()
+    application_pid: list[int] = []
+    active_session: list = []
+
+    import app.research_copilot.service as research_service
+
+    monkeypatch.setattr(
+        research_service,
+        "run_analysis_workflow",
+        lambda _request, report_id, *_args, **_kwargs: _synthetic_workflow(report_id, _request),
+    )
+    monkeypatch.setattr(research_service, "emit_product_event_safely", lambda *_args, **_kwargs: None)
+    original_source_observations = research_service._source_observations
+
+    def pause_after_post_workflow_boundary(workflow, completed_at):
+        application_pid.append(active_session[0].execute(text("SELECT pg_backend_pid()")).scalar_one())
+        reached_post_boundary.set()
+        if not continue_after_deletion.wait(15):
+            raise TimeoutError("dedicated-lock-loss barrier was not released")
+        return original_source_observations(workflow, completed_at)
+
+    monkeypatch.setattr(research_service, "_source_observations", pause_after_post_workflow_boundary)
+
+    def start_request() -> None:
+        try:
+            with Session() as db:
+                active_session.append(db)
+                result = start_thesis_research(
+                    db,
+                    _actor(owner_id),
+                    thesis_id,
+                    ResearchQuestionRequest(question="How can maturity and liquidity change this thesis?"),
+                    key,
+                )
+            thread_result.put(("ok", result))
+        except BaseException as exc:
+            thread_result.put(("error", exc))
+
+    thread = threading.Thread(target=start_request, daemon=True)
+    try:
+        thread.start()
+        assert reached_post_boundary.wait(15), "request did not reach the post-workflow boundary"
+        assert application_pid, "request application connection was not captured"
+        owner_lock_pid = _terminate_owner_lock_backend(engine, owner_id)
+        assert owner_lock_pid != application_pid[0]
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid = :pid)"),
+                {"pid": application_pid[0]},
+            ).scalar_one() is True
+
+        deletion_results = context.Queue()
+        deletion = context.Process(
+            target=_delete_thesis_process,
+            args=(database_url, owner_id, thesis_id, deletion_results),
+        )
+        deletion.start()
+        deletion_result = deletion_results.get(timeout=20)
+        deletion.join(timeout=20)
+        assert deletion.exitcode == 0
+        assert deletion_result == ("deleted", 200)
+
+        continue_after_deletion.set()
+        thread.join(timeout=20)
+        assert not thread.is_alive()
+        status, result = thread_result.get_nowait()
+        assert status == "error", "a stale executor returned a completed report after deletion"
+
+        with Session() as db:
+            run = db.execute(
+                select(AnalysisRequestModel).where(AnalysisRequestModel.owner_user_id == owner_id)
+            ).scalars().one()
+            assert run.deleted_at is not None
+            reports = db.execute(
+                select(ReportModel).where(ReportModel.analysis_request_id == run.id)
+            ).scalars().all()
+            assert reports == [], (
+                "stale executor persisted a report after deletion; "
+                f"run_status={run.research_status!r}, metadata={run.research_metadata_json!r}"
+            )
+            assert run.research_metadata_json["disposition"] == "private_research_data_disposed"
+            quota = db.execute(
+                select(UsageQuotaModel).where(UsageQuotaModel.subject_id == owner_id)
+            ).scalars().one()
+            assert quota.used == 1
+            assert db.execute(
+                select(ModelRunProvenanceModel).where(ModelRunProvenanceModel.owner_user_id == owner_id)
+            ).scalars().all() == []
+        assert isinstance(result, HTTPException)
+        assert result.status_code in {409, 503}
+    finally:
+        continue_after_deletion.set()
+        thread.join(timeout=20)
+        _cleanup_owner(Session, owner_id)
+        engine.dispose()
+
+
+def test_postgres_account_deletion_wins_after_owner_lock_connection_loss(monkeypatch) -> None:
+    engine, Session = _postgres_session_factory()
+    owner_id, thesis_id, key = _new_case(Session)
+    database_url = _database_url(engine)
+    context = multiprocessing.get_context("spawn")
+    reached_post_boundary = threading.Event()
+    continue_after_deletion = threading.Event()
+    thread_result: queue.Queue = queue.Queue()
+    application_pid: list[int] = []
+    active_session: list = []
+
+    import app.research_copilot.service as research_service
+
+    monkeypatch.setattr(
+        research_service,
+        "run_analysis_workflow",
+        lambda _request, report_id, *_args, **_kwargs: _synthetic_workflow(report_id, _request),
+    )
+    monkeypatch.setattr(research_service, "emit_product_event_safely", lambda *_args, **_kwargs: None)
+    original_source_observations = research_service._source_observations
+
+    def pause_after_post_workflow_boundary(workflow, completed_at):
+        application_pid.append(active_session[0].execute(text("SELECT pg_backend_pid()")).scalar_one())
+        reached_post_boundary.set()
+        if not continue_after_deletion.wait(15):
+            raise TimeoutError("account-deletion barrier was not released")
+        return original_source_observations(workflow, completed_at)
+
+    monkeypatch.setattr(research_service, "_source_observations", pause_after_post_workflow_boundary)
+
+    def start_request() -> None:
+        try:
+            with Session() as db:
+                active_session.append(db)
+                result = start_thesis_research(
+                    db,
+                    _actor(owner_id),
+                    thesis_id,
+                    ResearchQuestionRequest(question="How can maturity and liquidity change this thesis?"),
+                    key,
+                )
+            thread_result.put(("ok", result))
+        except BaseException as exc:
+            thread_result.put(("error", exc))
+
+    thread = threading.Thread(target=start_request, daemon=True)
+    try:
+        thread.start()
+        assert reached_post_boundary.wait(15), "request did not reach the post-workflow boundary"
+        owner_lock_pid = _terminate_owner_lock_backend(engine, owner_id)
+        assert owner_lock_pid != application_pid[0]
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid = :pid)"),
+                {"pid": application_pid[0]},
+            ).scalar_one() is True
+
+        deletion_results = context.Queue()
+        deletion = context.Process(
+            target=_delete_account_process,
+            args=(database_url, owner_id, deletion_results),
+        )
+        deletion.start()
+        deletion_result = deletion_results.get(timeout=25)
+        deletion.join(timeout=25)
+        assert deletion.exitcode == 0
+        assert deletion_result == ("deleted", "pending_provider_deletion")
+
+        continue_after_deletion.set()
+        thread.join(timeout=20)
+        assert not thread.is_alive()
+        status, result = thread_result.get_nowait()
+        assert status == "error"
+        assert isinstance(result, HTTPException)
+        assert result.status_code == 503
+
+        with Session() as db:
+            user = db.get(UserModel, owner_id)
+            assert user is not None and user.deleted_at is not None and not user.is_active
+            run = db.execute(
+                select(AnalysisRequestModel).where(AnalysisRequestModel.owner_user_id == owner_id)
+            ).scalars().one()
+            assert run.deleted_at is not None
+            assert run.research_metadata_json["disposition"] == "private_research_data_disposed"
+            assert db.execute(
+                select(ReportModel).where(ReportModel.analysis_request_id == run.id)
+            ).scalars().all() == []
+            quota = db.execute(
+                select(UsageQuotaModel).where(UsageQuotaModel.subject_id == owner_id)
+            ).scalars().one()
+            assert quota.used == 1
+    finally:
+        continue_after_deletion.set()
+        thread.join(timeout=20)
+        _cleanup_owner(Session, owner_id)
+        engine.dispose()
+
+
+def test_postgres_row_locks_serialize_completion_before_deletion_after_owner_loss(monkeypatch) -> None:
+    engine, Session = _postgres_session_factory()
+    owner_id, thesis_id, key = _new_case(Session)
+    database_url = _database_url(engine)
+    context = multiprocessing.get_context("spawn")
+    final_commit_reached = threading.Event()
+    continue_final_commit = threading.Event()
+    thread_result: queue.Queue = queue.Queue()
+    application_pid: list[int] = []
+
+    import app.research_copilot.service as research_service
+
+    monkeypatch.setattr(
+        research_service,
+        "run_analysis_workflow",
+        lambda _request, report_id, *_args, **_kwargs: _synthetic_workflow(report_id, _request),
+    )
+    monkeypatch.setattr(research_service, "emit_product_event_safely", lambda *_args, **_kwargs: None)
+    original_save_report = research_service.save_report
+
+    def flag_finalization_commit(*args, **kwargs):
+        result = original_save_report(*args, **kwargs)
+        kwargs["db"].info["pause_finalization_commit"] = True
+        return result
+
+    monkeypatch.setattr(research_service, "save_report", flag_finalization_commit)
+
+    def pause_commit(session) -> None:
+        if not session.info.get("pause_finalization_commit", False) or session.in_nested_transaction():
+            return
+        session.info.pop("pause_finalization_commit", None)
+        application_pid.append(session.connection().execute(text("SELECT pg_backend_pid()")).scalar_one())
+        final_commit_reached.set()
+        if not continue_final_commit.wait(15):
+            raise TimeoutError("final-commit barrier was not released")
+
+    event.listen(Session.class_, "before_commit", pause_commit)
+
+    def start_request() -> None:
+        try:
+            with Session() as db:
+                result = start_thesis_research(
+                    db,
+                    _actor(owner_id),
+                    thesis_id,
+                    ResearchQuestionRequest(question="How can maturity and liquidity change this thesis?"),
+                    key,
+                )
+            thread_result.put(("ok", result))
+        except BaseException as exc:
+            thread_result.put(("error", exc))
+
+    thread = threading.Thread(target=start_request, daemon=True)
+    deletion = None
+    try:
+        thread.start()
+        assert final_commit_reached.wait(15), "finalization did not reach its pre-commit barrier"
+        owner_lock_pid = _terminate_owner_lock_backend(engine, owner_id)
+        assert owner_lock_pid != application_pid[0]
+        with engine.connect() as connection:
+            assert connection.execute(
+                text("SELECT EXISTS (SELECT 1 FROM pg_stat_activity WHERE pid = :pid)"),
+                {"pid": application_pid[0]},
+            ).scalar_one() is True
+
+        started_queue = context.Queue()
+        deletion_results = context.Queue()
+        deletion = context.Process(
+            target=_delete_thesis_process_with_pid,
+            args=(database_url, owner_id, thesis_id, started_queue, deletion_results),
+        )
+        deletion.start()
+        deletion_pid = started_queue.get(timeout=15)
+        _wait_until_backend_waits_on_lock(engine, deletion_pid)
+        assert deletion.is_alive(), "deletion did not remain blocked behind finalization row locks"
+
+        continue_final_commit.set()
+        thread.join(timeout=20)
+        assert not thread.is_alive()
+        deletion_result = deletion_results.get(timeout=20)
+        deletion.join(timeout=20)
+        assert deletion.exitcode == 0
+        assert deletion_result == ("deleted", 200)
+        status, result = thread_result.get_nowait()
+        assert status in {"ok", "error"}, repr(result)
+
+        with Session() as db:
+            run = db.execute(
+                select(AnalysisRequestModel).where(AnalysisRequestModel.owner_user_id == owner_id)
+            ).scalars().one()
+            assert run.deleted_at is not None
+            assert run.research_metadata_json["disposition"] == "private_research_data_disposed"
+            assert run.research_metadata_json["previous_status"] == "completed"
+            assert set(run.research_metadata_json) == {"disposition", "disposed_at", "previous_status"}
+            reports = db.execute(
+                select(ReportModel).where(ReportModel.analysis_request_id == run.id)
+            ).scalars().all()
+            assert len(reports) == 1
+            assert reports[0].deleted_at is not None
+            assert reports[0].report_json == {
+                "report_id": reports[0].id,
+                "status": "deleted",
+                "disposition": "private_research_data_disposed",
+            }
+            assert db.execute(
+                select(ModelRunProvenanceModel).where(ModelRunProvenanceModel.owner_user_id == owner_id)
+            ).scalars().all() == []
+            quota = db.execute(
+                select(UsageQuotaModel).where(UsageQuotaModel.subject_id == owner_id)
+            ).scalars().one()
+            assert quota.used == 1
+    finally:
+        continue_final_commit.set()
+        if deletion is not None and deletion.is_alive():
+            deletion.join(timeout=20)
+        thread.join(timeout=20)
+        event.remove(Session.class_, "before_commit", pause_commit)
+        _cleanup_owner(Session, owner_id)
+        engine.dispose()
+
+
+def test_postgres_application_session_pool_reconnect_keeps_finalization_idempotent(monkeypatch) -> None:
+    engine, Session = _postgres_session_factory()
+    owner_id, thesis_id, key = _new_case(Session)
+    thread_result: queue.Queue = queue.Queue()
+    active_session: list = []
+    workflow_calls: list[str] = []
+
+    import app.research_copilot.service as research_service
+
+    def fake_workflow(_request, report_id, *_args, **_kwargs):
+        workflow_calls.append("called")
+        return _synthetic_workflow(report_id, _request)
+
+    monkeypatch.setattr(research_service, "run_analysis_workflow", fake_workflow)
+    monkeypatch.setattr(research_service, "emit_product_event_safely", lambda *_args, **_kwargs: None)
+    original_source_observations = research_service._source_observations
+
+    def invalidate_application_connection(workflow, completed_at):
+        active_session[0].invalidate()
+        return original_source_observations(workflow, completed_at)
+
+    monkeypatch.setattr(research_service, "_source_observations", invalidate_application_connection)
+
+    def start_request() -> None:
+        try:
+            with Session() as db:
+                active_session.append(db)
+                result = start_thesis_research(
+                    db,
+                    _actor(owner_id),
+                    thesis_id,
+                    ResearchQuestionRequest(question="How can maturity and liquidity change this thesis?"),
+                    key,
+                )
+            thread_result.put(("ok", result))
+        except BaseException as exc:
+            thread_result.put(("error", exc))
+
+    thread = threading.Thread(target=start_request, daemon=True)
+    try:
+        thread.start()
+        thread.join(timeout=20)
+        assert not thread.is_alive()
+        status, result = thread_result.get_nowait()
+        assert status == "ok", repr(result)
+        assert result.status == "completed"
+        assert workflow_calls == ["called"]
+
+        with Session() as db:
+            run = db.execute(
+                select(AnalysisRequestModel).where(AnalysisRequestModel.owner_user_id == owner_id)
+            ).scalars().one()
+            reports = db.execute(
+                select(ReportModel).where(ReportModel.analysis_request_id == run.id)
+            ).scalars().all()
+            assert run.research_status == "completed"
+            assert len(reports) == 1
+            quota = db.execute(
+                select(UsageQuotaModel).where(UsageQuotaModel.subject_id == owner_id)
+            ).scalars().one()
+            assert quota.used == 1
+            replay = start_thesis_research(
+                db,
+                _actor(owner_id),
+                thesis_id,
+                ResearchQuestionRequest(question="How can maturity and liquidity change this thesis?"),
+                key,
+            )
+            assert replay.run_id == run.id
+            assert workflow_calls == ["called"]
+    finally:
+        thread.join(timeout=20)
+        _cleanup_owner(Session, owner_id)
+        engine.dispose()
+
+
+@pytest.mark.parametrize("loss_stage", ["before_provider", "during_provider"])
+def test_postgres_owner_lock_loss_stops_provider_progress(monkeypatch, loss_stage: str) -> None:
+    engine, Session = _postgres_session_factory()
+    owner_id, thesis_id, key = _new_case(Session)
+    reached_stage = threading.Event()
+    continue_after_loss = threading.Event()
+    thread_result: queue.Queue = queue.Queue()
+    provider_calls: list[str] = []
+    post_provider_tools: list[str] = []
+
+    import app.research_copilot.service as research_service
+
+    def controlled_workflow(_request, report_id, *_args, execution_guard=None, **_kwargs):
+        if loss_stage == "before_provider":
+            reached_stage.set()
+            if not continue_after_loss.wait(15):
+                raise TimeoutError("pre-provider lock-loss barrier was not released")
+            execution_guard()
+            provider_calls.append("transmitted")
+        else:
+            execution_guard()
+            provider_calls.append("transmitted")
+            reached_stage.set()
+            if not continue_after_loss.wait(15):
+                raise TimeoutError("in-provider lock-loss barrier was not released")
+            execution_guard()
+            post_provider_tools.append("must-not-run")
+        return _synthetic_workflow(report_id, _request)
+
+    monkeypatch.setattr(research_service, "run_analysis_workflow", controlled_workflow)
+    monkeypatch.setattr(research_service, "emit_product_event_safely", lambda *_args, **_kwargs: None)
+
+    def start_request() -> None:
+        try:
+            with Session() as db:
+                start_thesis_research(
+                    db,
+                    _actor(owner_id),
+                    thesis_id,
+                    ResearchQuestionRequest(question="How can maturity and liquidity change this thesis?"),
+                    key,
+                )
+            thread_result.put(("ok", None))
+        except BaseException as exc:
+            thread_result.put(("error", exc))
+
+    thread = threading.Thread(target=start_request, daemon=True)
+    try:
+        thread.start()
+        assert reached_stage.wait(15), "workflow did not reach the configured provider boundary"
+        _terminate_owner_lock_backend(engine, owner_id)
+        continue_after_loss.set()
+        thread.join(timeout=20)
+        assert not thread.is_alive()
+        status, result = thread_result.get_nowait()
+        assert status == "error"
+        assert isinstance(result, HTTPException)
+        assert result.status_code == 503
+        assert provider_calls == ([] if loss_stage == "before_provider" else ["transmitted"])
+        assert post_provider_tools == []
+
+        with Session() as db:
+            run = db.execute(
+                select(AnalysisRequestModel).where(AnalysisRequestModel.owner_user_id == owner_id)
+            ).scalars().one()
+            assert run.research_status == "failed"
+            assert run.research_metadata_json["provider_call_state"] == "uncertain"
+            assert run.research_metadata_json["outcome_certainty"] == "uncertain"
+            assert db.execute(
+                select(ReportModel).where(ReportModel.analysis_request_id == run.id)
+            ).scalars().all() == []
+            quota = db.execute(
+                select(UsageQuotaModel).where(UsageQuotaModel.subject_id == owner_id)
+            ).scalars().one()
+            assert quota.used == 1
+    finally:
+        continue_after_loss.set()
+        thread.join(timeout=20)
+        _cleanup_owner(Session, owner_id)
+        engine.dispose()
 
 
 def test_postgres_owner_fence_closes_reservation_handoff_and_deletion_races(monkeypatch) -> None:

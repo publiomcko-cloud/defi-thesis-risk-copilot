@@ -27,7 +27,7 @@ export function ResearchRunEvidencePanel({ research }: ResearchRunEvidencePanelP
           : `Deterministic synthesis used; provider call state: ${research.provider_call_state}${research.llm_fallback_reason ? ` · ${research.llm_fallback_reason}` : ""}.`}
       </p>
       <p className="muted-small">
-        Provider calls observed: {research.model_call_count}; usage: {research.usage_status}; effective total used for the budget: {research.total_tokens ?? "unknown"} tokens; provider-reported total: {research.reported_total_tokens ?? "unknown"}; cost: {research.cost_microusd === null || research.cost_microusd === undefined ? "unknown" : `${research.cost_microusd} microUSD`}.
+        Provider calls observed: {research.model_call_count}; usage: {research.usage_status}; invalid usage fields: {research.usage_invalid_fields.join(", ") || "none"}; effective total used for the budget: {research.total_tokens ?? "unknown"} tokens; provider-reported total: {research.reported_total_tokens ?? "unknown"}; cost: {research.cost_microusd === null || research.cost_microusd === undefined ? "unknown" : `${research.cost_microusd} microUSD`}.
       </p>
       <div>
         <h3>Bounded tool trace</h3>

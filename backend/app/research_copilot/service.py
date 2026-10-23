@@ -25,6 +25,8 @@ from app.models.research_intelligence import ThesisAssumptionHeadModel, ThesisAs
 from app.models.saved_thesis import SavedThesisModel
 from app.models.user import UserModel
 from app.research_copilot.execution import (
+    OwnerLockLost,
+    ResearchOwnerFence,
     hold_research_owner_lock,
     is_local_run_active,
     mark_local_run_active,
@@ -66,24 +68,33 @@ def start_thesis_research(
         raise HTTPException(status_code=422, detail="A valid Idempotency-Key is required for research runs.")
     execution_started = monotonic()
     deadline = execution_started + settings.research_run_wall_time_seconds
-    with hold_research_owner_lock(db, actor.id) as acquired:
-        if not acquired:
+    with hold_research_owner_lock(db, actor.id) as owner_fence:
+        if not owner_fence:
             db.rollback()
             raise HTTPException(
                 status_code=409,
                 detail="Research or thesis lifecycle work is already active for this account; retry with the same idempotency key.",
             )
-        _require_active_user(db, actor.id)
-        return _start_thesis_research_owned(
-            db,
-            actor,
-            thesis_id,
-            request,
-            idempotency_key,
-            settings=settings,
-            execution_started=execution_started,
-            deadline=deadline,
-        )
+        try:
+            owner_fence.assert_alive()
+            _require_active_user(db, actor.id)
+            return _start_thesis_research_owned(
+                db,
+                actor,
+                thesis_id,
+                request,
+                idempotency_key,
+                settings=settings,
+                execution_started=execution_started,
+                deadline=deadline,
+                owner_fence=owner_fence,
+            )
+        except OwnerLockLost:
+            db.rollback()
+            raise HTTPException(
+                status_code=503,
+                detail="Research ownership could not be verified; no research was started.",
+            ) from None
 
 
 def _start_thesis_research_owned(
@@ -96,8 +107,38 @@ def _start_thesis_research_owned(
     settings,
     execution_started: float,
     deadline: float,
+    owner_fence: ResearchOwnerFence,
 ) -> ResearchRunSummary:
-    thesis = _authorized_private_thesis(db, actor, thesis_id)
+    db.rollback()
+    owner_fence.assert_alive()
+    locked_user = db.execute(
+        select(UserModel)
+        .where(UserModel.id == actor.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalars().one_or_none()
+    if (
+        locked_user is None
+        or locked_user.deleted_at is not None
+        or not locked_user.is_active
+        or locked_user.account_status != "active"
+    ):
+        raise HTTPException(status_code=404, detail="Account not found")
+    thesis = db.execute(
+        select(SavedThesisModel)
+        .where(SavedThesisModel.id == thesis_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalars().one_or_none()
+    if (
+        thesis is None
+        or thesis.deleted_at is not None
+        or thesis.owner_user_id != actor.id
+        or thesis.visibility != "private"
+        or thesis.organization_id is not None
+    ):
+        raise HTTPException(status_code=404, detail="Thesis not found")
+    owner_fence.assert_alive()
     protocols = sorted({str(item).strip().lower() for item in (thesis.protocols or []) if str(item).strip()})
     strategy_text = str(thesis.strategy_text)
     stable_thesis_id = thesis.id
@@ -111,6 +152,7 @@ def _start_thesis_research_owned(
     input_checksum = _research_input_checksum(thesis, request, thesis_assumptions)
     existing = _existing_run(db, actor.id, idempotency_key)
     if existing is not None:
+        db.rollback()
         return _existing_run_response(db, existing, thesis_id, input_checksum)
 
     started_at = datetime.now(UTC)
@@ -135,11 +177,14 @@ def _start_thesis_research_owned(
         anonymous_session_id=None,
         created_at=started_at,
     )
-    # Mark ownership before commit makes even the short SQLite single-process
-    # reservation handoff visible to concurrent status reconciliation.
-    mark_local_run_active(run.id)
-    db.add(run)
     try:
+        # Account and thesis row locks held since the initial private read
+        # make the reservation/quota commit consistent with deletion and edits.
+        owner_fence.assert_alive()
+        # Mark ownership before commit makes even the short SQLite
+        # single-process reservation handoff visible to status reconciliation.
+        mark_local_run_active(run.id)
+        db.add(run)
         # consume_quota commits the run reservation and quota increment together.
         consume_quota(db, actor, ACTION_ANALYSIS)
         db.commit()
@@ -167,6 +212,7 @@ def _start_thesis_research_owned(
     )
     failure_stage = "pre_workflow_boundary"
     try:
+        owner_fence.assert_alive()
         _assert_execution_boundary(db, actor, stable_thesis_id, run.id, input_checksum)
         failure_stage = "workflow"
         workflow = run_analysis_workflow(
@@ -188,84 +234,27 @@ def _start_thesis_research_owned(
             deadline_monotonic=deadline,
             synthesis_budget=synthesis_budget,
             thesis_assumptions=thesis_assumptions,
+            execution_guard=owner_fence.assert_alive,
         )
         failure_stage = "post_workflow_boundary"
         _assert_execution_boundary(db, actor, stable_thesis_id, run.id, input_checksum)
+        owner_fence.assert_alive()
         failure_stage = "report_finalization"
-        completed_at = datetime.now(UTC)
-        evidence_gaps = list(dict.fromkeys(workflow.missing_data))
-        source_observations = _source_observations(workflow, completed_at)
-        model_run = workflow.model_run
-        metadata = ResearchRunMetadata(
-            run_id=run.id,
-            thesis_id=stable_thesis_id,
-            question=request.question.strip(),
-            status="completed_with_gaps" if evidence_gaps else "completed",
-            started_at=started_at,
-            completed_at=completed_at,
-            elapsed_ms=min(max(int((monotonic() - execution_started) * 1000), 0), 120_000),
-            pass_count=workflow.pass_count,
-            model_call_count=workflow.model_call_count,
-            tool_invocation_count=workflow.tool_invocation_count,
-            source_document_count=len(workflow.retrieved_context),
-            limits=_limits(settings),
-            tools=workflow.tool_trace or [],
-            sources=source_observations,
-            evidence_gaps=evidence_gaps,
-            llm_used=workflow.model_run.outcome == "succeeded" and workflow.model_call_count > 0,
-            llm_outcome=workflow.model_run.outcome,
-            llm_fallback_reason=workflow.model_run.fallback_reason,
-            model_provider=model_run.provider.provider_key if model_run.provider else None,
-            model_key=model_run.provider.model_key if model_run.provider else None,
-            route_version_id=model_run.route_version_id,
-            evaluation_run_id=model_run.evaluation_run_id,
-            prompt_checksum=model_run.prompt_checksum,
-            input_tokens=model_run.input_tokens,
-            output_tokens=model_run.output_tokens,
-            reported_total_tokens=model_run.reported_total_tokens,
-            total_tokens=model_run.total_tokens,
-            cost_microusd=model_run.cost_microusd,
-            provider_call_state=workflow.provider_call_state,
-            usage_status=workflow.usage_status,
-        )
-        report = workflow.report.model_copy(update={"research": metadata})
-        run.research_status = "completed"
-        run.research_completed_at = completed_at
-        run.research_metadata_json = metadata.model_dump(mode="json")
-        save_report(
-            report=report,
-            analysis_request_id=run.id,
-            report_markdown=render_markdown_report(report),
-            db=db,
-            owner_user_id=actor.id,
-            visibility="private",
-        )
-        provenance = record_model_run_provenance(
-            db,
-            report_id=report.report_id,
-            candidate=workflow.model_run,
-            owner_user_id=actor.id,
-            organization_id=None,
-            anonymous_session_id=None,
-        )
-        record_model_run_quality_evidence(
-            db,
-            model_run=provenance,
-            quality=workflow.model_quality,
-        )
-        if actor.auth_enabled and actor.anonymous_session_id is None:
-            from app.entitlements.service import emit_usage
-
-            failure_stage = "usage_recording"
-            emit_usage(
-                db,
-                owner_user_id=actor.id,
-                unit_key="usage.analysis.completed.v1",
-                source_type="report",
-                source_id=report.report_id,
-            )
+        source_observations = _source_observations(workflow, datetime.now(UTC))
         failure_stage = "report_commit"
-        db.commit()
+        finalized_run, report, metadata = _finalize_research_run(
+            db,
+            actor=actor,
+            thesis_id=stable_thesis_id,
+            run_id=run.id,
+            input_checksum=input_checksum,
+            started_at=started_at,
+            execution_started=execution_started,
+            workflow=workflow,
+            source_observations=source_observations,
+            settings=settings,
+            owner_fence=owner_fence,
+        )
         failure_stage = "completion_event"
         emit_product_event_safely(
             db,
@@ -279,7 +268,13 @@ def _start_thesis_research_owned(
             },
             source_boundary=report.report_id,
         )
-        return _run_response(db, run, stable_thesis_id)
+        return _run_response(db, finalized_run, stable_thesis_id)
+    except OwnerLockLost:
+        _mark_failed(db, run.id, "execution_owner_lost", started_at, provider_call_state="uncertain")
+        raise HTTPException(
+            status_code=503,
+            detail="Research ownership could not be verified; no report was saved.",
+        ) from None
     except ResearchWorkflowTimeout:
         _mark_failed(db, run.id, "request_timeout", started_at, provider_call_state="uncertain")
         raise HTTPException(
@@ -403,6 +398,159 @@ def _assert_execution_boundary(
         raise HTTPException(status_code=409, detail="Thesis inputs changed before research could safely complete.")
 
 
+def _finalize_research_run(
+    db: Session,
+    *,
+    actor: UserContext,
+    thesis_id: str,
+    run_id: str,
+    input_checksum: str,
+    started_at: datetime,
+    execution_started: float,
+    workflow,
+    source_observations: list[ResearchSourceObservation],
+    settings,
+    owner_fence: ResearchOwnerFence,
+) -> tuple[AnalysisRequestModel, ReportResponse, ResearchRunMetadata]:
+    """Lock authoritative rows and persist completion, report, and accounting atomically."""
+
+    # End any read transaction used during workflow execution. The final
+    # transaction below reloads and locks every authoritative lifecycle row.
+    db.rollback()
+    with db.begin():
+        owner_fence.assert_alive()
+        user = db.execute(
+            select(UserModel)
+            .where(UserModel.id == actor.id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).scalars().one_or_none()
+        if (
+            user is None
+            or user.deleted_at is not None
+            or not user.is_active
+            or user.account_status != "active"
+        ):
+            raise HTTPException(status_code=409, detail="Account lifecycle changed before research could safely complete.")
+
+        thesis = db.execute(
+            select(SavedThesisModel)
+            .where(SavedThesisModel.id == thesis_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).scalars().one_or_none()
+        if (
+            thesis is None
+            or thesis.deleted_at is not None
+            or thesis.owner_user_id != actor.id
+            or thesis.visibility != "private"
+            or thesis.organization_id is not None
+        ):
+            raise HTTPException(status_code=409, detail="Thesis lifecycle changed before research could safely complete.")
+
+        thesis_assumptions = _thesis_assumptions_snapshot(db, thesis)
+        locked_run = db.execute(
+            select(AnalysisRequestModel)
+            .where(AnalysisRequestModel.id == run_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        ).scalars().one_or_none()
+        if (
+            locked_run is None
+            or locked_run.owner_user_id != actor.id
+            or locked_run.thesis_id != thesis_id
+            or locked_run.research_input_checksum != input_checksum
+            or locked_run.research_status != "running"
+            or locked_run.deleted_at is not None
+            or _research_input_checksum(
+                thesis,
+                ResearchQuestionRequest(question=str(locked_run.research_question or "")),
+                thesis_assumptions,
+            )
+            != input_checksum
+        ):
+            raise HTTPException(status_code=409, detail="Research run changed before it could be finalized safely.")
+
+        # This check is useful for prompt termination; the row locks are the
+        # atomic correctness boundary if the dedicated connection is lost
+        # immediately after this point.
+        owner_fence.assert_alive()
+        completed_at = datetime.now(UTC)
+        evidence_gaps = list(dict.fromkeys(workflow.missing_data))
+        model_run = workflow.model_run
+        metadata = ResearchRunMetadata(
+            run_id=locked_run.id,
+            thesis_id=thesis_id,
+            question=str(locked_run.research_question or ""),
+            status="completed_with_gaps" if evidence_gaps else "completed",
+            started_at=started_at,
+            completed_at=completed_at,
+            elapsed_ms=min(max(int((monotonic() - execution_started) * 1000), 0), 120_000),
+            pass_count=workflow.pass_count,
+            model_call_count=workflow.model_call_count,
+            tool_invocation_count=workflow.tool_invocation_count,
+            source_document_count=len(workflow.retrieved_context),
+            limits=_limits(settings),
+            tools=workflow.tool_trace or [],
+            sources=source_observations,
+            evidence_gaps=evidence_gaps,
+            llm_used=workflow.model_run.outcome == "succeeded" and workflow.model_call_count > 0,
+            llm_outcome=workflow.model_run.outcome,
+            llm_fallback_reason=workflow.model_run.fallback_reason,
+            model_provider=model_run.provider.provider_key if model_run.provider else None,
+            model_key=model_run.provider.model_key if model_run.provider else None,
+            route_version_id=model_run.route_version_id,
+            evaluation_run_id=model_run.evaluation_run_id,
+            prompt_checksum=model_run.prompt_checksum,
+            input_tokens=model_run.input_tokens,
+            output_tokens=model_run.output_tokens,
+            reported_total_tokens=model_run.reported_total_tokens,
+            total_tokens=model_run.total_tokens,
+            cost_microusd=model_run.cost_microusd,
+            provider_call_state=workflow.provider_call_state,
+            usage_status=workflow.usage_status,
+            usage_invalid_fields=list(model_run.usage_invalid_fields),
+        )
+        report = workflow.report.model_copy(update={"research": metadata})
+        locked_run.research_status = "completed"
+        locked_run.research_completed_at = completed_at
+        locked_run.research_metadata_json = metadata.model_dump(mode="json")
+        save_report(
+            report=report,
+            analysis_request_id=locked_run.id,
+            report_markdown=render_markdown_report(report),
+            db=db,
+            owner_user_id=actor.id,
+            visibility="private",
+        )
+        provenance = record_model_run_provenance(
+            db,
+            report_id=report.report_id,
+            candidate=workflow.model_run,
+            owner_user_id=actor.id,
+            organization_id=None,
+            anonymous_session_id=None,
+        )
+        record_model_run_quality_evidence(
+            db,
+            model_run=provenance,
+            quality=workflow.model_quality,
+        )
+        if actor.auth_enabled and actor.anonymous_session_id is None:
+            from app.entitlements.service import emit_usage
+
+            emit_usage(
+                db,
+                owner_user_id=actor.id,
+                unit_key="usage.analysis.completed.v1",
+                source_type="report",
+                source_id=report.report_id,
+            )
+        db.flush()
+        owner_fence.assert_alive()
+    return locked_run, report, metadata
+
+
 def _research_input_checksum(
     thesis: SavedThesisModel,
     request: ResearchQuestionRequest,
@@ -506,21 +654,32 @@ def _reconcile_run_state(db: Session, run: AnalysisRequestModel) -> None:
             return
         _mark_uncertain(db, run, "execution_owner_unverifiable")
         return
+    db.rollback()
     if not try_acquire_research_owner_lock(db, run.owner_user_id or ""):
+        db.rollback()
+        return
+    locked_run = db.execute(
+        select(AnalysisRequestModel)
+        .where(AnalysisRequestModel.id == run.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalars().one_or_none()
+    if locked_run is None or locked_run.research_status != "running" or locked_run.deleted_at is not None:
+        db.rollback()
         return
     report = db.execute(
-        select(ReportModel).where(ReportModel.analysis_request_id == run.id)
+        select(ReportModel).where(ReportModel.analysis_request_id == locked_run.id)
     ).scalars().one_or_none()
     now = datetime.now(UTC)
     if report is not None:
-        run.research_status = "completed"
-        run.research_completed_at = report.created_at
+        locked_run.research_status = "completed"
+        locked_run.research_completed_at = report.created_at
         report_research = report.report_json.get("research") if isinstance(report.report_json, dict) else None
-        run.research_metadata_json = report_research if isinstance(report_research, dict) else run.research_metadata_json
+        locked_run.research_metadata_json = report_research if isinstance(report_research, dict) else locked_run.research_metadata_json
     else:
-        run.research_status = "interrupted"
-        run.research_completed_at = now
-        run.research_metadata_json = {
+        locked_run.research_status = "interrupted"
+        locked_run.research_completed_at = now
+        locked_run.research_metadata_json = {
             "error_code": "execution_interrupted_outcome_unknown",
             "outcome_certainty": "uncertain",
             "provider_call_state": "uncertain",
@@ -584,13 +743,18 @@ def _mark_failed(
     provider_call_state: str = "not_attempted",
 ) -> None:
     db.rollback()
-    run = db.get(AnalysisRequestModel, run_id)
+    run = db.execute(
+        select(AnalysisRequestModel)
+        .where(AnalysisRequestModel.id == run_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    ).scalars().one_or_none()
     if run is None:
         return
     if db.get_bind().dialect.name == "postgresql" and not try_acquire_execution_lock(db, run_id):
         db.rollback()
         return
-    if run.research_status != "running":
+    if run.research_status != "running" or run.deleted_at is not None:
         db.rollback()
         return
     completed_at = datetime.now(UTC)

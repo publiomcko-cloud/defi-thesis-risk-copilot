@@ -71,10 +71,21 @@ Input-budget preflight uses UTF-8 byte length plus a fixed provider-wrapper
 reserve in the absence of a provider tokenizer, then derives the maximum output
 tokens and cost from registered route rates. After a response, the enforced
 effective total is the maximum of the valid provider total and the valid
-input/output component sum. A malformed, incomplete, over-budget, or internally
-inconsistent usage record is rejected to deterministic output. Provider-reported
-and effective totals remain separately visible in persisted provenance and
-portfolio evidence.
+input/output component sum. Adapter usage counts accept only strict,
+non-boolean integers from 0 through 10,000,000. The OpenAI-compatible Chat
+Completions adapter requires the documented `prompt_tokens`,
+`completion_tokens`, and `total_tokens` fields; absent or malformed values cause
+deterministic fallback. The [OpenAI usage schema](https://platform.openai.com/docs/api-reference/chat/object)
+documents those counts. Ollama reports `prompt_eval_count` and `eval_count`
+without a separate total, so only that adapter derives the effective total from
+both components and leaves the provider-reported total unknown
+([Ollama usage fields](https://github.com/ollama/ollama/blob/main/docs/api/usage.mdx)).
+Present invalid fields remain classified by field name; raw malformed values
+are not retained. Any malformed, incomplete, over-budget, or inconsistent
+usage prevents model-generated text from being accepted. Valid observed
+components and available registered-rate cost evidence remain in provenance
+when a response is rejected. Provider-reported and effective totals remain
+separate.
 
 The BFF forwards the idempotency key and enforces a 30-second upstream abort;
 the Next.js route declares `maxDuration = 35`. The backend run deadline is 25
@@ -95,19 +106,33 @@ read-only project inspection.
   digests; raw private questions and source text are not written to product
   analytics.
 - PostgreSQL holds an owner-scoped transaction advisory lock on a dedicated,
-  pinned connection from before quota/run reservation through report commit.
-  Research starts, thesis update/delete, account deletion, and stale-run
-  reconciliation use this same owner fence. Independent thesis creation does
-  not hold the research fence. A status read that cannot obtain
-  it leaves an active `running` reservation untouched; after the fence is
-  released, reconciliation finds a committed report or marks the run
+  pinned connection from before reservation through report commit. The request
+  checks that same transaction before work, around each bounded tool call, and
+  at finalization; detected lock loss stops further calls and records an
+  uncertain outcome rather than claiming an already-transmitted provider call
+  was cancelled. The advisory connection is a prompt stop signal, not the sole
+  final-write authority. Reservation and finalization reload lifecycle state
+  under row locks. Finalization locks account, thesis, then run; it revalidates
+  active account, live private ownership, exact input checksum, and `running`
+  status, then commits the report, completion metadata, provenance, quality
+  evidence, and usage in one transaction. Account deletion locks account then
+  runs; thesis deletion locks thesis then runs. If lifecycle disposal commits
+  first, finalization fails without a report. If finalization commits first,
+  later deletion waits for the rows and scrubs the completed report and private
+  data. Reconciliation and failure handling reload and lock the run row so a
+  terminal or disposed run is not overwritten by stale state. A status read
+  that cannot obtain the advisory fence leaves a running reservation alone;
+  after process loss, reconciliation finds a committed report or marks the run
   `interrupted` with provider outcome and usage explicitly uncertain. Process
   loss releases the PostgreSQL transaction lock; transaction-pooling operation
   requires the open transaction to pin its backend for the whole request.
-  SQLite has only a process-local fence and cannot prove cross-process
-  ownership; stale runs are marked `uncertain` and are not cancelled or
-  replayed. In either case the same key returns the persisted state. Do not
-  retry an unknown run under a new key. No automatic worker recovery exists.
+  Each active request still needs an application connection and a separate
+  owner-lock connection; pool headroom, checkout timeout, and hosted pooler
+  affinity remain deployment prerequisites and were not verified here. SQLite
+  has only a process-local fence and cannot prove cross-process ownership;
+  stale runs are marked `uncertain` and are not cancelled or replayed. In either
+  case the same key returns the persisted state. Do not retry an unknown run
+  under a new key. No automatic worker recovery exists.
 - Thesis and account deletion scrub F1 questions, strategy snapshots, source and
   model provenance, report JSON, and Markdown while retaining only a redacted
   disposition record. Report access rejects tombstoned rows. Owner privacy
@@ -152,4 +177,5 @@ This candidate may be independently reviewed for F1 implementation quality. It
 does not meet the portfolio contract's `PERSONAL_RESEARCH_READY` or Phase 22
 release/deployment acceptance gate. See the [checksummed implementation report](phase_22_f1_implementation_report.md),
 the [checksummed F1-C correction review](phase_22_f1c_correction_report.md),
-and the [checksummed F1-C2 correction report](phase_22_f1c2_correction_report.md).
+the [checksummed F1-C2 correction report](phase_22_f1c2_correction_report.md),
+and the [checksummed F1-C3 correction report](phase_22_f1c3_correction_report.md).

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 from contextlib import contextmanager
+from dataclasses import dataclass, field
 from hashlib import sha256
 from collections.abc import Iterator
 
@@ -17,6 +18,43 @@ _ACTIVE_RUNS: set[str] = set()
 _ACTIVE_RUNS_LOCK = threading.Lock()
 _OWNER_LOCKS: dict[str, threading.Lock] = {}
 _OWNER_LOCKS_LOCK = threading.Lock()
+
+
+class OwnerLockLost(RuntimeError):
+    """The request can no longer prove that it owns its advisory fence."""
+
+
+@dataclass
+class ResearchOwnerFence:
+    acquired: bool
+    connection: Connection | None = None
+    transaction: object | None = None
+    _lost: bool = field(default=False, init=False)
+
+    def __bool__(self) -> bool:
+        return self.acquired
+
+    def assert_alive(self) -> None:
+        if not self.acquired or self._lost:
+            raise OwnerLockLost("research ownership could not be verified")
+        if self.connection is None:
+            # SQLite uses only the process-local fallback lock.
+            return
+        if (
+            self.connection.closed
+            or self.connection.invalidated
+            or self.transaction is None
+            or not getattr(self.transaction, "is_active", False)
+        ):
+            self._lost = True
+            raise OwnerLockLost("research ownership could not be verified")
+        try:
+            # This query runs on the same dedicated connection and open
+            # transaction that owns pg_try_advisory_xact_lock.
+            self.connection.execute(text("SELECT 1")).scalar_one()
+        except Exception:
+            self._lost = True
+            raise OwnerLockLost("research ownership could not be verified") from None
 
 
 def mark_local_run_active(run_id: str) -> None:
@@ -48,7 +86,7 @@ def _local_owner_lock(owner_user_id: str) -> threading.Lock:
 
 
 @contextmanager
-def hold_research_owner_lock(db: Session, owner_user_id: str) -> Iterator[bool]:
+def hold_research_owner_lock(db: Session, owner_user_id: str) -> Iterator[ResearchOwnerFence]:
     """Hold one owner's PostgreSQL transaction lock across request commits.
 
     The lock lives on a dedicated, pinned SQLAlchemy connection and its
@@ -67,7 +105,7 @@ def hold_research_owner_lock(db: Session, owner_user_id: str) -> Iterator[bool]:
         local_lock = _local_owner_lock(owner_user_id)
         acquired = local_lock.acquire(blocking=False)
         try:
-            yield acquired
+            yield ResearchOwnerFence(acquired=acquired)
         finally:
             if acquired:
                 local_lock.release()
@@ -77,6 +115,7 @@ def hold_research_owner_lock(db: Session, owner_user_id: str) -> Iterator[bool]:
     connection = independent_bind.connect()
     transaction = None
     acquired = False
+    fence: ResearchOwnerFence | None = None
     try:
         transaction = connection.begin()
         acquired = bool(
@@ -85,14 +124,26 @@ def hold_research_owner_lock(db: Session, owner_user_id: str) -> Iterator[bool]:
                 {"lock_id": _owner_lock_id(owner_user_id)},
             ).scalar_one()
         )
-        yield acquired
+        fence = ResearchOwnerFence(acquired=acquired, connection=connection, transaction=transaction)
+        yield fence
     finally:
         # Keep the transaction open for the complete guarded operation. Rollback
         # releases the xact lock on normal exit, exception, cancellation, or
         # connection cleanup after process failure.
         if transaction is not None and transaction.is_active:
-            transaction.rollback()
-        connection.close()
+            try:
+                transaction.rollback()
+            except Exception:
+                # A terminated PostgreSQL backend already released the
+                # transaction advisory lock. Cleanup must not mask the
+                # fail-closed request outcome with a driver exception.
+                if fence is not None:
+                    fence._lost = True
+        try:
+            connection.close()
+        except Exception:
+            if fence is not None:
+                fence._lost = True
 
 
 def try_acquire_execution_lock(db: Session, run_id: str) -> bool | None:

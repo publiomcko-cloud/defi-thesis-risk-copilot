@@ -305,6 +305,141 @@ def test_budget_accepts_consistent_usage_exactly_at_both_limits(monkeypatch) -> 
     assert result.cost_microusd == 500
 
 
+def test_openai_adapter_rejects_malformed_reported_total_and_preserves_usage(monkeypatch) -> None:
+    result = _run_openai_adapter_synthesis(
+        monkeypatch,
+        {"prompt_tokens": 40, "completion_tokens": 10, "total_tokens": "malformed"},
+    )
+
+    assert result.used_llm is False
+    assert result.fallback_reason == "provider_usage_invalid"
+    assert result.provider_call_state == "response_received_rejected"
+    assert result.usage_status == "invalid"
+    assert result.usage_invalid_fields == ("total_tokens",)
+    assert (result.input_tokens, result.output_tokens, result.reported_total_tokens, result.total_tokens) == (40, 10, None, 50)
+    assert result.cost_microusd == 1
+    assert result.report.executive_summary == _base_report().executive_summary
+    from app.llm.provenance import build_report_synthesis_candidate, candidate_from_payload
+
+    candidate = build_report_synthesis_candidate(result, _base_report(), [], scope_class="private")
+    payload = candidate.to_payload()
+    assert payload["usage_invalid_fields"] == ["total_tokens"]
+    assert "malformed" not in repr(payload)
+    assert candidate_from_payload(payload).usage_invalid_fields == ("total_tokens",)
+
+
+@pytest.mark.parametrize("bad_total", [-1, True, 1.0, "50", 10_000_001])
+def test_openai_adapter_rejects_non_integer_or_out_of_range_totals(monkeypatch, bad_total) -> None:
+    result = _run_openai_adapter_synthesis(
+        monkeypatch,
+        {"prompt_tokens": 40, "completion_tokens": 10, "total_tokens": bad_total},
+    )
+
+    assert result.used_llm is False
+    assert result.fallback_reason == "provider_usage_invalid"
+    assert result.usage_status == "invalid"
+    assert result.usage_invalid_fields == ("total_tokens",)
+    assert result.provider_call_state == "response_received_rejected"
+
+
+def test_openai_adapter_rejects_malformed_total_even_when_components_exceed_budget(monkeypatch) -> None:
+    result = _run_openai_adapter_synthesis(
+        monkeypatch,
+        {"prompt_tokens": 450, "completion_tokens": 100, "total_tokens": "malformed"},
+    )
+
+    assert result.used_llm is False
+    assert result.fallback_reason == "provider_usage_invalid"
+    assert result.usage_status == "invalid"
+    assert (result.input_tokens, result.output_tokens, result.total_tokens) == (450, 100, 550)
+    assert result.cost_microusd == 1
+
+
+def test_openai_adapter_requires_its_documented_total_field(monkeypatch) -> None:
+    result = _run_openai_adapter_synthesis(
+        monkeypatch,
+        {"prompt_tokens": 40, "completion_tokens": 10},
+    )
+
+    assert result.used_llm is False
+    assert result.fallback_reason == "provider_usage_invalid"
+    assert result.usage_invalid_fields == ("total_tokens",)
+    assert result.total_tokens == 50
+
+
+def test_ollama_adapter_derives_total_from_its_documented_components(monkeypatch) -> None:
+    from app.llm.providers import OllamaProvider
+
+    monkeypatch.setattr(
+        "app.llm.providers.httpx.post",
+        lambda *_args, **_kwargs: _FakeAdapterResponse(
+            {"response": _valid_synthesis_text(), "prompt_eval_count": 412, "eval_count": 100}
+        ),
+    )
+    result = _run_budgeted_synthesis(monkeypatch, OllamaProvider("http://unused.invalid", "test-model"))
+
+    assert result.used_llm is True
+    assert result.provider_call_state == "output_accepted"
+    assert result.usage_invalid_fields == ()
+    assert (result.input_tokens, result.output_tokens, result.reported_total_tokens, result.total_tokens) == (412, 100, None, 512)
+
+
+def test_openai_adapter_rejects_inconsistent_total_and_output_limit_overflow(monkeypatch) -> None:
+    inconsistent = _run_openai_adapter_synthesis(
+        monkeypatch,
+        {"prompt_tokens": 40, "completion_tokens": 10, "total_tokens": 80},
+    )
+    assert inconsistent.used_llm is False
+    assert inconsistent.fallback_reason == "provider_usage_inconsistent"
+    assert inconsistent.usage_status == "inconsistent"
+
+    overflow = _run_openai_adapter_synthesis(
+        monkeypatch,
+        {"prompt_tokens": 412, "completion_tokens": 101, "total_tokens": 513},
+        total_tokens=600,
+        max_output_tokens=100,
+    )
+    assert overflow.used_llm is False
+    assert overflow.fallback_reason == "provider_exceeded_token_budget"
+    assert overflow.output_tokens == 101
+    assert overflow.provider_call_state == "response_received_rejected"
+
+
+def _run_openai_adapter_synthesis(monkeypatch, usage: dict, *, total_tokens: int = 512, max_output_tokens: int = 100):
+    from app.llm.providers import OpenAICompatibleProvider
+
+    monkeypatch.setattr(
+        "app.llm.providers.httpx.post",
+        lambda *_args, **_kwargs: _FakeAdapterResponse(
+            {"choices": [{"message": {"content": _valid_synthesis_text()}}], "usage": usage}
+        ),
+    )
+    return _run_budgeted_synthesis(
+        monkeypatch,
+        OpenAICompatibleProvider("https://unused.invalid/v1", "fake-key", "test-model"),
+        total_tokens=total_tokens,
+        max_output_tokens=max_output_tokens,
+    )
+
+
+class _FakeAdapterResponse:
+    def __init__(self, payload: dict) -> None:
+        self.payload = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict:
+        return self.payload
+
+
+def _valid_synthesis_text() -> str:
+    return (
+        '{"executive_summary":"LLM educational summary that preserves uncertainty.",'
+        '"sections":{"Strategy Mechanics":"LLM explains mechanics in clearer educational language."}}'
+    )
+
+
 def test_f1_markdown_export_rebuilds_citations_from_sanitized_source_models() -> None:
     from app.reports.markdown_export import render_markdown_report
 

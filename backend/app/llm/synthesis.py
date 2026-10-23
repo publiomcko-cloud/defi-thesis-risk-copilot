@@ -63,6 +63,7 @@ class SynthesisResult:
     provider_call_made: bool = False
     provider_call_state: str = "not_attempted"
     usage_status: str = "not_applicable"
+    usage_invalid_fields: tuple[str, ...] = ()
 
 
 class SynthesisValidationError(ValueError):
@@ -336,6 +337,7 @@ def _synthesize_with_provider(
             provider_call_made=True,
             provider_call_state="output_accepted",
             usage_status=_usage_status(response, actual_cost, actual_total_tokens),
+            usage_invalid_fields=response.usage_invalid_fields,
         )
     except json.JSONDecodeError:
         return _validation_fallback(base_report, identity, started, "invalid_json", "malformed_json", route_version_id, evaluation_run_id, response, actual_cost, actual_total_tokens)
@@ -446,6 +448,7 @@ def _budget_fallback(
         provider_call_made=response is not None,
         provider_call_state="response_received_rejected" if response else "not_attempted",
         usage_status=_usage_status(response, actual_cost, actual_total_tokens),
+        usage_invalid_fields=response.usage_invalid_fields if response else (),
     )
 
 
@@ -480,6 +483,7 @@ def _validation_fallback(
         provider_call_made=response is not None,
         provider_call_state="response_received_rejected" if response else "not_attempted",
         usage_status=_usage_status(response, actual_cost, actual_total_tokens),
+        usage_invalid_fields=response.usage_invalid_fields if response else (),
     )
 
 
@@ -514,6 +518,7 @@ def _quality_fallback(
         provider_call_made=response is not None,
         provider_call_state="response_received_rejected" if response else "not_attempted",
         usage_status=_usage_status(response, actual_cost, actual_total_tokens),
+        usage_invalid_fields=response.usage_invalid_fields if response else (),
     )
 
 
@@ -524,6 +529,8 @@ def _usage_status(
 ) -> str:
     if response is None:
         return "not_applicable"
+    if response.usage_invalid_fields:
+        return "invalid"
     observed = (response.input_tokens, response.output_tokens, response.total_tokens)
     if any(value is not None and _valid_token_value(value) is None for value in observed):
         return "invalid"
@@ -571,6 +578,8 @@ def _effective_total_tokens(response: LLMResponse) -> int | None:
         if input_tokens is not None and output_tokens is not None
         else None
     )
+    if components_total is not None and components_total > 10_000_000:
+        components_total = None
     known_totals = [value for value in (reported_total, components_total) if value is not None]
     return max(known_totals) if known_totals else None
 

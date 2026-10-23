@@ -88,6 +88,9 @@ class ResearchRunMetadata(BaseModel):
         "not_attempted", "rejected_before_transmission", "response_received_rejected", "uncertain", "output_accepted"
     ] = "not_attempted"
     usage_status: Literal["not_applicable", "known", "partial", "unknown", "inconsistent", "invalid"] = "not_applicable"
+    usage_invalid_fields: list[
+        Literal["usage", "prompt_tokens", "completion_tokens", "total_tokens", "prompt_eval_count", "eval_count"]
+    ] = Field(default_factory=list, max_length=6)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -106,7 +109,7 @@ class ResearchRunSummary(BaseModel):
     provider_call_state: Literal[
         "not_attempted", "rejected_before_transmission", "response_received_rejected", "uncertain", "output_accepted"
     ] | None = None
-    usage_status: Literal["not_applicable", "known", "partial", "unknown"] | None = None
+    usage_status: Literal["not_applicable", "known", "partial", "unknown", "inconsistent", "invalid"] | None = None
     outcome_certainty: Literal["known_failure", "uncertain"] | None = None
 
 

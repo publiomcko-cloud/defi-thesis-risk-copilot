@@ -102,13 +102,19 @@ class ToolBudgetExceeded(RuntimeError):
 class ResearchToolLedger:
     """Validates each server-selected tool call and records digest-only lineage."""
 
-    def __init__(self, max_invocations: int, max_model_calls: int = 2) -> None:
+    def __init__(
+        self,
+        max_invocations: int,
+        max_model_calls: int = 2,
+        execution_guard: Callable[[], None] | None = None,
+    ) -> None:
         if not 1 <= max_invocations <= 8:
             raise ValueError("research tool invocation limit must be between 1 and 8")
         if not 1 <= max_model_calls <= 2:
             raise ValueError("research model-call limit must be between one and two")
         self.max_invocations = max_invocations
         self.max_model_calls = max_model_calls
+        self.execution_guard = execution_guard
         self.model_calls = 0
         self.trace: list[dict] = []
 
@@ -132,9 +138,13 @@ class ResearchToolLedger:
 
         input_type, output_type = TOOL_CONTRACTS[tool]
         parsed_input = input_type.model_validate(payload)
+        if self.execution_guard is not None:
+            self.execution_guard()
         if tool == ResearchToolName.REPORT_SYNTHESIS:
             self.model_calls += 1
         result = handler(parsed_input)
+        if self.execution_guard is not None:
+            self.execution_guard()
         if not isinstance(result, output_type):
             raise TypeError(f"{tool.value} returned an invalid typed output")
         self.trace.append(
