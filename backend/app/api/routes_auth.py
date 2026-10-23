@@ -26,6 +26,9 @@ from app.models.consent_record import ConsentRecordModel
 from app.models.organization import OrganizationMembershipModel
 from app.models.job import JobEventModel, JobModel
 from app.models.report import ReportModel
+from app.models.analysis_request import AnalysisRequestModel
+from app.reports.markdown_export import render_markdown_report
+from app.schemas.reports import ReportResponse
 from app.models.product_analytics import (
     PrivacyPreferenceDecisionModel,
     PrivacyPreferenceModel,
@@ -46,6 +49,8 @@ from app.research_intelligence.service import (
     dispose_research_intelligence_for_account,
     export_research_intelligence,
 )
+from app.research_copilot.lifecycle import ActiveResearchRunError, dispose_research_runs_for_account
+from app.research_copilot.execution import hold_research_owner_lock
 from app.models.watchlist_item import WatchlistItemModel
 from app.models.scheduled_monitoring import MonitoringScheduleModel, MonitoringScheduleOccurrenceModel
 from app.models.notification import NotificationModel, NotificationPreferenceModel
@@ -112,6 +117,7 @@ def export_account(
         .where(ReportModel.owner_user_id == current_user.id)
         .where(ReportModel.visibility == "private")
         .where(ReportModel.organization_id.is_(None))
+        .where(ReportModel.deleted_at.is_(None))
     ).scalars().all()
     entitlement_assignments = db.execute(
         select(EntitlementAssignmentModel)
@@ -206,6 +212,26 @@ def export_account(
     model_run_provenance = export_model_run_provenance(db, current_user.id)
     model_feedback = export_model_feedback(db, current_user.id)
     research_export = export_research_intelligence(db, current_user.id)
+    research_runs = db.execute(
+        select(AnalysisRequestModel)
+        .where(AnalysisRequestModel.owner_user_id == current_user.id)
+        .where(AnalysisRequestModel.research_run_key.is_not(None))
+        .where(AnalysisRequestModel.visibility == "private")
+        .where(AnalysisRequestModel.organization_id.is_(None))
+        .order_by(AnalysisRequestModel.created_at.desc())
+    ).scalars().all()
+    research_run_ids = [item.id for item in research_runs]
+    research_reports = (
+        db.execute(
+            select(ReportModel)
+            .where(ReportModel.analysis_request_id.in_(research_run_ids))
+            .where(ReportModel.owner_user_id == current_user.id)
+            .where(ReportModel.deleted_at.is_(None))
+            .order_by(ReportModel.created_at.desc())
+        ).scalars().all()
+        if research_run_ids
+        else []
+    )
     audits = db.execute(
         select(AccessAuditEventModel)
         .where(AccessAuditEventModel.actor_user_id == current_user.id)
@@ -498,6 +524,31 @@ def export_account(
         research_assumptions=research_export["research_assumptions"],
         research_catalysts=research_export["research_catalysts"],
         research_report_comparisons=research_export["report_comparisons"],
+        research_runs=[
+            {
+                "id": item.id,
+                "thesis_id": item.thesis_id,
+                "question": item.research_question,
+                "status": item.research_status,
+                "idempotency_key": item.research_run_key,
+                "input_checksum": item.research_input_checksum,
+                "source_and_model_metadata": item.research_metadata_json,
+                "created_at": item.created_at,
+                "completed_at": item.research_completed_at,
+                "deleted_at": item.deleted_at,
+            }
+            for item in research_runs
+        ],
+        research_reports=[
+            {
+                "id": item.id,
+                "analysis_request_id": item.analysis_request_id,
+                "created_at": item.created_at,
+                "report": item.report_json,
+                "markdown": render_markdown_report(ReportResponse.model_validate(item.report_json)),
+            }
+            for item in research_reports
+        ],
     )
     export_audit = record_audit_event(db, current_user.id, "account.exported", "user", current_user.id)
     emit_notification_intent(
@@ -518,6 +569,17 @@ def delete_account(
     db: Session = Depends(get_db),
     current_user: UserContext = Depends(require_authenticated_user),
 ) -> AccountDeleteResponse:
+    with hold_research_owner_lock(db, current_user.id) as acquired:
+        if not acquired:
+            db.rollback()
+            raise HTTPException(
+                status_code=409,
+                detail="Research or account lifecycle work is active; retry account deletion after it settles.",
+            )
+        return _delete_account_with_research_lock(db, current_user)
+
+
+def _delete_account_with_research_lock(db: Session, current_user: UserContext) -> AccountDeleteResponse:
     user = db.execute(
         select(UserModel).where(UserModel.id == current_user.id).with_for_update()
     ).scalars().one_or_none()
@@ -550,6 +612,11 @@ def delete_account(
                 detail="Transfer or remove final organization ownership before deleting the account.",
             )
     now = datetime.now(UTC)
+    try:
+        dispose_research_runs_for_account(db, current_user.id, now=now)
+    except ActiveResearchRunError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="A research run may still be executing; retry account deletion after it settles.") from None
     authenticated_email = normalize_email(user.email)
     user.account_status = "deleted"
     user.is_active = False

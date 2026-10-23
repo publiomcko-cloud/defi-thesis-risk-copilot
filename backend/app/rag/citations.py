@@ -1,4 +1,5 @@
 from app.rag.retriever import RetrievalResult
+from app.rag.source_urls import normalize_citation_url
 from app.schemas.reports import CitationLineageReference, SourceReference
 
 
@@ -19,6 +20,9 @@ def results_to_sources(results: list[RetrievalResult]) -> list[SourceReference]:
 
     for result in results:
         metadata = result.metadata
+        url = normalize_citation_url(metadata.get("source_url"))
+        if url is None:
+            continue
         key = (metadata["document_title"], metadata["section_title"])
         if key in seen:
             continue
@@ -28,7 +32,7 @@ def results_to_sources(results: list[RetrievalResult]) -> list[SourceReference]:
             SourceReference(
                 title=citation_label(result),
                 source_type="knowledge_base",
-                url=metadata["source_url"],
+                url=url,
                 protocol=metadata["protocol"],
                 citation_lineage=lineage,
             )
@@ -62,12 +66,7 @@ def validate_retrieval_citations(results: list[RetrievalResult]) -> list[str]:
             if not result.metadata.get(key):
                 issues.append(f"{result.chunk_id} missing citation metadata: {key}")
 
-        source_url = str(result.metadata.get("source_url", ""))
-        if source_url and not (
-            source_url.startswith("http://")
-            or source_url.startswith("https://")
-            or source_url.endswith(".md")
-        ):
+        if normalize_citation_url(result.metadata.get("source_url")) is None:
             issues.append(f"{result.chunk_id} has unrecognized source_url format")
 
     return issues

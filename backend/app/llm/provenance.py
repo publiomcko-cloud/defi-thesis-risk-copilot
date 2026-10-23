@@ -67,8 +67,10 @@ class ModelRunCandidate:
     output_tokens: int | None
     total_tokens: int | None
     cost_microusd: int | None
+    reported_total_tokens: int | None = None
     route_version_id: str | None = None
     evaluation_run_id: str | None = None
+    usage_invalid_fields: tuple[str, ...] = ()
 
     def to_payload(self) -> dict[str, Any]:
         """Return the safe worker envelope; no prompt, sources, or response text."""
@@ -102,9 +104,11 @@ class ModelRunCandidate:
             "input_tokens": self.input_tokens,
             "output_tokens": self.output_tokens,
             "total_tokens": self.total_tokens,
+            "reported_total_tokens": self.reported_total_tokens,
             "cost_microusd": self.cost_microusd,
             "route_version_id": self.route_version_id,
             "evaluation_run_id": self.evaluation_run_id,
+            "usage_invalid_fields": list(self.usage_invalid_fields),
         }
 
 
@@ -172,8 +176,10 @@ def build_report_synthesis_candidate(
         output_tokens=result.output_tokens,
         total_tokens=result.total_tokens,
         cost_microusd=result.cost_microusd,
+        reported_total_tokens=result.reported_total_tokens,
         route_version_id=result.route_version_id,
         evaluation_run_id=result.evaluation_run_id,
+        usage_invalid_fields=result.usage_invalid_fields,
     )
 
 
@@ -225,8 +231,10 @@ def candidate_from_payload(payload: object) -> ModelRunCandidate:
         output_tokens=_optional_int(payload.get("output_tokens"), 0, 10_000_000),
         total_tokens=_optional_int(payload.get("total_tokens"), 0, 10_000_000),
         cost_microusd=_optional_int(payload.get("cost_microusd"), 0, 2_147_483_647),
+        reported_total_tokens=_optional_int(payload.get("reported_total_tokens"), 0, 10_000_000),
         route_version_id=_optional_identifier(payload.get("route_version_id")),
         evaluation_run_id=_optional_identifier(payload.get("evaluation_run_id")),
+        usage_invalid_fields=_invalid_usage_fields(payload.get("usage_invalid_fields", [])),
     )
 
 
@@ -369,6 +377,23 @@ def _optional_identifier(value: object) -> str | None:
     if not isinstance(value, str) or not _IDENTIFIER.fullmatch(value):
         raise ValueError("Model provenance identifier is invalid")
     return value
+
+
+def _invalid_usage_fields(value: object) -> tuple[str, ...]:
+    allowed = {
+        "usage",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        "prompt_eval_count",
+        "eval_count",
+    }
+    if not isinstance(value, list) or len(value) > len(allowed):
+        raise ValueError("Model provenance usage classification is invalid")
+    fields = tuple(dict.fromkeys(item for item in value if isinstance(item, str) and item in allowed))
+    if len(fields) != len(value):
+        raise ValueError("Model provenance usage classification is invalid")
+    return fields
 
 
 def _bounded_int(value: object, lower: int, upper: int) -> int:

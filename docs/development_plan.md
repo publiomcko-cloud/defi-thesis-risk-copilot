@@ -531,20 +531,28 @@ Core outcomes:
 - safe worker-based ephemeral GPU execution;
 - fine-tuning dataset/model governance.
 
-## V1 Phase 22 — Final release validation and launch approval — Planned
+## V1 Phase 22 — ACTIVE — HOLD; F1 implementation candidate in progress
 
-Goal: close the external validation and legal gates deferred from Phase 16 after the V1 implementation phases are complete. This phase adds no new end-user product capability.
+Phase 22 is owner-authorized for a bounded synchronous Research Copilot candidate
+on an isolated branch from verified `main`. The F1 scope reuses existing
+analysis, source retrieval, market adapters, deterministic risk/report logic,
+evaluated model routing, saved theses, and report persistence. It adds no
+worker-backed research, schedule dispatch, PostgreSQL time-floor integration,
+provider activation, production deployment, or owner-decision acceptance.
 
-Required outcomes:
+The local candidate and evidence are documented in
+[`phase_22_f1_implementation.md`](phase_22_f1_implementation.md) and its
+[checksummed report](phase_22_f1_implementation_report.md). A completed F1
+implementation review does not close Phase 22 or make the application
+personal-ready. All seven historical R3 failures remain open; all ten R3.15
+owner decisions remain pending.
 
-- configure and validate reliable Supabase custom SMTP delivery;
-- run deployed signup verification, recovery callback/password reset, authenticated-browser refresh/logout, and administrator MFA flows with disposable real accounts;
-- confirm the deployed two-user ownership, organization membership-removal, and organization knowledge-metadata boundaries;
-- record dated deployment evidence without credentials, tokens, mailbox contents, or personal data;
-- obtain qualified review of the terms, privacy notice, retention language, and launch claims;
-- rerun the full release regression, migration, browser, Compose, deployment, and documentation checks against the intended production configuration.
-
-Phase 22 is complete only when every deferred provider and legal gate is evidenced, all release documentation is current, and the product can accurately be described as production-ready within its stated safety boundaries.
+Remaining F1 acceptance steps are independent review, draft PR checks, and a
+later owner-supervised real-model test after explicit approval of the exact
+private-data boundary, provider/model route, credential handling, and per-run
+cost ceiling. The real-model test and any deployment are outside this
+implementation authorization. Separately deferred Phase 16 provider/legal
+release gates remain required for production launch claims.
 
 ---
 

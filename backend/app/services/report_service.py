@@ -4,7 +4,9 @@ from sqlalchemy.orm import Session
 
 from app.auth.policies import can_read_resource
 from app.auth.schemas import UserContext
+from app.models.analysis_request import AnalysisRequestModel
 from app.models.report import ReportModel
+from app.reports.markdown_export import render_markdown_report
 from app.schemas.reports import ReportResponse
 
 
@@ -46,7 +48,7 @@ def get_report(
     actor: UserContext | None = None,
 ) -> ReportResponse | None:
     record = db.get(ReportModel, report_id)
-    if record is None:
+    if record is None or record.deleted_at is not None:
         return None
     if not can_read_resource(actor, record, db):
         return None
@@ -59,8 +61,12 @@ def get_report_markdown(
     actor: UserContext | None = None,
 ) -> str | None:
     record = db.get(ReportModel, report_id)
-    if record is None:
+    if record is None or record.deleted_at is not None:
         return None
     if not can_read_resource(actor, record, db):
         return None
+    request = db.get(AnalysisRequestModel, record.analysis_request_id)
+    if request is not None and request.research_run_key is not None:
+        report = ReportResponse.model_validate(record.report_json)
+        return render_markdown_report(report)
     return record.report_markdown

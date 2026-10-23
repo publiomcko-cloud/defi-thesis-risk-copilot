@@ -13,6 +13,8 @@
     "test:phase21c": "node scripts/phase21c-contract-check.mjs",
     "test:phase21d": "node scripts/phase21d-contract-check.mjs",
     "test:phase21e": "node scripts/phase21e-contract-check.mjs",
+    "test:phase22-f1": "node scripts/phase22-f1-contract-check.mjs",
+    "test:citation-policy": "node --experimental-strip-types scripts/citation-url-policy-check.ts",
     "test:route-smoke": "node scripts/e2e-smoke.mjs",
     "test:bff": "node scripts/bff-contract-check.mjs && node --experimental-strip-types scripts/bff-body-limit-check.ts",
     "test:accessibility": "node scripts/accessibility-contract-check.mjs",
@@ -21,7 +23,7 @@
     "test:mfa:routes": "node scripts/mfa-route-check.mjs"
   },
   "dependencies": {
-    "next": "15.5.27",
+    "next": "15.5.28",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },

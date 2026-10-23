@@ -1,6 +1,8 @@
 "use client";
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { ReportResearchPanel } from "@/components/ReportResearchPanel";
+import type { ResearchRunSummary } from "@/lib/types";
 
 type Revision = {
   revision_number: number;
@@ -31,6 +33,14 @@ type ThesisResearchPanelProps = {
   thesisId: string;
 };
 
+async function fetchPanelResource(path: string): Promise<Response | null> {
+  try {
+    return await fetch(path, { cache: "no-store" });
+  } catch {
+    return null;
+  }
+}
+
 export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
   const [revisions, setRevisions] = useState<Revision[]>([]);
   const [assumptions, setAssumptions] = useState<Assumption[]>([]);
@@ -41,23 +51,41 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
   const [catalystTitle, setCatalystTitle] = useState("");
   const [catalystDate, setCatalystDate] = useState("");
   const [message, setMessage] = useState("");
+  const [question, setQuestion] = useState("");
+  const [runs, setRuns] = useState<ResearchRunSummary[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
+  const [pendingRunKey, setPendingRunKey] = useState<string | null>(null);
+  const [pendingRunQuestion, setPendingRunQuestion] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
-    const [history, assumptionResponse, catalystResponse, questionsResponse] = await Promise.all([
-      fetch(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/history`, { cache: "no-store" }),
-      fetch(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/assumptions`, { cache: "no-store" }),
-      fetch(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/catalysts`, { cache: "no-store" }),
-      fetch(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/monitoring-questions`, { cache: "no-store" })
+  const refresh = useCallback(async (): Promise<ResearchRunSummary[]> => {
+    const [history, assumptionResponse, catalystResponse, questionsResponse, runResponse] = await Promise.all([
+      fetchPanelResource(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/history`),
+      fetchPanelResource(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/assumptions`),
+      fetchPanelResource(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/catalysts`),
+      fetchPanelResource(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/monitoring-questions`),
+      fetchPanelResource(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/research-runs`),
     ]);
-    if (history.ok) {
+    if (history?.ok) {
       const body = await history.json();
       const items = body.items as Revision[];
       setRevisions(items);
       setStatus(items.at(-1)?.status ?? "draft");
     }
-    if (assumptionResponse.ok) setAssumptions((await assumptionResponse.json()).items as Assumption[]);
-    if (catalystResponse.ok) setCatalysts((await catalystResponse.json()).items as Catalyst[]);
-    if (questionsResponse.ok) setQuestions((await questionsResponse.json()).questions as string[]);
+    if (assumptionResponse?.ok) setAssumptions((await assumptionResponse.json()).items as Assumption[]);
+    if (catalystResponse?.ok) setCatalysts((await catalystResponse.json()).items as Catalyst[]);
+    if (questionsResponse?.ok) setQuestions((await questionsResponse.json()).questions as string[]);
+    if (runResponse?.ok) {
+      const items = (await runResponse.json()).items as ResearchRunSummary[];
+      setRuns(items);
+      const unresolved = items.find((item) => ["running", "failed", "interrupted", "uncertain"].includes(item.status));
+      if (unresolved) {
+        setPendingRunKey(unresolved.idempotency_key);
+        setPendingRunQuestion(unresolved.question);
+        setQuestion((current) => current.trim() ? current : unresolved.question);
+      }
+      return items;
+    }
+    return [];
   }, [thesisId]);
 
   useEffect(() => {
@@ -109,6 +137,74 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
       await refresh();
     }
   }
+
+  async function startResearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const normalizedQuestion = question.trim();
+    const idempotencyKey = pendingRunKey && pendingRunQuestion === normalizedQuestion
+      ? pendingRunKey
+      : crypto.randomUUID();
+    setPendingRunKey(idempotencyKey);
+    setPendingRunQuestion(normalizedQuestion);
+    setIsRunning(true);
+    setMessage("Research request is running synchronously within the server time and tool limits.");
+    try {
+      const response = await fetch(`/api/backend/api/theses/${encodeURIComponent(thesisId)}/research`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Idempotency-Key": idempotencyKey
+        },
+        body: JSON.stringify({ question: normalizedQuestion })
+      });
+      const body = await response.json() as ResearchRunSummary & { detail?: string };
+      if (!response.ok) {
+        if (response.status === 504 || response.status === 503) {
+          const items = await refresh();
+          const persisted = items.find((item) => item.idempotency_key === idempotencyKey);
+          setMessage(persisted ? runStatusMessage(persisted) : "The browser stopped waiting; server execution may have continued. Outcome is unknown until the saved run appears. The same idempotency key is retained; do not retry with a new key.");
+          return;
+        }
+        throw new Error(body.detail ?? `Research request failed with status ${response.status}.`);
+      }
+      let run = body;
+      if (run.status === "running") {
+        setMessage("The run is reserved and still processing. Checking its persisted status.");
+        for (let attempt = 0; attempt < 25 && run.status === "running"; attempt += 1) {
+          await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+          const statusResponse = await fetch(
+            `/api/backend/api/theses/${encodeURIComponent(thesisId)}/research-runs/${encodeURIComponent(run.run_id)}`,
+            { cache: "no-store" }
+          );
+          if (!statusResponse.ok) break;
+          run = await statusResponse.json() as ResearchRunSummary;
+        }
+      }
+      if (run.status === "failed") {
+        setMessage(`Research failed safely (${run.error_code ?? "unknown error"}). No report was saved.`);
+      } else if (run.status === "running" || run.status === "uncertain" || run.status === "interrupted") {
+        setMessage(runStatusMessage(run));
+      } else {
+        setQuestion("");
+        setPendingRunKey(null);
+        setPendingRunQuestion(null);
+        setMessage(run.metadata?.llm_used
+          ? "Research report saved. The approved model route was used and recorded."
+          : "Research report saved with deterministic synthesis; no approved model route was used.");
+      }
+      await refresh();
+    } catch (caught) {
+      const items = await refresh();
+      const persisted = items.find((item) => item.idempotency_key === idempotencyKey);
+      setMessage(persisted
+        ? runStatusMessage(persisted)
+        : "The request outcome is unknown; the browser connection ended before a saved status was available. The same idempotency key is retained. Refresh to reconcile; do not retry with a new key.");
+    } finally {
+      setIsRunning(false);
+    }
+  }
+
+  const latestReport = runs.find((run) => run.status === "completed" && run.report_id)?.report_id;
 
   return (
     <section aria-labelledby={`research-${thesisId}`} className="stack research-intelligence">
@@ -166,7 +262,47 @@ export function ThesisResearchPanel({ thesisId }: ThesisResearchPanelProps) {
         <h4>Monitoring questions</h4>
         <ul className="compact-list">{questions.map((item) => <li key={item}>{item}</li>)}</ul>
       </div>
-      {message ? <p className="form-success">{message}</p> : null}
+      <form className="form-panel" onSubmit={startResearch}>
+        <h4>Bounded synchronous research</h4>
+        <p>Research runs inline with a two-pass maximum. No background worker is used.</p>
+        <label>
+          Research question
+          <textarea maxLength={2000} minLength={10} onChange={(event) => setQuestion(event.target.value)} required rows={3} value={question} />
+        </label>
+        <button className="primary-action" disabled={isRunning || question.trim().length < 10} type="submit">
+          {isRunning ? "Research running…" : "Start research"}
+        </button>
+      </form>
+      <div>
+        <h4>Saved research runs</h4>
+        {runs.length ? (
+          <ul className="compact-list">
+            {runs.map((run) => (
+              <li key={run.run_id}>
+                {run.status === "completed"
+                  ? (run.metadata?.status === "completed_with_gaps" ? "Completed with evidence gaps" : "Completed")
+                  : run.status === "interrupted" ? "Interrupted; provider outcome uncertain"
+                    : run.status === "uncertain" ? "Outcome uncertain; do not replay"
+                      : run.status}
+                : {run.question} · {new Date(run.started_at).toLocaleString()}
+                {run.metadata ? ` · ${run.metadata.llm_used ? "LLM used" : "deterministic fallback"}` : ""}
+                {run.report_id ? <> · <a className="text-link" href={`/reports/${encodeURIComponent(run.report_id)}`}>Open report</a></> : null}
+                {run.error_code ? ` · ${run.error_code}` : ""}
+              </li>
+            ))}
+          </ul>
+        ) : <p>No research runs saved for this thesis.</p>}
+      </div>
+      {latestReport ? <ReportResearchPanel reportId={latestReport} /> : null}
+      {message ? <p className={message.includes("failed") || message.includes("unknown") || message.includes("uncertain") || message.includes("do not retry") ? "error" : "form-success"} aria-live="polite">{message}</p> : null}
     </section>
   );
+}
+
+function runStatusMessage(run: ResearchRunSummary): string {
+  if (run.status === "completed") return "Research report saved and available in run history.";
+  if (run.status === "failed") return `Research failed (${run.error_code ?? "unknown error"}); provider outcome ${run.outcome_certainty ?? "unknown"}, usage ${run.usage_status ?? "unknown"}. The same idempotency key is retained.`;
+  if (run.status === "interrupted") return "The execution ended before a report was committed. Provider outcome and charges may be uncertain; do not replay under a new key.";
+  if (run.status === "uncertain") return "The execution owner cannot be verified. No replay was attempted; do not retry under a new key.";
+  return "The server still reports this run as executing. The browser timeout did not cancel backend execution; keep the same idempotency key and refresh later.";
 }

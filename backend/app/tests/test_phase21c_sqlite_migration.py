@@ -88,7 +88,7 @@ def _assert_phase21c(engine) -> None:
 
 def _materialize_current_prompt(engine) -> None:
     with sessionmaker(bind=engine)() as db:
-        assert ensure_report_synthesis_prompt_version(db).id == "prompt_report_synthesis_v3"
+        assert ensure_report_synthesis_prompt_version(db).id == "prompt_report_synthesis_v4"
         db.commit()
 
 

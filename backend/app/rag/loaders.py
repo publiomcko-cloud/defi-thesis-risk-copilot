@@ -22,7 +22,7 @@ def load_markdown_documents(root: Path) -> list[LoadedDocument]:
                 path=path,
                 protocol=protocol,
                 title=title,
-                source_url=str(path),
+                source_url=f"knowledge_base/{path.relative_to(root).as_posix()}",
                 content=content,
             )
         )

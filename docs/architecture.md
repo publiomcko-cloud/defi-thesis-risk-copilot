@@ -800,3 +800,51 @@ in Draft PR #36. Phase 22 remains the later
 deployed-provider/legal validation phase.
 
 Deterministic risk and non-execution boundaries remain permanent.
+
+---
+
+## 21. Phase 22 F1 bounded synchronous research candidate
+
+F1 adds an authenticated inline route under a saved private thesis. The API
+authorizes the owner before access, records an owner-scoped idempotency key and
+input checksum, reserves the existing analysis quota, and persists the report
+and completed run in one transaction. Reports link through the existing
+analysis request to the thesis. A repeated key with the same thesis and inputs
+returns the stored run; a changed input or thesis returns `409`.
+
+The server owns four typed tools: curated protocol retrieval, market
+observation, deterministic risk scoring, and report synthesis. Inputs and
+outputs are validated; the allowlist rejects unknown tools; traces retain
+SHA-256 digests rather than raw questions or retrieved text. The fixed workflow
+allows at most two retrieval passes, eight tool invocations, four source
+documents by default, two model calls, a configured token and per-run cost
+budget, and a bounded wall-clock deadline. It never executes model-generated
+code or arbitrary URLs. Retrieval citation validation removes source chunks
+with incomplete citation metadata. Existing source trust and untrusted-evidence
+prompt/quality policy remain in force.
+
+The deterministic report is built first. Model output can change only the
+existing approved explanatory fields; deterministic risk, market observations,
+missing data, sources, and disclaimer remain authoritative. Synthesis is
+disabled by default and runs only through the existing promoted route and
+scope/privacy checks. A missing, unpriced, unavailable, over-budget, or invalid
+route yields a deterministic report or a safe failed run. No private thesis is
+sent to a model by this candidate configuration.
+
+Source publication timestamps and retrieval/observation times are attached to
+the report alongside evidence gaps and hashed tool lineage. The UI exposes
+whether the model actually succeeded, source freshness, unresolved evidence,
+the saved report, deterministic comparison, and Markdown export. A server
+restart during an inline run can leave a persisted `running` reservation; the
+idempotency key prevents accidental re-execution and this candidate has no
+worker-based stale-run reconciler. Such a run remains visibly unresolved until
+an owner-directed recovery procedure is chosen; it must not be replayed under a
+new key as an assumed-safe retry.
+
+The backend deadline defaults to 25 seconds, the BFF aborts its upstream at
+30 seconds, and the route declares a 35-second maximum function duration. These
+values are independently configurable only within their validated bounds.
+Actual Vercel plan/project settings and hosted behavior were not inspected;
+the declared route ceiling is within the currently documented 60-second Hobby
+maximum for non-Fluid Node.js functions. This candidate has no worker, schedule,
+or PostgreSQL persisted time-floor dependency. Phase 22 remains ACTIVE — HOLD.

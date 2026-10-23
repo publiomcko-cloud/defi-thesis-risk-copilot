@@ -118,6 +118,7 @@ class ModelRunProvenanceModel(Base):
         CheckConstraint("input_tokens IS NULL OR input_tokens BETWEEN 0 AND 10000000", name="ck_model_run_provenance_input_tokens"),
         CheckConstraint("output_tokens IS NULL OR output_tokens BETWEEN 0 AND 10000000", name="ck_model_run_provenance_output_tokens"),
         CheckConstraint("total_tokens IS NULL OR total_tokens BETWEEN 0 AND 10000000", name="ck_model_run_provenance_total_tokens"),
+        CheckConstraint("reported_total_tokens IS NULL OR reported_total_tokens BETWEEN 0 AND 10000000", name="ck_model_run_provenance_reported_total_tokens"),
         CheckConstraint("cost_microusd IS NULL OR cost_microusd >= 0", name="ck_model_run_provenance_cost"),
         Index("ix_model_run_provenance_owner_created", "owner_user_id", "created_at"),
         Index("ix_model_run_provenance_org_created", "organization_id", "created_at"),
@@ -146,6 +147,7 @@ class ModelRunProvenanceModel(Base):
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reported_total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     cost_microusd: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), nullable=False)
 

@@ -159,6 +159,14 @@ def dispose_model_feedback_for_account(db: Session, owner_user_id: str) -> int:
     ).rowcount or 0
 
 
+def dispose_model_feedback_for_reports(db: Session, report_ids: list[str]) -> int:
+    if not report_ids:
+        return 0
+    return db.execute(
+        delete(ModelFeedbackModel).where(ModelFeedbackModel.report_id.in_(report_ids))
+    ).rowcount or 0
+
+
 def clear_model_feedback_organization_context(db: Session, organization_id: str) -> int:
     """Keep owner-safe feedback records while removing a deleted org reference."""
 

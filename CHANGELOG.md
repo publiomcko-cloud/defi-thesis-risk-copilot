@@ -1,5 +1,27 @@
 # Changelog
 
+## Phase 22 F1 — Bounded synchronous Research Copilot candidate
+
+- Added owner-scoped, idempotent synchronous research runs for private saved
+  theses, with typed server-selected protocol, market, deterministic-risk, and
+  synthesis tools; two-pass/eight-call/four-document defaults; persisted run
+  metadata; failure status; and stable report linkage.
+- Reused the existing retrieval, market-data, deterministic scoring/report,
+  evaluated model route, provenance, thesis, comparison, and Markdown export
+  paths. Model synthesis and provider remain disabled by default, the per-run
+  cost ceiling is zero by default, and no actual private data or provider was
+  used for validation.
+- Added a same-origin thesis research form and report evidence panel. The
+  backend deadline is 25 seconds, the BFF abort is 30 seconds, and the route
+  maximum duration is 35 seconds.
+- Updated the PDF parser pin from pypdf 6.20.0 to 6.21.1 and Next.js from
+  15.5.27 to 15.5.28 after the PR dependency audit found six pypdf advisories
+  plus critical/high Next.js advisories; focused PDF/F1 tests, frontend lint,
+  build, contracts, smoke, and production dependency audit pass after updates.
+- Added focused backend and frontend contract checks. This branch remains a
+  candidate; Phase 22 remains ACTIVE — HOLD. No worker, schedule, deployment,
+  experimental PostgreSQL time floor, owner decision, or merge was activated.
+
 ## Phase 21F — Model and research intelligence closeout
 
 - Began the documentation-only Phase 21 reconciliation: the Phase 21E final

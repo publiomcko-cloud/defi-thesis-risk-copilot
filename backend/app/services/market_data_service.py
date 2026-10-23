@@ -100,12 +100,14 @@ def _run_adapter(
     try:
         raw = adapter.fetch(query) if allow_live or adapter.name != "defillama" else {}
         normalized = adapter.normalize(raw)
+        normalized["observed_at"] = datetime.now(UTC).isoformat()
         _save_cache(adapter.name, cache_key, normalized, db)
         return normalized
     except Exception as exc:
         cached = _load_cache(adapter.name, cache_key, db)
         if cached is not None:
             cached["status"] = "cached"
+            cached.setdefault("observed_at", datetime.now(UTC).isoformat())
             cached.setdefault("assumptions", []).append(
                 f"{adapter.name} live fetch failed; using unexpired cached data."
             )
@@ -113,6 +115,7 @@ def _run_adapter(
         return {
             "source": adapter.name,
             "status": "unavailable",
+            "observed_at": datetime.now(UTC).isoformat(),
             "data": {},
             "missing_fields": ["live_data"],
             "assumptions": [
@@ -170,4 +173,6 @@ def _load_cache(source: str, cache_key: str, db: Session) -> dict | None:
     record = db.execute(statement).scalars().first()
     if record is None:
         return None
-    return dict(record.payload_json)
+    cached_payload = dict(record.payload_json)
+    cached_payload.setdefault("observed_at", record.fetched_at.isoformat())
+    return cached_payload

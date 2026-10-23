@@ -25,7 +25,7 @@ from app.models.model_governance import (
 )
 
 
-REPORT_SYNTHESIS_PROMPT_ID = "prompt_report_synthesis_v3"
+REPORT_SYNTHESIS_PROMPT_ID = "prompt_report_synthesis_v4"
 
 
 class ModelGovernanceConflict(ValueError):
@@ -161,6 +161,7 @@ def record_model_run_provenance(
         input_tokens=candidate.input_tokens,
         output_tokens=candidate.output_tokens,
         total_tokens=candidate.total_tokens,
+        reported_total_tokens=candidate.reported_total_tokens,
         cost_microusd=candidate.cost_microusd,
         created_at=datetime.now(UTC),
     )
@@ -278,6 +279,7 @@ def export_model_run_provenance(db: Session, owner_user_id: str) -> list[dict]:
             "input_tokens": row.input_tokens,
             "output_tokens": row.output_tokens,
             "total_tokens": row.total_tokens,
+            "reported_total_tokens": row.reported_total_tokens,
             "cost_microusd": row.cost_microusd,
             "created_at": row.created_at,
         }

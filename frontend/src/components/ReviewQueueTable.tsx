@@ -13,6 +13,7 @@ import {
   updateReviewItemStatus
 } from "@/lib/api";
 import type { DiscoveredItem, ReviewItem, ReviewStatus } from "@/lib/types";
+import { safeCitationHref } from "@/lib/citation-url";
 
 const publicDemoMode = process.env.NEXT_PUBLIC_PUBLIC_DEMO_MODE === "true";
 
@@ -211,8 +212,8 @@ export function ReviewQueueTable() {
                     <td>
                       <strong>{item.title}</strong>
                       <span>{item.protocol ?? "unknown protocol"}</span>
-                      {item.url ? (
-                        <a className="text-link" href={item.url} rel="noreferrer" target="_blank">
+                      {safeCitationHref(item.url) ? (
+                        <a className="text-link" href={safeCitationHref(item.url) ?? undefined} rel="noreferrer" target="_blank">
                           Open source
                         </a>
                       ) : null}

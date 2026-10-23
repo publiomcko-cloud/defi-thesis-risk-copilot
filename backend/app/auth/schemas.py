@@ -102,6 +102,8 @@ class AccountExportResponse(BaseModel):
     research_assumptions: list[dict] = Field(default_factory=list)
     research_catalysts: list[dict] = Field(default_factory=list)
     research_report_comparisons: list[dict] = Field(default_factory=list)
+    research_runs: list[dict] = Field(default_factory=list)
+    research_reports: list[dict] = Field(default_factory=list)
 
 
 class AccountDeleteRequest(BaseModel):

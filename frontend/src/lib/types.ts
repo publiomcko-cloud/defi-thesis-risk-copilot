@@ -490,12 +490,94 @@ export type ReportResponse = {
   risk_rating: RiskRating;
   executive_summary: string;
   strategy_description: string;
+  research_question?: string | null;
+  question_answer?: {
+    status: "supported" | "weak" | "insufficient";
+    answer: string;
+    citations: Array<{ source_id: string; title: string; excerpt: string; url?: string | null }>;
+    unsupported_aspects: string[];
+    potential_contradictions: string[];
+    method: string;
+  } | null;
   protocols: string[];
   assumptions: string[];
   missing_data: string[];
   sections: ReportSection[];
   sources: SourceReference[];
+  research?: ResearchRunMetadata | null;
   disclaimer: string;
+};
+
+export type ResearchRunLimits = {
+  max_passes: number;
+  max_model_calls: number;
+  max_tool_invocations: number;
+  max_documents: number;
+  token_budget: number;
+  cost_ceiling_microusd: number;
+  wall_time_seconds: number;
+};
+
+export type ResearchRunMetadata = {
+  run_id: string;
+  thesis_id: string;
+  question: string;
+  status: "completed" | "completed_with_gaps";
+  started_at: string;
+  completed_at: string;
+  elapsed_ms: number;
+  pass_count: number;
+  model_call_count: number;
+  tool_invocation_count: number;
+  source_document_count: number;
+  limits: ResearchRunLimits;
+  tools: Array<{ tool: string; pass_number: number; status: "completed" | "fallback" }>;
+  sources: Array<{
+    source_id: string;
+    source_version_id?: string | null;
+    source_version_checksum?: string | null;
+    title: string;
+    source_type: string;
+    url?: string | null;
+    protocol?: string | null;
+    status: string;
+    observed_at: string;
+    source_timestamp?: string | null;
+    freshness_note: string;
+  }>;
+  evidence_gaps: string[];
+  llm_used: boolean;
+  llm_outcome: string;
+  llm_fallback_reason?: string | null;
+  model_provider?: string | null;
+  model_key?: string | null;
+  route_version_id?: string | null;
+  evaluation_run_id?: string | null;
+  prompt_checksum?: string | null;
+  input_tokens?: number | null;
+  output_tokens?: number | null;
+  reported_total_tokens?: number | null;
+  total_tokens?: number | null;
+  cost_microusd?: number | null;
+  provider_call_state: "not_attempted" | "rejected_before_transmission" | "response_received_rejected" | "uncertain" | "output_accepted";
+  usage_status: "not_applicable" | "known" | "partial" | "unknown" | "inconsistent" | "invalid";
+  usage_invalid_fields: Array<"usage" | "prompt_tokens" | "completion_tokens" | "total_tokens" | "prompt_eval_count" | "eval_count">;
+};
+
+export type ResearchRunSummary = {
+  run_id: string;
+  thesis_id: string;
+  status: "running" | "completed" | "failed" | "interrupted" | "uncertain";
+  question: string;
+  report_id?: string | null;
+  error_code?: string | null;
+  started_at: string;
+  completed_at?: string | null;
+  metadata?: ResearchRunMetadata | null;
+  idempotency_key: string;
+  provider_call_state?: "not_attempted" | "rejected_before_transmission" | "response_received_rejected" | "uncertain" | "output_accepted" | null;
+  usage_status?: "not_applicable" | "known" | "partial" | "unknown" | "inconsistent" | "invalid" | null;
+  outcome_certainty?: "known_failure" | "uncertain" | null;
 };
 
 export type ModelFeedbackCategory =
