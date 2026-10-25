@@ -11,3 +11,6 @@ addopts = "-q"
 markers = [
   "postgres_integration: requires RUN_POSTGRES_INTEGRATION=true and a PostgreSQL database",
 ]
+
+[tool.setuptools.package-data]
+"app.llm" = ["research_gpu_ollama_manifest.json"]

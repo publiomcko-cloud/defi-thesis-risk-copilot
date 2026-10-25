@@ -67,6 +67,10 @@ class Settings(BaseSettings):
     database_url: str = "sqlite:///./defi_copilot.db"
     llm_synthesis_enabled: bool = False
     llm_provider: str = "disabled"
+    # Experimental research-GPU evaluation is separately gated and never
+    # participates in runtime route resolution. Both switches default closed.
+    research_gpu_evaluation_enabled: bool = False
+    research_gpu_evaluation_isolated: bool = False
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.1"
     openai_compatible_base_url: str = ""

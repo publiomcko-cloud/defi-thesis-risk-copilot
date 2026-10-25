@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint, event, inspect
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, event, inspect
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -192,6 +192,12 @@ class ModelEvaluationRunModel(Base):
         CheckConstraint("status IN ('running', 'completed', 'failed')", name="ck_model_evaluation_runs_status"),
         CheckConstraint("length(policy_version) BETWEEN 1 AND 64", name="ck_model_evaluation_runs_policy_version"),
         CheckConstraint("length(policy_checksum) = 64", name="ck_model_evaluation_runs_policy_checksum"),
+        CheckConstraint("evaluation_binding_checksum IS NULL OR length(evaluation_binding_checksum) = 64", name="ck_model_evaluation_runs_binding_checksum"),
+        CheckConstraint(
+            "(evaluation_binding_checksum IS NULL AND evaluation_binding_json IS NULL) OR "
+            "(evaluation_binding_checksum IS NOT NULL AND evaluation_binding_json IS NOT NULL)",
+            name="ck_model_evaluation_runs_binding_pair",
+        ),
         CheckConstraint("length(code_revision) BETWEEN 1 AND 64", name="ck_model_evaluation_runs_code_revision"),
         CheckConstraint("case_count BETWEEN 0 AND 1000", name="ck_model_evaluation_runs_case_count"),
         CheckConstraint("passed_case_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_passed_count"),
@@ -210,6 +216,10 @@ class ModelEvaluationRunModel(Base):
         CheckConstraint("provider_failure_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_provider_failure_count"),
         CheckConstraint("latency_known_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_latency_count"),
         CheckConstraint("latency_total_ms >= 0", name="ck_model_evaluation_runs_latency_total"),
+        CheckConstraint("cold_latency_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_cold_latency_count"),
+        CheckConstraint("cold_latency_total_ms >= 0", name="ck_model_evaluation_runs_cold_latency_total"),
+        CheckConstraint("warm_latency_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_warm_latency_count"),
+        CheckConstraint("warm_latency_total_ms >= 0", name="ck_model_evaluation_runs_warm_latency_total"),
         CheckConstraint("token_observation_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_token_count"),
         CheckConstraint("input_tokens_total >= 0 AND output_tokens_total >= 0 AND total_tokens_total >= 0", name="ck_model_evaluation_runs_token_totals"),
         CheckConstraint("cost_observation_count BETWEEN 0 AND case_count", name="ck_model_evaluation_runs_cost_count"),
@@ -234,6 +244,8 @@ class ModelEvaluationRunModel(Base):
     environment: Mapped[str] = mapped_column(String(32), nullable=False)
     policy_version: Mapped[str] = mapped_column(String(64), nullable=False)
     policy_checksum: Mapped[str] = mapped_column(String(64), nullable=False)
+    evaluation_binding_checksum: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    evaluation_binding_json: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     code_revision: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, default="running")
     case_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -253,6 +265,10 @@ class ModelEvaluationRunModel(Base):
     provider_failure_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     latency_known_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     latency_total_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cold_latency_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    cold_latency_total_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    warm_latency_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    warm_latency_total_ms: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     token_observation_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     input_tokens_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     output_tokens_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -273,8 +289,13 @@ class ModelEvaluationCaseResultModel(Base):
         UniqueConstraint("evaluation_run_id", "case_id", name="uq_model_evaluation_case_result"),
         CheckConstraint("length(case_id) BETWEEN 1 AND 64", name="ck_model_evaluation_case_results_case_id"),
         CheckConstraint("length(case_checksum) = 64", name="ck_model_evaluation_case_results_checksum"),
+        CheckConstraint("latency_phase IS NULL OR latency_phase IN ('cold', 'warm')", name="ck_model_evaluation_case_results_latency_phase"),
         CheckConstraint("reason_code IS NULL OR length(reason_code) BETWEEN 1 AND 64", name="ck_model_evaluation_case_results_reason"),
         CheckConstraint("latency_ms IS NULL OR latency_ms BETWEEN 0 AND 3600000", name="ck_model_evaluation_case_results_latency"),
+        CheckConstraint("ollama_load_duration_ns IS NULL OR ollama_load_duration_ns BETWEEN 0 AND 45000000000", name="ck_model_evaluation_case_results_ollama_load_duration"),
+        CheckConstraint("ollama_total_duration_ns IS NULL OR ollama_total_duration_ns BETWEEN 0 AND 45000000000", name="ck_model_evaluation_case_results_ollama_total_duration"),
+        CheckConstraint("ollama_prompt_eval_duration_ns IS NULL OR ollama_prompt_eval_duration_ns BETWEEN 0 AND 45000000000", name="ck_model_evaluation_case_results_ollama_prompt_duration"),
+        CheckConstraint("ollama_eval_duration_ns IS NULL OR ollama_eval_duration_ns BETWEEN 0 AND 45000000000", name="ck_model_evaluation_case_results_ollama_eval_duration"),
         CheckConstraint("input_tokens IS NULL OR input_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_input_tokens"),
         CheckConstraint("output_tokens IS NULL OR output_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_output_tokens"),
         CheckConstraint("total_tokens IS NULL OR total_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_total_tokens"),
@@ -303,6 +324,12 @@ class ModelEvaluationCaseResultModel(Base):
     privacy_policy_violation: Mapped[bool] = mapped_column(Boolean, nullable=False)
     provider_failure: Mapped[bool] = mapped_column(Boolean, nullable=False)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    latency_phase: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    ollama_load_duration_ns: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ollama_total_duration_ns: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ollama_prompt_eval_duration_ns: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ollama_eval_duration_ns: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    provider_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)

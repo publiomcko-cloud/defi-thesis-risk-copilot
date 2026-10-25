@@ -19,6 +19,7 @@ from app.llm.prompts import (
 )
 from app.llm.quality import ModelQualityEvidence, evaluate_report_synthesis_quality
 from app.llm.provenance import ModelIdentity, provider_identity, provider_is_eligible_for_scope
+from app.llm.research_gpu_ollama import ResearchGpuAdapterError
 from app.models.model_governance import ModelRegistryModel
 from app.llm.routing import (
     RouteResolution,
@@ -148,8 +149,17 @@ def synthesize_report_for_evaluation(
     market_data: MarketDataResponse,
     risk_score: RiskScore,
     provider: LLMProvider,
+    *,
+    provider_timeout_seconds: float | None = None,
 ) -> SynthesisResult:
-    """Internal deterministic evaluator helper; it is never a runtime route."""
+    """Internal evaluator helper; it is never a runtime route.
+
+    The optional override is reserved for the separately gated research-GPU
+    evaluator. It is bounded here so it cannot become an unbounded caller knob.
+    """
+
+    if provider_timeout_seconds is not None and not 0 < provider_timeout_seconds <= 45:
+        raise ValueError("Evaluation provider timeout is outside its bounded contract")
 
     return _synthesize_with_provider(
         base_report,
@@ -159,6 +169,7 @@ def synthesize_report_for_evaluation(
         provider,
         "public",
         include_instruction_flags=False,
+        evaluation_provider_timeout_seconds=provider_timeout_seconds,
     )
 
 
@@ -176,6 +187,7 @@ def _synthesize_with_provider(
     budget: SynthesisBudget | None = None,
     db: Session | None = None,
     include_instruction_flags: bool = True,
+    evaluation_provider_timeout_seconds: float | None = None,
 ) -> SynthesisResult:
     settings = get_settings()
     identity = provider_identity(active_provider)
@@ -221,7 +233,11 @@ def _synthesize_with_provider(
                     route_version_id,
                     evaluation_run_id,
                 )
-        provider_timeout = settings.llm_timeout_seconds
+        provider_timeout = (
+            evaluation_provider_timeout_seconds
+            if evaluation_provider_timeout_seconds is not None
+            else settings.llm_timeout_seconds
+        )
         if budget is not None and budget.deadline_monotonic is not None:
             remaining_time = budget.deadline_monotonic - monotonic()
             if remaining_time <= 0.01:
@@ -343,6 +359,20 @@ def _synthesize_with_provider(
         return _validation_fallback(base_report, identity, started, "invalid_json", "malformed_json", route_version_id, evaluation_run_id, response, actual_cost, actual_total_tokens)
     except SynthesisValidationError as exc:
         return _validation_fallback(base_report, identity, started, exc.result, exc.reason, route_version_id, evaluation_run_id, response, actual_cost, actual_total_tokens)
+    except ResearchGpuAdapterError:
+        return SynthesisResult(
+            report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
+            used_llm=False,
+            reason="runtime_evidence_incomplete",
+            outcome="validation_fallback",
+            validation_result="provider_error",
+            fallback_reason="runtime_evidence_incomplete",
+            provider=identity,
+            latency_ms=_elapsed_ms(started),
+            provider_call_made=False,
+            provider_call_state="not_attempted",
+            usage_status="unknown",
+        )
     except ValueError:
         return _validation_fallback(base_report, identity, started, "schema_invalid", "schema_validation_failed", route_version_id, evaluation_run_id, response, actual_cost, actual_total_tokens)
     except (httpx.ConnectError, httpx.ConnectTimeout):

@@ -36,6 +36,23 @@ from app.llm.evaluation_data import (
 from app.llm.governance import ensure_configured_model_registration, ensure_report_synthesis_prompt_version
 from app.llm.prompts import build_report_synthesis_prompt
 from app.llm.provenance import provider_identity
+from app.llm.research_gpu_ollama import (
+    OllamaNativeObservation,
+    ResearchGpuAdapterError,
+    VerifiedResearchGpuOllamaProvider,
+)
+from app.llm.research_gpu_policy import (
+    RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+    RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
+    RESEARCH_GPU_POLICY_CHECKSUM,
+    RESEARCH_GPU_POLICY_VERSION,
+    ResearchGpuPolicyError,
+    evaluation_case_plan,
+    research_gpu_binding_checksum_for_payload,
+    research_gpu_binding_payload,
+    research_gpu_provider_is_allowed,
+    resolve_research_gpu_policy,
+)
 from app.llm.routing import server_environment
 from app.llm.synthesis import synthesize_report_for_evaluation
 from app.llm.task_registry import get_model_task_definition
@@ -220,6 +237,396 @@ def evaluate_report_synthesis_candidate(
     return run
 
 
+def evaluate_report_synthesis_research_gpu_candidate(
+    db: Session,
+    *,
+    provider: object,
+    actor: UserContext,
+    model_manifest_digest: str,
+    model_weights_digest: str,
+    plan: str = "representative",
+) -> ModelEvaluationRunModel:
+    """Run the isolated, non-promotable GPU evaluation profile.
+
+    This is an internal service entrypoint, not an HTTP route. Selection is
+    controlled by disabled-by-default server settings, limited to isolated
+    development/exercise environments, and further bound to one public-only
+    Ollama model artifact. Representative/full case membership is code-owned.
+    """
+
+    _require_platform_admin(actor)
+    settings = get_settings()
+    environment = server_environment(settings)
+    try:
+        resolve_research_gpu_policy(
+            enabled=settings.research_gpu_evaluation_enabled,
+            isolated=settings.research_gpu_evaluation_isolated,
+            app_env=settings.app_env,
+            public_demo_mode=settings.public_demo_mode,
+        )
+    except ResearchGpuPolicyError as exc:
+        raise ModelEvaluationError(str(exc)) from None
+    if environment not in {"development", "exercise"} or settings.public_demo_mode:
+        raise ModelEvaluationError("Research-GPU policy environment is not authorized")
+    task = get_model_task_definition("report_synthesis")
+    identity = provider_identity(provider)
+    if (
+        task.version != "v1"
+        or not isinstance(provider, VerifiedResearchGpuOllamaProvider)
+        or identity is None
+        or identity.provider_key != "ollama"
+        or identity.model_key != "qwen2.5:7b-instruct-q4_K_M"
+        or not research_gpu_provider_is_allowed(provider, model_manifest_digest, model_weights_digest)
+    ):
+        raise ModelEvaluationError("Research-GPU profile accepts only its code-owned Ollama model")
+    try:
+        runtime_attestation = provider.prepare_cold_start().to_payload()
+    except ResearchGpuAdapterError as exc:
+        raise ModelEvaluationError(str(exc)) from None
+
+    ordinary_definition = report_synthesis_public_dataset()
+    adversarial_definition = report_synthesis_adversarial_dataset()
+    try:
+        selected_cases, selected_case_ids = evaluation_case_plan(
+            ordinary_definition.cases,
+            adversarial_definition.cases,
+            plan=plan,
+        )
+    except ResearchGpuPolicyError as exc:
+        raise ModelEvaluationError(str(exc)) from None
+
+    dataset = ensure_report_synthesis_evaluation_dataset(db)
+    adversarial_dataset = ensure_report_synthesis_adversarial_dataset(db)
+    prompt = ensure_report_synthesis_prompt_version(db)
+    candidate = ensure_configured_model_registration(db, identity)
+    selected_checksums = {
+        case.case_id: (
+            case_checksum(case) if isinstance(case, EvaluationCase) else adversarial_case_checksum(case)
+        )
+        for case in selected_cases
+    }
+    code_revision = settings.deployment_commit.strip().lower()
+    try:
+        binding_payload = research_gpu_binding_payload(
+            environment=environment,
+            task_key=task.key,
+            task_version=task.version,
+            model_registry_id=candidate.id,
+            provider_key=identity.provider_key,
+            model_key=identity.model_key,
+            model_version=identity.model_version,
+            endpoint_class=identity.endpoint_class,
+            privacy_classification=identity.privacy_classification,
+            model_manifest_digest=model_manifest_digest,
+            model_weights_digest=model_weights_digest,
+            prompt_version_id=prompt.id,
+            prompt_checksum=prompt.prompt_checksum,
+            ordinary_dataset=_dataset_binding_payload(ordinary_definition),
+            adversarial_dataset=_dataset_binding_payload(adversarial_definition),
+            evaluation_plan=plan,
+            selected_case_checksums=selected_checksums,
+            code_revision=code_revision,
+            runtime_attestation=runtime_attestation,
+        )
+    except ResearchGpuPolicyError as exc:
+        db.rollback()
+        raise ModelEvaluationError(str(exc)) from None
+    try:
+        binding_checksum = research_gpu_binding_checksum_for_payload(binding_payload)
+    except ResearchGpuPolicyError as exc:
+        raise ModelEvaluationError(str(exc)) from None
+    baseline_type, baseline_model_id, baseline_route_id = _baseline_for_scope(
+        db, task.key, task.version, environment
+    )
+    run = ModelEvaluationRunModel(
+        id=f"eval_{uuid4().hex}",
+        task_key=task.key,
+        task_version=task.version,
+        dataset_id=dataset.id,
+        adversarial_dataset_id=adversarial_dataset.id,
+        candidate_model_registry_id=candidate.id,
+        baseline_type=baseline_type,
+        baseline_model_registry_id=baseline_model_id,
+        baseline_route_version_id=baseline_route_id,
+        prompt_version_id=prompt.id,
+        environment=environment,
+        policy_version=RESEARCH_GPU_POLICY_VERSION,
+        policy_checksum=RESEARCH_GPU_POLICY_CHECKSUM,
+        evaluation_binding_checksum=binding_checksum,
+        evaluation_binding_json=binding_payload,
+        code_revision=code_revision,
+        status="running",
+        started_at=datetime.now(UTC),
+    )
+    db.add(run)
+    db.flush()
+    run_id = run.id
+    # Commit the running marker before model I/O. Each case is persisted in a
+    # short follow-up transaction so no database transaction spans inference.
+    db.commit()
+
+    results: list[dict[str, object]] = []
+    phases = ("cold", *("warm" for _ in selected_cases[1:]))
+    try:
+        for case, phase in zip(selected_cases, phases, strict=True):
+            provider.last_observation = None
+            result = _evaluate_case(
+                provider,
+                case,
+                provider_timeout_seconds=45,
+                latency_phase=phase,
+            )
+            observation = provider.last_observation
+            result.update(_native_observation_fields(observation))
+            runtime_evidence_complete = bool(
+                isinstance(observation, OllamaNativeObservation)
+                and observation.phase == phase
+                and observation.native_metrics_valid
+                and (phase != "cold" or observation.cold_load_confirmed)
+            )
+            result["native_metrics_complete"] = runtime_evidence_complete
+            if not runtime_evidence_complete:
+                result["passed"] = False
+                # Preserve the provider, schema, or quality rejection already
+                # produced for this case. Record an evidence reason only when
+                # the case otherwise had no rejection.
+                if result.get("reason_code") in {None, "accepted"}:
+                    result["reason_code"] = "runtime_evidence_incomplete"
+            provider_call_made = result.get("provider_call_made", True) is True
+            persisted_phase = phase if provider_call_made else None
+            result["provider_call_made"] = provider_call_made
+            if not provider_call_made:
+                # A fail-closed local refusal is not Ollama request latency.
+                result["latency_ms"] = None
+                result["latency_phase"] = None
+            results.append(result)
+            db.add(
+                ModelEvaluationCaseResultModel(
+                    id=f"evalcase_{uuid4().hex}",
+                    evaluation_run_id=run_id,
+                    case_id=case.case_id,
+                    case_checksum=selected_checksums[case.case_id],
+                    passed=result["passed"],
+                    structured_output_valid=result["structured_output_valid"],
+                    deterministic_preserved=result["deterministic_preserved"],
+                    source_integrity=result["source_integrity"],
+                    citation_consistency=result["citation_consistency"],
+                    unsupported_claim_count=result["unsupported_claim_count"],
+                    uncertainty_preserved=result["uncertainty_preserved"],
+                    source_instruction_flag_count=result["source_instruction_flag_count"],
+                    poisoning_detected=result["poisoning_detected"],
+                    deterministic_integrity=result["deterministic_integrity"],
+                    missing_data_honesty=result["missing_data_honesty"],
+                    unsafe_language_violation=result["unsafe_language_violation"],
+                    privacy_policy_violation=False,
+                    provider_failure=result["provider_failure"],
+                    latency_ms=result["latency_ms"],
+                    latency_phase=persisted_phase,
+                    ollama_load_duration_ns=result["ollama_load_duration_ns"],
+                    ollama_total_duration_ns=result["ollama_total_duration_ns"],
+                    ollama_prompt_eval_duration_ns=result["ollama_prompt_eval_duration_ns"],
+                    ollama_eval_duration_ns=result["ollama_eval_duration_ns"],
+                    provider_observed_at=result["provider_observed_at"],
+                    input_tokens=result["input_tokens"],
+                    output_tokens=result["output_tokens"],
+                    total_tokens=result["total_tokens"],
+                    cost_microusd=result["cost_microusd"],
+                    reason_code=result["reason_code"],
+                    created_at=datetime.now(UTC),
+                )
+            )
+            db.commit()
+        run = db.get(ModelEvaluationRunModel, run_id)
+        if run is None:
+            raise ModelEvaluationError("Research-GPU evaluation disappeared before completion")
+        if (
+            run.policy_version != RESEARCH_GPU_POLICY_VERSION
+            or run.policy_checksum != RESEARCH_GPU_POLICY_CHECKSUM
+            or run.evaluation_binding_checksum != binding_checksum
+            or run.evaluation_binding_json != binding_payload
+            or not _research_gpu_binding_is_current(
+                db,
+                run,
+                provider,
+                selected_cases,
+                selected_case_ids,
+                selected_checksums,
+                results,
+            )
+        ):
+            raise ModelEvaluationError("Research-GPU immutable authority changed before completion")
+        _complete_run(
+            run,
+            results,
+            latency_threshold_ms=30_000,
+            require_complete_measurements=True,
+            require_complete_native_metrics=True,
+            promotion_allowed=False,
+            request_timeout_ms=45_000,
+            policy_failure_reason="research_gpu_policy_failed",
+        )
+        record_audit_event(
+            db,
+            actor.id,
+            "model.research_gpu_evaluation_completed",
+            "model_evaluation_run",
+            run_id,
+            {
+                "task": task.key,
+                "status": run.status,
+                "policy_version": run.policy_version,
+                "policy_checksum": run.policy_checksum,
+                "evaluation_binding_checksum": run.evaluation_binding_checksum,
+                "plan": plan,
+                "selected_case_count": len(selected_case_ids),
+                "promotion_eligible": False,
+            },
+            commit=False,
+        )
+        db.commit()
+        db.refresh(run)
+        return run
+    except BaseException:
+        db.rollback()
+        try:
+            failed_run = db.get(ModelEvaluationRunModel, run_id)
+            if failed_run is not None and failed_run.status == "running":
+                failed_run.status = "failed"
+                failed_run.promotion_eligible = False
+                failed_run.failure_reason = "research_evaluation_interrupted"
+                failed_run.completed_at = datetime.now(UTC)
+                db.commit()
+        except Exception:
+            db.rollback()
+        raise
+
+
+def _dataset_binding_payload(definition: object) -> dict[str, object]:
+    return {
+        "dataset_id": definition.dataset_id,
+        "task_key": definition.task_key,
+        "task_version": definition.task_version,
+        "dataset_version": definition.dataset_version,
+        "checksum": definition.checksum,
+        "case_count": len(definition.cases),
+    }
+
+
+def _native_observation_fields(observation: OllamaNativeObservation | None) -> dict[str, object]:
+    return {
+        "ollama_load_duration_ns": observation.load_duration_ns if observation else None,
+        "ollama_total_duration_ns": observation.total_duration_ns if observation else None,
+        "ollama_prompt_eval_duration_ns": observation.prompt_eval_duration_ns if observation else None,
+        "ollama_eval_duration_ns": observation.eval_duration_ns if observation else None,
+        "provider_observed_at": (
+            datetime.fromisoformat(observation.observed_at) if observation else None
+        ),
+    }
+
+
+def _research_gpu_binding_is_current(
+    db: Session,
+    run: ModelEvaluationRunModel,
+    provider: object,
+    selected_cases: tuple[EvaluationCase | AdversarialEvaluationCase, ...],
+    selected_case_ids: tuple[str, ...],
+    selected_checksums: dict[str, str],
+    results: list[dict[str, object]],
+) -> bool:
+    """Recheck immutable v2 authority and selected case identities.
+
+    Runtime metric completeness is evaluation evidence, not immutable authority;
+    an absent observation must fail qualification without masquerading as an
+    authority mutation. Persisted case identity and phase labels are still
+    checked against the in-memory result set.
+    """
+
+    payload = run.evaluation_binding_json
+    try:
+        if not isinstance(payload, dict):
+            return False
+        if research_gpu_binding_checksum_for_payload(payload) != run.evaluation_binding_checksum:
+            return False
+        model_binding = payload["model"]
+        prompt_binding = payload["prompt"]
+        datasets_binding = payload["datasets"]
+        if (
+            payload["task"] != {"key": run.task_key, "version": run.task_version}
+            or payload["environment"] != run.environment
+            or payload["code_revision"] != run.code_revision
+            or payload["evaluation_plan"] not in {"representative", "full"}
+            or model_binding["registry_id"] != run.candidate_model_registry_id
+            or prompt_binding["id"] != run.prompt_version_id
+            or datasets_binding[0]["dataset_id"] != run.dataset_id
+            or datasets_binding[1]["dataset_id"] != run.adversarial_dataset_id
+            or payload["selected_case_checksums"] != dict(sorted(selected_checksums.items()))
+            or payload["runtime_attestation"] != provider.runtime_binding_payload()
+        ):
+            return False
+        if not has_current_evaluation_dataset_evidence(db, run):
+            return False
+        ordinary = report_synthesis_public_dataset()
+        adversarial = report_synthesis_adversarial_dataset()
+        if datasets_binding != [
+            _dataset_binding_payload(ordinary),
+            _dataset_binding_payload(adversarial),
+        ]:
+            return False
+        expected_cases, expected_ids = evaluation_case_plan(
+            ordinary.cases,
+            adversarial.cases,
+            plan=payload["evaluation_plan"],
+        )
+        if expected_ids != selected_case_ids or expected_cases != selected_cases:
+            return False
+        prompt = ensure_report_synthesis_prompt_version(db)
+        if prompt.id != prompt_binding["id"] or prompt.prompt_checksum != prompt_binding["checksum"]:
+            return False
+        model = db.get(ModelRegistryModel, run.candidate_model_registry_id)
+        identity = provider_identity(provider)
+        if (
+            model is None
+            or identity is None
+            or model_binding["provider_key"] != model.provider_key
+            or model_binding["model_key"] != model.model_key
+            or model_binding["model_version"] != model.model_version
+            or model_binding["endpoint_class"] != model.endpoint_class
+            or model_binding["privacy_classification"] != model.privacy_classification
+            or identity.provider_key != model.provider_key
+            or identity.model_key != model.model_key
+            or identity.model_version != model.model_version
+            or identity.endpoint_class != model.endpoint_class
+            or identity.privacy_classification != model.privacy_classification
+            or model_binding["manifest_digest"] != RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST
+            or model_binding["weights_digest"] != RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST
+            or not research_gpu_provider_is_allowed(
+                provider,
+                model_binding["manifest_digest"],
+                model_binding["weights_digest"],
+            )
+        ):
+            return False
+        persisted = db.execute(
+            select(ModelEvaluationCaseResultModel).where(
+                ModelEvaluationCaseResultModel.evaluation_run_id == run.id
+            )
+        ).scalars().all()
+        persisted_checksums = {row.case_id: row.case_checksum for row in persisted}
+        persisted_phases = {row.case_id: row.latency_phase for row in persisted}
+        expected_phases = {
+            case.case_id: result.get("latency_phase")
+            for case, result in zip(selected_cases, results, strict=True)
+        }
+        return (
+            len(persisted) == len(selected_case_ids)
+            and persisted_checksums == selected_checksums
+            and set(persisted_checksums) == set(selected_case_ids)
+            and persisted_phases == expected_phases
+        )
+    except (KeyError, TypeError, ValueError, ResearchGpuPolicyError):
+        return False
+
+
 def promote_evaluation_route(
     db: Session,
     *,
@@ -402,6 +809,7 @@ def route_snapshot(db: Session, *, environment: str | None = None) -> dict[str, 
         )
     ).scalar_one_or_none()
     route = db.get(ModelRouteVersionModel, assignment.active_route_version_id) if assignment and assignment.active_route_version_id else None
+    evaluation = db.get(ModelEvaluationRunModel, route.evaluation_run_id) if route else None
     return {
         "task_key": task.key,
         "task_version": task.version,
@@ -410,6 +818,9 @@ def route_snapshot(db: Session, *, environment: str | None = None) -> dict[str, 
         "active_route_version_id": route.id if route else None,
         "evaluation_run_id": route.evaluation_run_id if route else None,
         "model_registry_id": route.model_registry_id if route else None,
+        "policy_version": evaluation.policy_version if evaluation else None,
+        "policy_checksum": evaluation.policy_checksum if evaluation else None,
+        "evaluation_binding_checksum": evaluation.evaluation_binding_checksum if evaluation else None,
     }
 
 
@@ -427,19 +838,49 @@ def evaluation_run_snapshot(run: ModelEvaluationRunModel) -> dict[str, object]:
         "environment": run.environment,
         "policy_version": run.policy_version,
         "policy_checksum": run.policy_checksum,
+        "evaluation_binding_checksum": run.evaluation_binding_checksum,
         "status": run.status,
         "case_count": run.case_count,
         "passed_case_count": run.passed_case_count,
         "promotion_eligible": run.promotion_eligible,
         "failure_reason": run.failure_reason,
+        "latency_known_count": run.latency_known_count,
+        "latency_mean_ms": (
+            run.latency_total_ms / run.latency_known_count
+            if run.case_count > 0 and run.latency_known_count == run.case_count
+            else None
+        ),
+        "cold_latency_count": run.cold_latency_count,
+        "cold_latency_mean_ms": (
+            run.cold_latency_total_ms / run.cold_latency_count if run.cold_latency_count else None
+        ),
+        "warm_latency_count": run.warm_latency_count,
+        "warm_latency_mean_ms": (
+            run.warm_latency_total_ms / run.warm_latency_count if run.warm_latency_count else None
+        ),
+        "token_observation_count": run.token_observation_count,
+        "cost_observation_count": run.cost_observation_count,
         "started_at": run.started_at,
         "completed_at": run.completed_at,
     }
 
 
-def _evaluate_case(provider: object, case: EvaluationCase | AdversarialEvaluationCase) -> dict[str, object]:
+def _evaluate_case(
+    provider: object,
+    case: EvaluationCase | AdversarialEvaluationCase,
+    *,
+    provider_timeout_seconds: float | None = None,
+    latency_phase: str | None = None,
+) -> dict[str, object]:
     base = _evaluation_report(case)
-    result = synthesize_report_for_evaluation(base, _evaluation_context(case), _evaluation_market_data(), _evaluation_risk(), provider)  # type: ignore[arg-type]
+    result = synthesize_report_for_evaluation(
+        base,
+        _evaluation_context(case),
+        _evaluation_market_data(),
+        _evaluation_risk(),
+        provider,  # type: ignore[arg-type]
+        provider_timeout_seconds=provider_timeout_seconds,
+    )
     structured = result.validation_result == "accepted" and result.used_llm
     deterministic = structured and result.report.risk_rating == base.risk_rating and result.report.missing_data == base.missing_data
     source_integrity = structured and result.report.sources == base.sources and _sources_section(result.report) == _sources_section(base)
@@ -482,7 +923,10 @@ def _evaluate_case(provider: object, case: EvaluationCase | AdversarialEvaluatio
         "missing_data_honesty": missing_honesty,
         "unsafe_language_violation": unsafe,
         "provider_failure": provider_failure,
+        "provider_call_made": result.provider_call_made,
+        "provider_call_state": result.provider_call_state,
         "latency_ms": result.latency_ms,
+        "latency_phase": latency_phase,
         "input_tokens": result.input_tokens,
         "output_tokens": result.output_tokens,
         "total_tokens": result.total_tokens,
@@ -491,12 +935,36 @@ def _evaluate_case(provider: object, case: EvaluationCase | AdversarialEvaluatio
     }
 
 
-def _complete_run(run: ModelEvaluationRunModel, results: list[dict[str, object]]) -> None:
+def _complete_run(
+    run: ModelEvaluationRunModel,
+    results: list[dict[str, object]],
+    *,
+    latency_threshold_ms: int | None = None,
+    require_complete_measurements: bool = False,
+    require_complete_native_metrics: bool = False,
+    promotion_allowed: bool = True,
+    request_timeout_ms: int | None = None,
+    policy_failure_reason: str = "promotion_policy_failed",
+) -> None:
     count = len(results)
     def count_true(key: str) -> int:
         return sum(bool(row[key]) for row in results)
-    latencies = [int(row["latency_ms"]) for row in results if isinstance(row["latency_ms"], int)]
-    token_rows = [row for row in results if isinstance(row["total_tokens"], int)]
+    latencies = [
+        int(row["latency_ms"])
+        for row in results
+        if isinstance(row["latency_ms"], int) and not isinstance(row["latency_ms"], bool)
+    ]
+    if require_complete_measurements:
+        token_rows = [
+            row
+            for row in results
+            if all(
+                isinstance(row[field], int) and not isinstance(row[field], bool) and row[field] >= 0
+                for field in ("input_tokens", "output_tokens", "total_tokens")
+            )
+        ]
+    else:
+        token_rows = [row for row in results if isinstance(row["total_tokens"], int)]
     cost_rows = [row for row in results if isinstance(row["cost_microusd"], int)]
     run.case_count = count
     run.passed_case_count = count_true("passed")
@@ -515,13 +983,62 @@ def _complete_run(run: ModelEvaluationRunModel, results: list[dict[str, object]]
     run.provider_failure_count = count_true("provider_failure")
     run.latency_known_count = len(latencies)
     run.latency_total_ms = sum(latencies)
+    cold_latencies = [
+        int(row["latency_ms"])
+        for row in results
+        if row.get("latency_phase") == "cold"
+        and isinstance(row["latency_ms"], int)
+        and not isinstance(row["latency_ms"], bool)
+    ]
+    warm_latencies = [
+        int(row["latency_ms"])
+        for row in results
+        if row.get("latency_phase") == "warm"
+        and isinstance(row["latency_ms"], int)
+        and not isinstance(row["latency_ms"], bool)
+    ]
+    run.cold_latency_count = len(cold_latencies)
+    run.cold_latency_total_ms = sum(cold_latencies)
+    run.warm_latency_count = len(warm_latencies)
+    run.warm_latency_total_ms = sum(warm_latencies)
     run.token_observation_count = len(token_rows)
-    run.input_tokens_total = sum(int(row["input_tokens"] or 0) for row in token_rows)
-    run.output_tokens_total = sum(int(row["output_tokens"] or 0) for row in token_rows)
-    run.total_tokens_total = sum(int(row["total_tokens"] or 0) for row in token_rows)
+    if require_complete_measurements:
+        run.input_tokens_total = sum(int(row["input_tokens"]) for row in token_rows)
+        run.output_tokens_total = sum(int(row["output_tokens"]) for row in token_rows)
+        run.total_tokens_total = sum(int(row["total_tokens"]) for row in token_rows)
+    else:
+        run.input_tokens_total = sum(int(row["input_tokens"] or 0) for row in token_rows)
+        run.output_tokens_total = sum(int(row["output_tokens"] or 0) for row in token_rows)
+        run.total_tokens_total = sum(int(row["total_tokens"] or 0) for row in token_rows)
     run.cost_observation_count = len(cost_rows)
     run.cost_microusd_total = sum(int(row["cost_microusd"] or 0) for row in cost_rows)
-    average_latency = fmean(latencies) if latencies else 0
+    if require_complete_measurements:
+        average_latency = fmean(latencies) if count > 0 and len(latencies) == count else None
+        phases_complete = all(row.get("latency_phase") in {"cold", "warm"} for row in results)
+        request_times_bounded = (
+            request_timeout_ms is not None
+            and all(latency <= request_timeout_ms for latency in latencies)
+            and len(latencies) == count
+        )
+        measurements_complete = (
+            count > 0
+            and len(latencies) == count
+            and len(token_rows) == count
+            and phases_complete
+            and request_times_bounded
+            and (
+                not require_complete_native_metrics
+                or all(row.get("native_metrics_complete") is True for row in results)
+            )
+        )
+    else:
+        average_latency = fmean(latencies) if latencies else 0
+        measurements_complete = True
+    effective_latency_threshold = (
+        latency_threshold_ms
+        if latency_threshold_ms is not None
+        else PROMOTION_POLICY["max_average_latency_ms"]
+    )
     hard_pass = (
         count > 0
         and run.structured_output_valid_count == count
@@ -536,11 +1053,18 @@ def _complete_run(run: ModelEvaluationRunModel, results: list[dict[str, object]]
         and run.unsafe_language_violation_count == 0
         and run.privacy_policy_violation_count == 0
         and run.provider_failure_count == 0
-        and average_latency <= PROMOTION_POLICY["max_average_latency_ms"]
+        and measurements_complete
+        and average_latency is not None
+        and average_latency <= effective_latency_threshold
     )
     run.status = "completed"
-    run.promotion_eligible = hard_pass
-    run.failure_reason = None if hard_pass else "promotion_policy_failed"
+    run.promotion_eligible = hard_pass and promotion_allowed
+    if hard_pass:
+        run.failure_reason = None
+    elif require_complete_measurements and not measurements_complete:
+        run.failure_reason = "research_gpu_measurements_incomplete"
+    else:
+        run.failure_reason = policy_failure_reason
     run.completed_at = datetime.now(UTC)
 
 

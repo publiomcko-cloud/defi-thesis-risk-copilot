@@ -19,6 +19,7 @@ from app.llm.evaluation import (
     evaluate_report_synthesis_candidate,
     promote_evaluation_route,
     rollback_route,
+    route_snapshot,
 )
 from app.llm.evaluation_authority import (
     EVALUATION_VISIBLE_CONTENT_POLICY_VERSION,
@@ -26,6 +27,7 @@ from app.llm.evaluation_authority import (
     PROMOTION_POLICY,
 )
 from app.llm.evaluation_data import report_synthesis_adversarial_dataset, report_synthesis_public_dataset
+from app.llm.research_gpu_policy import RESEARCH_GPU_POLICY_VERSION
 from app.llm.governance import ensure_report_synthesis_prompt_version, record_model_run_provenance
 from app.llm.provenance import build_report_synthesis_candidate
 from app.llm.routing import (
@@ -283,6 +285,18 @@ def test_historical_v2_evidence_cannot_promote_or_resolve_current_or_snapshot_ro
             configured_provider=provider,
         )
         assert snapshot["route_version_id"] == route.id
+        assert snapshot["policy_version"] == PROMOTION_POLICY_VERSION
+        assert snapshot["policy_checksum"] == PROMOTION_POLICY_CHECKSUM
+        assert route_snapshot(db, environment="development")["policy_checksum"] == PROMOTION_POLICY_CHECKSUM
+        invalid_policy_snapshot = {**snapshot, "policy_version": RESEARCH_GPU_POLICY_VERSION}
+        invalid_snapshot_resolution = resolve_report_synthesis_execution_route(
+            db,
+            content_scope="private",
+            snapshot_payload=invalid_policy_snapshot,
+            configured_provider=provider,
+        )
+        assert invalid_snapshot_resolution.provider is None
+        assert invalid_snapshot_resolution.fallback_reason == "execution_route_snapshot_invalid"
         db.execute(
             ModelEvaluationRunModel.__table__.update()
             .where(ModelEvaluationRunModel.id == current.id)
