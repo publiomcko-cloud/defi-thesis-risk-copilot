@@ -115,7 +115,13 @@ Protected source paths are **not** authorized for modification by F1-DOC-01. R3 
 
 **Parallel later task:** F1-A1K async architecture design/implementation only after a separate owner decision, not as a prerequisite for the internal experimental five-case evaluation. F2/F3 activation remains blocked.
 
-## 9. Recovery procedure and documentation stewardship
+## 9. Post-checkpoint review finding — F1-A1J runner acceptance logic
+
+**Finding F1-DOC-01-R1 (pre-rental correction required):** The checked-in F1-A1J one-shot runner in PR #45 (source HEAD `0d9568e78ce414643cd86a86c19b4ae0ae0bbd79`, `docs/phase_22_f1a1j_real_gpu_test_plan.md`, lines 103–115) checks `run.status == "completed"`, `run.case_count == 5`, and `run.promotion_eligible == False`. The experimental policy intentionally forces `promotion_eligible=False` **regardless of quality**, while `status="completed"` can also describe failed cases. Thus the published command can exit successfully when zero of five cases passed. The document's prose specifies all-five quality acceptance, but the executable assertion does not enforce it.
+
+**Required correction before any new GPU spend:** independently check `passed_case_count == 5`, `failure_reason is None`, zero provider failures, and complete required latency/token/native evidence; report per-case quality/latency and explicit `MODEL_QUALITY_FAILED` rather than treating `completed` as a successful candidate. Keep `promotion_eligible=False` (it is a non-promotable policy). Add focused tests for all-five-fail and partial-fail scenarios, without weakening v3 or changing evaluator labels. This is a targeted plan/runner defect, not a claim that the qualified PostgreSQL migration failed.
+
+## 10. Recovery procedure and documentation stewardship
 
 1. Fetch GitHub `main` at the exact SHA above, then read PR #42 `docs/portfolio_f0_handoff.md`, `portfolio_completion_contract.md`, and `portfolio_finalization_plan.md`.
 2. Review PR #43 at exact HEAD for F1 implementation, citations, authorization, report lifecycle, and fixed 25 s execution.
