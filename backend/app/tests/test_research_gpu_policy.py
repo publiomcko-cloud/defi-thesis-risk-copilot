@@ -24,6 +24,8 @@ from app.llm.evaluation_authority import PROMOTION_POLICY, PROMOTION_POLICY_CHEC
 from app.llm.evaluation_data import report_synthesis_adversarial_dataset, report_synthesis_public_dataset
 from app.llm import research_gpu_ollama
 from app.llm.research_gpu_policy import (
+    RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+    RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
     RESEARCH_GPU_POLICY,
     RESEARCH_GPU_POLICY_CHECKSUM,
     RESEARCH_GPU_POLICY_VERSION,
@@ -46,7 +48,8 @@ from app.llm.research_gpu_ollama import (
 from app.main import app as _app  # noqa: F401
 
 
-MODEL_DIGEST = "sha256:" + "a" * 64
+MANIFEST_DIGEST = RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST
+MODEL_DIGEST = RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST
 BASE_URL = "http://127.0.0.1:11435"
 TUNNEL_EVIDENCE = SshForwardingEvidence(
     ssh_pid=4242,
@@ -59,6 +62,8 @@ TUNNEL_EVIDENCE = SshForwardingEvidence(
 
 
 class _HttpResponse:
+    status_code = 200
+
     def __init__(self, payload: dict[str, object]) -> None:
         self.payload = payload
 
@@ -81,15 +86,31 @@ def _verified_provider(monkeypatch, *, loaded_models: tuple[str, ...] = ()) -> V
         if url.endswith("/api/version"):
             return _HttpResponse({"version": "0.13.2"})
         if url.endswith("/api/tags"):
-            return _HttpResponse({"models": [{"name": "qwen2.5:7b-instruct-q4_K_M", "digest": "a" * 64}]})
+            return _HttpResponse({"models": [{"name": "qwen2.5:7b-instruct-q4_K_M", "digest": MANIFEST_DIGEST.removeprefix("sha256:")}]})
         if url.endswith("/api/ps"):
             return _HttpResponse({"models": [{"name": name} for name in loaded_models]})
         raise AssertionError(f"unexpected URL {url}")
 
     monkeypatch.setattr(research_gpu_ollama.httpx, "get", get)
+    monkeypatch.setattr(
+        research_gpu_ollama.httpx,
+        "head",
+        lambda url, *, timeout: _HttpResponse({})
+        if url.endswith("/api/blobs/" + MODEL_DIGEST)
+        else pytest.fail(url),
+    )
+    monkeypatch.setattr(
+        research_gpu_ollama.httpx,
+        "post",
+        lambda url, *, json, timeout: _HttpResponse({
+            "modelfile": "FROM /root/.ollama/models/blobs/sha256-" + MODEL_DIGEST.removeprefix("sha256:"),
+            "details": {"format": "gguf", "family": "qwen2", "quantization_level": "Q4_K_M"},
+        }) if url.endswith("/api/show") else _HttpResponse({"done": True}),
+    )
     return VerifiedResearchGpuOllamaProvider.verify_runtime(
         base_url=BASE_URL,
-        expected_model_digest=MODEL_DIGEST,
+        expected_manifest_digest=MANIFEST_DIGEST,
+        expected_weights_digest=MODEL_DIGEST,
         ssh_pid=4242,
     )
 
@@ -122,7 +143,10 @@ def _binding_runtime_attestation() -> dict[str, object]:
     return {
         "server_version": "0.13.2",
         "model_name": "qwen2.5:7b-instruct-q4_K_M",
-        "model_digest": MODEL_DIGEST,
+        "manifest_digest": MANIFEST_DIGEST,
+        "weights_digest": MODEL_DIGEST,
+        "weights_layer_media_type": "application/vnd.ollama.image.model",
+        "quantization": "Q4_K_M",
         "transport_kind": "verified_ssh_local_forward.v1",
         "transport": TUNNEL_EVIDENCE.to_payload(),
         "local_endpoint": BASE_URL,
@@ -143,7 +167,8 @@ def _binding(**overrides: object) -> str:
         "model_version": "qwen2.5:7b-instruct-q4_K_M",
         "endpoint_class": "ollama_generate",
         "privacy_classification": "public_only",
-        "model_artifact_digest": "sha256:" + "a" * 64,
+        "model_manifest_digest": MANIFEST_DIGEST,
+        "model_weights_digest": MODEL_DIGEST,
         "prompt_version_id": "prompt_report_synthesis_v3",
         "prompt_checksum": "b" * 64,
         "ordinary_dataset": _dataset_authority("report_synthesis_public_v2", "c" * 64),
@@ -159,8 +184,7 @@ def _binding(**overrides: object) -> str:
 
 def test_policy_versions_are_stable_and_v3_non_latency_requirements_are_unchanged() -> None:
     assert PROMOTION_POLICY_CHECKSUM == "309f35a2842827002dae007a8d3f4e2ac5c082326b9e6697969d858b8c37f25c"
-    assert RESEARCH_GPU_POLICY_VERSION == "report_synthesis.research_gpu.v1"
-    assert RESEARCH_GPU_POLICY_CHECKSUM == "a1cc598a60e47dc7fd6fb499f22fa346e75b990456b575c3cc327210a461d9fe"
+    assert RESEARCH_GPU_POLICY_VERSION == "report_synthesis.research_gpu.v2"
     payload = normalized_policy_payload()
     assert sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest() == RESEARCH_GPU_POLICY_CHECKSUM
     non_latency = dict(RESEARCH_GPU_POLICY["non_latency_requirements"])
@@ -199,13 +223,7 @@ def test_policy_selection_fails_closed(settings: dict[str, object]) -> None:
 def test_policy_and_binding_checksums_bind_every_authority() -> None:
     baseline = _binding()
     assert baseline == _binding()
-    changed_digest = "sha256:" + "1" * 64
-    changed_runtime = {
-        **_binding_runtime_attestation(),
-        "model_digest": changed_digest,
-    }
     changes = [
-        {"model_artifact_digest": changed_digest, "runtime_attestation": changed_runtime},
         {"model_registry_id": "another-model"},
         {"prompt_checksum": "1" * 64},
         {"ordinary_dataset": _dataset_authority("report_synthesis_public_v2", "1" * 64)},
@@ -217,22 +235,24 @@ def test_policy_and_binding_checksums_bind_every_authority() -> None:
         {"runtime_attestation": {**_binding_runtime_attestation(), "server_version": "0.13.3"}},
     ]
     assert all(_binding(**change) != baseline for change in changes)
-    with pytest.raises(ResearchGpuPolicyError, match="artifact digest"):
-        _binding(model_artifact_digest="mutable-model-tag")
+    with pytest.raises(ResearchGpuPolicyError, match="weights digest"):
+        _binding(model_weights_digest="mutable-model-tag")
+    with pytest.raises(ResearchGpuPolicyError, match="manifest digest"):
+        _binding(model_manifest_digest="sha256:" + "1" * 64)
     with pytest.raises(ResearchGpuPolicyError, match="environment"):
         _binding(environment="production")
 
 
 def test_research_gpu_provider_requires_local_public_only_pinned_ollama(monkeypatch) -> None:
     provider = _verified_provider(monkeypatch)
-    assert research_gpu_provider_is_allowed(provider, provider.artifact_digest)
+    assert research_gpu_provider_is_allowed(provider, provider.manifest_digest, provider.weights_digest)
     provider.base_url = "https://models.example.net"
-    assert not research_gpu_provider_is_allowed(provider, provider.artifact_digest)
+    assert not research_gpu_provider_is_allowed(provider, provider.manifest_digest, provider.weights_digest)
     provider.base_url = BASE_URL
     provider.privacy_classification = "unknown"
-    assert not research_gpu_provider_is_allowed(provider, provider.artifact_digest)
+    assert not research_gpu_provider_is_allowed(provider, provider.manifest_digest, provider.weights_digest)
     provider.privacy_classification = "public_only"
-    assert not research_gpu_provider_is_allowed(provider, "sha256:" + "b" * 64)
+    assert not research_gpu_provider_is_allowed(provider, provider.manifest_digest, "sha256:" + "b" * 64)
 
 
 def test_research_operation_bounds_are_inclusive_and_reject_missing_or_late_measurements() -> None:
@@ -262,6 +282,11 @@ def test_evaluation_timeout_override_is_bounded_without_sleeping(monkeypatch) ->
     requests = []
 
     def post(url: str, *, json: dict[str, object], timeout: float):
+        if url.endswith("/api/show"):
+            return _HttpResponse({
+                "modelfile": "FROM /root/.ollama/models/blobs/sha256-" + MODEL_DIGEST.removeprefix("sha256:"),
+                "details": {"format": "gguf", "family": "qwen2", "quantization_level": "Q4_K_M"},
+            })
         requests.append((url, json, timeout))
         return _HttpResponse({
             "model": provider.model,
@@ -370,7 +395,8 @@ def test_internal_gpu_evaluation_binds_and_persists_cold_warm_nonpromotable_evid
         evaluation_db,
         provider=provider,
         actor=actor,
-        model_artifact_digest=provider.artifact_digest,
+        model_manifest_digest=provider.manifest_digest,
+        model_weights_digest=provider.weights_digest,
     )
     results = evaluation_db.execute(
         select(ModelEvaluationCaseResultModel)
@@ -444,7 +470,8 @@ def test_latency_thresholds_include_cold_and_accept_exact_timeout_boundary(
         evaluation_db,
         provider=provider,
         actor=actor,
-        model_artifact_digest=provider.artifact_digest,
+        model_manifest_digest=provider.manifest_digest,
+        model_weights_digest=provider.weights_digest,
     )
     assert run.failure_reason == expected_failure
     assert run.promotion_eligible is False
@@ -485,7 +512,8 @@ def test_incomplete_usage_provider_failure_and_late_response_fail_closed(
         evaluation_db,
         provider=provider,
         actor=actor,
-        model_artifact_digest=provider.artifact_digest,
+        model_manifest_digest=provider.manifest_digest,
+        model_weights_digest=provider.weights_digest,
     )
     assert run.promotion_eligible is False
     assert run.failure_reason == "research_gpu_policy_failed"
@@ -511,6 +539,7 @@ def test_gpu_evaluation_entrypoint_is_disabled_by_default_and_has_no_http_route(
             evaluation_db,
             provider=provider,
             actor=actor,
-            model_artifact_digest="sha256:" + "a" * 64,
+            model_manifest_digest=MANIFEST_DIGEST,
+            model_weights_digest=MODEL_DIGEST,
         )
     assert not any("research-gpu" in getattr(route, "path", "") for route in _app.routes)

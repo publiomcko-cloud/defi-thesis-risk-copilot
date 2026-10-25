@@ -9,24 +9,32 @@ routes.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlparse
 
 import httpx
 
 from app.llm.base import LLMRequest, LLMResponse
 from app.llm.providers import OllamaProvider, _ollama_generate_payload, _ollama_response_from_payload
-from app.llm.research_gpu_policy import RESEARCH_GPU_REQUIRED_MODEL
+from app.llm.research_gpu_policy import (
+    RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+    RESEARCH_GPU_EXPECTED_QUANTIZATION,
+    RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
+    RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE,
+    RESEARCH_GPU_REQUIRED_MODEL,
+)
 
 
 _DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 _SSH_TARGET = re.compile(r"^(?P<user>[A-Za-z0-9_.-]{1,64})@(?P<host>[A-Za-z0-9][A-Za-z0-9.-]{0,252}[A-Za-z0-9])$")
 _OLLAMA_VERSION = re.compile(r"^[A-Za-z0-9._+-]{1,64}$")
 _MAX_NATIVE_DURATION_NS = 45_000_000_000
+RESEARCH_GPU_MANIFEST_EVIDENCE_PATH = Path(__file__).with_name("research_gpu_ollama_manifest.json")
 
 
 class ResearchGpuAdapterError(ValueError):
@@ -57,7 +65,10 @@ class SshForwardingEvidence:
 class OllamaRuntimeAttestation:
     server_version: str
     model_name: str
-    model_digest: str
+    manifest_digest: str
+    weights_digest: str
+    weights_layer_media_type: str
+    quantization: str
     transport: SshForwardingEvidence
     local_endpoint: str
     verified_at: str
@@ -68,7 +79,10 @@ class OllamaRuntimeAttestation:
         return {
             "server_version": self.server_version,
             "model_name": self.model_name,
-            "model_digest": self.model_digest,
+            "manifest_digest": self.manifest_digest,
+            "weights_digest": self.weights_digest,
+            "weights_layer_media_type": self.weights_layer_media_type,
+            "quantization": self.quantization,
             "transport_kind": "verified_ssh_local_forward.v1",
             "transport": self.transport.to_payload(),
             "local_endpoint": self.local_endpoint,
@@ -100,6 +114,14 @@ class OllamaNativeObservation:
             "cold_load_confirmed": self.cold_load_confirmed,
             "native_metrics_valid": self.native_metrics_valid,
         }
+
+
+@dataclass(frozen=True)
+class OllamaModelIdentity:
+    manifest_digest: str
+    weights_digest: str
+    weights_layer_media_type: str
+    quantization: str
 
 
 def verify_ssh_forwarding_process(
@@ -218,18 +240,34 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
         self,
         *,
         base_url: str,
-        model_digest: str,
+        model_manifest_digest: str,
+        model_weights_digest: str,
         ssh_pid: int,
         runtime_attestation: OllamaRuntimeAttestation,
     ) -> None:
         super().__init__(base_url, RESEARCH_GPU_REQUIRED_MODEL)
-        if not _DIGEST.fullmatch(model_digest):
-            raise ResearchGpuAdapterError("Verified model digest is invalid")
-        if runtime_attestation.model_digest != model_digest:
-            raise ResearchGpuAdapterError("Verified model digest does not match runtime evidence")
+        if (
+            model_manifest_digest != RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST
+            or not _DIGEST.fullmatch(model_manifest_digest)
+        ):
+            raise ResearchGpuAdapterError("Verified model manifest digest is invalid")
+        if (
+            model_weights_digest != RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST
+            or not _DIGEST.fullmatch(model_weights_digest)
+        ):
+            raise ResearchGpuAdapterError("Verified model weights digest is invalid")
+        if (
+            runtime_attestation.manifest_digest != model_manifest_digest
+            or runtime_attestation.weights_digest != model_weights_digest
+        ):
+            raise ResearchGpuAdapterError("Verified model identities do not match runtime evidence")
         if runtime_attestation.model_name != RESEARCH_GPU_REQUIRED_MODEL:
             raise ResearchGpuAdapterError("Verified model name does not match the research policy")
-        self.artifact_digest = model_digest
+        # OllamaProvider exposes artifact_digest as a generic compatibility
+        # field. The evaluation binding below stores both typed identities.
+        self.artifact_digest = model_weights_digest
+        self.manifest_digest = model_manifest_digest
+        self.weights_digest = model_weights_digest
         self.ssh_pid = ssh_pid
         self.runtime_attestation = runtime_attestation
         self.last_observation: OllamaNativeObservation | None = None
@@ -240,21 +278,33 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
         cls,
         *,
         base_url: str,
-        expected_model_digest: str,
+        expected_manifest_digest: str,
+        expected_weights_digest: str,
         ssh_pid: int,
         timeout_seconds: float = 5.0,
     ) -> "VerifiedResearchGpuOllamaProvider":
         """Verify SSH process, live server, exact artifact, and unloaded model."""
 
-        if not _DIGEST.fullmatch(expected_model_digest):
-            raise ResearchGpuAdapterError("Expected model digest is invalid")
+        if (
+            expected_manifest_digest != RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST
+            or not _DIGEST.fullmatch(expected_manifest_digest)
+        ):
+            raise ResearchGpuAdapterError("Expected Ollama manifest digest is invalid or unpinned")
+        if (
+            expected_weights_digest != RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST
+            or not _DIGEST.fullmatch(expected_weights_digest)
+        ):
+            raise ResearchGpuAdapterError("Expected GGUF weights digest is invalid or unpinned")
         transport = verify_ssh_forwarding_process(ssh_pid, base_url)
         server_version = _get_json(base_url, "/api/version", timeout_seconds).get("version")
         if not isinstance(server_version, str) or not _OLLAMA_VERSION.fullmatch(server_version):
             raise ResearchGpuAdapterError("Ollama server version could not be verified")
-        actual_digest = _verified_model_digest(base_url, timeout_seconds)
-        if actual_digest != expected_model_digest:
-            raise ResearchGpuAdapterError("Ollama artifact digest does not match the approved model")
+        identity = _verified_model_identity(base_url, timeout_seconds)
+        if (
+            identity.manifest_digest != expected_manifest_digest
+            or identity.weights_digest != expected_weights_digest
+        ):
+            raise ResearchGpuAdapterError("Ollama manifest/weights identity pair does not match the approved model")
         loaded_before = _loaded_model_names(base_url, timeout_seconds)
         unloaded = RESEARCH_GPU_REQUIRED_MODEL not in loaded_before
         if not unloaded:
@@ -272,7 +322,10 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
         attestation = OllamaRuntimeAttestation(
             server_version=server_version,
             model_name=RESEARCH_GPU_REQUIRED_MODEL,
-            model_digest=actual_digest,
+            manifest_digest=identity.manifest_digest,
+            weights_digest=identity.weights_digest,
+            weights_layer_media_type=identity.weights_layer_media_type,
+            quantization=identity.quantization,
             transport=transport,
             local_endpoint=base_url.rstrip("/"),
             verified_at=now,
@@ -281,7 +334,8 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
         )
         adapter = cls(
             base_url=base_url,
-            model_digest=actual_digest,
+            model_manifest_digest=identity.manifest_digest,
+            model_weights_digest=identity.weights_digest,
             ssh_pid=ssh_pid,
             runtime_attestation=attestation,
         )
@@ -293,8 +347,13 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
 
         self._assert_tunnel_unchanged()
         server_version = _get_json(self.base_url, "/api/version", 5.0).get("version")
-        actual_digest = _verified_model_digest(self.base_url, 5.0)
-        if server_version != self.runtime_attestation.server_version or actual_digest != self.artifact_digest:
+        identity = _verified_model_identity(self.base_url, 5.0)
+        if (
+            server_version != self.runtime_attestation.server_version
+            or identity.manifest_digest != self.manifest_digest
+            or identity.weights_digest != self.weights_digest
+            or identity.quantization != RESEARCH_GPU_EXPECTED_QUANTIZATION
+        ):
             raise ResearchGpuAdapterError("Ollama server or model authority changed before evaluation")
         loaded_before = _loaded_model_names(self.base_url, 5.0)
         if RESEARCH_GPU_REQUIRED_MODEL in loaded_before:
@@ -310,7 +369,10 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
         self.runtime_attestation = OllamaRuntimeAttestation(
             server_version=self.runtime_attestation.server_version,
             model_name=RESEARCH_GPU_REQUIRED_MODEL,
-            model_digest=self.artifact_digest,
+            manifest_digest=self.manifest_digest,
+            weights_digest=self.weights_digest,
+            weights_layer_media_type=RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE,
+            quantization=RESEARCH_GPU_EXPECTED_QUANTIZATION,
             transport=self.runtime_attestation.transport,
             local_endpoint=self.base_url,
             verified_at=self.runtime_attestation.verified_at,
@@ -325,13 +387,16 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
         try:
             self._assert_tunnel_unchanged()
             server_version = _get_json(self.base_url, "/api/version", 5.0).get("version")
-            actual_digest = _verified_model_digest(self.base_url, 5.0)
+            identity = _verified_model_identity(self.base_url, 5.0)
         except (ResearchGpuAdapterError, httpx.HTTPError):
             return False
         return (
             server_version == self.runtime_attestation.server_version
-            and actual_digest == self.artifact_digest
-            and self.runtime_attestation.model_digest == self.artifact_digest
+            and identity.manifest_digest == self.manifest_digest
+            and identity.weights_digest == self.weights_digest
+            and identity.quantization == RESEARCH_GPU_EXPECTED_QUANTIZATION
+            and self.runtime_attestation.manifest_digest == self.manifest_digest
+            and self.runtime_attestation.weights_digest == self.weights_digest
         )
 
     def generate(self, request: LLMRequest) -> LLMResponse:
@@ -387,7 +452,83 @@ def _get_json(base_url: str, path: str, timeout_seconds: float) -> dict[str, obj
     return payload
 
 
-def _verified_model_digest(base_url: str, timeout_seconds: float) -> str:
+def _post_json(
+    base_url: str,
+    path: str,
+    request_payload: dict[str, object],
+    timeout_seconds: float,
+) -> dict[str, object]:
+    try:
+        response = httpx.post(
+            f"{base_url.rstrip('/')}{path}",
+            json=request_payload,
+            timeout=timeout_seconds,
+        )
+        response.raise_for_status()
+        payload = response.json()
+    except httpx.HTTPError:
+        raise ResearchGpuAdapterError("Ollama runtime verification request failed") from None
+    except ValueError:
+        raise ResearchGpuAdapterError("Ollama runtime response was not valid JSON") from None
+    if not isinstance(payload, dict):
+        raise ResearchGpuAdapterError("Ollama runtime response must be a JSON object")
+    return payload
+
+
+def _parse_authoritative_manifest(
+    manifest_bytes: bytes,
+    *,
+    expected_manifest_digest: str = RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+    expected_weights_digest: str = RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
+) -> OllamaModelIdentity:
+    if not isinstance(manifest_bytes, bytes) or not manifest_bytes:
+        raise ResearchGpuAdapterError("Authoritative Ollama registry manifest is unavailable")
+    actual_manifest_digest = f"sha256:{hashlib.sha256(manifest_bytes).hexdigest()}"
+    if actual_manifest_digest != expected_manifest_digest or not _DIGEST.fullmatch(actual_manifest_digest):
+        raise ResearchGpuAdapterError("Authoritative Ollama manifest checksum does not match the pinned identity")
+    try:
+        manifest = json.loads(manifest_bytes)
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise ResearchGpuAdapterError("Authoritative Ollama manifest is not valid JSON") from None
+    if (
+        not isinstance(manifest, dict)
+        or manifest.get("schemaVersion") != 2
+        or manifest.get("mediaType") != "application/vnd.docker.distribution.manifest.v2+json"
+    ):
+        raise ResearchGpuAdapterError("Authoritative Ollama manifest schema is invalid")
+    layers = manifest.get("layers")
+    if not isinstance(layers, list):
+        raise ResearchGpuAdapterError("Authoritative Ollama manifest layers are invalid")
+    model_layers = [
+        layer
+        for layer in layers
+        if isinstance(layer, dict) and layer.get("mediaType") == RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE
+    ]
+    if len(model_layers) != 1:
+        raise ResearchGpuAdapterError("Authoritative Ollama manifest has a missing or ambiguous GGUF model layer")
+    weights_digest = model_layers[0].get("digest")
+    if not isinstance(weights_digest, str) or not _DIGEST.fullmatch(weights_digest):
+        raise ResearchGpuAdapterError("Authoritative GGUF model-layer digest is absent or truncated")
+    if weights_digest != expected_weights_digest:
+        raise ResearchGpuAdapterError("Authoritative GGUF model-layer digest does not match the approved weights")
+    return OllamaModelIdentity(
+        manifest_digest=actual_manifest_digest,
+        weights_digest=weights_digest,
+        weights_layer_media_type=RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE,
+        quantization=RESEARCH_GPU_EXPECTED_QUANTIZATION,
+    )
+
+
+def _authoritative_manifest_identity() -> OllamaModelIdentity:
+    try:
+        manifest_bytes = RESEARCH_GPU_MANIFEST_EVIDENCE_PATH.read_bytes()
+    except OSError:
+        raise ResearchGpuAdapterError("Pinned authoritative Ollama registry evidence is unavailable") from None
+    return _parse_authoritative_manifest(manifest_bytes)
+
+
+def _verified_model_identity(base_url: str, timeout_seconds: float) -> OllamaModelIdentity:
+    authoritative = _authoritative_manifest_identity()
     payload = _get_json(base_url, "/api/tags", timeout_seconds)
     models = payload.get("models")
     if not isinstance(models, list):
@@ -396,7 +537,7 @@ def _verified_model_digest(base_url: str, timeout_seconds: float) -> str:
         item
         for item in models
         if isinstance(item, dict)
-        and item.get("name", item.get("model")) == RESEARCH_GPU_REQUIRED_MODEL
+        and item.get("name") == RESEARCH_GPU_REQUIRED_MODEL
     ]
     if len(matching) != 1:
         raise ResearchGpuAdapterError("Exact Qwen model is missing or ambiguous in Ollama catalog")
@@ -404,8 +545,67 @@ def _verified_model_digest(base_url: str, timeout_seconds: float) -> str:
     if isinstance(digest, str) and re.fullmatch(r"[0-9a-f]{64}", digest):
         digest = f"sha256:{digest}"
     if not isinstance(digest, str) or not _DIGEST.fullmatch(digest):
-        raise ResearchGpuAdapterError("Ollama model digest is absent or invalid")
-    return digest
+        raise ResearchGpuAdapterError("Ollama manifest digest is absent, invalid, or truncated")
+    if digest != authoritative.manifest_digest:
+        raise ResearchGpuAdapterError("Ollama catalog manifest digest does not match authoritative registry evidence")
+
+    shown = _post_json(
+        base_url,
+        "/api/show",
+        {"model": RESEARCH_GPU_REQUIRED_MODEL},
+        timeout_seconds,
+    )
+    details = shown.get("details")
+    modelfile = shown.get("modelfile")
+    if not isinstance(details, dict) or not isinstance(modelfile, str):
+        raise ResearchGpuAdapterError("Ollama show response lacks model details or Modelfile evidence")
+    shown_model = shown.get("model", shown.get("name"))
+    if shown_model is not None and shown_model != RESEARCH_GPU_REQUIRED_MODEL:
+        raise ResearchGpuAdapterError("Ollama show response model identity does not match the exact approved tag")
+    if details.get("format") != "gguf" or details.get("family") != "qwen2":
+        raise ResearchGpuAdapterError("Ollama show response does not identify the expected Qwen GGUF model")
+    quantization = details.get("quantization_level")
+    if quantization != RESEARCH_GPU_EXPECTED_QUANTIZATION:
+        raise ResearchGpuAdapterError("Ollama model quantization does not match the approved Q4_K_M artifact")
+    from_paths = re.findall(r"(?im)^FROM\s+(\S+)\s*$", modelfile)
+    if len(from_paths) != 1:
+        raise ResearchGpuAdapterError("Ollama Modelfile has a missing or ambiguous model blob reference")
+    blob_path = PurePosixPath(from_paths[0])
+    if (
+        not blob_path.is_absolute()
+        or len(blob_path.parts) < 4
+        or blob_path.parts[-3:-1] != ("models", "blobs")
+    ):
+        raise ResearchGpuAdapterError("Ollama Modelfile does not reference a local model blob path")
+    blob_name = blob_path.name
+    blob_match = re.fullmatch(r"sha256-([0-9a-f]{64})", blob_name)
+    if blob_match is None:
+        raise ResearchGpuAdapterError("Ollama local model blob reference is absent, invalid, or truncated")
+    local_weights_digest = f"sha256:{blob_match.group(1)}"
+    if local_weights_digest != authoritative.weights_digest:
+        raise ResearchGpuAdapterError("Ollama local model blob does not match the authoritative GGUF layer")
+    _verify_local_model_blob(base_url, local_weights_digest, timeout_seconds)
+    return OllamaModelIdentity(
+        manifest_digest=digest,
+        weights_digest=local_weights_digest,
+        weights_layer_media_type=authoritative.weights_layer_media_type,
+        quantization=quantization,
+    )
+
+
+def _verify_local_model_blob(base_url: str, weights_digest: str, timeout_seconds: float) -> None:
+    """Use Ollama's read-only local blob-existence endpoint over the SSH tunnel."""
+
+    try:
+        response = httpx.head(
+            f"{base_url.rstrip('/')}/api/blobs/{weights_digest}",
+            timeout=timeout_seconds,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError:
+        raise ResearchGpuAdapterError("Pinned Ollama model blob is not available on the local runtime") from None
+    if response.status_code != 200:
+        raise ResearchGpuAdapterError("Pinned Ollama model blob is not available on the local runtime")
 
 
 def _loaded_model_names(base_url: str, timeout_seconds: float) -> tuple[str, ...]:

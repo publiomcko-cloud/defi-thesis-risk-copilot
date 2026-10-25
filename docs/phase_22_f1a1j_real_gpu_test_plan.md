@@ -15,9 +15,17 @@ executing any command below.
   billing ceiling. The US$3 total, 30-minute duration, and one-instance limit
   are operational limits, not provider-enforced caps; do not create a
   replacement instance.
-- Use only `qwen2.5:7b-instruct-q4_K_M`, pinned to the approved artifact
-  digest `sha256:2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730`
-  unless a new identity is separately reviewed and approved.
+- Use only `qwen2.5:7b-instruct-q4_K_M`, with separately pinned Ollama
+  manifest digest
+  `sha256:845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e`
+  and GGUF model-layer weights digest
+  `sha256:2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730`.
+  The manifest checksum and its unique `application/vnd.ollama.image.model`
+  layer are verified from the checked-in official registry evidence. The live
+  `/api/tags` manifest, `/api/show` Q4_K_M metadata, and local Modelfile blob
+  reference must independently match that pair over the verified SSH loopback
+  tunnel. The two digests identify different artifact types and are not
+  interchangeable.
 - Disable Ollama cloud, bind the remote Ollama service to loopback, use a
   verified SSH host key and tunnel, and send only the checked-in public and
   synthetic evaluation fixtures. Keep product route activation disabled.
@@ -65,7 +73,8 @@ export RESEARCH_GPU_EVALUATION_ENABLED=true
 export RESEARCH_GPU_EVALUATION_ISOLATED=true
 export DEPLOYMENT_COMMIT="$(git -C .. rev-parse HEAD)"
 export F1A1J_OLLAMA_BASE_URL=http://127.0.0.1:11435
-export F1A1J_MODEL_DIGEST=sha256:2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730
+export F1A1J_MODEL_MANIFEST_DIGEST=sha256:845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e
+export F1A1J_MODEL_WEIGHTS_DIGEST=sha256:2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730
 
 python - <<'PY'
 import os
@@ -91,7 +100,8 @@ if settings.deployment_commit != os.environ["DEPLOYMENT_COMMIT"]:
 
 provider = VerifiedResearchGpuOllamaProvider.verify_runtime(
     base_url=os.environ["F1A1J_OLLAMA_BASE_URL"],
-    expected_model_digest=os.environ["F1A1J_MODEL_DIGEST"],
+    expected_manifest_digest=os.environ["F1A1J_MODEL_MANIFEST_DIGEST"],
+    expected_weights_digest=os.environ["F1A1J_MODEL_WEIGHTS_DIGEST"],
     ssh_pid=int(os.environ["RESEARCH_GPU_SSH_PID"]),
 )
 with SessionLocal() as db:
@@ -108,7 +118,8 @@ with SessionLocal() as db:
         db,
         provider=provider,
         actor=user_context(operator),
-        model_artifact_digest=provider.artifact_digest,
+        model_manifest_digest=provider.manifest_digest,
+        model_weights_digest=provider.weights_digest,
         plan="representative",
     )
     case_results = db.scalars(
@@ -139,8 +150,9 @@ The run selects these five code-owned cases, in order:
 the adapter queries `/api/ps`, unloads the exact model if needed, and verifies
 it is absent. It then records Ollama's native `load_duration`,
 `total_duration`, `prompt_eval_duration`, and `eval_duration`, together with
-the observed model digest, server version, SSH-process/host-key evidence, and
-timestamps. A positive native load duration is required for the first case
+the separately typed manifest and weights digests, Q4_K_M metadata, local
+blob reference, server version, SSH-process/host-key evidence, and timestamps.
+A positive native load duration is required for the first case
 to be accepted as cold. All five requests count toward the 30,000 ms mean;
 the cold case is not excluded. The exact API/generation path remains real HTTP,
 not a canned-response implementation. The post-run qualification helper

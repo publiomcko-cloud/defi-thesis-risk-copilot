@@ -42,6 +42,8 @@ from app.llm.research_gpu_ollama import (
     VerifiedResearchGpuOllamaProvider,
 )
 from app.llm.research_gpu_policy import (
+    RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+    RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
     RESEARCH_GPU_POLICY_CHECKSUM,
     RESEARCH_GPU_POLICY_VERSION,
     ResearchGpuPolicyError,
@@ -240,7 +242,8 @@ def evaluate_report_synthesis_research_gpu_candidate(
     *,
     provider: object,
     actor: UserContext,
-    model_artifact_digest: str,
+    model_manifest_digest: str,
+    model_weights_digest: str,
     plan: str = "representative",
 ) -> ModelEvaluationRunModel:
     """Run the isolated, non-promotable GPU evaluation profile.
@@ -273,7 +276,7 @@ def evaluate_report_synthesis_research_gpu_candidate(
         or identity is None
         or identity.provider_key != "ollama"
         or identity.model_key != "qwen2.5:7b-instruct-q4_K_M"
-        or not research_gpu_provider_is_allowed(provider, model_artifact_digest)
+        or not research_gpu_provider_is_allowed(provider, model_manifest_digest, model_weights_digest)
     ):
         raise ModelEvaluationError("Research-GPU profile accepts only its code-owned Ollama model")
     try:
@@ -314,7 +317,8 @@ def evaluate_report_synthesis_research_gpu_candidate(
             model_version=identity.model_version,
             endpoint_class=identity.endpoint_class,
             privacy_classification=identity.privacy_classification,
-            model_artifact_digest=model_artifact_digest,
+            model_manifest_digest=model_manifest_digest,
+            model_weights_digest=model_weights_digest,
             prompt_version_id=prompt.id,
             prompt_checksum=prompt.prompt_checksum,
             ordinary_dataset=_dataset_binding_payload(ordinary_definition),
@@ -572,7 +576,13 @@ def _research_gpu_binding_is_current(
             or identity.model_version != model.model_version
             or identity.endpoint_class != model.endpoint_class
             or identity.privacy_classification != model.privacy_classification
-            or not research_gpu_provider_is_allowed(provider, model_binding["artifact_digest"])
+            or model_binding["manifest_digest"] != RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST
+            or model_binding["weights_digest"] != RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST
+            or not research_gpu_provider_is_allowed(
+                provider,
+                model_binding["manifest_digest"],
+                model_binding["weights_digest"],
+            )
         ):
             return False
         persisted = db.execute(

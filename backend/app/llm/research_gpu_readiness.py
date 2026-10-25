@@ -12,6 +12,10 @@ from collections.abc import Sequence
 from datetime import datetime
 
 from app.llm.research_gpu_policy import (
+    RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+    RESEARCH_GPU_EXPECTED_QUANTIZATION,
+    RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
+    RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE,
     RESEARCH_GPU_POLICY,
     RESEARCH_GPU_POLICY_CHECKSUM,
     RESEARCH_GPU_POLICY_VERSION,
@@ -102,17 +106,23 @@ def qualifies_as_approved_five_case_sample(
         ):
             return False
         model_binding = binding.get("model")
-        artifact_digest = model_binding.get("artifact_digest") if isinstance(model_binding, dict) else None
+        manifest_digest = model_binding.get("manifest_digest") if isinstance(model_binding, dict) else None
+        weights_digest = model_binding.get("weights_digest") if isinstance(model_binding, dict) else None
         runtime_attestation = binding.get("runtime_attestation")
         if (
             not isinstance(model_binding, dict)
             or model_binding.get("model_key") != RESEARCH_GPU_REQUIRED_MODEL
             or model_binding.get("privacy_classification") != "public_only"
-            or not isinstance(artifact_digest, str)
-            or re.fullmatch(r"sha256:[0-9a-f]{64}", artifact_digest) is None
+            or manifest_digest != RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST
+            or weights_digest != RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST
+            or model_binding.get("weights_layer_media_type") != RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE
+            or model_binding.get("quantization") != RESEARCH_GPU_EXPECTED_QUANTIZATION
             or not isinstance(runtime_attestation, dict)
             or runtime_attestation.get("model_name") != RESEARCH_GPU_REQUIRED_MODEL
-            or runtime_attestation.get("model_digest") != artifact_digest
+            or runtime_attestation.get("manifest_digest") != manifest_digest
+            or runtime_attestation.get("weights_digest") != weights_digest
+            or runtime_attestation.get("weights_layer_media_type") != RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE
+            or runtime_attestation.get("quantization") != RESEARCH_GPU_EXPECTED_QUANTIZATION
             or runtime_attestation.get("transport_kind") != "verified_ssh_local_forward.v1"
         ):
             return False

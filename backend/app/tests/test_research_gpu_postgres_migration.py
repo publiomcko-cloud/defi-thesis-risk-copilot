@@ -20,6 +20,8 @@ from app.db.session import normalize_database_url
 from app.llm import evaluation, research_gpu_ollama
 from app.llm.evaluation_authority import PROMOTION_POLICY_CHECKSUM, PROMOTION_POLICY_VERSION
 from app.llm.research_gpu_policy import (
+    RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+    RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
     RESEARCH_GPU_POLICY_CHECKSUM,
     RESEARCH_GPU_POLICY_VERSION,
     research_gpu_binding_checksum_for_payload,
@@ -259,6 +261,8 @@ def _run_v1_evaluation(engine, monkeypatch) -> tuple[str, set[str]]:
     monkeypatch.setattr(research_gpu_ollama, "verify_ssh_forwarding_process", lambda *_args, **_kwargs: transport)
 
     class Response:
+        status_code = 200
+
         def __init__(self, payload):
             self.payload = payload
 
@@ -273,15 +277,31 @@ def _run_v1_evaluation(engine, monkeypatch) -> tuple[str, set[str]]:
         if url.endswith("/api/version"):
             return Response({"version": "0.13.2"})
         if url.endswith("/api/tags"):
-            return Response({"models": [{"name": "qwen2.5:7b-instruct-q4_K_M", "digest": "a" * 64}]})
+            return Response({"models": [{"name": "qwen2.5:7b-instruct-q4_K_M", "digest": RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST.removeprefix("sha256:")}]})
         if url.endswith("/api/ps"):
             return Response({"models": []})
         raise AssertionError(url)
 
     monkeypatch.setattr(research_gpu_ollama.httpx, "get", get)
+    monkeypatch.setattr(
+        research_gpu_ollama.httpx,
+        "head",
+        lambda url, *, timeout: Response({})
+        if url.endswith("/api/blobs/" + RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST)
+        else pytest.fail(url),
+    )
+    monkeypatch.setattr(
+        research_gpu_ollama.httpx,
+        "post",
+        lambda url, *, json, timeout: Response({
+            "modelfile": "FROM /root/.ollama/models/blobs/sha256-" + RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST.removeprefix("sha256:"),
+            "details": {"format": "gguf", "family": "qwen2", "quantization_level": "Q4_K_M"},
+        }) if url.endswith("/api/show") else Response({"done": True}),
+    )
     provider = VerifiedResearchGpuOllamaProvider.verify_runtime(
         base_url="http://127.0.0.1:11435",
-        expected_model_digest="sha256:" + "a" * 64,
+        expected_manifest_digest=RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+        expected_weights_digest=RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
         ssh_pid=4242,
     )
     with Session(engine) as db:
@@ -328,7 +348,8 @@ def _run_v1_evaluation(engine, monkeypatch) -> tuple[str, set[str]]:
             db,
             provider=provider,
             actor=actor,
-            model_artifact_digest=provider.artifact_digest,
+            model_manifest_digest=provider.manifest_digest,
+            model_weights_digest=provider.weights_digest,
             plan="representative",
         )
         assert run.status == "completed"

@@ -7,6 +7,11 @@ from types import SimpleNamespace
 import pytest
 
 from app.llm.research_gpu_policy import (
+    RESEARCH_GPU_BINDING_SCHEMA_VERSION,
+    RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+    RESEARCH_GPU_EXPECTED_QUANTIZATION,
+    RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
+    RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE,
     RESEARCH_GPU_POLICY_CHECKSUM,
     RESEARCH_GPU_POLICY_VERSION,
     RESEARCH_GPU_REPRESENTATIVE_CASE_IDS,
@@ -56,6 +61,7 @@ def _sample(passed_count: int) -> tuple[SimpleNamespace, list[SimpleNamespace]]:
 
     selected_checksums = {case.case_id: case.case_checksum for case in cases}
     binding = {
+        "binding_schema_version": RESEARCH_GPU_BINDING_SCHEMA_VERSION,
         "policy_version": RESEARCH_GPU_POLICY_VERSION,
         "policy_checksum": RESEARCH_GPU_POLICY_CHECKSUM,
         "environment": "development",
@@ -63,14 +69,20 @@ def _sample(passed_count: int) -> tuple[SimpleNamespace, list[SimpleNamespace]]:
         "model": {
             "model_key": RESEARCH_GPU_REQUIRED_MODEL,
             "privacy_classification": "public_only",
-            "artifact_digest": "sha256:" + "a" * 64,
+            "manifest_digest": RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+            "weights_digest": RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
+            "weights_layer_media_type": RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE,
+            "quantization": RESEARCH_GPU_EXPECTED_QUANTIZATION,
         },
         "evaluation_plan": "representative",
         "selected_case_checksums": selected_checksums,
         "code_revision": "f" * 40,
         "runtime_attestation": {
             "model_name": RESEARCH_GPU_REQUIRED_MODEL,
-            "model_digest": "sha256:" + "a" * 64,
+            "manifest_digest": RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
+            "weights_digest": RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
+            "weights_layer_media_type": RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE,
+            "quantization": RESEARCH_GPU_EXPECTED_QUANTIZATION,
             "transport_kind": "verified_ssh_local_forward.v1",
         },
     }

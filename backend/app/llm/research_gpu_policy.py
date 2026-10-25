@@ -23,9 +23,14 @@ from app.llm.evaluation_authority import (
 )
 
 
-RESEARCH_GPU_POLICY_VERSION = "report_synthesis.research_gpu.v1"
+RESEARCH_GPU_POLICY_VERSION = "report_synthesis.research_gpu.v2"
 RESEARCH_GPU_EVALUATOR_PROTOCOL_VERSION = "report_synthesis.research_gpu_evaluator.v2"
 RESEARCH_GPU_REQUIRED_MODEL = "qwen2.5:7b-instruct-q4_K_M"
+RESEARCH_GPU_BINDING_SCHEMA_VERSION = "report_synthesis.research_gpu_binding.v2"
+RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST = "sha256:845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e"
+RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST = "sha256:2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730"
+RESEARCH_GPU_EXPECTED_QUANTIZATION = "Q4_K_M"
+RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE = "application/vnd.ollama.image.model"
 
 _NON_LATENCY_REQUIREMENTS = {
     "structured_output_valid_percent": 100,
@@ -73,12 +78,14 @@ _POLICY_PAYLOAD: dict[str, Any] = {
     "binding": {
         "task_key": "report_synthesis",
         "task_version": "v1",
-        "model_artifact_digest_required": True,
+        "model_manifest_digest_required": True,
+        "model_weights_digest_required": True,
+        "model_quantization_required": RESEARCH_GPU_EXPECTED_QUANTIZATION,
         "prompt_version_and_checksum_required": True,
         "both_authoritative_datasets_required": True,
         "evaluator_protocol_version": RESEARCH_GPU_EVALUATOR_PROTOCOL_VERSION,
         "allowed_environments": ["development", "exercise"],
-        "runtime_model_digest_and_ssh_transport_must_be_observed": True,
+        "runtime_manifest_and_weights_digest_and_ssh_transport_must_be_observed": True,
         "cold_start_requires_loaded_model_absence_and_native_load_duration": True,
     },
     "enabled_by_default": False,
@@ -136,7 +143,11 @@ def resolve_research_gpu_policy(
     return RESEARCH_GPU_POLICY
 
 
-def research_gpu_provider_is_allowed(provider: object, artifact_digest: str) -> bool:
+def research_gpu_provider_is_allowed(
+    provider: object,
+    manifest_digest: str,
+    weights_digest: str,
+) -> bool:
     """Accept only a runtime-verified research adapter, never caller metadata."""
 
     from app.llm.research_gpu_ollama import VerifiedResearchGpuOllamaProvider
@@ -148,8 +159,12 @@ def research_gpu_provider_is_allowed(provider: object, artifact_digest: str) -> 
         getattr(provider, "name", None) != "ollama"
         or getattr(provider, "model", None) != RESEARCH_GPU_REQUIRED_MODEL
         or getattr(provider, "privacy_classification", None) != "public_only"
-        or getattr(provider, "artifact_digest", None) != artifact_digest
-        or not _MODEL_DIGEST.fullmatch(artifact_digest)
+        or getattr(provider, "manifest_digest", None) != manifest_digest
+        or getattr(provider, "weights_digest", None) != weights_digest
+        or manifest_digest != RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST
+        or weights_digest != RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST
+        or not _MODEL_DIGEST.fullmatch(manifest_digest)
+        or not _MODEL_DIGEST.fullmatch(weights_digest)
         or not provider.runtime_verification_is_current()
     ):
         return False
@@ -184,7 +199,8 @@ def research_gpu_binding_payload(
     model_version: str,
     endpoint_class: str,
     privacy_classification: str,
-    model_artifact_digest: str,
+    model_manifest_digest: str,
+    model_weights_digest: str,
     prompt_version_id: str,
     prompt_checksum: str,
     ordinary_dataset: Mapping[str, Any],
@@ -194,7 +210,7 @@ def research_gpu_binding_payload(
     code_revision: str,
     runtime_attestation: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Build the exact, canonicalizable authority snapshot for a v1 run."""
+    """Build the exact, canonicalizable authority snapshot for a v2 run."""
 
     if environment not in {"development", "exercise"}:
         raise ResearchGpuPolicyError("Research-GPU binding environment is invalid")
@@ -202,13 +218,21 @@ def research_gpu_binding_payload(
         raise ResearchGpuPolicyError("Research-GPU task binding is invalid")
     if not model_registry_id or not provider_key or not model_key or not model_version or not endpoint_class:
         raise ResearchGpuPolicyError("Research-GPU model identity is incomplete")
-    if not _MODEL_DIGEST.fullmatch(model_artifact_digest):
-        raise ResearchGpuPolicyError("Research-GPU model artifact digest is invalid")
+    if (
+        model_manifest_digest != RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST
+        or not _MODEL_DIGEST.fullmatch(model_manifest_digest)
+    ):
+        raise ResearchGpuPolicyError("Research-GPU model manifest digest is invalid")
+    if (
+        model_weights_digest != RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST
+        or not _MODEL_DIGEST.fullmatch(model_weights_digest)
+    ):
+        raise ResearchGpuPolicyError("Research-GPU model weights digest is invalid")
     if not prompt_version_id or not _CHECKSUM.fullmatch(prompt_checksum):
         raise ResearchGpuPolicyError("Research-GPU prompt authority is invalid")
     if not _SOURCE_REVISION.fullmatch(code_revision):
         raise ResearchGpuPolicyError("Research-GPU code revision is invalid")
-    _validate_runtime_attestation(runtime_attestation, model_artifact_digest)
+    _validate_runtime_attestation(runtime_attestation, model_manifest_digest, model_weights_digest)
     if evaluation_plan not in {"representative", "full"}:
         raise ResearchGpuPolicyError("Research-GPU evaluation plan is invalid")
     if not selected_case_checksums or any(
@@ -228,6 +252,7 @@ def research_gpu_binding_payload(
             raise ResearchGpuPolicyError("Research-GPU dataset case count is invalid")
 
     binding = {
+        "binding_schema_version": RESEARCH_GPU_BINDING_SCHEMA_VERSION,
         "policy_version": RESEARCH_GPU_POLICY_VERSION,
         "policy_checksum": RESEARCH_GPU_POLICY_CHECKSUM,
         "environment": environment,
@@ -239,7 +264,10 @@ def research_gpu_binding_payload(
             "model_version": model_version,
             "endpoint_class": endpoint_class,
             "privacy_classification": privacy_classification,
-            "artifact_digest": model_artifact_digest,
+            "manifest_digest": model_manifest_digest,
+            "weights_digest": model_weights_digest,
+            "weights_layer_media_type": RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE,
+            "quantization": RESEARCH_GPU_EXPECTED_QUANTIZATION,
         },
         "prompt": {"id": prompt_version_id, "checksum": prompt_checksum},
         "evaluator_protocol_version": RESEARCH_GPU_EVALUATOR_PROTOCOL_VERSION,
@@ -264,6 +292,7 @@ def research_gpu_binding_checksum_for_payload(payload: object) -> str:
 
     if (
         not isinstance(payload, dict)
+        or payload.get("binding_schema_version") != RESEARCH_GPU_BINDING_SCHEMA_VERSION
         or payload.get("policy_version") != RESEARCH_GPU_POLICY_VERSION
         or payload.get("policy_checksum") != RESEARCH_GPU_POLICY_CHECKSUM
     ):
@@ -271,13 +300,33 @@ def research_gpu_binding_checksum_for_payload(payload: object) -> str:
     return sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
 
 
-def _validate_runtime_attestation(attestation: Mapping[str, Any], artifact_digest: str) -> None:
-    required_text = ("server_version", "model_name", "model_digest", "transport_kind", "local_endpoint", "verified_at", "cold_model_absent_at")
+def _validate_runtime_attestation(
+    attestation: Mapping[str, Any],
+    manifest_digest: str,
+    weights_digest: str,
+) -> None:
+    required_text = (
+        "server_version",
+        "model_name",
+        "manifest_digest",
+        "weights_digest",
+        "weights_layer_media_type",
+        "quantization",
+        "transport_kind",
+        "local_endpoint",
+        "verified_at",
+        "cold_model_absent_at",
+    )
     if not all(isinstance(attestation.get(key), str) and attestation[key] for key in required_text):
         raise ResearchGpuPolicyError("Research-GPU runtime attestation is incomplete")
     if (
         attestation["model_name"] != RESEARCH_GPU_REQUIRED_MODEL
-        or attestation["model_digest"] != artifact_digest
+        or attestation["manifest_digest"] != manifest_digest
+        or attestation["weights_digest"] != weights_digest
+        or attestation["manifest_digest"] != RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST
+        or attestation["weights_digest"] != RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST
+        or attestation["weights_layer_media_type"] != RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE
+        or attestation["quantization"] != RESEARCH_GPU_EXPECTED_QUANTIZATION
         or attestation["transport_kind"] != "verified_ssh_local_forward.v1"
     ):
         raise ResearchGpuPolicyError("Research-GPU runtime model or transport identity is invalid")
