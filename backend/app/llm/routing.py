@@ -9,7 +9,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.llm.evaluation_authority import has_current_promotable_evaluation_evidence
+from app.llm.evaluation_authority import (
+    PROMOTION_POLICY_CHECKSUM,
+    PROMOTION_POLICY_VERSION,
+    has_current_promotable_evaluation_evidence,
+)
 from app.llm.governance import ensure_report_synthesis_prompt_version
 from app.llm.provenance import ModelIdentity, provider_identity, provider_is_eligible_for_scope
 from app.llm.providers import get_llm_provider
@@ -40,6 +44,8 @@ class RouteResolution:
     model_registry_id: str | None = None
     prompt_version_id: str | None = None
     prompt_checksum: str | None = None
+    policy_version: str | None = None
+    policy_checksum: str | None = None
 
 
 @dataclass(frozen=True)
@@ -58,6 +64,8 @@ class ExecutionRouteSnapshot:
     model_registry_id: str | None
     prompt_version_id: str | None
     prompt_checksum: str | None
+    policy_version: str | None
+    policy_checksum: str | None
     provider: ModelIdentity | None
 
     def to_payload(self) -> dict[str, Any]:
@@ -74,6 +82,8 @@ class ExecutionRouteSnapshot:
             "model_registry_id": self.model_registry_id,
             "prompt_version_id": self.prompt_version_id,
             "prompt_checksum": self.prompt_checksum,
+            "policy_version": self.policy_version,
+            "policy_checksum": self.policy_checksum,
             "provider": _identity_payload(self.provider),
         }
 
@@ -154,6 +164,8 @@ def resolve_report_synthesis_route(
         model_registry_id=model.id,
         prompt_version_id=prompt.id,
         prompt_checksum=prompt.prompt_checksum,
+        policy_version=evaluation.policy_version,
+        policy_checksum=evaluation.policy_checksum,
     )
 
 
@@ -192,6 +204,8 @@ def capture_report_synthesis_execution_route(
         model_registry_id=resolution.model_registry_id,
         prompt_version_id=resolution.prompt_version_id,
         prompt_checksum=resolution.prompt_checksum,
+        policy_version=resolution.policy_version,
+        policy_checksum=resolution.policy_checksum,
         provider=resolution.identity if resolution.route_version_id is not None else None,
     ).to_payload()
 
@@ -232,6 +246,8 @@ def resolve_report_synthesis_execution_route(
         or snapshot.model_registry_id is None
         or snapshot.prompt_version_id is None
         or snapshot.prompt_checksum is None
+        or snapshot.policy_version is None
+        or snapshot.policy_checksum is None
         or snapshot.provider is None
     ):
         return _fallback("provider_unavailable", "not_run", "execution_route_snapshot_invalid")
@@ -249,6 +265,10 @@ def resolve_report_synthesis_execution_route(
         and route.prompt_version_id == snapshot.prompt_version_id
         and prompt.id == snapshot.prompt_version_id
         and prompt.prompt_checksum == snapshot.prompt_checksum
+        and snapshot.policy_version == PROMOTION_POLICY_VERSION
+        and snapshot.policy_checksum == PROMOTION_POLICY_CHECKSUM
+        and evaluation.policy_version == snapshot.policy_version
+        and evaluation.policy_checksum == snapshot.policy_checksum
         and _valid_evidence(db, evaluation, route, prompt.id)
         and _valid_model(model, route)
     ):
@@ -274,6 +294,8 @@ def resolve_report_synthesis_execution_route(
         model_registry_id=model.id,
         prompt_version_id=prompt.id,
         prompt_checksum=prompt.prompt_checksum,
+        policy_version=evaluation.policy_version,
+        policy_checksum=evaluation.policy_checksum,
     )
 
 
@@ -373,13 +395,28 @@ def _snapshot_from_payload(payload: object) -> ExecutionRouteSnapshot:
     model_registry_id = _snapshot_optional_text(payload, "model_registry_id", 128)
     prompt_version_id = _snapshot_optional_text(payload, "prompt_version_id", 128)
     prompt_checksum = _snapshot_optional_checksum(payload, "prompt_checksum")
+    policy_version = _snapshot_optional_text(payload, "policy_version", 64)
+    policy_checksum = _snapshot_optional_checksum(payload, "policy_checksum")
     provider_payload = payload.get("provider")
     provider = _snapshot_identity(provider_payload) if provider_payload is not None else None
-    route_fields = (route_version_id, evaluation_run_id, model_registry_id, prompt_version_id, prompt_checksum, provider)
+    route_fields = (
+        route_version_id,
+        evaluation_run_id,
+        model_registry_id,
+        prompt_version_id,
+        prompt_checksum,
+        policy_version,
+        policy_checksum,
+        provider,
+    )
     if route_version_id is None and any(value is not None for value in route_fields[1:]):
         raise ValueError("fallback execution route contains authority")
     if route_version_id is not None and any(value is None for value in route_fields[1:]):
         raise ValueError("model execution route is incomplete")
+    if route_version_id is not None and (
+        policy_version != PROMOTION_POLICY_VERSION or policy_checksum != PROMOTION_POLICY_CHECKSUM
+    ):
+        raise ValueError("execution route evaluation policy is not current")
     return ExecutionRouteSnapshot(
         task_key=task.key,
         task_version=task.version,
@@ -393,6 +430,8 @@ def _snapshot_from_payload(payload: object) -> ExecutionRouteSnapshot:
         model_registry_id=model_registry_id,
         prompt_version_id=prompt_version_id,
         prompt_checksum=prompt_checksum,
+        policy_version=policy_version,
+        policy_checksum=policy_checksum,
         provider=provider,
     )
 
