@@ -12,6 +12,7 @@ from app.llm.research_gpu_policy import (
     RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST,
     RESEARCH_GPU_EXPECTED_QUANTIZATION,
     RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
+    research_gpu_output_schema,
 )
 from app.llm.research_gpu_ollama import (
     ResearchGpuAdapterError,
@@ -309,7 +310,7 @@ def test_unavailable_authoritative_registry_evidence_fails_before_http(monkeypat
         )
 
 
-def test_genuine_generate_request_preserves_timeout_json_usage_and_native_timings(monkeypatch) -> None:
+def test_genuine_generate_request_uses_experimental_schema_and_preserves_native_timings(monkeypatch) -> None:
     provider = _provider(monkeypatch)
     provider.prepare_cold_start()
     requests: list[tuple[str, dict[str, object], float]] = []
@@ -320,7 +321,7 @@ def test_genuine_generate_request_preserves_timeout_json_usage_and_native_timing
         requests.append((url, json, timeout))
         return Response({
             "model": MODEL,
-            "response": '{"sections":{"Overview":"Synthetic result"}}',
+            "response": '{"executive_summary":"Synthetic result","sections":{"Strategy Mechanics":"Synthetic result"}}',
             "prompt_eval_count": 31,
             "eval_count": 12,
             "load_duration": 900_000_000,
@@ -338,7 +339,7 @@ def test_genuine_generate_request_preserves_timeout_json_usage_and_native_timing
             "prompt": "synthetic public fixture",
             "system": "bounded system",
             "stream": False,
-            "format": "json",
+            "format": research_gpu_output_schema(),
             "options": {"num_predict": 222},
         },
         45,
@@ -351,6 +352,58 @@ def test_genuine_generate_request_preserves_timeout_json_usage_and_native_timing
     assert provider.last_observation.load_duration_ns == 900_000_000
     assert provider.last_observation.native_metrics_valid is True
     assert not provider_is_eligible_for_scope(provider_identity(provider), "private")
+
+
+def test_structured_output_is_checked_by_the_existing_final_validator() -> None:
+    from app.llm.synthesis import SynthesisValidationError, _parse_json_object, _validate_synthesis_payload
+
+    valid = '{"executive_summary":"Bounded synthetic summary","sections":{"Yield Source":"Synthetic evidence"}}'
+    _validate_synthesis_payload(_parse_json_object(valid))
+
+    for invalid in (
+        '{"executive_summary":"x","sections":{},"extra":"redacted"}',
+        '{"executive_summary":"x"}',
+        '{"executive_summary":"x","sections":{"Unauthorized":"redacted"}}',
+        '{"executive_summary":"x","sections":{"Yield Source":"   "}}',
+    ):
+        with pytest.raises(SynthesisValidationError):
+            _validate_synthesis_payload(_parse_json_object(invalid))
+
+    with pytest.raises(ValueError):
+        _parse_json_object('{"executive_summary":')
+
+
+def test_invalid_experimental_output_is_returned_unchanged_without_retry(monkeypatch) -> None:
+    from app.llm.synthesis import SynthesisValidationError, _parse_json_object, _validate_synthesis_payload
+
+    provider = _provider(monkeypatch)
+    requests: list[dict[str, object]] = []
+    raw_output = '{"executive_summary":"Synthetic","sections":{},"extra":"redacted"}'
+
+    def post(url: str, *, json: dict[str, object], timeout: float) -> Response:
+        if url.endswith("/api/show"):
+            return _show_response()
+        requests.append(json)
+        return Response({
+            "model": MODEL,
+            "response": raw_output,
+            "prompt_eval_count": 4,
+            "eval_count": 3,
+            "load_duration": 1,
+            "total_duration": 2,
+            "prompt_eval_duration": 1,
+            "eval_duration": 1,
+        })
+
+    monkeypatch.setattr(adapter_module.httpx, "post", post)
+    provider.prepare_cold_start()
+    result = provider.generate(LLMRequest("synthetic fixture", 45))
+
+    assert result.text == raw_output
+    assert len(requests) == 1
+    with pytest.raises(SynthesisValidationError, match="unexpected_output_fields"):
+        _validate_synthesis_payload(_parse_json_object(result.text))
+    assert len(requests) == 1
 
 
 @pytest.mark.parametrize(

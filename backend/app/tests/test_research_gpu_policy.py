@@ -29,6 +29,9 @@ from app.llm.research_gpu_policy import (
     RESEARCH_GPU_POLICY,
     RESEARCH_GPU_POLICY_CHECKSUM,
     RESEARCH_GPU_POLICY_VERSION,
+    RESEARCH_GPU_BINDING_SCHEMA_VERSION,
+    RESEARCH_GPU_OUTPUT_SCHEMA_VERSION,
+    research_gpu_output_schema,
     ResearchGpuPolicyError,
     evaluation_case_plan,
     normalized_policy_payload,
@@ -185,7 +188,9 @@ def _binding(**overrides: object) -> str:
 
 def test_policy_versions_are_stable_and_v3_non_latency_requirements_are_unchanged() -> None:
     assert PROMOTION_POLICY_CHECKSUM == "309f35a2842827002dae007a8d3f4e2ac5c082326b9e6697969d858b8c37f25c"
-    assert RESEARCH_GPU_POLICY_VERSION == "report_synthesis.research_gpu.v2"
+    assert RESEARCH_GPU_POLICY_VERSION == "report_synthesis.research_gpu.v3"
+    assert RESEARCH_GPU_BINDING_SCHEMA_VERSION == "report_synthesis.research_gpu_binding.v3"
+    assert RESEARCH_GPU_OUTPUT_SCHEMA_VERSION == "report_synthesis.research_gpu.output_schema.v1"
     payload = normalized_policy_payload()
     assert sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest() == RESEARCH_GPU_POLICY_CHECKSUM
     non_latency = dict(RESEARCH_GPU_POLICY["non_latency_requirements"])
@@ -194,6 +199,26 @@ def test_policy_versions_are_stable_and_v3_non_latency_requirements_are_unchange
     assert RESEARCH_GPU_POLICY["max_mean_model_request_latency_ms"] == 30_000
     with pytest.raises(TypeError):
         RESEARCH_GPU_POLICY["max_mean_model_request_latency_ms"] = 1
+
+
+def test_research_gpu_json_schema_matches_existing_output_contract() -> None:
+    from app.llm.prompts import SYNTHESIZABLE_SECTION_TITLES
+
+    schema = research_gpu_output_schema()
+    assert schema["type"] == "object"
+    assert set(schema["properties"]) == {"executive_summary", "sections"}
+    assert set(schema["required"]) == {"executive_summary", "sections"}
+    assert schema["additionalProperties"] is False
+    sections = schema["properties"]["sections"]
+    assert set(sections["properties"]) == set(SYNTHESIZABLE_SECTION_TITLES)
+    assert "required" not in sections
+    assert sections["additionalProperties"] is False
+    assert all(
+        field_schema == {"type": "string", "minLength": 1, "maxLength": 4000}
+        for field_schema in [schema["properties"]["executive_summary"], *sections["properties"].values()]
+    )
+    schema["properties"].clear()
+    assert set(research_gpu_output_schema()["properties"]) == {"executive_summary", "sections"}
 
 
 @pytest.mark.parametrize("environment", ["development", "dev", "exercise"])
@@ -315,7 +340,8 @@ def test_evaluation_timeout_override_is_bounded_without_sleeping(monkeypatch) ->
     assert result["input_tokens"] == 7 and result["output_tokens"] == 3
     assert requests[0][0] == f"{BASE_URL}/api/generate"
     assert requests[0][1]["model"] == "qwen2.5:7b-instruct-q4_K_M"
-    assert requests[0][1]["stream"] is False and requests[0][1]["format"] == "json"
+    assert requests[0][1]["stream"] is False
+    assert requests[0][1]["format"] == research_gpu_output_schema()
     assert requests[0][2] == 45
     with pytest.raises(ValueError, match="bounded contract"):
         evaluation._evaluate_case(provider, case, provider_timeout_seconds=45.001)
@@ -669,7 +695,11 @@ def test_incomplete_usage_provider_failure_and_late_response_fail_closed(
         model_weights_digest=provider.weights_digest,
     )
     assert run.promotion_eligible is False
-    assert run.failure_reason == "research_gpu_policy_failed"
+    assert run.failure_reason == (
+        "research_gpu_measurements_incomplete"
+        if missing in {"latency", "tokens", "late_response"}
+        else "research_gpu_policy_failed"
+    )
     if missing == "latency":
         assert run.latency_known_count == 4 and run.latency_total_ms == 4_000
     elif missing == "tokens":

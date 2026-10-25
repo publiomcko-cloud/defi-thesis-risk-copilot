@@ -370,11 +370,18 @@ def test_openai_adapter_requires_its_documented_total_field(monkeypatch) -> None
 def test_ollama_adapter_derives_total_from_its_documented_components(monkeypatch) -> None:
     from app.llm.providers import OllamaProvider
 
+    requests: list[dict[str, object]] = []
+
+    def post(_url: str, *, json: dict[str, object], timeout: float):
+        assert timeout > 0
+        requests.append(json)
+        return _FakeAdapterResponse(
+            {"response": _valid_synthesis_text(), "prompt_eval_count": 412, "eval_count": 100}
+        )
+
     monkeypatch.setattr(
         "app.llm.providers.httpx.post",
-        lambda *_args, **_kwargs: _FakeAdapterResponse(
-            {"response": _valid_synthesis_text(), "prompt_eval_count": 412, "eval_count": 100}
-        ),
+        post,
     )
     result = _run_budgeted_synthesis(monkeypatch, OllamaProvider("http://unused.invalid", "test-model"))
 
@@ -382,6 +389,8 @@ def test_ollama_adapter_derives_total_from_its_documented_components(monkeypatch
     assert result.provider_call_state == "output_accepted"
     assert result.usage_invalid_fields == ()
     assert (result.input_tokens, result.output_tokens, result.reported_total_tokens, result.total_tokens) == (412, 100, None, 512)
+    assert len(requests) == 1 and requests[0]["format"] == "json"
+    assert requests[0]["stream"] is False
 
 
 def test_openai_adapter_rejects_inconsistent_total_and_output_limit_overflow(monkeypatch) -> None:

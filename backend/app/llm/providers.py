@@ -18,7 +18,13 @@ class OllamaProvider:
         return _ollama_response_from_payload(payload, self.model)
 
 
-def _ollama_generate_payload(base_url: str, model: str, request: LLMRequest) -> dict[str, Any]:
+def _ollama_generate_payload(
+    base_url: str,
+    model: str,
+    request: LLMRequest,
+    *,
+    response_format: str | dict[str, Any] = "json",
+) -> dict[str, Any]:
     """Use the genuine Ollama HTTP API with the same bounded request contract."""
 
     response = httpx.post(
@@ -28,7 +34,7 @@ def _ollama_generate_payload(base_url: str, model: str, request: LLMRequest) -> 
             "prompt": request.prompt,
             "system": request.system_prompt,
             "stream": False,
-            "format": "json",
+            "format": response_format,
             **(
                 {"options": {"num_predict": request.max_output_tokens}}
                 if request.max_output_tokens is not None

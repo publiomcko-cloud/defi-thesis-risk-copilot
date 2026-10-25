@@ -21,16 +21,46 @@ from app.llm.evaluation_authority import (
     EVALUATOR_INPUT_ISOLATION_POLICY_VERSION,
     PROMOTION_POLICY,
 )
+from app.llm.prompts import SYNTHESIZABLE_SECTION_TITLES
 
 
-RESEARCH_GPU_POLICY_VERSION = "report_synthesis.research_gpu.v2"
-RESEARCH_GPU_EVALUATOR_PROTOCOL_VERSION = "report_synthesis.research_gpu_evaluator.v2"
+RESEARCH_GPU_POLICY_VERSION = "report_synthesis.research_gpu.v3"
+RESEARCH_GPU_EVALUATOR_PROTOCOL_VERSION = "report_synthesis.research_gpu_evaluator.v3"
 RESEARCH_GPU_REQUIRED_MODEL = "qwen2.5:7b-instruct-q4_K_M"
-RESEARCH_GPU_BINDING_SCHEMA_VERSION = "report_synthesis.research_gpu_binding.v2"
+RESEARCH_GPU_BINDING_SCHEMA_VERSION = "report_synthesis.research_gpu_binding.v3"
+RESEARCH_GPU_OUTPUT_SCHEMA_VERSION = "report_synthesis.research_gpu.output_schema.v1"
 RESEARCH_GPU_EXPECTED_MANIFEST_DIGEST = "sha256:845dbda0ea48ed749caafd9e6037047aa19acfcfd82e704d7ca97d631a0b697e"
 RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST = "sha256:2bada8a7450677000f678be90653b85d364de7db25eb5ea54136ada5f3933730"
 RESEARCH_GPU_EXPECTED_QUANTIZATION = "Q4_K_M"
 RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE = "application/vnd.ollama.image.model"
+
+
+def _bounded_output_text_schema() -> dict[str, Any]:
+    return {"type": "string", "minLength": 1, "maxLength": 4000}
+
+
+_RESEARCH_GPU_OUTPUT_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "executive_summary": _bounded_output_text_schema(),
+        "sections": {
+            "type": "object",
+            "properties": {
+                title: _bounded_output_text_schema()
+                for title in SYNTHESIZABLE_SECTION_TITLES
+            },
+            "additionalProperties": False,
+        },
+    },
+    "required": ["executive_summary", "sections"],
+    "additionalProperties": False,
+}
+
+
+def research_gpu_output_schema() -> dict[str, Any]:
+    """Return a detached output schema for the isolated Ollama experiment."""
+
+    return deepcopy(_RESEARCH_GPU_OUTPUT_SCHEMA)
 
 _NON_LATENCY_REQUIREMENTS = {
     "structured_output_valid_percent": 100,
@@ -61,6 +91,13 @@ _POLICY_PAYLOAD: dict[str, Any] = {
     "max_model_calls_per_research": 2,
     "max_research_passes": 2,
     "max_provider_failures": 0,
+    "structured_output": {
+        "format": "ollama_json_schema",
+        "schema_version": RESEARCH_GPU_OUTPUT_SCHEMA_VERSION,
+        "schema": _RESEARCH_GPU_OUTPUT_SCHEMA,
+        "final_validation_authority": "app.llm.synthesis._validate_synthesis_payload",
+        "automatic_repair_or_retry": False,
+    },
     "non_latency_requirements": _NON_LATENCY_REQUIREMENTS,
     "latency_measurement": {
         "protocol_version": "cold-first-request-warm-subsequent.v1",
@@ -84,6 +121,7 @@ _POLICY_PAYLOAD: dict[str, Any] = {
         "prompt_version_and_checksum_required": True,
         "both_authoritative_datasets_required": True,
         "evaluator_protocol_version": RESEARCH_GPU_EVALUATOR_PROTOCOL_VERSION,
+        "structured_output_schema_version": RESEARCH_GPU_OUTPUT_SCHEMA_VERSION,
         "allowed_environments": ["development", "exercise"],
         "runtime_manifest_and_weights_digest_and_ssh_transport_must_be_observed": True,
         "cold_start_requires_loaded_model_absence_and_native_load_duration": True,
@@ -210,7 +248,7 @@ def research_gpu_binding_payload(
     code_revision: str,
     runtime_attestation: Mapping[str, Any],
 ) -> dict[str, Any]:
-    """Build the exact, canonicalizable authority snapshot for a v2 run."""
+    """Build the exact, canonicalizable authority snapshot for a v3 run."""
 
     if environment not in {"development", "exercise"}:
         raise ResearchGpuPolicyError("Research-GPU binding environment is invalid")
@@ -271,6 +309,7 @@ def research_gpu_binding_payload(
         },
         "prompt": {"id": prompt_version_id, "checksum": prompt_checksum},
         "evaluator_protocol_version": RESEARCH_GPU_EVALUATOR_PROTOCOL_VERSION,
+        "structured_output_schema_version": RESEARCH_GPU_OUTPUT_SCHEMA_VERSION,
         "datasets": [dict(ordinary_dataset), dict(adversarial_dataset)],
         "evaluation_plan": evaluation_plan,
         "selected_case_checksums": dict(sorted(selected_case_checksums.items())),

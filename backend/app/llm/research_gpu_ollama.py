@@ -27,6 +27,7 @@ from app.llm.research_gpu_policy import (
     RESEARCH_GPU_EXPECTED_WEIGHTS_DIGEST,
     RESEARCH_GPU_MODEL_LAYER_MEDIA_TYPE,
     RESEARCH_GPU_REQUIRED_MODEL,
+    research_gpu_output_schema,
 )
 
 
@@ -418,7 +419,12 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
         # waiting. Do not label the next call warm without a fresh cold-start
         # verification.
         self._request_phase_uncertain = True
-        payload = _ollama_generate_payload(self.base_url, self.model, request)
+        payload = _ollama_generate_payload(
+            self.base_url,
+            self.model,
+            request,
+            response_format=research_gpu_output_schema(),
+        )
         if payload.get("model") != RESEARCH_GPU_REQUIRED_MODEL:
             raise ResearchGpuAdapterError("Ollama response model identity changed")
         response = _ollama_response_from_payload(payload, self.model)

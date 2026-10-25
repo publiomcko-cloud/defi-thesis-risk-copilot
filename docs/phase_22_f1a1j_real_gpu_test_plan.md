@@ -26,6 +26,17 @@ executing any command below.
   reference must independently match that pair over the verified SSH loopback
   tunnel. The two digests identify different artifact types and are not
   interchangeable.
+- This correction uses the isolated `report_synthesis.research_gpu.v3`
+  authority and `report_synthesis.research_gpu_binding.v3`. Its Ollama
+  `/api/generate` request sends a JSON Schema (`stream=false`) whose exact
+  top-level properties are `executive_summary` and `sections`; allowed
+  section keys derive from `SYNTHESIZABLE_SECTION_TITLES`. The sections object
+  may contain any subset, including none. The final
+  `_validate_synthesis_payload()` and semantic evaluator remain authoritative;
+  no repair or automatic schema retry is permitted. This experimental v3
+  identity has a new policy checksum. Existing v2 evaluation rows and sealed
+  evidence remain historical and are not rewritten. The promotion authority
+  `report_synthesis.promotion.v3` and all quality/latency limits are unchanged.
 - Disable Ollama cloud, bind the remote Ollama service to loopback, use a
   verified SSH host key and tunnel, and send only the checked-in public and
   synthetic evaluation fixtures. Keep product route activation disabled.
@@ -140,7 +151,7 @@ with SessionLocal() as db:
         f"sample_approved={sample_approved}"
     )
     if not sample_approved:
-        raise SystemExit("five-case sample did not pass every v1 quality and evidence requirement; stop")
+        raise SystemExit("five-case sample did not pass every v3 policy and quality requirement; stop")
 PY
 ```
 
@@ -157,8 +168,8 @@ to be accepted as cold. All five requests count toward the 30,000 ms mean;
 the cold case is not excluded. The exact API/generation path remains real HTTP,
 not a canned-response implementation. The post-run qualification helper
 requires all five persisted cases to pass, no provider failures, no failure
-reason, complete token/latency/native-timing evidence, the exact v1 binding,
-and every v1 quality condition. It checks the 45-second request limit and
+reason, complete token/latency/native-timing evidence, the exact v3 binding,
+and every unchanged quality-policy gate. It checks the 45-second request limit and
 30-second mean; each case is a separate, single-call/single-pass synthesis
 operation, so the 120-second duration and two-call/two-pass bounds apply per
 case rather than to the five-case batch. Cost is informational: an absent
@@ -167,8 +178,35 @@ cost observation is printed as `unobserved`, never as zero.
 `status="completed"` means only that the run finished. A 0/5 or partial pass
 can also be completed while remaining non-promotable. The command reports
 `sample_approved=true` only for 5/5 passing cases that satisfy all evidence
-and v1 policy gates. `promotion_eligible` must remain false even for that
+and v3 policy gates. `promotion_eligible` must remain false even for that
 approved portfolio sample.
+
+## Structured output and redacted diagnostics
+
+For every case, record separate outcomes for transport completion, JSON
+syntax, JSON Schema conformance, and semantic quality. Record only bounded
+reason codes, the fixed missing required field names, and counts of unexpected
+top-level properties or section titles; do not persist arbitrary property
+names or raw model output. Distinguish malformed JSON from valid JSON that
+violates structure, and distinguish both from semantic quality failure after
+structure passes. A response timeout or other non-completed request has no
+JSON or semantic result and must be reported as `not_completed`, with transport
+outcome and incomplete evidence stated explicitly. Record whether each native
+Ollama metric was available; missing metrics remain missing and cannot be
+inferred.
+
+## GPU, latency, cost, and execution evidence for a future authorized run
+
+For each run, record the detected GPU model and VRAM, the exact resident
+Ollama model, and the observed GPU layer count/offload state. Capture CUDA
+utilization during inference when the host exposes it; mark it unavailable
+when it cannot be observed. Keep per-call wall-clock latency separate from
+Ollama `load_duration`, `total_duration`, `prompt_eval_duration`, and
+`eval_duration`. Record valid JSON, schema conformity, and semantic quality
+as independent outcomes. Reconcile compute, disk, transfer, startup/download,
+and cleanup costs separately, label estimates and unsettled billing, and
+report incomplete calls as not completed rather than assigning a latency or
+quality result.
 
 ## Sample interpretation and stop conditions
 
@@ -184,7 +222,7 @@ was about US$0.191 before transfer; observed F1-A1H billing was US$0.058.
 Recalculate actual offer, disk, transfer, and billing before any future
 authorization.
 
-Only if all five cases satisfy the v1 quality and latency contract and a
+Only if all five cases satisfy the v3 experiment's unchanged quality and latency contract and a
 measured full-corpus duration/cost fits a separately authorized limit may a
 31-case run be proposed. Stop after any provider failure, invalid JSON,
 quality/citation/integrity failure, budget concern, host-key or digest change,
