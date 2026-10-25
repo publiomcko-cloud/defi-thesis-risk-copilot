@@ -131,6 +131,16 @@ def test_only_five_of_five_qualifies_as_approved_and_never_becomes_promotable(
     assert qualifies_as_approved_five_case_sample(run, cases) is expected_approval
 
 
+def test_small_nonzero_warm_native_load_duration_is_retained_and_accepted() -> None:
+    run, cases = _sample(5)
+    warm_duration_ns = 25_000
+    for case in cases[1:]:
+        case.ollama_load_duration_ns = warm_duration_ns
+
+    assert qualifies_as_approved_five_case_sample(run, cases) is True
+    assert [case.ollama_load_duration_ns for case in cases[1:]] == [warm_duration_ns] * 4
+
+
 @pytest.mark.parametrize("evidence_field", ["latency_ms", "ollama_total_duration_ns", "input_tokens"])
 def test_five_of_five_still_fails_if_required_measurement_is_missing(evidence_field: str) -> None:
     run, cases = _sample(5)

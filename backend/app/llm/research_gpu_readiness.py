@@ -179,8 +179,6 @@ def qualifies_as_approved_five_case_sample(
                 return False
             if index == 0 and case.ollama_load_duration_ns == 0:
                 return False
-            if index > 0 and case.ollama_load_duration_ns != 0:
-                return False
             if not isinstance(case.provider_observed_at, datetime) or case.provider_observed_at.tzinfo is None:
                 return False
 
