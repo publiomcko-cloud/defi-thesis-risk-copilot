@@ -70,11 +70,15 @@ export F1A1J_MODEL_DIGEST=sha256:2bada8a7450677000f678be90653b85d364de7db25eb5ea
 python - <<'PY'
 import os
 
+from sqlalchemy import select
+
 from app.auth.service import user_context
 from app.core.config import get_settings
 from app.db.session import SessionLocal
 from app.llm.evaluation import evaluate_report_synthesis_research_gpu_candidate
 from app.llm.research_gpu_ollama import VerifiedResearchGpuOllamaProvider
+from app.llm.research_gpu_readiness import qualifies_as_approved_five_case_sample
+from app.models.model_governance import ModelEvaluationCaseResultModel
 from app.models.user import UserModel
 
 settings = get_settings()
@@ -107,12 +111,25 @@ with SessionLocal() as db:
         model_artifact_digest=provider.artifact_digest,
         plan="representative",
     )
-    print(
-        f"run_id={run.id} status={run.status} cases={run.case_count} "
-        f"promotion_eligible={run.promotion_eligible}"
+    case_results = db.scalars(
+        select(ModelEvaluationCaseResultModel).where(
+            ModelEvaluationCaseResultModel.evaluation_run_id == run.id
+        )
+    ).all()
+    sample_approved = qualifies_as_approved_five_case_sample(run, case_results)
+    cost_evidence = (
+        "unobserved"
+        if run.cost_observation_count == 0
+        else f"{run.cost_observation_count}/5 cases; {run.cost_microusd_total} microusd observed"
     )
-    if run.status != "completed" or run.case_count != 5 or run.promotion_eligible:
-        raise SystemExit("five-case evaluation did not complete under the non-promotable policy")
+    print(
+        f"run_id={run.id} status={run.status} passed={run.passed_case_count}/5 "
+        f"provider_failures={run.provider_failure_count} failure_reason={run.failure_reason!r} "
+        f"promotion_eligible={run.promotion_eligible} cost={cost_evidence} "
+        f"sample_approved={sample_approved}"
+    )
+    if not sample_approved:
+        raise SystemExit("five-case sample did not pass every v1 quality and evidence requirement; stop")
 PY
 ```
 
@@ -126,7 +143,20 @@ the observed model digest, server version, SSH-process/host-key evidence, and
 timestamps. A positive native load duration is required for the first case
 to be accepted as cold. All five requests count toward the 30,000 ms mean;
 the cold case is not excluded. The exact API/generation path remains real HTTP,
-not a canned-response implementation.
+not a canned-response implementation. The post-run qualification helper
+requires all five persisted cases to pass, no provider failures, no failure
+reason, complete token/latency/native-timing evidence, the exact v1 binding,
+and every v1 quality condition. It checks the 45-second request limit and
+30-second mean; each case is a separate, single-call/single-pass synthesis
+operation, so the 120-second duration and two-call/two-pass bounds apply per
+case rather than to the five-case batch. Cost is informational: an absent
+cost observation is printed as `unobserved`, never as zero.
+
+`status="completed"` means only that the run finished. A 0/5 or partial pass
+can also be completed while remaining non-promotable. The command reports
+`sample_approved=true` only for 5/5 passing cases that satisfy all evidence
+and v1 policy gates. `promotion_eligible` must remain false even for that
+approved portfolio sample.
 
 ## Sample interpretation and stop conditions
 
