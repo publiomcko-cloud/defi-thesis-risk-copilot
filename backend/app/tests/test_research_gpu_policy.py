@@ -40,6 +40,7 @@ from app.llm.research_gpu_policy import (
 from app.models.model_governance import ModelEvaluationCaseResultModel, ModelEvaluationRunModel, ModelRegistryModel
 from app.llm.research_gpu_ollama import (
     OllamaNativeObservation,
+    ResearchGpuAdapterError,
     SshForwardingEvidence,
     VerifiedResearchGpuOllamaProvider,
 )
@@ -441,6 +442,158 @@ def test_internal_gpu_evaluation_binds_and_persists_cold_warm_nonpromotable_evid
     evaluation_db.commit()
     with pytest.raises(ModelEvaluationError, match="current promotion policy"):
         promote_evaluation_route(evaluation_db, evaluation_run_id=run.id, actor=actor)
+
+
+def test_missing_native_metrics_finalize_as_incomplete_without_mutating_case_reason(
+    evaluation_db,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(evaluation, "get_settings", lambda: _isolated_settings())
+    actor = user_context(create_user(evaluation_db, "gpu-missing-native@example.test", role="admin"))
+    provider = _verified_provider(monkeypatch)
+
+    def fake_case(_provider, _case, *, provider_timeout_seconds, latency_phase):
+        assert provider_timeout_seconds == 45
+        row = _passing_metrics(latency_phase=latency_phase)
+        if latency_phase == "cold":
+            provider.last_observation = None
+            row["passed"] = False
+            row["structured_output_valid"] = False
+            row["reason_code"] = "unexpected_output_fields"
+        else:
+            _set_fake_observation(provider, latency_phase)
+        return row
+
+    monkeypatch.setattr(evaluation, "_evaluate_case", fake_case)
+    run = evaluate_report_synthesis_research_gpu_candidate(
+        evaluation_db,
+        provider=provider,
+        actor=actor,
+        model_manifest_digest=provider.manifest_digest,
+        model_weights_digest=provider.weights_digest,
+    )
+    cases = evaluation_db.execute(
+        select(ModelEvaluationCaseResultModel).where(
+            ModelEvaluationCaseResultModel.evaluation_run_id == run.id
+        )
+    ).scalars().all()
+    cold = next(row for row in cases if row.latency_phase == "cold")
+
+    assert run.status == "completed"
+    assert run.case_count == 5
+    assert run.failure_reason == "research_gpu_measurements_incomplete"
+    assert run.promotion_eligible is False
+    assert run.provider_failure_count == 0
+    assert len(cases) == 5
+    assert cold.reason_code == "unexpected_output_fields"
+    assert cold.provider_failure is False
+    assert cold.ollama_total_duration_ns is None
+    assert cold.provider_observed_at is None
+
+
+def test_cold_timeout_finalizes_all_cases_without_retry_or_unverified_warm_phase(
+    evaluation_db,
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(evaluation, "get_settings", lambda: _isolated_settings())
+    actor = user_context(create_user(evaluation_db, "gpu-cold-timeout@example.test", role="admin"))
+    provider = _verified_provider(monkeypatch)
+    generate_requests: list[str] = []
+
+    def post(url: str, *, json: dict[str, object], timeout: float):
+        if url.endswith("/api/show"):
+            return _HttpResponse({
+                "modelfile": "FROM /root/.ollama/models/blobs/sha256-" + MODEL_DIGEST.removeprefix("sha256:"),
+                "details": {"format": "gguf", "family": "qwen2", "quantization_level": "Q4_K_M"},
+            })
+        generate_requests.append(url)
+        raise research_gpu_ollama.httpx.ReadTimeout("synthetic cold request timeout")
+
+    monkeypatch.setattr(research_gpu_ollama.httpx, "post", post)
+    run = evaluate_report_synthesis_research_gpu_candidate(
+        evaluation_db,
+        provider=provider,
+        actor=actor,
+        model_manifest_digest=provider.manifest_digest,
+        model_weights_digest=provider.weights_digest,
+    )
+    cases = evaluation_db.execute(
+        select(ModelEvaluationCaseResultModel).where(
+            ModelEvaluationCaseResultModel.evaluation_run_id == run.id
+        )
+    ).scalars().all()
+    by_case = {row.case_id: row for row in cases}
+
+    assert len(cases) == 5
+    assert generate_requests == [f"{BASE_URL}/api/generate"]
+    assert run.status == "completed"
+    assert run.case_count == 5
+    assert run.failure_reason == "research_gpu_measurements_incomplete"
+    assert run.promotion_eligible is False
+    assert run.provider_failure_count == 1
+    assert by_case["ordinary_valid"].provider_failure is True
+    assert by_case["ordinary_valid"].reason_code == "provider_error"
+    assert by_case["ordinary_valid"].latency_phase == "cold"
+    assert by_case["risk_mutation"].provider_failure is False
+    assert by_case["risk_mutation"].reason_code == "runtime_evidence_incomplete"
+    assert by_case["risk_mutation"].latency_phase is None
+    assert by_case["risk_mutation"].latency_ms is None
+
+
+def test_genuine_immutable_binding_mutation_still_fails_closed(evaluation_db, monkeypatch) -> None:
+    monkeypatch.setattr(evaluation, "get_settings", lambda: _isolated_settings())
+    actor = user_context(create_user(evaluation_db, "gpu-authority-mutation@example.test", role="admin"))
+    provider = _verified_provider(monkeypatch)
+    mutated = False
+
+    def fake_case(_provider, _case, *, provider_timeout_seconds, latency_phase):
+        nonlocal mutated
+        assert provider_timeout_seconds == 45
+        _set_fake_observation(provider, latency_phase)
+        if not mutated:
+            run = evaluation_db.execute(
+                select(ModelEvaluationRunModel).where(ModelEvaluationRunModel.status == "running")
+            ).scalar_one()
+            payload = dict(run.evaluation_binding_json)
+            payload["code_revision"] = "0" * 40
+            run.evaluation_binding_json = payload
+            evaluation_db.commit()
+            mutated = True
+        return _passing_metrics(latency_phase=latency_phase)
+
+    monkeypatch.setattr(evaluation, "_evaluate_case", fake_case)
+    with pytest.raises(ModelEvaluationError, match="immutable authority changed before completion"):
+        evaluate_report_synthesis_research_gpu_candidate(
+            evaluation_db,
+            provider=provider,
+            actor=actor,
+            model_manifest_digest=provider.manifest_digest,
+            model_weights_digest=provider.weights_digest,
+        )
+    run = evaluation_db.execute(select(ModelEvaluationRunModel)).scalar_one()
+    assert mutated is True
+    assert run.status == "failed"
+    assert run.failure_reason == "research_evaluation_interrupted"
+    assert run.promotion_eligible is False
+    assert run.case_count == 0
+
+
+def test_uncertain_adapter_refusal_is_not_counted_as_provider_failure(monkeypatch) -> None:
+    provider = _verified_provider(monkeypatch)
+    provider._request_phase_uncertain = True
+    case = report_synthesis_public_dataset().cases[0]
+
+    result = evaluation._evaluate_case(
+        provider,
+        case,
+        provider_timeout_seconds=45,
+        latency_phase="warm",
+    )
+
+    assert result["provider_failure"] is False
+    assert result["provider_call_made"] is False
+    assert result["reason_code"] == "runtime_evidence_incomplete"
+    assert result["latency_ms"] is not None
 
 
 @pytest.mark.parametrize(

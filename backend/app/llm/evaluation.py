@@ -369,6 +369,7 @@ def evaluate_report_synthesis_research_gpu_candidate(
     phases = ("cold", *("warm" for _ in selected_cases[1:]))
     try:
         for case, phase in zip(selected_cases, phases, strict=True):
+            provider.last_observation = None
             result = _evaluate_case(
                 provider,
                 case,
@@ -377,16 +378,27 @@ def evaluate_report_synthesis_research_gpu_candidate(
             )
             observation = provider.last_observation
             result.update(_native_observation_fields(observation))
-            expected_observation_phase = phase
-            if (
-                not isinstance(observation, OllamaNativeObservation)
-                or observation.phase != expected_observation_phase
-                or not observation.native_metrics_valid
-                or (phase == "cold" and not observation.cold_load_confirmed)
-            ):
-                result["provider_failure"] = True
+            runtime_evidence_complete = bool(
+                isinstance(observation, OllamaNativeObservation)
+                and observation.phase == phase
+                and observation.native_metrics_valid
+                and (phase != "cold" or observation.cold_load_confirmed)
+            )
+            result["native_metrics_complete"] = runtime_evidence_complete
+            if not runtime_evidence_complete:
                 result["passed"] = False
-                result["reason_code"] = "runtime_evidence_invalid"
+                # Preserve the provider, schema, or quality rejection already
+                # produced for this case. Record an evidence reason only when
+                # the case otherwise had no rejection.
+                if result.get("reason_code") in {None, "accepted"}:
+                    result["reason_code"] = "runtime_evidence_incomplete"
+            provider_call_made = result.get("provider_call_made", True) is True
+            persisted_phase = phase if provider_call_made else None
+            result["provider_call_made"] = provider_call_made
+            if not provider_call_made:
+                # A fail-closed local refusal is not Ollama request latency.
+                result["latency_ms"] = None
+                result["latency_phase"] = None
             results.append(result)
             db.add(
                 ModelEvaluationCaseResultModel(
@@ -409,7 +421,7 @@ def evaluate_report_synthesis_research_gpu_candidate(
                     privacy_policy_violation=False,
                     provider_failure=result["provider_failure"],
                     latency_ms=result["latency_ms"],
-                    latency_phase=phase,
+                    latency_phase=persisted_phase,
                     ollama_load_duration_ns=result["ollama_load_duration_ns"],
                     ollama_total_duration_ns=result["ollama_total_duration_ns"],
                     ollama_prompt_eval_duration_ns=result["ollama_prompt_eval_duration_ns"],
@@ -439,14 +451,16 @@ def evaluate_report_synthesis_research_gpu_candidate(
                 selected_cases,
                 selected_case_ids,
                 selected_checksums,
+                results,
             )
         ):
-            raise ModelEvaluationError("Research-GPU evaluation authority changed before completion")
+            raise ModelEvaluationError("Research-GPU immutable authority changed before completion")
         _complete_run(
             run,
             results,
             latency_threshold_ms=30_000,
             require_complete_measurements=True,
+            require_complete_native_metrics=True,
             promotion_allowed=False,
             request_timeout_ms=45_000,
             policy_failure_reason="research_gpu_policy_failed",
@@ -517,8 +531,15 @@ def _research_gpu_binding_is_current(
     selected_cases: tuple[EvaluationCase | AdversarialEvaluationCase, ...],
     selected_case_ids: tuple[str, ...],
     selected_checksums: dict[str, str],
+    results: list[dict[str, object]],
 ) -> bool:
-    """Recheck persisted v1 authority and case evidence at completion time."""
+    """Recheck immutable v2 authority and selected case identities.
+
+    Runtime metric completeness is evaluation evidence, not immutable authority;
+    an absent observation must fail qualification without masquerading as an
+    authority mutation. Persisted case identity and phase labels are still
+    checked against the in-memory result set.
+    """
 
     payload = run.evaluation_binding_json
     try:
@@ -592,25 +613,15 @@ def _research_gpu_binding_is_current(
         ).scalars().all()
         persisted_checksums = {row.case_id: row.case_checksum for row in persisted}
         persisted_phases = {row.case_id: row.latency_phase for row in persisted}
-        persisted_runtime_counts = {
-            row.case_id: (
-                row.ollama_load_duration_ns,
-                row.ollama_total_duration_ns,
-                row.ollama_prompt_eval_duration_ns,
-                row.ollama_eval_duration_ns,
-                row.provider_observed_at,
-            )
-            for row in persisted
-        }
         expected_phases = {
-            case_id: "cold" if index == 0 else "warm"
-            for index, case_id in enumerate(selected_case_ids)
+            case.case_id: result.get("latency_phase")
+            for case, result in zip(selected_cases, results, strict=True)
         }
         return (
             len(persisted) == len(selected_case_ids)
             and persisted_checksums == selected_checksums
+            and set(persisted_checksums) == set(selected_case_ids)
             and persisted_phases == expected_phases
-            and all(all(value is not None for value in values) for values in persisted_runtime_counts.values())
         )
     except (KeyError, TypeError, ValueError, ResearchGpuPolicyError):
         return False
@@ -912,6 +923,8 @@ def _evaluate_case(
         "missing_data_honesty": missing_honesty,
         "unsafe_language_violation": unsafe,
         "provider_failure": provider_failure,
+        "provider_call_made": result.provider_call_made,
+        "provider_call_state": result.provider_call_state,
         "latency_ms": result.latency_ms,
         "latency_phase": latency_phase,
         "input_tokens": result.input_tokens,
@@ -928,6 +941,7 @@ def _complete_run(
     *,
     latency_threshold_ms: int | None = None,
     require_complete_measurements: bool = False,
+    require_complete_native_metrics: bool = False,
     promotion_allowed: bool = True,
     request_timeout_ms: int | None = None,
     policy_failure_reason: str = "promotion_policy_failed",
@@ -1012,6 +1026,10 @@ def _complete_run(
             and len(token_rows) == count
             and phases_complete
             and request_times_bounded
+            and (
+                not require_complete_native_metrics
+                or all(row.get("native_metrics_complete") is True for row in results)
+            )
         )
     else:
         average_latency = fmean(latencies) if latencies else 0
@@ -1041,7 +1059,12 @@ def _complete_run(
     )
     run.status = "completed"
     run.promotion_eligible = hard_pass and promotion_allowed
-    run.failure_reason = None if hard_pass else policy_failure_reason
+    if hard_pass:
+        run.failure_reason = None
+    elif require_complete_measurements and not measurements_complete:
+        run.failure_reason = "research_gpu_measurements_incomplete"
+    else:
+        run.failure_reason = policy_failure_reason
     run.completed_at = datetime.now(UTC)
 
 

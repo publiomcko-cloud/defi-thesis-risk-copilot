@@ -396,3 +396,31 @@ def test_adapter_surfaces_transport_errors_and_timeouts(monkeypatch, error) -> N
     with pytest.raises(type(error)):
         provider.generate(LLMRequest("synthetic", 45))
     assert provider.last_observation is None
+
+
+def test_cold_timeout_keeps_followup_phase_unknown_until_runtime_reverification(monkeypatch) -> None:
+    provider = _provider(monkeypatch)
+    generate_requests: list[str] = []
+
+    def post(url: str, *, json: dict[str, object], timeout: float) -> Response:
+        if url.endswith("/api/show"):
+            return _show_response()
+        generate_requests.append(url)
+        raise httpx.ReadTimeout("synthetic cold timeout")
+
+    monkeypatch.setattr(adapter_module.httpx, "post", post)
+    provider.prepare_cold_start()
+
+    with pytest.raises(httpx.ReadTimeout):
+        provider.generate(LLMRequest("synthetic cold case", 45))
+
+    assert provider.last_observation is None
+    assert provider._request_phase_uncertain is True
+    assert provider._cold_request_pending is False
+
+    # A subsequent evaluation call reaches the adapter but makes no second
+    # HTTP request and is not silently labeled warm.
+    with pytest.raises(ResearchGpuAdapterError, match="phase is uncertain"):
+        provider.generate(LLMRequest("synthetic following case", 45))
+    assert len(generate_requests) == 1
+    assert provider.last_observation is None

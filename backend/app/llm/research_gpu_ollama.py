@@ -272,6 +272,7 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
         self.runtime_attestation = runtime_attestation
         self.last_observation: OllamaNativeObservation | None = None
         self._cold_request_pending = False
+        self._request_phase_uncertain = False
 
     @classmethod
     def verify_runtime(
@@ -380,6 +381,7 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
             loaded_model_names_before_unload=loaded_before,
         )
         self._cold_request_pending = True
+        self._request_phase_uncertain = False
         self.last_observation = None
         return self.runtime_attestation
 
@@ -401,16 +403,25 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
 
     def generate(self, request: LLMRequest) -> LLMResponse:
         self.last_observation = None
+        if self._request_phase_uncertain:
+            raise ResearchGpuAdapterError(
+                "Ollama request phase is uncertain after an incomplete response; reverify cold start before retrying"
+            )
         try:
             self._assert_tunnel_unchanged()
         except ResearchGpuAdapterError:
             raise ResearchGpuAdapterError("Verified SSH transport is no longer active")
+        phase = "cold" if self._cold_request_pending else "warm"
+        self._cold_request_pending = False
+        # Once a request is sent, a timeout leaves model residency unknown: the
+        # server may have loaded or completed inference after the client stopped
+        # waiting. Do not label the next call warm without a fresh cold-start
+        # verification.
+        self._request_phase_uncertain = True
         payload = _ollama_generate_payload(self.base_url, self.model, request)
         if payload.get("model") != RESEARCH_GPU_REQUIRED_MODEL:
             raise ResearchGpuAdapterError("Ollama response model identity changed")
         response = _ollama_response_from_payload(payload, self.model)
-        phase = "cold" if self._cold_request_pending else "warm"
-        self._cold_request_pending = False
         load = _native_duration(payload.get("load_duration"))
         total = _native_duration(payload.get("total_duration"))
         prompt_eval = _native_duration(payload.get("prompt_eval_duration"))
@@ -426,6 +437,7 @@ class VerifiedResearchGpuOllamaProvider(OllamaProvider):
             cold_load_confirmed=phase != "cold" or (load is not None and load > 0),
             native_metrics_valid=metrics_valid,
         )
+        self._request_phase_uncertain = False
         return response
 
     def _assert_tunnel_unchanged(self) -> None:

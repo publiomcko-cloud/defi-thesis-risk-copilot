@@ -19,6 +19,7 @@ from app.llm.prompts import (
 )
 from app.llm.quality import ModelQualityEvidence, evaluate_report_synthesis_quality
 from app.llm.provenance import ModelIdentity, provider_identity, provider_is_eligible_for_scope
+from app.llm.research_gpu_ollama import ResearchGpuAdapterError
 from app.models.model_governance import ModelRegistryModel
 from app.llm.routing import (
     RouteResolution,
@@ -358,6 +359,20 @@ def _synthesize_with_provider(
         return _validation_fallback(base_report, identity, started, "invalid_json", "malformed_json", route_version_id, evaluation_run_id, response, actual_cost, actual_total_tokens)
     except SynthesisValidationError as exc:
         return _validation_fallback(base_report, identity, started, exc.result, exc.reason, route_version_id, evaluation_run_id, response, actual_cost, actual_total_tokens)
+    except ResearchGpuAdapterError:
+        return SynthesisResult(
+            report=_with_assumption(base_report, LLM_SKIPPED_ASSUMPTION),
+            used_llm=False,
+            reason="runtime_evidence_incomplete",
+            outcome="validation_fallback",
+            validation_result="provider_error",
+            fallback_reason="runtime_evidence_incomplete",
+            provider=identity,
+            latency_ms=_elapsed_ms(started),
+            provider_call_made=False,
+            provider_call_state="not_attempted",
+            usage_status="unknown",
+        )
     except ValueError:
         return _validation_fallback(base_report, identity, started, "schema_invalid", "schema_validation_failed", route_version_id, evaluation_run_id, response, actual_cost, actual_total_tokens)
     except (httpx.ConnectError, httpx.ConnectTimeout):
