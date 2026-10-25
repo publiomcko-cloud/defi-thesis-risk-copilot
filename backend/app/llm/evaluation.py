@@ -36,6 +36,11 @@ from app.llm.evaluation_data import (
 from app.llm.governance import ensure_configured_model_registration, ensure_report_synthesis_prompt_version
 from app.llm.prompts import build_report_synthesis_prompt
 from app.llm.provenance import provider_identity
+from app.llm.research_gpu_ollama import (
+    OllamaNativeObservation,
+    ResearchGpuAdapterError,
+    VerifiedResearchGpuOllamaProvider,
+)
 from app.llm.research_gpu_policy import (
     RESEARCH_GPU_POLICY_CHECKSUM,
     RESEARCH_GPU_POLICY_VERSION,
@@ -237,7 +242,6 @@ def evaluate_report_synthesis_research_gpu_candidate(
     actor: UserContext,
     model_artifact_digest: str,
     plan: str = "representative",
-    cold_start_verified: bool = False,
 ) -> ModelEvaluationRunModel:
     """Run the isolated, non-promotable GPU evaluation profile.
 
@@ -261,19 +265,21 @@ def evaluate_report_synthesis_research_gpu_candidate(
         raise ModelEvaluationError(str(exc)) from None
     if environment not in {"development", "exercise"} or settings.public_demo_mode:
         raise ModelEvaluationError("Research-GPU policy environment is not authorized")
-    if not cold_start_verified:
-        raise ModelEvaluationError("A verified cold model start is required for latency evidence")
-
     task = get_model_task_definition("report_synthesis")
     identity = provider_identity(provider)
     if (
         task.version != "v1"
+        or not isinstance(provider, VerifiedResearchGpuOllamaProvider)
         or identity is None
         or identity.provider_key != "ollama"
         or identity.model_key != "qwen2.5:7b-instruct-q4_K_M"
         or not research_gpu_provider_is_allowed(provider, model_artifact_digest)
     ):
         raise ModelEvaluationError("Research-GPU profile accepts only its code-owned Ollama model")
+    try:
+        runtime_attestation = provider.prepare_cold_start().to_payload()
+    except ResearchGpuAdapterError as exc:
+        raise ModelEvaluationError(str(exc)) from None
 
     ordinary_definition = report_synthesis_public_dataset()
     adversarial_definition = report_synthesis_adversarial_dataset()
@@ -316,6 +322,7 @@ def evaluate_report_synthesis_research_gpu_candidate(
             evaluation_plan=plan,
             selected_case_checksums=selected_checksums,
             code_revision=code_revision,
+            runtime_attestation=runtime_attestation,
         )
     except ResearchGpuPolicyError as exc:
         db.rollback()
@@ -364,6 +371,18 @@ def evaluate_report_synthesis_research_gpu_candidate(
                 provider_timeout_seconds=45,
                 latency_phase=phase,
             )
+            observation = provider.last_observation
+            result.update(_native_observation_fields(observation))
+            expected_observation_phase = phase
+            if (
+                not isinstance(observation, OllamaNativeObservation)
+                or observation.phase != expected_observation_phase
+                or not observation.native_metrics_valid
+                or (phase == "cold" and not observation.cold_load_confirmed)
+            ):
+                result["provider_failure"] = True
+                result["passed"] = False
+                result["reason_code"] = "runtime_evidence_invalid"
             results.append(result)
             db.add(
                 ModelEvaluationCaseResultModel(
@@ -387,6 +406,11 @@ def evaluate_report_synthesis_research_gpu_candidate(
                     provider_failure=result["provider_failure"],
                     latency_ms=result["latency_ms"],
                     latency_phase=phase,
+                    ollama_load_duration_ns=result["ollama_load_duration_ns"],
+                    ollama_total_duration_ns=result["ollama_total_duration_ns"],
+                    ollama_prompt_eval_duration_ns=result["ollama_prompt_eval_duration_ns"],
+                    ollama_eval_duration_ns=result["ollama_eval_duration_ns"],
+                    provider_observed_at=result["provider_observed_at"],
                     input_tokens=result["input_tokens"],
                     output_tokens=result["output_tokens"],
                     total_tokens=result["total_tokens"],
@@ -470,6 +494,18 @@ def _dataset_binding_payload(definition: object) -> dict[str, object]:
     }
 
 
+def _native_observation_fields(observation: OllamaNativeObservation | None) -> dict[str, object]:
+    return {
+        "ollama_load_duration_ns": observation.load_duration_ns if observation else None,
+        "ollama_total_duration_ns": observation.total_duration_ns if observation else None,
+        "ollama_prompt_eval_duration_ns": observation.prompt_eval_duration_ns if observation else None,
+        "ollama_eval_duration_ns": observation.eval_duration_ns if observation else None,
+        "provider_observed_at": (
+            datetime.fromisoformat(observation.observed_at) if observation else None
+        ),
+    }
+
+
 def _research_gpu_binding_is_current(
     db: Session,
     run: ModelEvaluationRunModel,
@@ -499,6 +535,7 @@ def _research_gpu_binding_is_current(
             or datasets_binding[0]["dataset_id"] != run.dataset_id
             or datasets_binding[1]["dataset_id"] != run.adversarial_dataset_id
             or payload["selected_case_checksums"] != dict(sorted(selected_checksums.items()))
+            or payload["runtime_attestation"] != provider.runtime_binding_payload()
         ):
             return False
         if not has_current_evaluation_dataset_evidence(db, run):
@@ -545,6 +582,16 @@ def _research_gpu_binding_is_current(
         ).scalars().all()
         persisted_checksums = {row.case_id: row.case_checksum for row in persisted}
         persisted_phases = {row.case_id: row.latency_phase for row in persisted}
+        persisted_runtime_counts = {
+            row.case_id: (
+                row.ollama_load_duration_ns,
+                row.ollama_total_duration_ns,
+                row.ollama_prompt_eval_duration_ns,
+                row.ollama_eval_duration_ns,
+                row.provider_observed_at,
+            )
+            for row in persisted
+        }
         expected_phases = {
             case_id: "cold" if index == 0 else "warm"
             for index, case_id in enumerate(selected_case_ids)
@@ -553,6 +600,7 @@ def _research_gpu_binding_is_current(
             len(persisted) == len(selected_case_ids)
             and persisted_checksums == selected_checksums
             and persisted_phases == expected_phases
+            and all(all(value is not None for value in values) for values in persisted_runtime_counts.values())
         )
     except (KeyError, TypeError, ValueError, ResearchGpuPolicyError):
         return False

@@ -22,6 +22,7 @@ from app.llm.evaluation import (
 )
 from app.llm.evaluation_authority import PROMOTION_POLICY, PROMOTION_POLICY_CHECKSUM
 from app.llm.evaluation_data import report_synthesis_adversarial_dataset, report_synthesis_public_dataset
+from app.llm import research_gpu_ollama
 from app.llm.research_gpu_policy import (
     RESEARCH_GPU_POLICY,
     RESEARCH_GPU_POLICY_CHECKSUM,
@@ -35,31 +36,75 @@ from app.llm.research_gpu_policy import (
     resolve_research_gpu_policy,
 )
 from app.models.model_governance import ModelEvaluationCaseResultModel, ModelEvaluationRunModel, ModelRegistryModel
+from app.llm.research_gpu_ollama import (
+    OllamaNativeObservation,
+    SshForwardingEvidence,
+    VerifiedResearchGpuOllamaProvider,
+)
 
 # Importing the app registers the full ORM metadata used by the in-memory DB.
 from app.main import app as _app  # noqa: F401
 
 
-class LocalQwenProvider:
-    name = "ollama"
-    model = "qwen2.5:7b-instruct-q4_K_M"
-    privacy_classification = "public_only"
-    artifact_digest = "sha256:" + "a" * 64
-    base_url = "http://127.0.0.1:11435"
+MODEL_DIGEST = "sha256:" + "a" * 64
+BASE_URL = "http://127.0.0.1:11435"
+TUNNEL_EVIDENCE = SshForwardingEvidence(
+    ssh_pid=4242,
+    ssh_target="root@203.0.113.10",
+    ssh_port=22,
+    local_port=11435,
+    known_hosts_sha256="b" * 64,
+    ssh_command_sha256="c" * 64,
+)
 
-    def __init__(self) -> None:
-        self.requests: list[LLMRequest] = []
 
-    def generate(self, request: LLMRequest) -> LLMResponse:
-        self.requests.append(request)
-        return LLMResponse(
-            text="not json",
-            provider=self.name,
-            model=self.model,
-            input_tokens=7,
-            output_tokens=3,
-            total_tokens=10,
-        )
+class _HttpResponse:
+    def __init__(self, payload: dict[str, object]) -> None:
+        self.payload = payload
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict[str, object]:
+        return self.payload
+
+
+def _verified_provider(monkeypatch, *, loaded_models: tuple[str, ...] = ()) -> VerifiedResearchGpuOllamaProvider:
+    monkeypatch.setattr(
+        research_gpu_ollama,
+        "verify_ssh_forwarding_process",
+        lambda _pid, _url: TUNNEL_EVIDENCE,
+    )
+
+    def get(url: str, *, timeout: float):
+        assert timeout > 0
+        if url.endswith("/api/version"):
+            return _HttpResponse({"version": "0.13.2"})
+        if url.endswith("/api/tags"):
+            return _HttpResponse({"models": [{"name": "qwen2.5:7b-instruct-q4_K_M", "digest": "a" * 64}]})
+        if url.endswith("/api/ps"):
+            return _HttpResponse({"models": [{"name": name} for name in loaded_models]})
+        raise AssertionError(f"unexpected URL {url}")
+
+    monkeypatch.setattr(research_gpu_ollama.httpx, "get", get)
+    return VerifiedResearchGpuOllamaProvider.verify_runtime(
+        base_url=BASE_URL,
+        expected_model_digest=MODEL_DIGEST,
+        ssh_pid=4242,
+    )
+
+
+def _set_fake_observation(provider: VerifiedResearchGpuOllamaProvider, phase: str) -> None:
+    provider.last_observation = OllamaNativeObservation(
+        phase=phase,
+        observed_at="2026-10-25T12:00:00+00:00",
+        load_duration_ns=1_000_000 if phase == "cold" else 0,
+        total_duration_ns=2_000_000,
+        prompt_eval_duration_ns=500_000,
+        eval_duration_ns=1_000_000,
+        cold_load_confirmed=True,
+        native_metrics_valid=True,
+    )
 
 
 def _dataset_authority(dataset_id: str, checksum: str) -> dict[str, object]:
@@ -70,6 +115,20 @@ def _dataset_authority(dataset_id: str, checksum: str) -> dict[str, object]:
         "dataset_version": "v1",
         "checksum": checksum,
         "case_count": 2,
+    }
+
+
+def _binding_runtime_attestation() -> dict[str, object]:
+    return {
+        "server_version": "0.13.2",
+        "model_name": "qwen2.5:7b-instruct-q4_K_M",
+        "model_digest": MODEL_DIGEST,
+        "transport_kind": "verified_ssh_local_forward.v1",
+        "transport": TUNNEL_EVIDENCE.to_payload(),
+        "local_endpoint": BASE_URL,
+        "verified_at": "2026-10-25T12:00:00+00:00",
+        "cold_model_absent_at": "2026-10-25T12:00:01+00:00",
+        "loaded_model_names_before_unload": [],
     }
 
 
@@ -92,6 +151,7 @@ def _binding(**overrides: object) -> str:
         "evaluation_plan": "representative",
         "selected_case_checksums": {"ordinary_valid": "e" * 64},
         "code_revision": "f" * 40,
+        "runtime_attestation": _binding_runtime_attestation(),
     }
     values.update(overrides)
     return research_gpu_binding_checksum(**values)  # type: ignore[arg-type]
@@ -100,7 +160,7 @@ def _binding(**overrides: object) -> str:
 def test_policy_versions_are_stable_and_v3_non_latency_requirements_are_unchanged() -> None:
     assert PROMOTION_POLICY_CHECKSUM == "309f35a2842827002dae007a8d3f4e2ac5c082326b9e6697969d858b8c37f25c"
     assert RESEARCH_GPU_POLICY_VERSION == "report_synthesis.research_gpu.v1"
-    assert RESEARCH_GPU_POLICY_CHECKSUM == "a0694927eec462f565a2146633c4b9d499e3deceff968819001f4b583aa57fe3"
+    assert RESEARCH_GPU_POLICY_CHECKSUM == "a1cc598a60e47dc7fd6fb499f22fa346e75b990456b575c3cc327210a461d9fe"
     payload = normalized_policy_payload()
     assert sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest() == RESEARCH_GPU_POLICY_CHECKSUM
     non_latency = dict(RESEARCH_GPU_POLICY["non_latency_requirements"])
@@ -139,8 +199,13 @@ def test_policy_selection_fails_closed(settings: dict[str, object]) -> None:
 def test_policy_and_binding_checksums_bind_every_authority() -> None:
     baseline = _binding()
     assert baseline == _binding()
+    changed_digest = "sha256:" + "1" * 64
+    changed_runtime = {
+        **_binding_runtime_attestation(),
+        "model_digest": changed_digest,
+    }
     changes = [
-        {"model_artifact_digest": "sha256:" + "1" * 64},
+        {"model_artifact_digest": changed_digest, "runtime_attestation": changed_runtime},
         {"model_registry_id": "another-model"},
         {"prompt_checksum": "1" * 64},
         {"ordinary_dataset": _dataset_authority("report_synthesis_public_v2", "1" * 64)},
@@ -149,6 +214,7 @@ def test_policy_and_binding_checksums_bind_every_authority() -> None:
         {"evaluation_plan": "full"},
         {"selected_case_checksums": {"ordinary_valid": "3" * 64}},
         {"code_revision": "e" * 40},
+        {"runtime_attestation": {**_binding_runtime_attestation(), "server_version": "0.13.3"}},
     ]
     assert all(_binding(**change) != baseline for change in changes)
     with pytest.raises(ResearchGpuPolicyError, match="artifact digest"):
@@ -157,12 +223,12 @@ def test_policy_and_binding_checksums_bind_every_authority() -> None:
         _binding(environment="production")
 
 
-def test_research_gpu_provider_requires_local_public_only_pinned_ollama() -> None:
-    provider = LocalQwenProvider()
+def test_research_gpu_provider_requires_local_public_only_pinned_ollama(monkeypatch) -> None:
+    provider = _verified_provider(monkeypatch)
     assert research_gpu_provider_is_allowed(provider, provider.artifact_digest)
     provider.base_url = "https://models.example.net"
     assert not research_gpu_provider_is_allowed(provider, provider.artifact_digest)
-    provider.base_url = "http://127.0.0.1:11435"
+    provider.base_url = BASE_URL
     provider.privacy_classification = "unknown"
     assert not research_gpu_provider_is_allowed(provider, provider.artifact_digest)
     provider.privacy_classification = "public_only"
@@ -191,8 +257,25 @@ def test_only_the_code_owned_five_case_or_full_corpus_plans_are_available() -> N
         evaluation_case_plan(ordinary, adversarial, plan="client-selected")
 
 
-def test_evaluation_timeout_override_is_bounded_without_sleeping() -> None:
-    provider = LocalQwenProvider()
+def test_evaluation_timeout_override_is_bounded_without_sleeping(monkeypatch) -> None:
+    provider = _verified_provider(monkeypatch)
+    requests = []
+
+    def post(url: str, *, json: dict[str, object], timeout: float):
+        requests.append((url, json, timeout))
+        return _HttpResponse({
+            "model": provider.model,
+            "response": "not json",
+            "prompt_eval_count": 7,
+            "eval_count": 3,
+            "load_duration": 1_000_000,
+            "total_duration": 2_000_000,
+            "prompt_eval_duration": 500_000,
+            "eval_duration": 1_000_000,
+        })
+
+    monkeypatch.setattr(research_gpu_ollama.httpx, "post", post)
+    provider.prepare_cold_start()
     case = report_synthesis_public_dataset().cases[0]
     result = evaluation._evaluate_case(
         provider,
@@ -200,11 +283,14 @@ def test_evaluation_timeout_override_is_bounded_without_sleeping() -> None:
         provider_timeout_seconds=45,
         latency_phase="cold",
     )
-    assert provider.requests[0].timeout_seconds == 45
     assert result["structured_output_valid"] is False
     assert result["provider_failure"] is False
     assert result["latency_phase"] == "cold"
     assert result["input_tokens"] == 7 and result["output_tokens"] == 3
+    assert requests[0][0] == f"{BASE_URL}/api/generate"
+    assert requests[0][1]["model"] == "qwen2.5:7b-instruct-q4_K_M"
+    assert requests[0][1]["stream"] is False and requests[0][1]["format"] == "json"
+    assert requests[0][2] == 45
     with pytest.raises(ValueError, match="bounded contract"):
         evaluation._evaluate_case(provider, case, provider_timeout_seconds=45.001)
 
@@ -268,7 +354,7 @@ def test_internal_gpu_evaluation_binds_and_persists_cold_warm_nonpromotable_evid
 ) -> None:
     settings = _isolated_settings()
     monkeypatch.setattr(evaluation, "get_settings", lambda: settings)
-    provider = LocalQwenProvider()
+    provider = _verified_provider(monkeypatch)
     actor = user_context(create_user(evaluation_db, "gpu-policy@example.test", role="admin"))
     phases: list[str] = []
 
@@ -276,6 +362,7 @@ def test_internal_gpu_evaluation_binds_and_persists_cold_warm_nonpromotable_evid
         assert provider_timeout_seconds == 45
         assert not evaluation_db.in_transaction()
         phases.append(latency_phase)
+        _set_fake_observation(provider, latency_phase)
         return _passing_metrics(latency_phase=latency_phase)
 
     monkeypatch.setattr(evaluation, "_evaluate_case", fake_case)
@@ -284,7 +371,6 @@ def test_internal_gpu_evaluation_binds_and_persists_cold_warm_nonpromotable_evid
         provider=provider,
         actor=actor,
         model_artifact_digest=provider.artifact_digest,
-        cold_start_verified=True,
     )
     results = evaluation_db.execute(
         select(ModelEvaluationCaseResultModel)
@@ -306,6 +392,9 @@ def test_internal_gpu_evaluation_binds_and_persists_cold_warm_nonpromotable_evid
     assert snapshot["warm_latency_mean_ms"] == 1_000
     assert run.latency_known_count == 5 and run.token_observation_count == 5
     assert run.cost_observation_count == 0  # unknown app-level cost is not a zero-cost claim
+    assert "runtime_attestation" in run.evaluation_binding_json
+    assert all(row.provider_observed_at is not None for row in results)
+    assert all(row.ollama_total_duration_ns == 2_000_000 for row in results)
     assert [row.latency_phase for row in results].count("cold") == 1
     assert [row.latency_phase for row in results].count("warm") == 4
     assert phases == ["cold", "warm", "warm", "warm", "warm"]
@@ -341,10 +430,11 @@ def test_latency_thresholds_include_cold_and_accept_exact_timeout_boundary(
 ) -> None:
     monkeypatch.setattr(evaluation, "get_settings", lambda: _isolated_settings())
     actor = user_context(create_user(evaluation_db, f"gpu-boundary-{cold_ms}-{warm_ms}@example.test", role="admin"))
-    provider = LocalQwenProvider()
+    provider = _verified_provider(monkeypatch)
 
     def fake_case(_provider, _case, *, provider_timeout_seconds, latency_phase):
         assert provider_timeout_seconds == 45
+        _set_fake_observation(provider, latency_phase)
         row = _passing_metrics(latency_phase=latency_phase)
         row["latency_ms"] = cold_ms if latency_phase == "cold" else warm_ms
         return row
@@ -355,7 +445,6 @@ def test_latency_thresholds_include_cold_and_accept_exact_timeout_boundary(
         provider=provider,
         actor=actor,
         model_artifact_digest=provider.artifact_digest,
-        cold_start_verified=True,
     )
     assert run.failure_reason == expected_failure
     assert run.promotion_eligible is False
@@ -372,10 +461,11 @@ def test_incomplete_usage_provider_failure_and_late_response_fail_closed(
 ) -> None:
     monkeypatch.setattr(evaluation, "get_settings", lambda: _isolated_settings())
     actor = user_context(create_user(evaluation_db, f"gpu-{missing}@example.test", role="admin"))
-    provider = LocalQwenProvider()
+    provider = _verified_provider(monkeypatch)
 
     def fake_case(_provider, _case, *, provider_timeout_seconds, latency_phase):
         assert provider_timeout_seconds == 45
+        _set_fake_observation(provider, latency_phase)
         row = _passing_metrics(latency_phase=latency_phase)
         if missing == "latency" and latency_phase == "cold":
             row["latency_ms"] = None
@@ -396,7 +486,6 @@ def test_incomplete_usage_provider_failure_and_late_response_fail_closed(
         provider=provider,
         actor=actor,
         model_artifact_digest=provider.artifact_digest,
-        cold_start_verified=True,
     )
     assert run.promotion_eligible is False
     assert run.failure_reason == "research_gpu_policy_failed"
@@ -415,7 +504,7 @@ def test_gpu_evaluation_entrypoint_is_disabled_by_default_and_has_no_http_route(
     assert default_settings.research_gpu_evaluation_enabled is False
     assert default_settings.research_gpu_evaluation_isolated is False
     monkeypatch.setattr(evaluation, "get_settings", lambda: default_settings)
-    provider = LocalQwenProvider()
+    provider = object()
     actor = user_context(create_user(evaluation_db, "gpu-disabled@example.test", role="admin"))
     with pytest.raises(ModelEvaluationError, match="disabled"):
         evaluate_report_synthesis_research_gpu_candidate(
@@ -423,7 +512,5 @@ def test_gpu_evaluation_entrypoint_is_disabled_by_default_and_has_no_http_route(
             provider=provider,
             actor=actor,
             model_artifact_digest="sha256:" + "a" * 64,
-            cold_start_verified=True,
         )
-    assert provider.requests == []
     assert not any("research-gpu" in getattr(route, "path", "") for route in _app.routes)

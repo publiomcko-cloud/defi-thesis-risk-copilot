@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import re
 from copy import deepcopy
+from datetime import datetime
 from hashlib import sha256
 from types import MappingProxyType
 from typing import Any, Mapping
@@ -23,7 +24,7 @@ from app.llm.evaluation_authority import (
 
 
 RESEARCH_GPU_POLICY_VERSION = "report_synthesis.research_gpu.v1"
-RESEARCH_GPU_EVALUATOR_PROTOCOL_VERSION = "report_synthesis.research_gpu_evaluator.v1"
+RESEARCH_GPU_EVALUATOR_PROTOCOL_VERSION = "report_synthesis.research_gpu_evaluator.v2"
 RESEARCH_GPU_REQUIRED_MODEL = "qwen2.5:7b-instruct-q4_K_M"
 
 _NON_LATENCY_REQUIREMENTS = {
@@ -77,6 +78,8 @@ _POLICY_PAYLOAD: dict[str, Any] = {
         "both_authoritative_datasets_required": True,
         "evaluator_protocol_version": RESEARCH_GPU_EVALUATOR_PROTOCOL_VERSION,
         "allowed_environments": ["development", "exercise"],
+        "runtime_model_digest_and_ssh_transport_must_be_observed": True,
+        "cold_start_requires_loaded_model_absence_and_native_load_duration": True,
     },
     "enabled_by_default": False,
     "promotion_eligible": False,
@@ -134,7 +137,12 @@ def resolve_research_gpu_policy(
 
 
 def research_gpu_provider_is_allowed(provider: object, artifact_digest: str) -> bool:
-    """Accept only the pinned public-only Ollama adapter over a loopback tunnel."""
+    """Accept only a runtime-verified research adapter, never caller metadata."""
+
+    from app.llm.research_gpu_ollama import VerifiedResearchGpuOllamaProvider
+
+    if not isinstance(provider, VerifiedResearchGpuOllamaProvider):
+        return False
 
     if (
         getattr(provider, "name", None) != "ollama"
@@ -142,6 +150,7 @@ def research_gpu_provider_is_allowed(provider: object, artifact_digest: str) -> 
         or getattr(provider, "privacy_classification", None) != "public_only"
         or getattr(provider, "artifact_digest", None) != artifact_digest
         or not _MODEL_DIGEST.fullmatch(artifact_digest)
+        or not provider.runtime_verification_is_current()
     ):
         return False
     base_url = getattr(provider, "base_url", None)
@@ -183,6 +192,7 @@ def research_gpu_binding_payload(
     evaluation_plan: str,
     selected_case_checksums: Mapping[str, str],
     code_revision: str,
+    runtime_attestation: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Build the exact, canonicalizable authority snapshot for a v1 run."""
 
@@ -198,6 +208,7 @@ def research_gpu_binding_payload(
         raise ResearchGpuPolicyError("Research-GPU prompt authority is invalid")
     if not _SOURCE_REVISION.fullmatch(code_revision):
         raise ResearchGpuPolicyError("Research-GPU code revision is invalid")
+    _validate_runtime_attestation(runtime_attestation, model_artifact_digest)
     if evaluation_plan not in {"representative", "full"}:
         raise ResearchGpuPolicyError("Research-GPU evaluation plan is invalid")
     if not selected_case_checksums or any(
@@ -236,6 +247,7 @@ def research_gpu_binding_payload(
         "evaluation_plan": evaluation_plan,
         "selected_case_checksums": dict(sorted(selected_case_checksums.items())),
         "code_revision": code_revision,
+        "runtime_attestation": dict(runtime_attestation),
     }
     return binding
 
@@ -257,6 +269,63 @@ def research_gpu_binding_checksum_for_payload(payload: object) -> str:
     ):
         raise ResearchGpuPolicyError("Research-GPU binding snapshot is invalid")
     return sha256(json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+
+def _validate_runtime_attestation(attestation: Mapping[str, Any], artifact_digest: str) -> None:
+    required_text = ("server_version", "model_name", "model_digest", "transport_kind", "local_endpoint", "verified_at", "cold_model_absent_at")
+    if not all(isinstance(attestation.get(key), str) and attestation[key] for key in required_text):
+        raise ResearchGpuPolicyError("Research-GPU runtime attestation is incomplete")
+    if (
+        attestation["model_name"] != RESEARCH_GPU_REQUIRED_MODEL
+        or attestation["model_digest"] != artifact_digest
+        or attestation["transport_kind"] != "verified_ssh_local_forward.v1"
+    ):
+        raise ResearchGpuPolicyError("Research-GPU runtime model or transport identity is invalid")
+    for key in ("verified_at", "cold_model_absent_at"):
+        try:
+            moment = datetime.fromisoformat(str(attestation[key]))
+        except ValueError:
+            raise ResearchGpuPolicyError("Research-GPU runtime timestamp is invalid") from None
+        if moment.tzinfo is None:
+            raise ResearchGpuPolicyError("Research-GPU runtime timestamp must include a timezone")
+    transport = attestation.get("transport")
+    if not isinstance(transport, Mapping):
+        raise ResearchGpuPolicyError("Research-GPU SSH transport evidence is incomplete")
+    ssh_target = transport.get("ssh_target")
+    local_port = transport.get("local_port")
+    ssh_port = transport.get("ssh_port")
+    ssh_pid = transport.get("ssh_pid")
+    if (
+        not isinstance(ssh_target, str)
+        or not re.fullmatch(r"[A-Za-z0-9_.-]{1,64}@[A-Za-z0-9][A-Za-z0-9.-]{0,252}[A-Za-z0-9]", ssh_target)
+        or not isinstance(local_port, int)
+        or isinstance(local_port, bool)
+        or not 1 <= local_port <= 65535
+        or not isinstance(ssh_port, int)
+        or isinstance(ssh_port, bool)
+        or not 1 <= ssh_port <= 65535
+        or not isinstance(ssh_pid, int)
+        or isinstance(ssh_pid, bool)
+        or ssh_pid <= 1
+        or not _CHECKSUM.fullmatch(str(transport.get("known_hosts_sha256", "")))
+        or not _CHECKSUM.fullmatch(str(transport.get("ssh_command_sha256", "")))
+    ):
+        raise ResearchGpuPolicyError("Research-GPU SSH transport evidence is invalid")
+    endpoint = urlparse(str(attestation["local_endpoint"]))
+    if (
+        endpoint.scheme != "http"
+        or endpoint.hostname != "127.0.0.1"
+        or endpoint.port != local_port
+        or endpoint.path not in {"", "/"}
+        or endpoint.username is not None
+        or endpoint.password is not None
+        or endpoint.query
+        or endpoint.fragment
+    ):
+        raise ResearchGpuPolicyError("Research-GPU runtime endpoint is not its verified SSH loopback")
+    loaded = attestation.get("loaded_model_names_before_unload")
+    if not isinstance(loaded, list) or any(not isinstance(name, str) or not name for name in loaded):
+        raise ResearchGpuPolicyError("Research-GPU cold-start evidence is invalid")
 
 
 def research_operation_within_bounds(*, duration_ms: int, model_calls: int, research_passes: int) -> bool:

@@ -5,7 +5,7 @@
 `report_synthesis.promotion.v3` remains unchanged (SHA-256
 `309f35a2842827002dae007a8d3f4e2ac5c082326b9e6697969d858b8c37f25c`). The
 independent `report_synthesis.research_gpu.v1` policy is code-owned and has
-SHA-256 `a0694927eec462f565a2146633c4b9d499e3deceff968819001f4b583aa57fe3`.
+SHA-256 `a1cc598a60e47dc7fd6fb499f22fa346e75b990456b575c3cc327210a461d9fe`.
 Its non-latency thresholds and evaluator protocol are copied exactly from v3.
 It retains the 100% structured-output, deterministic-preservation,
 source-integrity, citation-consistency, uncertainty-preservation,
@@ -21,7 +21,12 @@ zero provider failures. The mean includes every measured call, including cold
 starts. Cold and warm measurements are stored separately. A missing latency,
 input/output token count, latency phase, or over-timeout response makes the
 evaluation fail closed; missing provider cost is recorded as unobserved, not
-zero.
+zero. Evaluator protocol v2 binds an observed Ollama server version, exact
+model digest, verified SSH forwarding process, known-hosts file hash, and
+timestamps. The first case is marked cold only after `/api/ps` confirms the
+model absent and Ollama reports a positive native `load_duration`. Native
+load, total, prompt-evaluation, and token-evaluation durations are stored in
+nanoseconds using PostgreSQL `BIGINT` columns, bounded to 45 seconds.
 
 ## Isolation and evidence binding
 

@@ -38,15 +38,45 @@ def upgrade() -> None:
 
     with op.batch_alter_table("model_evaluation_case_results") as batch:
         batch.add_column(sa.Column("latency_phase", sa.String(length=16), nullable=True))
+        batch.add_column(sa.Column("ollama_load_duration_ns", sa.BigInteger(), nullable=True))
+        batch.add_column(sa.Column("ollama_total_duration_ns", sa.BigInteger(), nullable=True))
+        batch.add_column(sa.Column("ollama_prompt_eval_duration_ns", sa.BigInteger(), nullable=True))
+        batch.add_column(sa.Column("ollama_eval_duration_ns", sa.BigInteger(), nullable=True))
+        batch.add_column(sa.Column("provider_observed_at", sa.DateTime(timezone=True), nullable=True))
         batch.create_check_constraint(
             "ck_model_evaluation_case_results_latency_phase",
             "latency_phase IS NULL OR latency_phase IN ('cold', 'warm')",
+        )
+        batch.create_check_constraint(
+            "ck_model_evaluation_case_results_ollama_load_duration",
+            "ollama_load_duration_ns IS NULL OR ollama_load_duration_ns BETWEEN 0 AND 45000000000",
+        )
+        batch.create_check_constraint(
+            "ck_model_evaluation_case_results_ollama_total_duration",
+            "ollama_total_duration_ns IS NULL OR ollama_total_duration_ns BETWEEN 0 AND 45000000000",
+        )
+        batch.create_check_constraint(
+            "ck_model_evaluation_case_results_ollama_prompt_duration",
+            "ollama_prompt_eval_duration_ns IS NULL OR ollama_prompt_eval_duration_ns BETWEEN 0 AND 45000000000",
+        )
+        batch.create_check_constraint(
+            "ck_model_evaluation_case_results_ollama_eval_duration",
+            "ollama_eval_duration_ns IS NULL OR ollama_eval_duration_ns BETWEEN 0 AND 45000000000",
         )
 
 
 def downgrade() -> None:
     with op.batch_alter_table("model_evaluation_case_results") as batch:
+        batch.drop_constraint("ck_model_evaluation_case_results_ollama_eval_duration", type_="check")
+        batch.drop_constraint("ck_model_evaluation_case_results_ollama_prompt_duration", type_="check")
+        batch.drop_constraint("ck_model_evaluation_case_results_ollama_total_duration", type_="check")
+        batch.drop_constraint("ck_model_evaluation_case_results_ollama_load_duration", type_="check")
         batch.drop_constraint("ck_model_evaluation_case_results_latency_phase", type_="check")
+        batch.drop_column("provider_observed_at")
+        batch.drop_column("ollama_eval_duration_ns")
+        batch.drop_column("ollama_prompt_eval_duration_ns")
+        batch.drop_column("ollama_total_duration_ns")
+        batch.drop_column("ollama_load_duration_ns")
         batch.drop_column("latency_phase")
 
     with op.batch_alter_table("model_evaluation_runs") as batch:

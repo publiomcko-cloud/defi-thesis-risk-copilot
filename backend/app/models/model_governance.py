@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, event, inspect
+from sqlalchemy import BigInteger, Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, JSON, String, Text, UniqueConstraint, event, inspect
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -292,6 +292,10 @@ class ModelEvaluationCaseResultModel(Base):
         CheckConstraint("latency_phase IS NULL OR latency_phase IN ('cold', 'warm')", name="ck_model_evaluation_case_results_latency_phase"),
         CheckConstraint("reason_code IS NULL OR length(reason_code) BETWEEN 1 AND 64", name="ck_model_evaluation_case_results_reason"),
         CheckConstraint("latency_ms IS NULL OR latency_ms BETWEEN 0 AND 3600000", name="ck_model_evaluation_case_results_latency"),
+        CheckConstraint("ollama_load_duration_ns IS NULL OR ollama_load_duration_ns BETWEEN 0 AND 45000000000", name="ck_model_evaluation_case_results_ollama_load_duration"),
+        CheckConstraint("ollama_total_duration_ns IS NULL OR ollama_total_duration_ns BETWEEN 0 AND 45000000000", name="ck_model_evaluation_case_results_ollama_total_duration"),
+        CheckConstraint("ollama_prompt_eval_duration_ns IS NULL OR ollama_prompt_eval_duration_ns BETWEEN 0 AND 45000000000", name="ck_model_evaluation_case_results_ollama_prompt_duration"),
+        CheckConstraint("ollama_eval_duration_ns IS NULL OR ollama_eval_duration_ns BETWEEN 0 AND 45000000000", name="ck_model_evaluation_case_results_ollama_eval_duration"),
         CheckConstraint("input_tokens IS NULL OR input_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_input_tokens"),
         CheckConstraint("output_tokens IS NULL OR output_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_output_tokens"),
         CheckConstraint("total_tokens IS NULL OR total_tokens BETWEEN 0 AND 10000000", name="ck_model_evaluation_case_results_total_tokens"),
@@ -321,6 +325,11 @@ class ModelEvaluationCaseResultModel(Base):
     provider_failure: Mapped[bool] = mapped_column(Boolean, nullable=False)
     latency_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     latency_phase: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    ollama_load_duration_ns: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ollama_total_duration_ns: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ollama_prompt_eval_duration_ns: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    ollama_eval_duration_ns: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    provider_observed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     input_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     output_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)
     total_tokens: Mapped[int | None] = mapped_column(Integer, nullable=True)

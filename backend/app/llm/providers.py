@@ -14,49 +14,64 @@ class OllamaProvider:
         self.model = model
 
     def generate(self, request: LLMRequest) -> LLMResponse:
-        response = httpx.post(
-            f"{self.base_url}/api/generate",
-            json={
-                "model": self.model,
-                "prompt": request.prompt,
-                "system": request.system_prompt,
-                "stream": False,
-                "format": "json",
-                **(
-                    {"options": {"num_predict": request.max_output_tokens}}
-                    if request.max_output_tokens is not None
-                    else {}
-                ),
-            },
-            timeout=request.timeout_seconds,
+        payload = _ollama_generate_payload(self.base_url, self.model, request)
+        return _ollama_response_from_payload(payload, self.model)
+
+
+def _ollama_generate_payload(base_url: str, model: str, request: LLMRequest) -> dict[str, Any]:
+    """Use the genuine Ollama HTTP API with the same bounded request contract."""
+
+    response = httpx.post(
+        f"{base_url}/api/generate",
+        json={
+            "model": model,
+            "prompt": request.prompt,
+            "system": request.system_prompt,
+            "stream": False,
+            "format": "json",
+            **(
+                {"options": {"num_predict": request.max_output_tokens}}
+                if request.max_output_tokens is not None
+                else {}
+            ),
+        },
+        timeout=request.timeout_seconds,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Ollama response must be a JSON object")
+    return payload
+
+
+def _ollama_response_from_payload(payload: dict[str, Any], model: str) -> LLMResponse:
+    """Parse shared Ollama token accounting without persisting raw usage."""
+
+    input_tokens, input_invalid = _required_usage(payload, "prompt_eval_count")
+    output_tokens, output_invalid = _required_usage(payload, "eval_count")
+    derived_total = _bounded_usage(input_tokens, output_tokens)
+    invalid_fields = [
+        field
+        for field, invalid in (
+            ("prompt_eval_count", input_invalid),
+            ("eval_count", output_invalid),
         )
-        response.raise_for_status()
-        payload = response.json()
-        input_tokens, input_invalid = _required_usage(payload, "prompt_eval_count")
-        output_tokens, output_invalid = _required_usage(payload, "eval_count")
-        derived_total = _bounded_usage(input_tokens, output_tokens)
-        invalid_fields = [
-            field
-            for field, invalid in (
-                ("prompt_eval_count", input_invalid),
-                ("eval_count", output_invalid),
-            )
-            if invalid
-        ]
-        if not input_invalid and not output_invalid and derived_total is None:
-            invalid_fields.append("total_tokens")
-        return LLMResponse(
-            text=str(payload.get("response") or ""),
-            provider=self.name,
-            model=self.model,
-            input_tokens=input_tokens,
-            output_tokens=output_tokens,
-            # Ollama reports input and output counts but no separate total.
-            # Let synthesis derive the effective total without claiming the
-            # provider reported one.
-            total_tokens=None,
-            usage_invalid_fields=tuple(invalid_fields),
-        )
+        if invalid
+    ]
+    if not input_invalid and not output_invalid and derived_total is None:
+        invalid_fields.append("total_tokens")
+    return LLMResponse(
+        text=str(payload.get("response") or ""),
+        provider="ollama",
+        model=model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        # Ollama reports input and output counts but no separate total.
+        # Let synthesis derive the effective total without claiming the
+        # provider reported one.
+        total_tokens=None,
+        usage_invalid_fields=tuple(invalid_fields),
+    )
 
 
 class OpenAICompatibleProvider:
